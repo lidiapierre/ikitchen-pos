@@ -1,4 +1,4 @@
--- Initial schema for iKitchen POS
+-- Initial schema for IKitchen POS
 -- HUMAN REVIEW REQUIRED: RLS policies are permissive stubs for early development
 
 -- Enable UUID extension

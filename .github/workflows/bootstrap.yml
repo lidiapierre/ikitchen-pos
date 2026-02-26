@@ -1,0 +1,59 @@
+name: Bootstrap Project
+
+on:
+  workflow_dispatch:
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            Bootstrap this POS system repository according to the architecture defined in docs/architecture.md and CLAUDE.md.
+
+            Your task is to scaffold the full project structure. Do not implement any business logic — just the skeleton.
+
+            Complete these tasks in order:
+
+            1. Scaffold /apps/web:
+               - Initialise a Next.js app with TypeScript using `npx create-next-app@latest apps/web --typescript --tailwind --eslint --app --no-src-dir --import-alias "@/*"`
+               - Install next-pwa: `npm install next-pwa --prefix apps/web`
+               - Create a basic next.config.js with PWA configured
+               - Create a minimal placeholder home page at apps/web/app/page.tsx that says "iKitchen POS"
+               - Add a tsconfig.json with strict mode enabled
+
+            2. Scaffold /apps/api:
+               - Create the directory structure for Supabase edge functions
+               - Add stub index.ts files for each required action: create_order, add_item_to_order, cancel_order, void_item, close_order, record_payment, open_shift, close_shift
+               - Each stub must accept a request, validate it has a body, and return { success: false, error: "Not implemented" }
+
+            3. Scaffold /packages/shared:
+               - Create a package.json for the shared package
+               - Create a types/index.ts file with basic TypeScript types for: Order, OrderItem, MenuItem, Payment, Shift, Role
+               - Export all types from an index.ts at the root
+
+            4. Scaffold /supabase:
+               - Run `npx supabase init` to initialise the Supabase config
+               - Create the first migration file at supabase/migrations/<timestamp>_initial_schema.sql
+               - The migration must create all core tables: restaurants, users, roles, tables, menus, menu_items, modifiers, orders, order_items, payments, shifts, audit_log
+               - Every table must have created_at and updated_at timestamps
+               - Every table must have RLS enabled (ALTER TABLE x ENABLE ROW LEVEL SECURITY)
+               - Add stub permissive RLS policies for now (allow all for authenticated users)
+
+            5. Create a root package.json configured as an npm workspace pointing to apps/web, apps/api, packages/shared
+
+            6. Remove any .gitkeep files that are no longer needed
+
+            After completing all tasks, commit everything to a new branch and open a pull request with title "Bootstrap: initial project scaffold" for human review.
+          claude_args: "--max-turns 30"

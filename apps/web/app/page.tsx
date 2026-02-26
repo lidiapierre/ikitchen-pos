@@ -1,9 +1,5 @@
-import type { JSX } from 'react'
+import { redirect } from 'next/navigation'
 
-export default function Home(): JSX.Element {
-  return (
-    <main className="flex min-h-screen items-center justify-center bg-zinc-900">
-      <h1 className="text-4xl font-bold text-white">IKitchen POS</h1>
-    </main>
-  )
+export default function Home(): never {
+  redirect('/tables')
 }

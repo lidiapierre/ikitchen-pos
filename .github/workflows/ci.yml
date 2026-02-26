@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate-secrets:
+    name: Validate Secrets
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check ANTHROPIC_API_KEY
+        run: |
+          if [ -z "${{ secrets.ANTHROPIC_API_KEY }}" ]; then
+            echo "❌ ANTHROPIC_API_KEY is missing"
+            exit 1
+          else
+            echo "✅ ANTHROPIC_API_KEY is set"
+          fi
+
+      - name: Check SUPABASE_ACCESS_TOKEN
+        run: |
+          if [ -z "${{ secrets.SUPABASE_ACCESS_TOKEN }}" ]; then
+            echo "❌ SUPABASE_ACCESS_TOKEN is missing"
+            exit 1
+          else
+            echo "✅ SUPABASE_ACCESS_TOKEN is set"
+          fi
+
+      - name: Check SUPABASE_PROJECT_REF
+        run: |
+          if [ -z "${{ secrets.SUPABASE_PROJECT_REF }}" ]; then
+            echo "❌ SUPABASE_PROJECT_REF is missing"
+            exit 1
+          else
+            echo "✅ SUPABASE_PROJECT_REF is set"
+          fi
+
+  typecheck:
+    name: Typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Skip (no source yet)
+        run: echo "Typecheck will run once source code exists"
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Skip (no source yet)
+        run: echo "Lint will run once source code exists"
+
+  test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Skip (no source yet)
+        run: echo "Tests will run once source code exists"
+
+  migration-validation:
+    name: Migration Validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Skip (no migrations yet)
+        run: echo "Migration validation will run once schema exists"

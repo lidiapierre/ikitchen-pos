@@ -5,13 +5,38 @@ on:
     types: [opened, synchronize]
 
 jobs:
-  test:
+  review:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      id-token: write
     steps:
       - uses: actions/checkout@v4
-      - name: Run Test Agent
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-        run: echo "Test agent placeholder — implementation coming in Phase 1"
+        with:
+          fetch-depth: 0
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            Review this pull request against the standards defined in CLAUDE.md and docs/architecture.md.
+
+            Check for:
+            1. TypeScript strict mode — no `any` types, all functions have explicit return types
+            2. All state changes go through the Action API — no direct DB writes from frontend
+            3. RLS is enabled on any new tables
+            4. Any destructive actions emit an audit event
+            5. UI components respect the tablet-first rules (touch targets, font sizes, contrast)
+            6. Every new function has at least one unit test
+            7. No console.log in production code
+            8. No new libraries introduced without noting it for human review
+
+            Then generate any missing unit tests for new functions and commit them to this PR branch.
+
+            Post a summary comment with:
+            - What passed
+            - What failed or needs attention
+            - What tests were added
+          claude_args: "--max-turns 20 --dangerously-skip-permissions"

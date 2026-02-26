@@ -55,5 +55,10 @@ jobs:
 
             6. Remove any .gitkeep files that are no longer needed
 
-            After completing all tasks, commit everything to a new branch and open a pull request with title "Bootstrap: initial project scaffold" for human review.
-          claude_args: "--max-turns 30"
+            After completing all tasks, stage and commit all new files using:
+            - git add -A
+            - git commit -m "Bootstrap: initial project scaffold"
+            - git push origin HEAD
+
+            Then open a pull request to main.
+          claude_args: "--max-turns 30 --dangerously-skip-permissions"

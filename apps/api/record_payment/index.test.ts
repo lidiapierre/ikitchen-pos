@@ -127,6 +127,19 @@ describe('record_payment handler', () => {
       expect(json.error).toBe('amount is required')
     })
 
+    it('returns 400 when amount is null', async (): Promise<void> => {
+      const req = new Request('http://localhost/functions/v1/record_payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order_id: 'order-abc-123', amount: null, method: 'cash' }),
+      })
+      const res = await handler(req)
+      expect(res.status).toBe(400)
+      const json = await res.json() as { success: boolean; error: string }
+      expect(json.success).toBe(false)
+      expect(json.error).toBe('amount is required')
+    })
+
     it('returns 400 when method is absent', async (): Promise<void> => {
       const req = new Request('http://localhost/functions/v1/record_payment', {
         method: 'POST',

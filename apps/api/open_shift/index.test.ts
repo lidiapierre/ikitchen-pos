@@ -147,6 +147,19 @@ describe('open_shift handler', () => {
       expect(json.error).toBe('opening_float is required')
     })
 
+    it('returns 400 when opening_float is null', async (): Promise<void> => {
+      const req = new Request('http://localhost/functions/v1/open_shift', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ staff_id: 'staff-abc', opening_float: null }),
+      })
+      const res = await handler(req)
+      expect(res.status).toBe(400)
+      const json = await res.json() as { success: boolean; error: string }
+      expect(json.success).toBe(false)
+      expect(json.error).toBe('opening_float is required')
+    })
+
     it('returns CORS headers on validation error', async (): Promise<void> => {
       const req = new Request('http://localhost/functions/v1/open_shift', {
         method: 'POST',

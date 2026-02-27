@@ -133,6 +133,19 @@ describe('close_shift handler', () => {
       expect(json.error).toBe('closing_float is required')
     })
 
+    it('returns 400 when closing_float is null', async (): Promise<void> => {
+      const req = new Request('http://localhost/functions/v1/close_shift', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shift_id: 'shift-uuid-001', closing_float: null }),
+      })
+      const res = await handler(req)
+      expect(res.status).toBe(400)
+      const json = await res.json() as { success: boolean; error: string }
+      expect(json.success).toBe(false)
+      expect(json.error).toBe('closing_float is required')
+    })
+
     it('returns CORS headers on error responses', async (): Promise<void> => {
       const req = new Request('http://localhost/functions/v1/close_shift', {
         method: 'POST',

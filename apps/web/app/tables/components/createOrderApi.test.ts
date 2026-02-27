@@ -66,6 +66,23 @@ describe('callCreateOrder', () => {
     expect(body.table_id).toBe(7)
   })
 
+  it('sends staff_id placeholder in the request body', async (): Promise<void> => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      json: () =>
+        Promise.resolve({
+          success: true,
+          data: { order_id: 'order-789', status: 'open' },
+        }),
+    })
+    vi.stubGlobal('fetch', mockFetch)
+
+    await callCreateOrder(BASE_URL, API_KEY, 7)
+
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit]
+    const body = JSON.parse(init.body as string) as { staff_id: string }
+    expect(body.staff_id).toBe('placeholder-staff')
+  })
+
   it('throws when success is false and an error message is present', async (): Promise<void> => {
     vi.stubGlobal(
       'fetch',

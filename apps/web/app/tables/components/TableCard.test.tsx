@@ -183,6 +183,15 @@ describe('TableCard', () => {
     })
   })
 
+  describe('touch targets', () => {
+    it('button has minimum 48px height class for touch-target compliance', () => {
+      render(<TableCard table={emptyTable} />)
+      const button = screen.getByRole('button')
+      // min-h-[160px] exceeds the 48px minimum required by the tablet-first UI guidelines
+      expect(button.className).toMatch(/min-h-\[/)
+    })
+  })
+
   describe('rendering', () => {
     it('renders the table number', () => {
       render(<TableCard table={emptyTable} />)

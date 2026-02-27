@@ -1,12 +1,18 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { handler, corsHeaders } from './index'
 
 const FIXED_UUID = '44444444-4444-4444-4444-444444444444'
 const FIXED_ISO = '2026-02-27T00:00:00.000Z'
 
 beforeEach(() => {
+  vi.useFakeTimers()
   vi.stubGlobal('crypto', { randomUUID: () => FIXED_UUID })
   vi.setSystemTime(new Date(FIXED_ISO))
+})
+
+afterEach(() => {
+  vi.useRealTimers()
+  vi.unstubAllGlobals()
 })
 
 describe('open_shift handler', () => {
@@ -81,6 +87,45 @@ describe('open_shift handler', () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: 'bad{json',
+      })
+      const res = await handler(req)
+      expect(res.status).toBe(400)
+      expect(res.headers.get('Access-Control-Allow-Origin')).toBe('*')
+    })
+  })
+
+  describe('POST — missing required fields', () => {
+    it('returns 400 when staff_id is absent', async (): Promise<void> => {
+      const req = new Request('http://localhost/functions/v1/open_shift', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      })
+      const res = await handler(req)
+      expect(res.status).toBe(400)
+      const json = await res.json() as { success: boolean; error: string }
+      expect(json.success).toBe(false)
+      expect(json.error).toBe('staff_id is required')
+    })
+
+    it('returns 400 when staff_id is an empty string', async (): Promise<void> => {
+      const req = new Request('http://localhost/functions/v1/open_shift', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ staff_id: '' }),
+      })
+      const res = await handler(req)
+      expect(res.status).toBe(400)
+      const json = await res.json() as { success: boolean; error: string }
+      expect(json.success).toBe(false)
+      expect(json.error).toBe('staff_id is required')
+    })
+
+    it('returns CORS headers on validation error', async (): Promise<void> => {
+      const req = new Request('http://localhost/functions/v1/open_shift', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
       })
       const res = await handler(req)
       expect(res.status).toBe(400)

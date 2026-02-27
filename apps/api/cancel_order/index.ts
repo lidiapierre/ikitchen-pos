@@ -27,6 +27,12 @@ export async function handler(req: Request): Promise<Response> {
   }
 
   const payload = body as Record<string, unknown>
+  if (typeof payload['order_id'] !== 'string' || payload['order_id'] === '') {
+    return new Response(
+      JSON.stringify({ success: false, error: 'order_id is required' }),
+      { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    )
+  }
   if (typeof payload['reason'] !== 'string' || payload['reason'] === '') {
     return new Response(
       JSON.stringify({ success: false, error: 'reason is required' }),

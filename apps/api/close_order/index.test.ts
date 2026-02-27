@@ -78,4 +78,43 @@ describe('close_order handler', () => {
       expect(res.headers.get('Access-Control-Allow-Origin')).toBe('*')
     })
   })
+
+  describe('POST — missing required fields', () => {
+    it('returns 400 when order_id is absent', async (): Promise<void> => {
+      const req = new Request('http://localhost/functions/v1/close_order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      })
+      const res = await handler(req)
+      expect(res.status).toBe(400)
+      const json = await res.json() as { success: boolean; error: string }
+      expect(json.success).toBe(false)
+      expect(json.error).toBe('order_id is required')
+    })
+
+    it('returns 400 when order_id is an empty string', async (): Promise<void> => {
+      const req = new Request('http://localhost/functions/v1/close_order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order_id: '' }),
+      })
+      const res = await handler(req)
+      expect(res.status).toBe(400)
+      const json = await res.json() as { success: boolean; error: string }
+      expect(json.success).toBe(false)
+      expect(json.error).toBe('order_id is required')
+    })
+
+    it('returns CORS headers on validation error', async (): Promise<void> => {
+      const req = new Request('http://localhost/functions/v1/close_order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      })
+      const res = await handler(req)
+      expect(res.status).toBe(400)
+      expect(res.headers.get('Access-Control-Allow-Origin')).toBe('*')
+    })
+  })
 })

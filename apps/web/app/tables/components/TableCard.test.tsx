@@ -90,6 +90,26 @@ describe('TableCard', () => {
       )
     })
 
+    it('sends Authorization Bearer header using the publishable key', async () => {
+      const mockFetch = vi.fn().mockResolvedValueOnce({
+        json: (): Promise<{ success: boolean; data: { order_id: string; status: string } }> =>
+          Promise.resolve({ success: true, data: { order_id: 'auth-order', status: 'open' } }),
+      })
+      global.fetch = mockFetch
+
+      render(<TableCard table={emptyTable} />)
+      await userEvent.click(screen.getByRole('button'))
+
+      await waitFor(() => {
+        expect(mockPush).toHaveBeenCalledWith('/tables/1/order/auth-order')
+      })
+
+      const [, init] = mockFetch.mock.calls[0] as [string, RequestInit]
+      expect((init.headers as Record<string, string>)['Authorization']).toBe(
+        'Bearer test-publishable-key',
+      )
+    })
+
     it('shows the API error message when create_order returns success: false', async () => {
       global.fetch = vi.fn().mockResolvedValueOnce({
         json: (): Promise<{ success: boolean; error: string }> =>

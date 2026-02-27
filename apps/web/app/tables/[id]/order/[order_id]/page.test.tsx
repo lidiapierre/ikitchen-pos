@@ -1,10 +1,11 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import type { ReactNode, JSX } from 'react'
 import OrderDetailPage from './page'
 
 vi.mock('next/link', () => ({
-  default: ({ children, href }: { children: React.ReactNode; href: string }): JSX.Element => (
-    <a href={href}>{children as React.ReactNode}</a>
+  default: ({ children, href }: { children: ReactNode; href: string }): JSX.Element => (
+    <a href={href}>{children as ReactNode}</a>
   ),
 }))
 

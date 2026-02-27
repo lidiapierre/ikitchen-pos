@@ -49,6 +49,24 @@ describe('TableCard', () => {
     })
   })
 
+  describe('when table is occupied but has no open_order_id', () => {
+    it('falls through to create a new order via the API', async () => {
+      const occupiedNoOrder: Table = { id: 3, number: 3, status: 'occupied', seats: 2 }
+      global.fetch = vi.fn().mockResolvedValueOnce({
+        json: (): Promise<{ success: boolean; data: { order_id: string; status: string } }> =>
+          Promise.resolve({ success: true, data: { order_id: 'fallthrough-order', status: 'open' } }),
+      })
+
+      render(<TableCard table={occupiedNoOrder} />)
+      await userEvent.click(screen.getByRole('button'))
+
+      await waitFor(() => {
+        expect(mockPush).toHaveBeenCalledWith('/tables/3/order/fallthrough-order')
+      })
+      expect(global.fetch).toHaveBeenCalled()
+    })
+  })
+
   describe('when table is empty', () => {
     it('calls create_order API with the correct table_id and navigates on success', async () => {
       global.fetch = vi.fn().mockResolvedValueOnce({

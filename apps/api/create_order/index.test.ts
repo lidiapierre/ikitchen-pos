@@ -98,4 +98,58 @@ describe('create_order handler', () => {
       expect(res.headers.get('Access-Control-Allow-Origin')).toBe('*')
     })
   })
+
+  describe('POST — missing required fields', () => {
+    it('returns 400 when table_id is absent', async (): Promise<void> => {
+      const req = new Request('http://localhost/functions/v1/create_order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ staff_id: 'staff-abc' }),
+      })
+      const res = await handler(req)
+      expect(res.status).toBe(400)
+      const json = await res.json() as { success: boolean; error: string }
+      expect(json.success).toBe(false)
+      expect(json.error).toBe('table_id is required and must be a number')
+    })
+
+    it('returns 400 when table_id is a string instead of a number', async (): Promise<void> => {
+      const req = new Request('http://localhost/functions/v1/create_order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ table_id: '1', staff_id: 'staff-abc' }),
+      })
+      const res = await handler(req)
+      expect(res.status).toBe(400)
+      const json = await res.json() as { success: boolean; error: string }
+      expect(json.success).toBe(false)
+      expect(json.error).toBe('table_id is required and must be a number')
+    })
+
+    it('returns 400 when staff_id is absent', async (): Promise<void> => {
+      const req = new Request('http://localhost/functions/v1/create_order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ table_id: 1 }),
+      })
+      const res = await handler(req)
+      expect(res.status).toBe(400)
+      const json = await res.json() as { success: boolean; error: string }
+      expect(json.success).toBe(false)
+      expect(json.error).toBe('staff_id is required and must be a non-empty string')
+    })
+
+    it('returns 400 when staff_id is an empty string', async (): Promise<void> => {
+      const req = new Request('http://localhost/functions/v1/create_order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ table_id: 1, staff_id: '' }),
+      })
+      const res = await handler(req)
+      expect(res.status).toBe(400)
+      const json = await res.json() as { success: boolean; error: string }
+      expect(json.success).toBe(false)
+      expect(json.error).toBe('staff_id is required and must be a non-empty string')
+    })
+  })
 })

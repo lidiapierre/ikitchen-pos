@@ -46,4 +46,6 @@ export async function handler(req: Request): Promise<Response> {
   )
 }
 
-Deno.serve(handler)
+if (typeof (globalThis as { Deno?: unknown }).Deno !== 'undefined') {
+  Deno.serve(handler)
+}

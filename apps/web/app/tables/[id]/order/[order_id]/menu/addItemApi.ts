@@ -20,6 +20,7 @@ export async function callAddItemToOrder(
     headers: {
       'Content-Type': 'application/json',
       apikey: apiKey,
+      Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({ order_id: orderId, menu_item_id: menuItemId }),
   })

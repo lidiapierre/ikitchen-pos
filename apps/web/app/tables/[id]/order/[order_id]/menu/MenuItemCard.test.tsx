@@ -21,7 +21,7 @@ describe('MenuItemCard', () => {
     process.env = {
       ...originalEnv,
       NEXT_PUBLIC_SUPABASE_URL: 'https://test.supabase.co',
-      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: 'test-anon-key',
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: 'test-anon-key',
     }
   })
 

@@ -151,5 +151,31 @@ describe('create_order handler', () => {
       expect(json.success).toBe(false)
       expect(json.error).toBe('staff_id is required and must be a non-empty string')
     })
+
+    it('returns 400 when table_id is NaN (typeof NaN === "number" must not bypass validation)', async (): Promise<void> => {
+      const req = new Request('http://localhost/functions/v1/create_order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ table_id: NaN, staff_id: 'staff-abc' }),
+      })
+      const res = await handler(req)
+      expect(res.status).toBe(400)
+      const json = await res.json() as { success: boolean; error: string }
+      expect(json.success).toBe(false)
+      expect(json.error).toBe('table_id is required and must be a number')
+    })
+
+    it('returns 400 when staff_id is whitespace only', async (): Promise<void> => {
+      const req = new Request('http://localhost/functions/v1/create_order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ table_id: 1, staff_id: '   ' }),
+      })
+      const res = await handler(req)
+      expect(res.status).toBe(400)
+      const json = await res.json() as { success: boolean; error: string }
+      expect(json.success).toBe(false)
+      expect(json.error).toBe('staff_id is required and must be a non-empty string')
+    })
   })
 })

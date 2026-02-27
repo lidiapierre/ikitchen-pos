@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import type { JSX } from 'react'
 import TablesPage from './page'
 
 vi.mock('./components/TableCard', () => ({

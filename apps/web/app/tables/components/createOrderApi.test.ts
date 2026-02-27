@@ -43,6 +43,7 @@ describe('callCreateOrder', () => {
         method: 'POST',
         headers: expect.objectContaining({
           'Content-Type': 'application/json',
+          Authorization: `Bearer ${API_KEY}`,
           apikey: API_KEY,
         }),
       }),

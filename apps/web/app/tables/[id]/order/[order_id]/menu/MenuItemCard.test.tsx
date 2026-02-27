@@ -125,9 +125,10 @@ describe('MenuItemCard', () => {
 
       await waitFor(() => expect(mockFetch).toHaveBeenCalled())
       const [, init] = mockFetch.mock.calls[0] as [string, RequestInit]
-      const body = JSON.parse(init.body as string) as { order_id: string; menu_item_id: string }
+      const body = JSON.parse(init.body as string) as { order_id: string; menu_item_id: string; quantity: number }
       expect(body.order_id).toBe(ORDER_ID)
       expect(body.menu_item_id).toBe(mockItem.id)
+      expect(body.quantity).toBe(1)
     })
   })
 

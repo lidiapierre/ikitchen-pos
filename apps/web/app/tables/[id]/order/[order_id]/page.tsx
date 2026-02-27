@@ -29,7 +29,13 @@ export default async function OrderDetailPage({ params }: PageProps): Promise<JS
       </dl>
       <section>
         <h2 className="text-lg font-semibold text-white mb-4">Items</h2>
-        <p className="text-zinc-500 text-sm">No items yet — order items will appear here once the menu and cart are implemented.</p>
+        <p className="text-zinc-500 text-sm mb-6">No items yet.</p>
+        <Link
+          href={`/tables/${id}/order/${order_id}/menu`}
+          className="inline-flex items-center justify-center min-h-[48px] min-w-[48px] px-8 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-base font-semibold transition-colors"
+        >
+          Add Items
+        </Link>
       </section>
     </main>
   )

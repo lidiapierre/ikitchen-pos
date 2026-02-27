@@ -12,17 +12,19 @@ export interface AddItemResult {
 export async function callAddItemToOrder(
   supabaseUrl: string,
   apiKey: string,
+  authToken: string,
   orderId: string,
   menuItemId: string,
+  quantity: number = 1,
 ): Promise<AddItemResult> {
   const res = await fetch(`${supabaseUrl}/functions/v1/add_item_to_order`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       apikey: apiKey,
-      Authorization: `Bearer ${apiKey}`,
+      Authorization: `Bearer ${authToken}`,
     },
-    body: JSON.stringify({ order_id: orderId, menu_item_id: menuItemId }),
+    body: JSON.stringify({ order_id: orderId, menu_item_id: menuItemId, quantity }),
   })
   const json = (await res.json()) as AddItemToOrderResponse
   if (!json.success || !json.data) {

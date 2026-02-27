@@ -8,10 +8,11 @@ import { callAddItemToOrder } from './addItemApi'
 interface MenuItemCardProps {
   item: MenuItem
   orderId: string
+  authToken?: string
   onItemAdded: (priceCents: number) => void
 }
 
-export default function MenuItemCard({ item, orderId, onItemAdded }: MenuItemCardProps): JSX.Element {
+export default function MenuItemCard({ item, orderId, authToken = '', onItemAdded }: MenuItemCardProps): JSX.Element {
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -26,7 +27,7 @@ export default function MenuItemCard({ item, orderId, onItemAdded }: MenuItemCar
       if (!supabaseUrl || !supabaseKey) {
         throw new Error('API not configured')
       }
-      await callAddItemToOrder(supabaseUrl, supabaseKey, orderId, item.id)
+      await callAddItemToOrder(supabaseUrl, supabaseKey, authToken, orderId, item.id)
       setSuccess(true)
       onItemAdded(item.price_cents)
       setTimeout(() => setSuccess(false), 1500)

@@ -21,7 +21,7 @@ describe('MenuItemCard', () => {
     process.env = {
       ...originalEnv,
       NEXT_PUBLIC_SUPABASE_URL: 'https://test.supabase.co',
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: 'test-anon-key',
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: 'test-publishable-key',
     }
   })
 
@@ -142,6 +142,17 @@ describe('MenuItemCard', () => {
 
     it('shows "API not configured" when NEXT_PUBLIC_SUPABASE_URL is missing', async () => {
       process.env.NEXT_PUBLIC_SUPABASE_URL = ''
+
+      render(<MenuItemCard item={mockItem} orderId={ORDER_ID} onItemAdded={vi.fn()} />)
+      await userEvent.click(screen.getByRole('button', { name: 'Add' }))
+
+      await waitFor(() => {
+        expect(screen.getByText('API not configured')).toBeInTheDocument()
+      })
+    })
+
+    it('shows "API not configured" when NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY is missing', async () => {
+      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = ''
 
       render(<MenuItemCard item={mockItem} orderId={ORDER_ID} onItemAdded={vi.fn()} />)
       await userEvent.click(screen.getByRole('button', { name: 'Add' }))

@@ -17,7 +17,7 @@ export default async function OrderDetailPage({ params }: PageProps): Promise<JS
         ← Back to tables
       </Link>
       <h1 className="text-2xl font-bold text-white mb-6">Order</h1>
-      <dl className="space-y-3 text-base">
+      <dl className="space-y-3 text-base mb-8">
         <div className="flex gap-3">
           <dt className="text-zinc-500">Table</dt>
           <dd className="font-semibold text-white">{id}</dd>
@@ -27,6 +27,10 @@ export default async function OrderDetailPage({ params }: PageProps): Promise<JS
           <dd className="font-mono text-sm text-zinc-300">{order_id}</dd>
         </div>
       </dl>
+      <section>
+        <h2 className="text-lg font-semibold text-white mb-4">Items</h2>
+        <p className="text-zinc-500 text-sm">No items yet — order items will appear here once the menu and cart are implemented.</p>
+      </section>
     </main>
   )
 }

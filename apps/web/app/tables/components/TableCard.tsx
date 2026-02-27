@@ -41,12 +41,16 @@ export default function TableCard({ table }: TableCardProps): JSX.Element {
     setLoading(true)
     try {
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-      if (!supabaseUrl) {
+      const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+      if (!supabaseUrl || !supabaseAnonKey) {
         throw new Error('API not configured')
       }
       const res = await fetch(`${supabaseUrl}/functions/v1/create_order`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${supabaseAnonKey}`,
+        },
         body: JSON.stringify({ table_id: table.id, staff_id: 'placeholder-staff' }),
       })
       const json = (await res.json()) as CreateOrderResponse

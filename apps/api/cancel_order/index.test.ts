@@ -131,4 +131,26 @@ describe('cancel_order handler', () => {
       expect(res.headers.get('Access-Control-Allow-Origin')).toBe('*')
     })
   })
+
+  describe('POST — permission denied', () => {
+    it('returns 403 when Authorization header is absent (cancel_order requires manager role)', async (): Promise<void> => {
+      const req = new Request('http://localhost/functions/v1/cancel_order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order_id: 'order-abc-123', reason: 'Customer request' }),
+      })
+      const res = await handler(req)
+      expect(res.status).toBe(403)
+    })
+
+    it('returns 403 when caller does not have manager role', async (): Promise<void> => {
+      const req = new Request('http://localhost/functions/v1/cancel_order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer staff-token' },
+        body: JSON.stringify({ order_id: 'order-abc-123', reason: 'Customer request' }),
+      })
+      const res = await handler(req)
+      expect(res.status).toBe(403)
+    })
+  })
 })

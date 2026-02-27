@@ -47,6 +47,12 @@ Do not introduce any library not listed here without human approval.
 - No `console.log` in production code — use structured logging
 - Every new function needs at least one unit test
 
+## Agent efficiency
+- Minimise exploration turns — read only files directly relevant to the task
+- Write complete files in one Write call — avoid multiple small edits to the same file
+- Commit and push as soon as all changes are made — do not re-verify unless a test fails
+- Do not run `npm install` or build commands unless explicitly required by the task
+
 ## Agent authority
 
 - You may open pull requests

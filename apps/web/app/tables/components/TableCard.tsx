@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { JSX } from 'react'
+import { callCreateOrder } from './createOrderApi'
 
 export type TableStatus = 'empty' | 'occupied'
 
@@ -16,12 +17,6 @@ export interface Table {
 
 interface TableCardProps {
   table: Table
-}
-
-interface CreateOrderResponse {
-  success: boolean
-  data?: { order_id: string; status: string }
-  error?: string
 }
 
 export default function TableCard({ table }: TableCardProps): JSX.Element {
@@ -45,19 +40,8 @@ export default function TableCard({ table }: TableCardProps): JSX.Element {
       if (!supabaseUrl || !supabasePublishableKey) {
         throw new Error('API not configured')
       }
-      const res = await fetch(`${supabaseUrl}/functions/v1/create_order`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': supabasePublishableKey,
-        },
-        body: JSON.stringify({ table_id: table.id, staff_id: 'placeholder-staff' }),
-      })
-      const json = (await res.json()) as CreateOrderResponse
-      if (!json.success || !json.data) {
-        throw new Error(json.error ?? 'Failed to create order')
-      }
-      router.push(`/tables/${table.id}/order/${json.data.order_id}`)
+      const result = await callCreateOrder(supabaseUrl, supabasePublishableKey, table.id)
+      router.push(`/tables/${table.id}/order/${result.order_id}`)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create order')
     } finally {

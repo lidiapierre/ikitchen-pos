@@ -4,8 +4,8 @@ import type { ReactNode, JSX } from 'react'
 import MenuPage from './page'
 
 vi.mock('next/link', () => ({
-  default: ({ children, href }: { children: ReactNode; href: string }): JSX.Element => (
-    <a href={href}>{children as ReactNode}</a>
+  default: ({ children, href, className }: { children: ReactNode; href: string; className?: string }): JSX.Element => (
+    <a href={href} className={className}>{children as ReactNode}</a>
   ),
 }))
 

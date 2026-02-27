@@ -6,6 +6,7 @@ const API_KEY = 'test-api-key'
 
 afterEach(() => {
   vi.restoreAllMocks()
+  vi.useRealTimers()
 })
 
 describe('callCreateOrder', () => {
@@ -82,6 +83,43 @@ describe('callCreateOrder', () => {
     const [, init] = mockFetch.mock.calls[0] as [string, RequestInit]
     const body = JSON.parse(init.body as string) as { staff_id: string }
     expect(body.staff_id).toBe('placeholder-staff')
+  })
+
+  it('passes an AbortSignal to fetch', async (): Promise<void> => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      json: () =>
+        Promise.resolve({
+          success: true,
+          data: { order_id: 'abc', status: 'open' },
+        }),
+    })
+    vi.stubGlobal('fetch', mockFetch)
+
+    await callCreateOrder(BASE_URL, API_KEY, 1)
+
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit]
+    expect(init.signal).toBeInstanceOf(AbortSignal)
+  })
+
+  it('throws a user-friendly message when the request times out', async (): Promise<void> => {
+    vi.useFakeTimers()
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation((_url: string, init: RequestInit) => {
+        return new Promise<Response>((_resolve, reject) => {
+          init.signal?.addEventListener('abort', () => {
+            const err = new Error('The user aborted a request.')
+            err.name = 'AbortError'
+            reject(err)
+          })
+        })
+      }),
+    )
+
+    const promise = callCreateOrder(BASE_URL, API_KEY, 1)
+    await vi.advanceTimersByTimeAsync(10_001)
+
+    await expect(promise).rejects.toThrow('Request timed out. Please try again.')
   })
 
   it('throws when success is false and an error message is present', async (): Promise<void> => {

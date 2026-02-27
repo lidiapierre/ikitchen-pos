@@ -19,7 +19,7 @@ describe('close_shift handler', () => {
       const req = new Request('http://localhost/functions/v1/close_shift', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ shift_id: 'shift-uuid-001' }),
+        body: JSON.stringify({ shift_id: 'shift-uuid-001', closing_float: 120 }),
       })
       const res = await handler(req)
       expect(res.status).toBe(200)
@@ -33,7 +33,7 @@ describe('close_shift handler', () => {
       const req = new Request('http://localhost/functions/v1/close_shift', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ shift_id: 'shift-uuid-999' }),
+        body: JSON.stringify({ shift_id: 'shift-uuid-999', closing_float: 80 }),
       })
       const res = await handler(req)
       expect(res.status).toBe(200)
@@ -45,7 +45,7 @@ describe('close_shift handler', () => {
       const req = new Request('http://localhost/functions/v1/close_shift', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ shift_id: 'shift-uuid-001' }),
+        body: JSON.stringify({ shift_id: 'shift-uuid-001', closing_float: 120 }),
       })
       const res = await handler(req)
       expect(res.headers.get('Access-Control-Allow-Origin')).toBe('*')
@@ -85,7 +85,7 @@ describe('close_shift handler', () => {
       const req = new Request('http://localhost/functions/v1/close_shift', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ staff_id: 'staff-abc' }),
+        body: JSON.stringify({ closing_float: 120 }),
       })
       const res = await handler(req)
       expect(res.status).toBe(400)
@@ -98,7 +98,7 @@ describe('close_shift handler', () => {
       const req = new Request('http://localhost/functions/v1/close_shift', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ shift_id: '' }),
+        body: JSON.stringify({ shift_id: '', closing_float: 120 }),
       })
       const res = await handler(req)
       expect(res.status).toBe(400)
@@ -107,11 +107,37 @@ describe('close_shift handler', () => {
       expect(json.error).toBe('shift_id is required')
     })
 
+    it('returns 400 when closing_float is absent', async (): Promise<void> => {
+      const req = new Request('http://localhost/functions/v1/close_shift', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shift_id: 'shift-uuid-001' }),
+      })
+      const res = await handler(req)
+      expect(res.status).toBe(400)
+      const json = await res.json() as { success: boolean; error: string }
+      expect(json.success).toBe(false)
+      expect(json.error).toBe('closing_float is required')
+    })
+
+    it('returns 400 when closing_float is a string instead of a number', async (): Promise<void> => {
+      const req = new Request('http://localhost/functions/v1/close_shift', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shift_id: 'shift-uuid-001', closing_float: '120' }),
+      })
+      const res = await handler(req)
+      expect(res.status).toBe(400)
+      const json = await res.json() as { success: boolean; error: string }
+      expect(json.success).toBe(false)
+      expect(json.error).toBe('closing_float is required')
+    })
+
     it('returns CORS headers on error responses', async (): Promise<void> => {
       const req = new Request('http://localhost/functions/v1/close_shift', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ staff_id: 'staff-abc' }),
+        body: JSON.stringify({ closing_float: 120 }),
       })
       const res = await handler(req)
       expect(res.status).toBe(400)

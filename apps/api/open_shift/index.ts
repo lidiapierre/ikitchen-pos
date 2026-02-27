@@ -33,6 +33,12 @@ export async function handler(req: Request): Promise<Response> {
       { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
     )
   }
+  if (typeof payload['opening_float'] !== 'number') {
+    return new Response(
+      JSON.stringify({ success: false, error: 'opening_float is required' }),
+      { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    )
+  }
 
   return new Response(
     JSON.stringify({ success: true, data: { shift_id: crypto.randomUUID(), started_at: new Date().toISOString() } }),

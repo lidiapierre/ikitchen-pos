@@ -33,6 +33,12 @@ export async function handler(req: Request): Promise<Response> {
       { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
     )
   }
+  if (typeof payload['closing_float'] !== 'number') {
+    return new Response(
+      JSON.stringify({ success: false, error: 'closing_float is required' }),
+      { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    )
+  }
 
   return new Response(
     JSON.stringify({ success: true, data: { shift_id: payload['shift_id'], summary: {} } }),

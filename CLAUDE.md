@@ -39,6 +39,12 @@ Never create new top-level directories without human approval.
 
 Do not introduce any library not listed here without human approval.
 
+## Supabase API Keys
+This project uses Supabase's new API key system (not legacy anon/service_role keys).
+- Client-side: NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY (sb_publishable_...)
+- Server-side: SUPABASE_SECRET_KEY (sb_secret_...)
+Never reference SUPABASE_ANON_KEY or SUPABASE_SERVICE_ROLE_KEY — these are not used.
+
 ## Code style
 
 - TypeScript strict mode — no `any`

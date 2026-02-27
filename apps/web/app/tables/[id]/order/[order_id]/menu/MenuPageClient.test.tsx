@@ -59,6 +59,11 @@ describe('MenuPageClient', () => {
       const hrefs = links.map((l) => l.getAttribute('href'))
       expect(hrefs.filter((h) => h === expectedHref)).toHaveLength(2)
     })
+
+    it('"Order total" label uses at least base (16px) font size', () => {
+      render(<MenuPageClient tableId={TABLE_ID} orderId={ORDER_ID} />)
+      expect(screen.getByText('Order total').className).toContain('text-base')
+    })
   })
 
   describe('handleItemAdded', () => {

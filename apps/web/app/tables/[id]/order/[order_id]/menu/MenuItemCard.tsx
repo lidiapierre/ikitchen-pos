@@ -62,7 +62,7 @@ export default function MenuItemCard({ item, orderId, onItemAdded }: MenuItemCar
         {loading ? 'Adding…' : success ? '✓ Added' : 'Add'}
       </button>
       {error !== null && (
-        <span className="text-xs text-red-400">{error}</span>
+        <span className="text-base text-red-400">{error}</span>
       )}
     </div>
   )

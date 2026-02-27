@@ -52,7 +52,7 @@ export default function MenuPageClient({ tableId, orderId }: MenuPageClientProps
 
       <footer className="mt-6 pt-4 border-t border-zinc-700 flex items-center justify-between gap-4">
         <div className="flex flex-col">
-          <span className="text-sm text-zinc-400">Order total</span>
+          <span className="text-base text-zinc-400">Order total</span>
           <span className="text-2xl font-bold text-white">{totalFormatted}</span>
         </div>
         <Link

@@ -52,7 +52,27 @@ describe('MenuItemCard', () => {
       const button = screen.getByRole('button', { name: 'Add' })
       expect(button.className).toContain('min-h-[48px]')
     })
+
+    it('item name uses at least base (16px) font size', () => {
+      render(<MenuItemCard item={mockItem} orderId={ORDER_ID} onItemAdded={vi.fn()} />)
+      expect(screen.getByText('Bruschetta').className).toContain('text-base')
+    })
   })
+
+  describe('font-size compliance', () => {
+    it('error message uses at least base (16px) font size', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        json: () => Promise.resolve({ success: false, error: 'Order not found' }),
+      })
+
+      render(<MenuItemCard item={mockItem} orderId={ORDER_ID} onItemAdded={vi.fn()} />)
+      await userEvent.click(screen.getByRole('button', { name: 'Add' }))
+
+      await waitFor(() => {
+        expect(screen.getByText('Order not found').className).toContain('text-base')
+      })
+    })
+  }
 
   describe('on successful add', () => {
     it('shows "✓ Added" after a successful API call', async () => {

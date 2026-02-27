@@ -183,6 +183,33 @@ describe('MenuItemCard', () => {
     })
   })
 
+  describe('success auto-reset', () => {
+    it('clears the success indicator after 1500ms', async () => {
+      vi.useFakeTimers()
+      global.fetch = vi.fn().mockResolvedValue({
+        json: () =>
+          Promise.resolve({
+            success: true,
+            data: { order_item_id: 'new-item-uuid', order_total: 850 },
+          }),
+      })
+
+      render(<MenuItemCard item={mockItem} orderId={ORDER_ID} onItemAdded={vi.fn()} />)
+      await userEvent.click(screen.getByRole('button', { name: 'Add' }))
+
+      await waitFor(() => {
+        expect(screen.getByText('✓ Added')).toBeInTheDocument()
+      })
+
+      vi.advanceTimersByTime(1500)
+
+      await waitFor(() => {
+        expect(screen.queryByText('✓ Added')).not.toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Add' })).toBeInTheDocument()
+      })
+    })
+  })
+
   describe('loading state', () => {
     it('shows "Adding…" while the API call is in flight', async () => {
       let resolveJson!: (value: unknown) => void

@@ -39,6 +39,12 @@ export async function handler(req: Request): Promise<Response> {
       { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
     )
   }
+  if ((payload['amount'] as number) <= 0) {
+    return new Response(
+      JSON.stringify({ success: false, error: 'amount must be greater than 0' }),
+      { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    )
+  }
   if (typeof payload['method'] !== 'string' || payload['method'] === '') {
     return new Response(
       JSON.stringify({ success: false, error: 'method is required' }),

@@ -144,4 +144,16 @@ describe('close_shift handler', () => {
       expect(res.headers.get('Access-Control-Allow-Origin')).toBe('*')
     })
   })
+
+  describe('non-POST/non-OPTIONS methods', () => {
+    it('returns 400 for a GET request (no body to parse)', async (): Promise<void> => {
+      const req = new Request('http://localhost/functions/v1/close_shift', {
+        method: 'GET',
+      })
+      const res = await handler(req)
+      expect(res.status).toBe(400)
+      const json = await res.json() as { success: boolean; error: string }
+      expect(json.success).toBe(false)
+    })
+  })
 })

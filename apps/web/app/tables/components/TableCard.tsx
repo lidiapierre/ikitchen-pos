@@ -36,11 +36,11 @@ export default function TableCard({ table }: TableCardProps): JSX.Element {
     setLoading(true)
     try {
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-      const supabasePublishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
-      if (!supabaseUrl || !supabasePublishableKey) {
+      const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+      if (!supabaseUrl || !supabaseAnonKey) {
         throw new Error('API not configured')
       }
-      const result = await callCreateOrder(supabaseUrl, supabasePublishableKey, table.id)
+      const result = await callCreateOrder(supabaseUrl, supabaseAnonKey, table.id)
       router.push(`/tables/${table.id}/order/${result.order_id}`)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create order')

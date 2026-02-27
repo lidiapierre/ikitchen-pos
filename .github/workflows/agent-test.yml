@@ -40,4 +40,4 @@ jobs:
             - What passed
             - What failed or needs attention
             - What tests were added
-          claude_args: "--max-turns 20 --dangerously-skip-permissions"
+          claude_args: "--max-turns 50 --dangerously-skip-permissions"

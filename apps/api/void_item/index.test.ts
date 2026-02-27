@@ -170,6 +170,13 @@ describe('void_item handler', () => {
     it.todo('returns 422 when order is not open')
   })
 
+  describe('POST — audit logging', () => {
+    // TODO: audit logging not yet implemented in handler stub
+    // Required by architecture §12: void_item is a destructive action
+    it.todo('inserts an audit_log row on successful void_item')
+    it.todo('returns 500 and does not return success if audit_log insert fails')
+  })
+
   describe('non-POST/non-OPTIONS methods', () => {
     it('returns 400 for a GET request (no body to parse)', async (): Promise<void> => {
       const req = new Request('http://localhost/functions/v1/void_item', {

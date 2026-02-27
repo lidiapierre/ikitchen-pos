@@ -95,6 +95,19 @@ describe('void_item handler', () => {
       expect(json.error).toBe('order_item_id is required')
     })
 
+    it('returns 400 when order_item_id is a number instead of a string', async (): Promise<void> => {
+      const req = new Request('http://localhost/functions/v1/void_item', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order_item_id: 123, reason: 'Wrong item' }),
+      })
+      const res = await handler(req)
+      expect(res.status).toBe(400)
+      const json = await res.json() as { success: boolean; error: string }
+      expect(json.success).toBe(false)
+      expect(json.error).toBe('order_item_id is required')
+    })
+
     it('returns 400 when reason is absent', async (): Promise<void> => {
       const req = new Request('http://localhost/functions/v1/void_item', {
         method: 'POST',
@@ -113,6 +126,19 @@ describe('void_item handler', () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ order_item_id: 'item-uuid-001', reason: '' }),
+      })
+      const res = await handler(req)
+      expect(res.status).toBe(400)
+      const json = await res.json() as { success: boolean; error: string }
+      expect(json.success).toBe(false)
+      expect(json.error).toBe('reason is required')
+    })
+
+    it('returns 400 when reason is a number instead of a string', async (): Promise<void> => {
+      const req = new Request('http://localhost/functions/v1/void_item', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order_item_id: 'item-uuid-001', reason: 42 }),
       })
       const res = await handler(req)
       expect(res.status).toBe(400)

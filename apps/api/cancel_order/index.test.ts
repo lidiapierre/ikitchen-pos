@@ -138,6 +138,11 @@ describe('cancel_order handler', () => {
     it.todo('returns 403 when caller does not have manager role')
   })
 
+  describe('POST — invalid state transition', () => {
+    // TODO: state transition enforcement not yet implemented in handler stub
+    it.todo('returns 422 when order is not open or pending_payment')
+  })
+
   describe('non-POST/non-OPTIONS methods', () => {
     it('returns 400 for a GET request (no body to parse)', async (): Promise<void> => {
       const req = new Request('http://localhost/functions/v1/cancel_order', {

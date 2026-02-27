@@ -1,3 +1,3 @@
-import { handler } from '../../../apps/api/create_order/index.ts'
+import { handler } from '../_shared/createOrderHandler.ts'
 
 Deno.serve(handler)

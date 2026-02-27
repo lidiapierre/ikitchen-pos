@@ -17,6 +17,7 @@ export async function callCreateOrder(
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
       apikey: apiKey,
     },
     body: JSON.stringify({ table_id: tableId, staff_id: 'placeholder-staff' }),

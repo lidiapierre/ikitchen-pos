@@ -45,5 +45,3 @@ export async function handler(req: Request): Promise<Response> {
     { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
   )
 }
-
-Deno.serve(handler)

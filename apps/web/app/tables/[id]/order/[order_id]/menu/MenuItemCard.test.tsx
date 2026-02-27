@@ -72,7 +72,7 @@ describe('MenuItemCard', () => {
         expect(screen.getByText('Order not found').className).toContain('text-base')
       })
     })
-  }
+  })
 
   describe('on successful add', () => {
     it('shows "✓ Added" after a successful API call', async () => {

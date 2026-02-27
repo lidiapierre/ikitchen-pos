@@ -20,6 +20,7 @@ jobs:
       - uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          allowed_bots: 'claude[bot]'
           prompt: |
             Review this pull request against the standards defined in CLAUDE.md and docs/architecture.md.
 

@@ -25,8 +25,23 @@ describe('OrderDetailPage', () => {
     expect(link).toHaveAttribute('href', '/tables')
   })
 
+  it('back link has minimum 48px touch target', async (): Promise<void> => {
+    const params = Promise.resolve({ id: '1', order_id: 'any-order' })
+    render(await OrderDetailPage({ params }))
+
+    const link = screen.getByRole('link', { name: /back to tables/i })
+    expect(link.className).toContain('min-h-[48px]')
+  })
+
+  it('renders the Order heading', async (): Promise<void> => {
+    const params = Promise.resolve({ id: '2', order_id: 'order-def-789' })
+    render(await OrderDetailPage({ params }))
+
+    expect(screen.getByRole('heading', { name: 'Order' })).toBeInTheDocument()
+  })
+
   it('renders the Items section placeholder', async (): Promise<void> => {
-    const params = Promise.resolve({ id: '3', order_id: 'order-def-789' })
+    const params = Promise.resolve({ id: '3', order_id: 'order-ghi-012' })
     render(await OrderDetailPage({ params }))
 
     expect(screen.getByRole('heading', { name: 'Items' })).toBeInTheDocument()

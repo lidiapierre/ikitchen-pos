@@ -153,6 +153,32 @@ describe('record_payment handler', () => {
       expect(json.error).toBe('method is required')
     })
 
+    it('returns 400 when amount is zero', async (): Promise<void> => {
+      const req = new Request('http://localhost/functions/v1/record_payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order_id: 'order-abc-123', amount: 0, method: 'cash' }),
+      })
+      const res = await handler(req)
+      expect(res.status).toBe(400)
+      const json = await res.json() as { success: boolean; error: string }
+      expect(json.success).toBe(false)
+      expect(json.error).toBe('amount must be greater than 0')
+    })
+
+    it('returns 400 when amount is negative', async (): Promise<void> => {
+      const req = new Request('http://localhost/functions/v1/record_payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order_id: 'order-abc-123', amount: -10, method: 'cash' }),
+      })
+      const res = await handler(req)
+      expect(res.status).toBe(400)
+      const json = await res.json() as { success: boolean; error: string }
+      expect(json.success).toBe(false)
+      expect(json.error).toBe('amount must be greater than 0')
+    })
+
     it('returns CORS headers on error responses', async (): Promise<void> => {
       const req = new Request('http://localhost/functions/v1/record_payment', {
         method: 'POST',

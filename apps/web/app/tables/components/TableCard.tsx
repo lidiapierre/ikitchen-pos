@@ -1,5 +1,9 @@
+'use client'
+
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import type { JSX } from 'react'
-import Link from 'next/link'
+import { callCreateOrder } from './createOrderApi'
 
 export type TableStatus = 'empty' | 'occupied'
 
@@ -8,6 +12,7 @@ export interface Table {
   number: number
   status: TableStatus
   seats: number
+  open_order_id?: string
 }
 
 interface TableCardProps {
@@ -15,15 +20,45 @@ interface TableCardProps {
 }
 
 export default function TableCard({ table }: TableCardProps): JSX.Element {
+  const router = useRouter()
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const isOccupied = table.status === 'occupied'
 
+  async function handleTap(): Promise<void> {
+    setError(null)
+
+    if (isOccupied && table.open_order_id) {
+      router.push(`/tables/${table.id}/order/${table.open_order_id}`)
+      return
+    }
+
+    setLoading(true)
+    try {
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+      const supabasePublishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+      if (!supabaseUrl || !supabasePublishableKey) {
+        throw new Error('API not configured')
+      }
+      const result = await callCreateOrder(supabaseUrl, supabasePublishableKey, table.id)
+      router.push(`/tables/${table.id}/order/${result.order_id}`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create order')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
-    <Link
-      href={`/tables/${table.id}`}
+    <button
+      type="button"
+      onClick={() => { void handleTap() }}
+      disabled={loading}
       className={[
         'flex flex-col items-center justify-center gap-3',
         'min-h-[160px] p-6 rounded-2xl border-2',
-        'transition-colors select-none',
+        'transition-colors select-none w-full',
+        loading ? 'opacity-60 cursor-wait' : '',
         isOccupied
           ? 'bg-amber-700 border-amber-500 hover:bg-amber-600'
           : 'bg-zinc-800 border-zinc-600 hover:border-zinc-400',
@@ -40,9 +75,12 @@ export default function TableCard({ table }: TableCardProps): JSX.Element {
             : 'bg-zinc-700 text-zinc-300',
         ].join(' ')}
       >
-        {isOccupied ? 'Occupied' : 'Empty'}
+        {loading ? 'Creating…' : isOccupied ? 'Occupied' : 'Empty'}
       </span>
       <span className="text-sm text-zinc-400">{table.seats} seats</span>
-    </Link>
+      {error !== null && (
+        <span className="text-xs text-red-400 text-center break-words max-w-full">{error}</span>
+      )}
+    </button>
   )
 }

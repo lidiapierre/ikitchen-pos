@@ -47,6 +47,19 @@ describe('create_order handler', () => {
     })
   })
 
+  describe('non-POST / non-OPTIONS methods', () => {
+    it('returns 400 when method is GET (no body to parse)', async (): Promise<void> => {
+      const req = new Request('http://localhost/functions/v1/create_order', {
+        method: 'GET',
+      })
+      const res = await handler(req)
+      expect(res.status).toBe(400)
+      const json = await res.json() as { success: boolean; error: string }
+      expect(json.success).toBe(false)
+      expect(res.headers.get('Access-Control-Allow-Origin')).toBe('*')
+    })
+  })
+
   describe('POST — invalid body', () => {
     it('returns 400 when body is malformed JSON', async (): Promise<void> => {
       const req = new Request('http://localhost/functions/v1/create_order', {

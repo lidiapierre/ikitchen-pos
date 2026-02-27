@@ -148,3 +148,70 @@ Each action must:
 - Advanced analytics or forecasting
 - AI-driven autonomous decisions at runtime
 - AI interface layer (planned for Phase 2)
+
+
+## 11. Roles & Permissions
+
+Every Action API call must validate the caller's role before executing.
+The caller is identified via the Supabase Auth JWT in the `Authorization` header.
+If no valid token is present, return `{ success: false, error: "Unauthorized" }` with status 401.
+If the caller's role is insufficient, return `{ success: false, error: "Forbidden" }` with status 403.
+
+### Role definitions
+
+| Role | Description |
+|---|---|
+| `server` | Floor staff — can open orders, add items, close orders |
+| `manager` | Can do everything a server can, plus void items, cancel orders, record payments |
+| `admin` | Full access including shift management |
+
+### Action permissions
+
+| Action | Minimum role |
+|---|---|
+| `create_order` | server |
+| `add_item_to_order` | server |
+| `close_order` | server |
+| `void_item` | manager |
+| `cancel_order` | manager |
+| `record_payment` | manager |
+| `open_shift` | admin |
+| `close_shift` | admin |
+
+---
+
+## 12. Audit Log Schema
+
+Every destructive or financially significant action must insert a row into `audit_log` before returning a success response.
+
+### Destructive actions that require audit logging
+
+`void_item`, `cancel_order`, `close_order`, `record_payment`, `close_shift`
+
+### Audit log row structure
+
+| Column | Type | Description |
+|---|---|---|
+| `id` | uuid | Auto-generated primary key |
+| `action` | text | Name of the action e.g. `cancel_order` |
+| `actor_id` | uuid | ID of the staff member who triggered the action |
+| `target_id` | uuid | ID of the primary record affected e.g. `order_id`, `shift_id` |
+| `payload` | jsonb | Full request body for traceability |
+| `created_at` | timestamptz | Auto-set to `now()` |
+
+### Example
+
+```json
+{
+  "action": "cancel_order",
+  "actor_id": "uuid-of-staff-member",
+  "target_id": "uuid-of-order",
+  "payload": { "order_id": "...", "reason": "Customer left" }
+}
+```
+
+### Rules
+
+- Audit log is append-only — never update or delete rows
+- If the audit log insert fails, the entire action must fail — do not return success without an audit trail
+- `actor_id` must come from the verified JWT, never from the request body

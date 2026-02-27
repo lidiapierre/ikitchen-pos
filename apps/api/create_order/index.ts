@@ -46,4 +46,7 @@ export async function handler(req: Request): Promise<Response> {
   )
 }
 
-Deno.serve(handler)
+// Guard allows the module to be imported in Vitest (Node) without Deno runtime
+if (typeof globalThis.Deno !== 'undefined') {
+  Deno.serve(handler)
+}

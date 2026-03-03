@@ -65,4 +65,12 @@ describe('callCloseOrder', () => {
       callCloseOrder('https://example.supabase.co', 'test-key', 'order-123'),
     ).rejects.toThrow('Failed to close order')
   })
+
+  it('propagates a network error when fetch itself throws', async (): Promise<void> => {
+    vi.mocked(fetch).mockRejectedValue(new Error('Network request failed'))
+
+    await expect(
+      callCloseOrder('https://example.supabase.co', 'test-key', 'order-123'),
+    ).rejects.toThrow('Network request failed')
+  })
 })

@@ -9,6 +9,14 @@ vi.mock('next/link', () => ({
   ),
 }))
 
+vi.mock('next/navigation', () => ({
+  useRouter: (): { push: () => void } => ({ push: vi.fn() }),
+}))
+
+vi.mock('./closeOrderApi', () => ({
+  callCloseOrder: vi.fn(),
+}))
+
 describe('OrderDetailPage', () => {
   it('renders the table id and order id supplied via params', async (): Promise<void> => {
     const params = Promise.resolve({ id: '5', order_id: 'order-abc-123' })
@@ -41,10 +49,24 @@ describe('OrderDetailPage', () => {
     expect(screen.getByRole('heading', { name: 'Order' })).toBeInTheDocument()
   })
 
-  it('renders the Items section placeholder', async (): Promise<void> => {
+  it('renders the Items section heading', async (): Promise<void> => {
     const params = Promise.resolve({ id: '3', order_id: 'order-ghi-012' })
     render(await OrderDetailPage({ params }))
 
     expect(screen.getByRole('heading', { name: 'Items' })).toBeInTheDocument()
+  })
+
+  it('renders the Add Items link', async (): Promise<void> => {
+    const params = Promise.resolve({ id: '4', order_id: 'order-jkl-345' })
+    render(await OrderDetailPage({ params }))
+
+    expect(screen.getByRole('link', { name: 'Add Items' })).toBeInTheDocument()
+  })
+
+  it('renders the Close Order button', async (): Promise<void> => {
+    const params = Promise.resolve({ id: '4', order_id: 'order-jkl-345' })
+    render(await OrderDetailPage({ params }))
+
+    expect(screen.getByRole('button', { name: 'Close Order' })).toBeInTheDocument()
   })
 })

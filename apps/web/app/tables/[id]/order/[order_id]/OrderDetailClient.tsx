@@ -6,16 +6,23 @@ import Link from 'next/link'
 import type { JSX } from 'react'
 import { MOCK_ORDER_ITEMS } from './orderData'
 import { callCloseOrder } from './closeOrderApi'
+import { callRecordPayment } from './recordPaymentApi'
 
 interface OrderDetailClientProps {
   tableId: string
   orderId: string
 }
 
+type PaymentMethod = 'cash' | 'card'
+type Step = 'order' | 'payment'
+
 export default function OrderDetailClient({ tableId, orderId }: OrderDetailClientProps): JSX.Element {
   const router = useRouter()
   const [closing, setClosing] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [step, setStep] = useState<Step>('order')
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash')
+  const [paying, setPaying] = useState(false)
 
   const items = MOCK_ORDER_ITEMS
   const totalCents = items.reduce((sum, item) => sum + item.quantity * item.price_cents, 0)
@@ -31,12 +38,107 @@ export default function OrderDetailClient({ tableId, orderId }: OrderDetailClien
         throw new Error('API not configured')
       }
       await callCloseOrder(supabaseUrl, supabaseKey, orderId)
-      router.push(`/tables/${tableId}`)
+      setStep('payment')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to close order')
     } finally {
       setClosing(false)
     }
+  }
+
+  async function handleRecordPayment(): Promise<void> {
+    setError(null)
+    setPaying(true)
+    try {
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+      if (!supabaseUrl || !supabaseKey) {
+        throw new Error('API not configured')
+      }
+      await callRecordPayment(supabaseUrl, supabaseKey, orderId, totalCents, paymentMethod)
+      router.push(`/tables/${tableId}`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to record payment')
+    } finally {
+      setPaying(false)
+    }
+  }
+
+  if (step === 'payment') {
+    return (
+      <main className="min-h-screen bg-zinc-900 p-6 flex flex-col">
+        <header className="mb-6">
+          <h1 className="text-2xl font-bold text-white mb-4">Record Payment</h1>
+          <dl className="space-y-2 text-base">
+            <div className="flex gap-3">
+              <dt className="text-zinc-500">Table</dt>
+              <dd className="font-semibold text-white">{tableId}</dd>
+            </div>
+            <div className="flex gap-3">
+              <dt className="text-zinc-500">Order ID</dt>
+              <dd className="font-mono text-sm text-zinc-300">{orderId}</dd>
+            </div>
+          </dl>
+        </header>
+
+        <section className="flex-1">
+          <div className="mb-6">
+            <p className="text-zinc-400 text-base mb-2">Amount</p>
+            <p className="text-3xl font-bold text-white">{totalFormatted}</p>
+          </div>
+
+          <div className="mb-6">
+            <p className="text-zinc-400 text-base mb-3">Payment Method</p>
+            <div className="flex gap-4">
+              <button
+                type="button"
+                onClick={() => setPaymentMethod('cash')}
+                className={[
+                  'flex-1 min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold transition-colors border-2',
+                  paymentMethod === 'cash'
+                    ? 'bg-amber-500 border-amber-500 text-zinc-900'
+                    : 'bg-zinc-800 border-zinc-600 text-white hover:border-zinc-400',
+                ].join(' ')}
+              >
+                Cash
+              </button>
+              <button
+                type="button"
+                onClick={() => setPaymentMethod('card')}
+                className={[
+                  'flex-1 min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold transition-colors border-2',
+                  paymentMethod === 'card'
+                    ? 'bg-amber-500 border-amber-500 text-zinc-900'
+                    : 'bg-zinc-800 border-zinc-600 text-white hover:border-zinc-400',
+                ].join(' ')}
+              >
+                Card
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <footer className="mt-6 pt-4 border-t border-zinc-700">
+          <button
+            type="button"
+            onClick={() => { void handleRecordPayment() }}
+            disabled={paying}
+            className={[
+              'w-full min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold transition-colors',
+              paying
+                ? 'bg-zinc-700 text-zinc-400 cursor-wait'
+                : 'bg-green-700 hover:bg-green-600 text-white',
+            ].join(' ')}
+          >
+            {paying ? 'Recording…' : 'Record Payment'}
+          </button>
+
+          {error !== null && (
+            <p className="mt-4 text-base text-red-400">{error}</p>
+          )}
+        </footer>
+      </main>
+    )
   }
 
   return (

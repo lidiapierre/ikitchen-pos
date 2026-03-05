@@ -19,51 +19,63 @@ vi.mock('./closeOrderApi', () => ({
 }))
 
 vi.mock('./orderData', () => ({
-  MOCK_ORDER_ITEMS: [
-    { id: '1', name: 'Bruschetta', quantity: 2, price_cents: 850 },
-    { id: '2', name: 'Grilled Salmon', quantity: 1, price_cents: 1850 },
-    { id: '3', name: 'House Wine', quantity: 2, price_cents: 950 },
-  ],
+  fetchOrderItems: vi.fn(),
 }))
 
+const mockItems = [
+  { id: '1', name: 'Bruschetta', quantity: 2, price_cents: 850 },
+  { id: '2', name: 'Grilled Salmon', quantity: 1, price_cents: 1850 },
+  { id: '3', name: 'House Wine', quantity: 2, price_cents: 950 },
+]
+
 describe('OrderDetailClient', () => {
-  beforeEach((): void => {
+  beforeEach(async (): Promise<void> => {
     vi.clearAllMocks()
     vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://example.supabase.co')
     vi.stubEnv('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY', 'test-publishable-key')
+    const { fetchOrderItems } = await import('./orderData')
+    vi.mocked(fetchOrderItems).mockResolvedValue(mockItems)
   })
 
   afterEach((): void => {
     vi.unstubAllEnvs()
   })
 
-  it('renders all mock item names', (): void => {
+  it('shows a loading state while items are being fetched', (): void => {
     render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
 
-    expect(screen.getByText('Bruschetta')).toBeInTheDocument()
+    expect(screen.getByText('Loading items…')).toBeInTheDocument()
+  })
+
+  it('renders all item names after loading', async (): Promise<void> => {
+    render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
+
+    expect(await screen.findByText('Bruschetta')).toBeInTheDocument()
     expect(screen.getByText('Grilled Salmon')).toBeInTheDocument()
     expect(screen.getByText('House Wine')).toBeInTheDocument()
   })
 
-  it('renders item quantities', (): void => {
+  it('renders item quantities', async (): Promise<void> => {
     render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
 
+    await screen.findByText('Bruschetta')
     const spans = screen.getAllByText(/^×\d+$/)
     expect(spans.length).toBeGreaterThanOrEqual(2)
     expect(screen.getByText('×1')).toBeInTheDocument()
   })
 
-  it('renders per-item prices', (): void => {
+  it('renders per-item prices', async (): Promise<void> => {
     render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
 
-    expect(screen.getByText('$8.50 each')).toBeInTheDocument()
+    expect(await screen.findByText('$8.50 each')).toBeInTheDocument()
     expect(screen.getByText('$18.50 each')).toBeInTheDocument()
     expect(screen.getByText('$9.50 each')).toBeInTheDocument()
   })
 
-  it('renders line totals for each item', (): void => {
+  it('renders line totals for each item', async (): Promise<void> => {
     render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
 
+    await screen.findByText('Bruschetta')
     // Bruschetta: 2 × $8.50 = $17.00
     expect(screen.getByText('$17.00')).toBeInTheDocument()
     // Grilled Salmon: 1 × $18.50 = $18.50
@@ -72,11 +84,20 @@ describe('OrderDetailClient', () => {
     expect(screen.getByText('$19.00')).toBeInTheDocument()
   })
 
-  it('renders the running order total', (): void => {
+  it('renders the running order total', async (): Promise<void> => {
     render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
 
     // 2×850 + 1×1850 + 2×950 = 5450 cents = $54.50
-    expect(screen.getByText('$54.50')).toBeInTheDocument()
+    expect(await screen.findByText('$54.50')).toBeInTheDocument()
+  })
+
+  it('shows an error state if the fetch fails', async (): Promise<void> => {
+    const { fetchOrderItems } = await import('./orderData')
+    vi.mocked(fetchOrderItems).mockRejectedValue(new Error('Network error'))
+
+    render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
+
+    expect(await screen.findByText('Network error')).toBeInTheDocument()
   })
 
   it('renders the Add Items link pointing to the menu', (): void => {
@@ -134,7 +155,7 @@ describe('OrderDetailClient', () => {
     })
   })
 
-  it('shows an error message when the API call fails', async (): Promise<void> => {
+  it('shows an error message when the close API call fails', async (): Promise<void> => {
     const { callCloseOrder } = await import('./closeOrderApi')
     vi.mocked(callCloseOrder).mockRejectedValue(new Error('Order has no items'))
 
@@ -168,7 +189,7 @@ describe('OrderDetailClient', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Close Order' }))
 
     await waitFor((): void => {
-      expect(screen.getByText('API not configured')).toBeInTheDocument()
+      expect(screen.getAllByText('API not configured').length).toBeGreaterThanOrEqual(1)
     })
   })
 })

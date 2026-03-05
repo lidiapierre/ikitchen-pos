@@ -475,7 +475,7 @@ export default function OrderDetailClient({ tableId, orderId }: OrderDetailClien
           <span className="text-2xl font-bold text-white">{totalFormatted}</span>
         </div>
 
-        {step === 'order' ? (
+        {step === 'order' && !statusLoading ? (
           <>
             <div className="flex gap-4 mb-3">
               <Link

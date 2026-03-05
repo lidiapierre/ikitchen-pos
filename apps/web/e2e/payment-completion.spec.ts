@@ -101,7 +101,7 @@ test.describe('post-payment completion flow', () => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ success: true, data: { payment_id: 'pay-e2e-1', change_due: 0 } }),
+        body: JSON.stringify({ success: true, data: { payment_id: 'pay-e2e-1', change_due: 300 } }),
       });
     });
   });

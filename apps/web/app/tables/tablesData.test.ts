@@ -1,90 +1,131 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { fetchTables } from './tablesData'
 
-vi.mock('@supabase/supabase-js', () => ({
-  createClient: vi.fn(),
-}))
-
-import { createClient } from '@supabase/supabase-js'
-
 const BASE_URL = 'https://example.supabase.co'
 const API_KEY = 'test-api-key'
 
-function makeChain(result: { data: unknown; error: unknown }): ReturnType<typeof createClient> {
-  const eq = vi.fn().mockResolvedValue(result)
-  const select = vi.fn().mockReturnValue({ eq })
-  const from = vi.fn().mockReturnValue({ select })
-  return { from } as unknown as ReturnType<typeof createClient>
+function mockFetch(responses: { ok: boolean; status?: number; statusText?: string; body: unknown }[]): void {
+  let callCount = 0
+  vi.stubGlobal('fetch', vi.fn(async () => {
+    const res = responses[callCount++]
+    return {
+      ok: res.ok,
+      status: res.status ?? 200,
+      statusText: res.statusText ?? 'OK',
+      json: async () => res.body,
+      text: async () => String(res.body),
+    }
+  }))
 }
 
 afterEach(() => {
-  vi.restoreAllMocks()
+  vi.unstubAllGlobals()
 })
 
 describe('fetchTables', () => {
-  it('returns tables with open_order_id when an open order exists', async (): Promise<void> => {
-    vi.mocked(createClient).mockReturnValue(
-      makeChain({
-        data: [
-          { id: 'table-uuid-1', label: 'Table 1', orders: [{ id: 'order-uuid-1' }] },
-          { id: 'table-uuid-2', label: 'Table 2', orders: [] },
-        ],
-        error: null,
-      }),
-    )
+  it('returns tables with open_order_id populated when an open order exists', async (): Promise<void> => {
+    mockFetch([
+      { ok: true, body: [{ id: 'table-1', label: 'Table 1' }, { id: 'table-2', label: 'Table 2' }] },
+      { ok: true, body: [{ id: 'order-1', table_id: 'table-1' }] },
+    ])
 
     const result = await fetchTables(BASE_URL, API_KEY)
 
     expect(result).toEqual([
-      { id: 'table-uuid-1', label: 'Table 1', open_order_id: 'order-uuid-1' },
-      { id: 'table-uuid-2', label: 'Table 2', open_order_id: null },
+      { id: 'table-1', label: 'Table 1', open_order_id: 'order-1' },
+      { id: 'table-2', label: 'Table 2', open_order_id: null },
     ])
   })
 
-  it('creates the client with the provided URL and API key', async (): Promise<void> => {
-    vi.mocked(createClient).mockReturnValue(makeChain({ data: [], error: null }))
+  it('returns all tables as empty when no open orders exist', async (): Promise<void> => {
+    mockFetch([
+      { ok: true, body: [{ id: 'table-1', label: 'Table 1' }, { id: 'table-2', label: 'Table 2' }] },
+      { ok: true, body: [] },
+    ])
+
+    const result = await fetchTables(BASE_URL, API_KEY)
+
+    expect(result).toEqual([
+      { id: 'table-1', label: 'Table 1', open_order_id: null },
+      { id: 'table-2', label: 'Table 2', open_order_id: null },
+    ])
+  })
+
+  it('sends correct apikey and Authorization headers', async (): Promise<void> => {
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => [],
+      text: async () => '[]',
+    }))
+    vi.stubGlobal('fetch', fetchMock)
 
     await fetchTables(BASE_URL, API_KEY)
 
-    expect(createClient).toHaveBeenCalledWith(BASE_URL, API_KEY)
+    for (const call of fetchMock.mock.calls) {
+      const headers = call[1]?.headers as Record<string, string>
+      expect(headers.apikey).toBe(API_KEY)
+      expect(headers.Authorization).toBe(`Bearer ${API_KEY}`)
+    }
   })
 
-  it('queries the tables table with a left-join on orders filtered to open status', async (): Promise<void> => {
-    const eq = vi.fn().mockResolvedValue({ data: [], error: null })
-    const select = vi.fn().mockReturnValue({ eq })
-    const from = vi.fn().mockReturnValue({ select })
-    vi.mocked(createClient).mockReturnValue({ from } as unknown as ReturnType<typeof createClient>)
+  it('queries tables with select=id,label', async (): Promise<void> => {
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => [],
+      text: async () => '[]',
+    }))
+    vi.stubGlobal('fetch', fetchMock)
 
     await fetchTables(BASE_URL, API_KEY)
 
-    expect(from).toHaveBeenCalledWith('tables')
-    expect(select).toHaveBeenCalledWith('id,label,orders!left(id)')
-    expect(eq).toHaveBeenCalledWith('orders.status', 'open')
+    const tablesCall = fetchMock.mock.calls[0][0] as string
+    expect(tablesCall).toContain('/rest/v1/tables')
+    expect(tablesCall).toContain('select=id%2Clabel')
   })
 
-  it('returns an empty array when there are no tables', async (): Promise<void> => {
-    vi.mocked(createClient).mockReturnValue(makeChain({ data: [], error: null }))
+  it('queries orders with status=eq.open', async (): Promise<void> => {
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => [],
+      text: async () => '[]',
+    }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await fetchTables(BASE_URL, API_KEY)
+
+    const ordersCall = fetchMock.mock.calls[1][0] as string
+    expect(ordersCall).toContain('/rest/v1/orders')
+    expect(ordersCall).toContain('status=eq.open')
+  })
+
+  it('throws when the tables request fails', async (): Promise<void> => {
+    mockFetch([
+      { ok: false, status: 403, statusText: 'Forbidden', body: 'permission denied' },
+    ])
+
+    await expect(fetchTables(BASE_URL, API_KEY)).rejects.toThrow(
+      'Failed to fetch tables: 403 Forbidden',
+    )
+  })
+
+  it('throws when the orders request fails', async (): Promise<void> => {
+    mockFetch([
+      { ok: true, body: [{ id: 'table-1', label: 'Table 1' }] },
+      { ok: false, status: 403, statusText: 'Forbidden', body: 'permission denied' },
+    ])
+
+    await expect(fetchTables(BASE_URL, API_KEY)).rejects.toThrow(
+      'Failed to fetch orders: 403 Forbidden',
+    )
+  })
+
+  it('returns empty array when there are no tables', async (): Promise<void> => {
+    mockFetch([
+      { ok: true, body: [] },
+      { ok: true, body: [] },
+    ])
 
     const result = await fetchTables(BASE_URL, API_KEY)
     expect(result).toEqual([])
-  })
-
-  it('throws when the Supabase client returns an error', async (): Promise<void> => {
-    vi.mocked(createClient).mockReturnValue(
-      makeChain({ data: null, error: { message: 'permission denied for table tables' } }),
-    )
-
-    await expect(fetchTables(BASE_URL, API_KEY)).rejects.toThrow(
-      'Failed to fetch tables: permission denied for table tables',
-    )
-  })
-
-  it('propagates errors thrown by the Supabase client', async (): Promise<void> => {
-    const eq = vi.fn().mockRejectedValue(new Error('Network error'))
-    const select = vi.fn().mockReturnValue({ eq })
-    const from = vi.fn().mockReturnValue({ select })
-    vi.mocked(createClient).mockReturnValue({ from } as unknown as ReturnType<typeof createClient>)
-
-    await expect(fetchTables(BASE_URL, API_KEY)).rejects.toThrow('Network error')
   })
 })

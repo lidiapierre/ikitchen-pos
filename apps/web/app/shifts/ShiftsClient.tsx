@@ -17,6 +17,9 @@ interface ShiftSummary {
 
 const STORAGE_KEY = 'ikitchen_active_shift'
 
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
+const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
 function loadShiftFromStorage(): ActiveShift | null {
   if (typeof window === 'undefined') return null
   try {
@@ -57,19 +60,47 @@ export default function ShiftsClient(): JSX.Element {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
+  async function fetchActiveShiftOnMount(): Promise<void> {
+    try {
+      const baseUrl = SUPABASE_URL ?? ''
+      const url = `${baseUrl}/rest/v1/shifts?select=id,opened_at&closed_at=is.null&limit=1`
+      const headers: Record<string, string> = {}
+      if (SUPABASE_ANON_KEY) {
+        headers['apikey'] = SUPABASE_ANON_KEY
+        headers['Authorization'] = `Bearer ${SUPABASE_ANON_KEY}`
+      }
+      const res = await fetch(url, { headers })
+      if (res.ok) {
+        const rows = (await res.json()) as Array<{ id: string; opened_at: string }>
+        if (rows.length > 0) {
+          const shift: ActiveShift = { shift_id: rows[0].id, started_at: rows[0].opened_at }
+          setActiveShift(shift)
+          saveShiftToStorage(shift)
+          return
+        }
+        // Server confirms no open shift — keep localStorage in sync
+        setActiveShift(null)
+        saveShiftToStorage(null)
+        return
+      }
+    } catch {
+      // Server unavailable — fall back to localStorage
+    }
     setActiveShift(loadShiftFromStorage())
-  }, [])
+  }
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  useEffect(() => {
+    void fetchActiveShiftOnMount()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   async function handleOpenShift(): Promise<void> {
     setLoading(true)
     setError(null)
     setClosedSummary(null)
     try {
-      const url = supabaseUrl
-        ? `${supabaseUrl}/functions/v1/open_shift`
+      const url = SUPABASE_URL
+        ? `${SUPABASE_URL}/functions/v1/open_shift`
         : '/functions/v1/open_shift'
       const res = await fetch(url, {
         method: 'POST',
@@ -102,8 +133,8 @@ export default function ShiftsClient(): JSX.Element {
     setLoading(true)
     setError(null)
     try {
-      const url = supabaseUrl
-        ? `${supabaseUrl}/functions/v1/close_shift`
+      const url = SUPABASE_URL
+        ? `${SUPABASE_URL}/functions/v1/close_shift`
         : '/functions/v1/close_shift'
       const res = await fetch(url, {
         method: 'POST',
@@ -112,17 +143,16 @@ export default function ShiftsClient(): JSX.Element {
       })
       const json = (await res.json()) as {
         success: boolean
-        data?: unknown
+        data?: { shift_id: string; ended_at: string }
         error?: string
       }
-      if (!json.success) {
+      if (!json.success || !json.data) {
         throw new Error(json.error ?? 'Failed to close shift')
       }
-      const endedAt = new Date().toISOString()
       setClosedSummary({
         shift_id: activeShift.shift_id,
         started_at: activeShift.started_at,
-        ended_at: endedAt,
+        ended_at: json.data.ended_at,
       })
       setActiveShift(null)
       saveShiftToStorage(null)

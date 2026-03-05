@@ -1,6 +1,15 @@
 import { test, expect } from '@playwright/test'
 
 test.beforeEach(async ({ page }) => {
+  // Mock shifts REST endpoint — default: no active shift
+  await page.route('**/rest/v1/shifts**', (route) => {
+    void route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify([]),
+    })
+  })
+
   // Mock open_shift edge function
   await page.route('**/functions/v1/open_shift', (route) => {
     void route.fulfill({
@@ -23,7 +32,11 @@ test.beforeEach(async ({ page }) => {
       contentType: 'application/json',
       body: JSON.stringify({
         success: true,
-        data: { shift_id: 'test-shift-uuid-1234', summary: {} },
+        data: {
+          shift_id: 'test-shift-uuid-1234',
+          ended_at: new Date().toISOString(),
+          summary: {},
+        },
       }),
     })
   })
@@ -72,8 +85,18 @@ test('shifts page is reachable from tables page in one tap', async ({ page }) =>
 
 test('Open Shift and Close Shift buttons meet 48px touch target', async ({ page }) => {
   const openBtn = page.getByRole('button', { name: 'Open Shift' })
-  const box = await openBtn.boundingBox()
-  expect(box).not.toBeNull()
-  expect(box!.height).toBeGreaterThanOrEqual(48)
-  expect(box!.width).toBeGreaterThanOrEqual(48)
+  const openBox = await openBtn.boundingBox()
+  expect(openBox).not.toBeNull()
+  expect(openBox!.height).toBeGreaterThanOrEqual(48)
+  expect(openBox!.width).toBeGreaterThanOrEqual(48)
+
+  // Open a shift so the Close Shift button becomes visible
+  await openBtn.click()
+  await expect(page.getByTestId('shift-open')).toBeVisible()
+
+  const closeBtn = page.getByRole('button', { name: 'Close Shift' })
+  const closeBox = await closeBtn.boundingBox()
+  expect(closeBox).not.toBeNull()
+  expect(closeBox!.height).toBeGreaterThanOrEqual(48)
+  expect(closeBox!.width).toBeGreaterThanOrEqual(48)
 })

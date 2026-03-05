@@ -41,7 +41,7 @@ export async function handler(req: Request): Promise<Response> {
   }
 
   return new Response(
-    JSON.stringify({ success: true, data: { shift_id: payload['shift_id'], summary: {} } }),
+    JSON.stringify({ success: true, data: { shift_id: payload['shift_id'], ended_at: new Date().toISOString(), summary: {} } }),
     { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
   )
 }

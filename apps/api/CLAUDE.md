@@ -19,6 +19,28 @@ See `@docs/architecture.md` for the full Action API table.
 - Log full error internally, return a safe generic message externally
 - Use typed error codes, not free-form strings
 
+## CORS
+
+Every edge function must handle OPTIONS preflight requests and include `x-demo-staff-id` in the allowed headers list.
+
+Required CORS headers on every response:
+```ts
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-demo-staff-id',
+}
+```
+
+OPTIONS preflight must return 204 with these headers and no body:
+```ts
+if (req.method === 'OPTIONS') {
+  return new Response(null, { status: 204, headers: CORS_HEADERS })
+}
+```
+
+All other responses must also include these CORS headers.
+
 ## Edge function structure
 
 ```

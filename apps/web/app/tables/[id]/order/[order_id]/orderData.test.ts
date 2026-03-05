@@ -41,12 +41,14 @@ describe('fetchOrderItems', () => {
   it('throws when the response is not ok', async (): Promise<void> => {
     mockFetch.mockResolvedValueOnce({
       ok: false,
+      status: 401,
       statusText: 'Unauthorized',
+      text: async (): Promise<string> => '{"code":"PGRST205","message":"Could not find the table"}',
     })
 
     await expect(
       fetchOrderItems('https://example.supabase.co', 'bad-key', 'order-123'),
-    ).rejects.toThrow('Failed to fetch order items: Unauthorized')
+    ).rejects.toThrow('Failed to fetch order items: 401 Unauthorized')
   })
 
   it('passes the correct auth headers', async (): Promise<void> => {

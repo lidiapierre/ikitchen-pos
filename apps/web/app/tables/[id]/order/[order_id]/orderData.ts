@@ -30,7 +30,8 @@ export async function fetchOrderItems(
   })
 
   if (!res.ok) {
-    throw new Error(`Failed to fetch order items: ${res.statusText}`)
+    const body = await res.text()
+    throw new Error(`Failed to fetch order items: ${res.status} ${res.statusText} — ${body}`)
   }
 
   const rows = (await res.json()) as OrderItemRow[]

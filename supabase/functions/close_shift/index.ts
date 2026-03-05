@@ -121,12 +121,13 @@ export async function handler(
     const restaurantId = shifts[0].restaurant_id
 
     // 2. Close the shift by setting closed_at and persisting closing_float_cents
+    const endedAt = new Date().toISOString()
     const updateRes = await fetchFn(
       `${supabaseUrl}/rest/v1/shifts?id=eq.${shiftId}`,
       {
         method: 'PATCH',
         headers: { ...dbHeaders, Prefer: 'return=minimal' },
-        body: JSON.stringify({ closed_at: new Date().toISOString(), closing_float_cents: closingFloat }),
+        body: JSON.stringify({ closed_at: endedAt, closing_float_cents: closingFloat }),
       },
     )
     if (!updateRes.ok) {
@@ -160,7 +161,7 @@ export async function handler(
     }
 
     return new Response(
-      JSON.stringify({ success: true, data: { shift_id: shiftId } }),
+      JSON.stringify({ success: true, data: { shift_id: shiftId, ended_at: endedAt } }),
       { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
     )
   } catch {

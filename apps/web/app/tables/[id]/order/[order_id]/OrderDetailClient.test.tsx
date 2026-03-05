@@ -297,5 +297,18 @@ describe('OrderDetailClient', () => {
         expect(screen.getByRole('button', { name: 'Recording…' })).toBeDisabled()
       })
     })
+
+    it('shows "API not configured" error when Supabase env vars are absent', async (): Promise<void> => {
+      render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
+      await openPaymentStep()
+
+      vi.unstubAllEnvs()
+
+      fireEvent.click(screen.getByRole('button', { name: /Confirm Payment/ }))
+
+      await waitFor((): void => {
+        expect(screen.getByText('API not configured')).toBeInTheDocument()
+      })
+    })
   })
 })

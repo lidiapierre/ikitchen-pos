@@ -5,8 +5,40 @@ export interface OrderItem {
   price_cents: number
 }
 
-export const MOCK_ORDER_ITEMS: OrderItem[] = [
-  { id: '1', name: 'Bruschetta', quantity: 2, price_cents: 850 },
-  { id: '2', name: 'Grilled Salmon', quantity: 1, price_cents: 1850 },
-  { id: '3', name: 'House Wine', quantity: 2, price_cents: 950 },
-]
+interface OrderItemRow {
+  id: string
+  quantity: number
+  unit_price_cents: number
+  menu_items: { name: string }
+}
+
+export async function fetchOrderItems(
+  supabaseUrl: string,
+  apiKey: string,
+  orderId: string,
+): Promise<OrderItem[]> {
+  const url = new URL(`${supabaseUrl}/rest/v1/order_items`)
+  url.searchParams.set('select', 'id,quantity,unit_price_cents,menu_items(name)')
+  url.searchParams.set('order_id', `eq.${orderId}`)
+  url.searchParams.set('voided', 'eq.false')
+
+  const res = await fetch(url.toString(), {
+    headers: {
+      apikey: apiKey,
+      Authorization: `Bearer ${apiKey}`,
+    },
+  })
+
+  if (!res.ok) {
+    const body = await res.text()
+    throw new Error(`Failed to fetch order items: ${res.status} ${res.statusText} — ${body}`)
+  }
+
+  const rows = (await res.json()) as OrderItemRow[]
+  return rows.map((row) => ({
+    id: row.id,
+    name: row.menu_items.name,
+    quantity: row.quantity,
+    price_cents: row.unit_price_cents,
+  }))
+}

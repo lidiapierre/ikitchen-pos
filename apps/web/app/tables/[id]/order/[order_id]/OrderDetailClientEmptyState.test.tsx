@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import type { ReactNode, JSX } from 'react'
 import OrderDetailClient from './OrderDetailClient'
@@ -18,14 +18,26 @@ vi.mock('./closeOrderApi', () => ({
 }))
 
 vi.mock('./orderData', () => ({
-  MOCK_ORDER_ITEMS: [],
+  fetchOrderItems: vi.fn(),
 }))
 
 describe('OrderDetailClient — empty state', () => {
-  it('shows the empty state message when there are no items', (): void => {
+  beforeEach(async (): Promise<void> => {
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://example.supabase.co')
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY', 'test-publishable-key')
+    const { fetchOrderItems } = await import('./orderData')
+    vi.mocked(fetchOrderItems).mockResolvedValue([])
+  })
+
+  afterEach((): void => {
+    vi.unstubAllEnvs()
+    vi.clearAllMocks()
+  })
+
+  it('shows the empty state message when there are no items', async (): Promise<void> => {
     render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
 
-    expect(screen.getByText('No items yet — tap Add Items to start')).toBeInTheDocument()
+    expect(await screen.findByText('No items yet — tap Add Items to start')).toBeInTheDocument()
   })
 
   it('still renders the Add Items link in the empty state', (): void => {

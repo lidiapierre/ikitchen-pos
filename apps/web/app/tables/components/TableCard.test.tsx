@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import TableCard, { type Table } from './TableCard'
+import TableCard from './TableCard'
+import type { TableRow } from '../tablesData'
 
 const mockPush = vi.fn()
 
@@ -9,12 +10,10 @@ vi.mock('next/navigation', () => ({
   useRouter: (): { push: (url: string) => void } => ({ push: mockPush }),
 }))
 
-const emptyTable: Table = { id: 1, number: 1, status: 'empty', seats: 4 }
-const occupiedTable: Table = {
-  id: 2,
-  number: 2,
-  status: 'occupied',
-  seats: 4,
+const emptyTable: TableRow = { id: 'table-uuid-001', label: '1', open_order_id: null }
+const occupiedTable: TableRow = {
+  id: 'table-uuid-002',
+  label: '2',
   open_order_id: 'order-abc-123',
 }
 
@@ -44,32 +43,15 @@ describe('TableCard', () => {
       render(<TableCard table={occupiedTable} />)
       await userEvent.click(screen.getByRole('button'))
 
-      expect(mockPush).toHaveBeenCalledWith('/tables/2/order/order-abc-123')
+      expect(mockPush).toHaveBeenCalledWith('/tables/table-uuid-002/order/order-abc-123')
       expect(fetchSpy).not.toHaveBeenCalled()
-    })
-  })
-
-  describe('when table is occupied but has no open_order_id', () => {
-    it('falls through to create a new order via the API', async () => {
-      const occupiedNoOrder: Table = { id: 3, number: 3, status: 'occupied', seats: 2 }
-      global.fetch = vi.fn().mockResolvedValueOnce({
-        json: (): Promise<{ success: boolean; data: { order_id: string; status: string } }> =>
-          Promise.resolve({ success: true, data: { order_id: 'fallthrough-order', status: 'open' } }),
-      })
-
-      render(<TableCard table={occupiedNoOrder} />)
-      await userEvent.click(screen.getByRole('button'))
-
-      await waitFor(() => {
-        expect(mockPush).toHaveBeenCalledWith('/tables/3/order/fallthrough-order')
-      })
-      expect(global.fetch).toHaveBeenCalled()
     })
   })
 
   describe('when table is empty', () => {
     it('calls create_order API with the correct table_id and navigates on success', async () => {
       global.fetch = vi.fn().mockResolvedValueOnce({
+        ok: true,
         json: (): Promise<{ success: boolean; data: { order_id: string; status: string } }> =>
           Promise.resolve({ success: true, data: { order_id: 'new-order-xyz', status: 'open' } }),
       })
@@ -78,20 +60,21 @@ describe('TableCard', () => {
       await userEvent.click(screen.getByRole('button'))
 
       await waitFor(() => {
-        expect(mockPush).toHaveBeenCalledWith('/tables/1/order/new-order-xyz')
+        expect(mockPush).toHaveBeenCalledWith('/tables/table-uuid-001/order/new-order-xyz')
       })
 
       expect(global.fetch).toHaveBeenCalledWith(
         'https://test.supabase.co/functions/v1/create_order',
         expect.objectContaining({
           method: 'POST',
-          body: JSON.stringify({ table_id: 1, staff_id: 'placeholder-staff' }),
+          body: JSON.stringify({ table_id: 'table-uuid-001', staff_id: 'placeholder-staff' }),
         }),
       )
     })
 
     it('shows the API error message when create_order returns success: false', async () => {
       global.fetch = vi.fn().mockResolvedValueOnce({
+        ok: true,
         json: (): Promise<{ success: boolean; error: string }> =>
           Promise.resolve({ success: false, error: 'Table already has an open order' }),
       })
@@ -144,6 +127,7 @@ describe('TableCard', () => {
     it('shows "Creating…" label while the API call is in flight', async () => {
       let resolveJson!: (value: unknown) => void
       global.fetch = vi.fn().mockResolvedValueOnce({
+        ok: true,
         json: (): Promise<unknown> =>
           new Promise((resolve) => {
             resolveJson = resolve
@@ -164,6 +148,7 @@ describe('TableCard', () => {
     it('disables the button while the API call is in flight', async () => {
       let resolveJson!: (value: unknown) => void
       global.fetch = vi.fn().mockResolvedValueOnce({
+        ok: true,
         json: (): Promise<unknown> =>
           new Promise((resolve) => {
             resolveJson = resolve
@@ -193,7 +178,7 @@ describe('TableCard', () => {
   })
 
   describe('rendering', () => {
-    it('renders the table number', () => {
+    it('renders the table label', () => {
       render(<TableCard table={emptyTable} />)
       expect(screen.getByText('1')).toBeInTheDocument()
     })
@@ -206,11 +191,6 @@ describe('TableCard', () => {
     it('renders "Occupied" status for an occupied table', () => {
       render(<TableCard table={occupiedTable} />)
       expect(screen.getByText('Occupied')).toBeInTheDocument()
-    })
-
-    it('renders the seat count', () => {
-      render(<TableCard table={emptyTable} />)
-      expect(screen.getByText('4 seats')).toBeInTheDocument()
     })
   })
 })

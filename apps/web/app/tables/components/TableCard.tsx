@@ -4,27 +4,17 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { JSX } from 'react'
 import { callCreateOrder } from './createOrderApi'
-
-export type TableStatus = 'empty' | 'occupied'
-
-export interface Table {
-  id: number
-  number: number
-  status: TableStatus
-  seats: number
-  table_db_id: string
-  open_order_id?: string
-}
+import type { TableRow } from '../tablesData'
 
 interface TableCardProps {
-  table: Table
+  table: TableRow
 }
 
 export default function TableCard({ table }: TableCardProps): JSX.Element {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const isOccupied = table.status === 'occupied'
+  const isOccupied = table.open_order_id !== null
 
   async function handleTap(): Promise<void> {
     setError(null)
@@ -66,7 +56,7 @@ export default function TableCard({ table }: TableCardProps): JSX.Element {
       ].join(' ')}
     >
       <span className="text-3xl font-bold text-white">
-        {table.number}
+        {table.label}
       </span>
       <span
         className={[
@@ -78,7 +68,6 @@ export default function TableCard({ table }: TableCardProps): JSX.Element {
       >
         {loading ? 'Creating…' : isOccupied ? 'Occupied' : 'Empty'}
       </span>
-      <span className="text-sm text-zinc-400">{table.seats} seats</span>
       {error !== null && (
         <span className="text-xs text-red-400 text-center break-words max-w-full">{error}</span>
       )}

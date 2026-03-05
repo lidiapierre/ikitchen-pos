@@ -93,6 +93,11 @@ export async function handler(
     )
   }
 
+  const staffIdHeader = req.headers.get('x-demo-staff-id') ?? ''
+  const userId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(staffIdHeader)
+    ? staffIdHeader
+    : '00000000-0000-0000-0000-000000000001'
+
   const { supabaseUrl, serviceKey } = env
   const dbHeaders = {
     apikey: serviceKey,
@@ -102,9 +107,9 @@ export async function handler(
   }
 
   try {
-    // 1. Fetch the order to verify it exists and is open
+    // 1. Fetch the order to verify it exists and is pending_payment
     const orderRes = await fetchFn(
-      `${supabaseUrl}/rest/v1/orders?select=id,status&id=eq.${orderId}`,
+      `${supabaseUrl}/rest/v1/orders?select=id,restaurant_id,status&id=eq.${orderId}`,
       { headers: dbHeaders },
     )
     if (!orderRes.ok) {
@@ -113,19 +118,20 @@ export async function handler(
         { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
       )
     }
-    const orders = (await orderRes.json()) as Array<{ id: string; status: string }>
+    const orders = (await orderRes.json()) as Array<{ id: string; restaurant_id: string; status: string }>
     if (orders.length === 0) {
       return new Response(
         JSON.stringify({ success: false, error: 'Order not found' }),
         { status: 404, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
       )
     }
-    if (orders[0].status !== 'open') {
+    if (orders[0].status !== 'pending_payment') {
       return new Response(
-        JSON.stringify({ success: false, error: 'Order is not open' }),
+        JSON.stringify({ success: false, error: 'Order is not pending payment' }),
         { status: 409, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
       )
     }
+    const restaurantId = orders[0].restaurant_id
 
     // 2. Insert payment record
     const paymentRes = await fetchFn(
@@ -149,21 +155,38 @@ export async function handler(
     const inserted = (await paymentRes.json()) as Array<{ id: string }>
     const paymentId = inserted[0].id
 
-    // 3. Close the order
+    // 3. Mark the order as paid
     const closeRes = await fetchFn(
       `${supabaseUrl}/rest/v1/orders?id=eq.${orderId}`,
       {
         method: 'PATCH',
         headers: { ...dbHeaders, Prefer: 'return=minimal' },
-        body: JSON.stringify({ status: 'closed' }),
+        body: JSON.stringify({ status: 'paid' }),
       },
     )
     if (!closeRes.ok) {
       return new Response(
-        JSON.stringify({ success: false, error: 'Failed to close order' }),
+        JSON.stringify({ success: false, error: 'Failed to update order status' }),
         { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
       )
     }
+
+    // 4. Emit audit log entry
+    await fetchFn(
+      `${supabaseUrl}/rest/v1/audit_log`,
+      {
+        method: 'POST',
+        headers: { ...dbHeaders, Prefer: 'return=minimal' },
+        body: JSON.stringify({
+          restaurant_id: restaurantId,
+          user_id: userId,
+          action: 'record_payment',
+          entity_type: 'payments',
+          entity_id: paymentId,
+          payload: { order_id: orderId, method, amount_cents: amountCents },
+        }),
+      },
+    )
 
     return new Response(
       JSON.stringify({ success: true, data: { payment_id: paymentId, change_due: changeDue } }),

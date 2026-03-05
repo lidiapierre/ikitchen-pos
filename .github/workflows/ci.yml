@@ -62,6 +62,27 @@ jobs:
       - name: Skip (no source yet)
         run: echo "Tests will run once source code exists"
 
+  e2e:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install dependencies
+        working-directory: apps/web
+        run: npm ci
+      - name: Install Playwright browsers
+        working-directory: apps/web
+        run: npx playwright install --with-deps chromium
+      - name: Build app
+        working-directory: apps/web
+        run: npm run build
+      - name: Run E2E tests
+        working-directory: apps/web
+        run: npm run test:e2e
+
   migration-validation:
     name: Migration Validation
     runs-on: ubuntu-latest

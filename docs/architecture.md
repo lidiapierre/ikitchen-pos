@@ -215,3 +215,37 @@ Every destructive or financially significant action must insert a row into `audi
 - Audit log is append-only — never update or delete rows
 - If the audit log insert fails, the entire action must fail — do not return success without an audit trail
 - `actor_id` must come from the verified JWT, never from the request body
+
+## 13. Authentication — Development Stub
+
+Full Supabase Auth (login screen, JWT session) is not yet implemented.
+
+Until auth is implemented, all Action API calls must use the following dev stub pattern:
+
+### Frontend
+Pass a hardcoded demo staff UUID in a custom header:
+```ts
+headers: {
+  'Content-Type': 'application/json',
+  'x-demo-staff-id': '00000000-0000-0000-0000-000000000010',
+}
+```
+
+Do NOT pass the Supabase publishable API key (`NEXT_PUBLIC_SUPABASE_ANON_KEY`) as a Bearer token.
+Do NOT call `supabase.auth.getSession()` — there is no session yet.
+
+### Edge Functions
+Read the actor ID from the custom header:
+```ts
+const actorId = req.headers.get('x-demo-staff-id') ?? 'unknown'
+```
+
+Permission validation is skipped in dev stub mode — all roles are permitted.
+
+### Migration path
+When auth is implemented:
+- Replace `x-demo-staff-id` header with `Authorization: Bearer ${session.access_token}`
+- Edge functions switch to reading actor ID from the verified JWT
+- Permission validation becomes enforced
+
+This is a temporary dev shortcut. No production deployment should use this pattern.

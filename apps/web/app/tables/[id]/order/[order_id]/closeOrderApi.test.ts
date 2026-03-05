@@ -24,7 +24,7 @@ describe('callCloseOrder', () => {
     )
   })
 
-  it('sends the apikey and Authorization headers', async (): Promise<void> => {
+  it('sends the apikey and x-demo-staff-id headers', async (): Promise<void> => {
     const mockFetch = vi.mocked(fetch)
     mockFetch.mockResolvedValue({
       json: (): Promise<{ success: boolean }> => Promise.resolve({ success: true }),
@@ -37,7 +37,7 @@ describe('callCloseOrder', () => {
       expect.objectContaining({
         headers: expect.objectContaining({
           apikey: 'my-api-key',
-          Authorization: 'Bearer my-api-key',
+          'x-demo-staff-id': '00000000-0000-0000-0000-000000000010',
         }),
       }),
     )

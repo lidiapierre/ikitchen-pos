@@ -11,6 +11,8 @@ export interface HandlerEnv {
   serviceKey: string
 }
 
+const SYSTEM_USER_ID = '00000000-0000-0000-0000-000000000001'
+
 function readEnv(): HandlerEnv | null {
   const g = globalThis as { Deno?: { env: { get: (key: string) => string | undefined } } }
   if (!g.Deno) return null
@@ -51,27 +53,16 @@ export async function handler(
   }
 
   const payload = body as Record<string, unknown>
-  if (typeof payload['staff_id'] !== 'string' || payload['staff_id'] === '') {
-    return new Response(
-      JSON.stringify({ success: false, error: 'staff_id is required' }),
-      { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
-    )
-  }
   if (typeof payload['opening_float'] !== 'number') {
     return new Response(
       JSON.stringify({ success: false, error: 'opening_float is required' }),
       { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
     )
   }
-
-  const staffId = payload['staff_id'] as string
-  if (!isValidUuid(staffId)) {
-    return new Response(
-      JSON.stringify({ success: false, error: 'staff_id must be a valid UUID' }),
-      { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
-    )
-  }
   const openingFloat = payload['opening_float'] as number
+
+  const staffIdHeader = req.headers.get('x-demo-staff-id') ?? ''
+  const staffId = isValidUuid(staffIdHeader) ? staffIdHeader : SYSTEM_USER_ID
 
   if (!env) {
     return new Response(

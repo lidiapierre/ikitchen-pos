@@ -25,9 +25,9 @@ describe('callRecordPayment', () => {
     )
   })
 
-  it('resolves without error on success', async (): Promise<void> => {
+  it('resolves with change_due on success', async (): Promise<void> => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      new Response(JSON.stringify({ success: true, data: { payment_id: 'pay-1', change_due: 0 } }), {
+      new Response(JSON.stringify({ success: true, data: { payment_id: 'pay-1', change_due: 250 } }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
       }),
@@ -35,7 +35,7 @@ describe('callRecordPayment', () => {
 
     await expect(
       callRecordPayment('https://example.supabase.co', 'test-key', 'order-123', 5450, 'card'),
-    ).resolves.toBeUndefined()
+    ).resolves.toEqual({ change_due: 250 })
   })
 
   it('throws on non-OK HTTP response', async (): Promise<void> => {

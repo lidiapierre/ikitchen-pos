@@ -17,10 +17,11 @@ export default function OrderDetailClient({ tableId, orderId }: OrderDetailClien
   const router = useRouter()
   const [closing, setClosing] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [step, setStep] = useState<'order' | 'payment'>('order')
+  const [step, setStep] = useState<'order' | 'payment' | 'change'>('order')
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card'>('cash')
   const [paying, setPaying] = useState(false)
   const [paymentError, setPaymentError] = useState<string | null>(null)
+  const [changeDueCents, setChangeDueCents] = useState(0)
 
   const items = MOCK_ORDER_ITEMS
   const totalCents = items.reduce((sum, item) => sum + item.quantity * item.price_cents, 0)
@@ -53,8 +54,13 @@ export default function OrderDetailClient({ tableId, orderId }: OrderDetailClien
       if (!supabaseUrl || !supabaseKey) {
         throw new Error('API not configured')
       }
-      await callRecordPayment(supabaseUrl, supabaseKey, orderId, totalCents, paymentMethod)
-      router.push(`/tables/${tableId}`)
+      const result = await callRecordPayment(supabaseUrl, supabaseKey, orderId, totalCents, paymentMethod)
+      if (paymentMethod === 'cash') {
+        setChangeDueCents(result.change_due)
+        setStep('change')
+      } else {
+        router.push(`/tables/${tableId}`)
+      }
     } catch (err) {
       setPaymentError(err instanceof Error ? err.message : 'Failed to record payment')
     } finally {
@@ -144,7 +150,7 @@ export default function OrderDetailClient({ tableId, orderId }: OrderDetailClien
               <p className="mt-4 text-base text-red-400">{error}</p>
             )}
           </>
-        ) : (
+        ) : step === 'payment' ? (
           <div className="space-y-5">
             <h2 className="text-xl font-semibold text-white">Record Payment</h2>
 
@@ -192,9 +198,31 @@ export default function OrderDetailClient({ tableId, orderId }: OrderDetailClien
               {paying ? 'Recording…' : `Confirm Payment · ${totalFormatted}`}
             </button>
 
+            <button
+              type="button"
+              onClick={() => { router.push(`/tables/${tableId}`) }}
+              className="w-full min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold text-zinc-400 hover:text-white transition-colors"
+            >
+              Cancel
+            </button>
+
             {paymentError !== null && (
               <p className="text-base text-red-400">{paymentError}</p>
             )}
+          </div>
+        ) : (
+          <div className="space-y-5">
+            <h2 className="text-xl font-semibold text-white">Change Due</h2>
+            <p className="text-4xl font-bold text-amber-400">
+              ${(changeDueCents / 100).toFixed(2)}
+            </p>
+            <button
+              type="button"
+              onClick={() => { router.push(`/tables/${tableId}`) }}
+              className="w-full min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold bg-amber-500 hover:bg-amber-400 text-zinc-900 transition-colors"
+            >
+              Done
+            </button>
           </div>
         )}
       </footer>

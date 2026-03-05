@@ -10,7 +10,7 @@ export async function callRecordPayment(
   orderId: string,
   amountCents: number,
   method: 'cash' | 'card',
-): Promise<void> {
+): Promise<{ change_due: number }> {
   const res = await fetch(`${supabaseUrl}/functions/v1/record_payment`, {
     method: 'POST',
     headers: {
@@ -27,4 +27,5 @@ export async function callRecordPayment(
   if (!json.success) {
     throw new Error(json.error ?? 'Failed to record payment')
   }
+  return { change_due: json.data?.change_due ?? 0 }
 }

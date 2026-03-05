@@ -96,9 +96,9 @@ describe('MenuPageClient', () => {
       expect(hrefs.filter((h) => h === expectedHref)).toHaveLength(2)
     })
 
-    it('"Order total" label uses at least base (16px) font size', () => {
+    it('"Added this session" label uses at least base (16px) font size', () => {
       render(<MenuPageClient tableId={TABLE_ID} orderId={ORDER_ID} />)
-      expect(screen.getByText('Order total').className).toContain('text-base')
+      expect(screen.getByText('Added this session').className).toContain('text-base')
     })
 
     it('renders category headings after data loads', async () => {
@@ -118,16 +118,16 @@ describe('MenuPageClient', () => {
   })
 
   describe('error state', () => {
-    it('shows an error message when fetching fails', async () => {
+    it('shows a generic error message when fetching fails', async () => {
       vi.mocked(fetchMenuCategories).mockRejectedValue(new Error('Failed to load menu'))
       render(<MenuPageClient tableId={TABLE_ID} orderId={ORDER_ID} />)
-      expect(await screen.findByText('Failed to load menu')).toBeInTheDocument()
+      expect(await screen.findByText('Unable to load menu. Please try again.')).toBeInTheDocument()
     })
 
-    it('shows "API not configured" when env vars are missing', async () => {
+    it('shows a generic error message when env vars are missing', async () => {
       process.env.NEXT_PUBLIC_SUPABASE_URL = ''
       render(<MenuPageClient tableId={TABLE_ID} orderId={ORDER_ID} />)
-      expect(await screen.findByText('API not configured')).toBeInTheDocument()
+      expect(await screen.findByText('Unable to load menu. Please try again.')).toBeInTheDocument()
     })
   })
 

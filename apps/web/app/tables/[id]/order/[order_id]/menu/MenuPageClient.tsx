@@ -50,7 +50,7 @@ export default function MenuPageClient({ tableId, orderId }: MenuPageClientProps
       return <p className="text-zinc-400 text-base">Loading menu…</p>
     }
     if (fetchError !== null) {
-      return <p className="text-red-400 text-base">{fetchError}</p>
+      return <p className="text-red-400 text-base">Unable to load menu. Please try again.</p>
     }
     if (categories.length === 0) {
       return <p className="text-zinc-500 text-base">No menu items available</p>
@@ -94,7 +94,7 @@ export default function MenuPageClient({ tableId, orderId }: MenuPageClientProps
 
       <footer className="mt-6 pt-4 border-t border-zinc-700 flex items-center justify-between gap-4">
         <div className="flex flex-col">
-          <span className="text-base text-zinc-400">Order total</span>
+          <span className="text-base text-zinc-400">Added this session</span>
           <span className="text-2xl font-bold text-white">{totalFormatted}</span>
         </div>
         <Link

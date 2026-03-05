@@ -150,6 +150,39 @@ describe('fetchMenuCategories', () => {
     expect(result).toHaveLength(0)
   })
 
+  it('throws when orders response is not an array', async (): Promise<void> => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ error: 'unexpected' }),
+      }),
+    )
+
+    await expect(fetchMenuCategories(BASE_URL, API_KEY, ORDER_ID)).rejects.toThrow(
+      'Unexpected response format from orders endpoint',
+    )
+  })
+
+  it('throws when menus response is not an array', async (): Promise<void> => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn()
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve([{ restaurant_id: RESTAURANT_ID }]),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve({ error: 'unexpected' }),
+        }),
+    )
+
+    await expect(fetchMenuCategories(BASE_URL, API_KEY, ORDER_ID)).rejects.toThrow(
+      'Unexpected response format from menus endpoint',
+    )
+  })
+
   it('propagates network errors', async (): Promise<void> => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('Network error')))
 

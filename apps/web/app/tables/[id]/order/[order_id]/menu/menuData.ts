@@ -47,6 +47,9 @@ export async function fetchMenuCategories(
   }
 
   const orders = (await orderRes.json()) as OrderRow[]
+  if (!Array.isArray(orders)) {
+    throw new Error('Unexpected response format from orders endpoint')
+  }
   if (orders.length === 0) {
     throw new Error('Unable to load menu')
   }
@@ -70,6 +73,9 @@ export async function fetchMenuCategories(
   }
 
   const menus = (await menusRes.json()) as MenuRow[]
+  if (!Array.isArray(menus)) {
+    throw new Error('Unexpected response format from menus endpoint')
+  }
   return menus.map((menu) => ({
     name: menu.name,
     items: menu.menu_items.map((item) => ({

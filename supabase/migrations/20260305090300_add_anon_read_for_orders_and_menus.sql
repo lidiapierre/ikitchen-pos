@@ -1,3 +1,6 @@
+-- Rollback: DROP POLICY "allow_anon_read" ON orders;
+--           DROP POLICY "allow_anon_read" ON menus;
+--
 -- Allow the anon role to read orders and menus so that the
 -- Add Items screen (which uses the publishable/anon key with no auth session)
 -- can look up the restaurant_id from an order and then fetch its menus.

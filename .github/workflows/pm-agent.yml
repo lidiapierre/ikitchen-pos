@@ -1,8 +1,6 @@
 name: PM Agent
-
 on:
   workflow_dispatch:
-
 jobs:
   pm:
     runs-on: ubuntu-latest
@@ -15,6 +13,16 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Fetch open issues
+        id: open_issues
+        run: |
+          ISSUES=$(gh issue list --state open --json number,title,labels,body --limit 100)
+          echo "OPEN_ISSUES<<EOF" >> $GITHUB_ENV
+          echo "$ISSUES" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: anthropics/claude-code-action@v1
         with:
@@ -32,32 +40,43 @@ jobs:
             - Use the GitHub API to list recently closed issues: `gh issue list --state closed --limit 20`
             - Use the GitHub API to list open PRs: `gh pr list --state open`
 
-            ## Step 3 — Identify gaps
+            ## Step 3 — Review existing open issues (IMPORTANT — do this before proposing anything)
+            The following open issues already exist in the repo. You must read them carefully before proposing new work.
+
+            <open_issues>
+            ${{ env.OPEN_ISSUES }}
+            </open_issues>
+
+            Rules:
+            - Do NOT create an issue that duplicates or significantly overlaps with any open issue above.
+            - If a user journey is already covered by an open issue, skip it and find the next most valuable gap.
+            - If you decide to skip a topic because an open issue covers it, note this in your Step 5 summary.
+
+            ## Step 4 — Identify gaps
             Based on the MVP user journeys in `docs/architecture.md` section 14, identify what is missing or incomplete. Think in terms of user journeys, not technical tasks.
 
-            ## Step 4 — Open 3 GitHub issues
+            ## Step 5 — Open 3 GitHub issues
             Open exactly 3 issues using `gh issue create`. Each issue must:
             - Be scoped to one area only (UI, API, or DB — not all three)
             - Follow this exact template:
-
             ```
             ## What should this feature do?
             <clear description of the user-facing behaviour>
-
             ## Acceptance criteria
             - [ ] <specific, testable criterion>
             - [ ] <specific, testable criterion>
-
             ## Affected areas (UI / API / DB)
             - **UI**: <files or none>
             - **API**: <files or none>
             - **DB**: <files or none>
             ```
-
             - Be labelled `pm-suggested`
             - Have a title that starts with the area in brackets e.g. `[UI]`, `[API]`, `[DB]`
 
-            ## Step 5 — Post a summary
-            After opening the 3 issues, create a final summary issue titled `PM Agent — Sprint suggestions <date>` that lists the 3 issues with links and a one-sentence rationale for each, explaining which MVP user journey it unblocks.
-
+            ## Step 6 — Post a summary
+            After opening the 3 issues, create a final summary issue titled `PM Agent — Sprint suggestions <date>` that:
+            - Lists the 3 new issues with links and a one-sentence rationale for each, explaining which MVP user journey it unblocks
+            - Lists any topics skipped due to existing open issues, with a reference to the relevant issue number
           claude_args: "--max-turns 30 --dangerously-skip-permissions"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

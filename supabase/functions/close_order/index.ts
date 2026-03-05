@@ -4,9 +4,35 @@ export const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
-export async function handler(req: Request): Promise<Response> {
+export type FetchFn = (input: string, init?: RequestInit) => Promise<Response>
+
+export interface HandlerEnv {
+  supabaseUrl: string
+  serviceKey: string
+}
+
+const SYSTEM_USER_ID = '00000000-0000-0000-0000-000000000001'
+
+function readEnv(): HandlerEnv | null {
+  const g = globalThis as { Deno?: { env: { get: (key: string) => string | undefined } } }
+  if (!g.Deno) return null
+  const supabaseUrl = g.Deno.env.get('SUPABASE_URL') ?? ''
+  const serviceKey = g.Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+  if (!supabaseUrl || !serviceKey) return null
+  return { supabaseUrl, serviceKey }
+}
+
+function isValidUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)
+}
+
+export async function handler(
+  req: Request,
+  fetchFn: FetchFn = fetch,
+  env: HandlerEnv | null = readEnv(),
+): Promise<Response> {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { status: 200, headers: corsHeaders })
+    return new Response(null, { status: 204, headers: corsHeaders })
   }
 
   let body: unknown
@@ -34,12 +60,125 @@ export async function handler(req: Request): Promise<Response> {
     )
   }
 
-  return new Response(
-    JSON.stringify({ success: true, data: { success: true, final_total: 0 } }),
-    { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
-  )
+  const orderId = payload['order_id'] as string
+  if (!isValidUuid(orderId)) {
+    return new Response(
+      JSON.stringify({ success: false, error: 'order_id must be a valid UUID' }),
+      { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    )
+  }
+
+  const staffIdHeader = req.headers.get('x-demo-staff-id') ?? ''
+  const userId = isValidUuid(staffIdHeader) ? staffIdHeader : SYSTEM_USER_ID
+
+  if (!env) {
+    return new Response(
+      JSON.stringify({ success: false, error: 'Server configuration error' }),
+      { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    )
+  }
+
+  const { supabaseUrl, serviceKey } = env
+  const dbHeaders = {
+    apikey: serviceKey,
+    Authorization: `Bearer ${serviceKey}`,
+    'Content-Type': 'application/json',
+    Prefer: 'return=representation',
+  }
+
+  try {
+    // 1. Fetch the order to verify it exists and is open
+    const orderRes = await fetchFn(
+      `${supabaseUrl}/rest/v1/orders?select=id,restaurant_id,status&id=eq.${orderId}`,
+      { headers: dbHeaders },
+    )
+    if (!orderRes.ok) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Failed to fetch order' }),
+        { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+      )
+    }
+    const orders = (await orderRes.json()) as Array<{ id: string; restaurant_id: string; status: string }>
+    if (orders.length === 0) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Order not found' }),
+        { status: 404, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+      )
+    }
+    if (orders[0].status !== 'open') {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Order is not open' }),
+        { status: 409, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+      )
+    }
+    const restaurantId = orders[0].restaurant_id
+
+    // 2. Calculate final total from non-voided order items
+    const itemsRes = await fetchFn(
+      `${supabaseUrl}/rest/v1/order_items?select=unit_price_cents,quantity&order_id=eq.${orderId}&voided=eq.false`,
+      { headers: { ...dbHeaders, Prefer: 'count=none' } },
+    )
+    if (!itemsRes.ok) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Failed to fetch order items' }),
+        { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+      )
+    }
+    const items = (await itemsRes.json()) as Array<{ unit_price_cents: number; quantity: number }>
+    const finalTotal = items.reduce((sum, item) => sum + item.unit_price_cents * item.quantity, 0)
+
+    // 3. Update order status to pending_payment and persist final_total_cents
+    const updateRes = await fetchFn(
+      `${supabaseUrl}/rest/v1/orders?id=eq.${orderId}`,
+      {
+        method: 'PATCH',
+        headers: { ...dbHeaders, Prefer: 'return=minimal' },
+        body: JSON.stringify({ status: 'pending_payment', final_total_cents: finalTotal }),
+      },
+    )
+    if (!updateRes.ok) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Failed to close order' }),
+        { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+      )
+    }
+
+    // 4. Emit audit log entry
+    const auditRes = await fetchFn(
+      `${supabaseUrl}/rest/v1/audit_log`,
+      {
+        method: 'POST',
+        headers: { ...dbHeaders, Prefer: 'return=minimal' },
+        body: JSON.stringify({
+          restaurant_id: restaurantId,
+          user_id: userId,
+          action: 'close_order',
+          entity_type: 'orders',
+          entity_id: orderId,
+          payload: { final_total_cents: finalTotal },
+        }),
+      },
+    )
+    if (!auditRes.ok) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Failed to write audit log' }),
+        { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+      )
+    }
+
+    return new Response(
+      JSON.stringify({ success: true, data: { final_total_cents: finalTotal } }),
+      { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    )
+  } catch {
+    return new Response(
+      JSON.stringify({ success: false, error: 'Internal server error' }),
+      { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    )
+  }
 }
 
 if (typeof (globalThis as { Deno?: unknown }).Deno !== 'undefined') {
-  Deno.serve(handler)
+  const g = globalThis as { Deno: { serve: (h: (req: Request) => Promise<Response>) => void } }
+  g.Deno.serve((req: Request) => handler(req))
 }

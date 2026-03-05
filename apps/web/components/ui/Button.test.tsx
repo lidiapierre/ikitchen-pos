@@ -1,5 +1,6 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import Button from './Button'
 
 describe('Button', () => {
@@ -38,5 +39,31 @@ describe('Button', () => {
     const button = screen.getByRole('button')
     expect(button).toBeDisabled()
     expect(button).toHaveTextContent('Loading…')
+  })
+
+  it('merges additional className onto the button', () => {
+    render(<Button className="extra-class">Click me</Button>)
+    expect(screen.getByRole('button').className).toMatch(/extra-class/)
+  })
+
+  it('fires onClick handler when clicked', async () => {
+    const handleClick = vi.fn()
+    render(<Button onClick={handleClick}>Click me</Button>)
+    await userEvent.click(screen.getByRole('button'))
+    expect(handleClick).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not fire onClick when disabled', async () => {
+    const handleClick = vi.fn()
+    render(<Button onClick={handleClick} disabled>Click me</Button>)
+    await userEvent.click(screen.getByRole('button'))
+    expect(handleClick).not.toHaveBeenCalled()
+  })
+
+  it('does not fire onClick when loading', async () => {
+    const handleClick = vi.fn()
+    render(<Button onClick={handleClick} loading>Click me</Button>)
+    await userEvent.click(screen.getByRole('button'))
+    expect(handleClick).not.toHaveBeenCalled()
   })
 })

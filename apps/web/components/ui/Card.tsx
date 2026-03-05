@@ -1,11 +1,11 @@
-import React from 'react'
+import type { JSX, ReactNode } from 'react'
 
 interface CardProps {
-  children: React.ReactNode
+  children: ReactNode
   className?: string
 }
 
-export default function Card({ children, className = '' }: CardProps): React.JSX.Element {
+export default function Card({ children, className = '' }: CardProps): JSX.Element {
   return (
     <div
       className={['rounded-xl border border-gray-200 bg-white p-4 shadow-sm', className]

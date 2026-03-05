@@ -1,10 +1,11 @@
-import React from 'react'
+import type { ButtonHTMLAttributes, JSX, ReactNode } from 'react'
 
 type ButtonVariant = 'primary' | 'secondary' | 'danger'
 
-interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant
   loading?: boolean
+  children?: ReactNode
 }
 
 const variantClasses: Record<ButtonVariant, string> = {
@@ -20,7 +21,7 @@ export default function Button({
   children,
   className = '',
   ...props
-}: ButtonProps): React.JSX.Element {
+}: ButtonProps): JSX.Element {
   return (
     <button
       {...props}

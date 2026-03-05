@@ -1,4 +1,4 @@
-import React from 'react'
+import type { JSX } from 'react'
 
 export type BadgeStatus = 'empty' | 'occupied' | 'pending_payment'
 
@@ -21,12 +21,12 @@ const statusConfig: Record<BadgeStatus, { label: string; className: string }> = 
   },
 }
 
-export default function StatusBadge({ status }: StatusBadgeProps): React.JSX.Element {
+export default function StatusBadge({ status }: StatusBadgeProps): JSX.Element {
   const { label, className } = statusConfig[status]
   return (
     <span
       className={[
-        'inline-flex items-center rounded-full px-2.5 py-0.5 text-sm font-medium',
+        'inline-flex items-center rounded-full px-2.5 py-0.5 text-base font-medium',
         className,
       ].join(' ')}
     >

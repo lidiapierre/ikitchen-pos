@@ -1,3 +1,5 @@
+import { createClient } from '@supabase/supabase-js'
+
 export interface TableRow {
   id: string
   label: string
@@ -18,23 +20,18 @@ export async function fetchTables(
   supabaseUrl: string,
   apiKey: string,
 ): Promise<TableRow[]> {
-  const url = new URL(`${supabaseUrl}/rest/v1/tables`)
-  url.searchParams.set('select', 'id,label,orders!left(id)')
-  url.searchParams.set('orders.status', 'eq.open')
+  const client = createClient(supabaseUrl, apiKey)
 
-  const res = await fetch(url.toString(), {
-    headers: {
-      apikey: apiKey,
-      Authorization: `Bearer ${apiKey}`,
-    },
-  })
+  const { data, error } = await client
+    .from('tables')
+    .select('id,label,orders!left(id)')
+    .eq('orders.status', 'open')
 
-  if (!res.ok) {
-    const body = await res.text()
-    throw new Error(`Failed to fetch tables: ${res.status} ${res.statusText} — ${body}`)
+  if (error) {
+    throw new Error(`Failed to fetch tables: ${error.message}`)
   }
 
-  const rows = (await res.json()) as TableApiRow[]
+  const rows = (data ?? []) as TableApiRow[]
   return rows.map((row) => ({
     id: row.id,
     label: row.label,

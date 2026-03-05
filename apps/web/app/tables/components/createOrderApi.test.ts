@@ -14,6 +14,7 @@ describe('callCreateOrder', () => {
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue({
+        ok: true,
         json: () =>
           Promise.resolve({
             success: true,
@@ -28,6 +29,7 @@ describe('callCreateOrder', () => {
 
   it('sends a POST request to the correct endpoint', async (): Promise<void> => {
     const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
       json: () =>
         Promise.resolve({
           success: true,
@@ -53,6 +55,7 @@ describe('callCreateOrder', () => {
 
   it('sends table_id in the request body', async (): Promise<void> => {
     const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
       json: () =>
         Promise.resolve({
           success: true,
@@ -70,6 +73,7 @@ describe('callCreateOrder', () => {
 
   it('sends staff_id placeholder in the request body', async (): Promise<void> => {
     const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
       json: () =>
         Promise.resolve({
           success: true,
@@ -85,10 +89,27 @@ describe('callCreateOrder', () => {
     expect(body.staff_id).toBe('placeholder-staff')
   })
 
+  it('throws with HTTP status when response is not ok', async (): Promise<void> => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 502,
+        statusText: 'Bad Gateway',
+        text: () => Promise.resolve('upstream connect error'),
+      }),
+    )
+
+    await expect(callCreateOrder(BASE_URL, API_KEY, TABLE_ID)).rejects.toThrow(
+      'create_order failed: 502 Bad Gateway — upstream connect error',
+    )
+  })
+
   it('throws when success is false and an error message is present', async (): Promise<void> => {
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue({
+        ok: true,
         json: () =>
           Promise.resolve({
             success: false,
@@ -104,6 +125,7 @@ describe('callCreateOrder', () => {
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue({
+        ok: true,
         json: () => Promise.resolve({ success: false }),
       }),
     )
@@ -115,6 +137,7 @@ describe('callCreateOrder', () => {
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue({
+        ok: true,
         json: () => Promise.resolve({ success: true }),
       }),
     )

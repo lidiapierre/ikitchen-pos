@@ -4,15 +4,10 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { JSX } from 'react'
 import { callCreateOrder } from './createOrderApi'
-
-export interface Table {
-  id: string
-  label: string
-  open_order_id: string | null
-}
+import type { TableRow } from '../tablesData'
 
 interface TableCardProps {
-  table: Table
+  table: TableRow
 }
 
 export default function TableCard({ table }: TableCardProps): JSX.Element {

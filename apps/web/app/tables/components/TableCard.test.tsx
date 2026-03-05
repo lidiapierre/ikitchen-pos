@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import TableCard, { type Table } from './TableCard'
+import TableCard from './TableCard'
+import type { TableRow } from '../tablesData'
 
 const mockPush = vi.fn()
 
@@ -9,8 +10,8 @@ vi.mock('next/navigation', () => ({
   useRouter: (): { push: (url: string) => void } => ({ push: mockPush }),
 }))
 
-const emptyTable: Table = { id: 'table-uuid-001', label: '1', open_order_id: null }
-const occupiedTable: Table = {
+const emptyTable: TableRow = { id: 'table-uuid-001', label: '1', open_order_id: null }
+const occupiedTable: TableRow = {
   id: 'table-uuid-002',
   label: '2',
   open_order_id: 'order-abc-123',
@@ -50,6 +51,7 @@ describe('TableCard', () => {
   describe('when table is empty', () => {
     it('calls create_order API with the correct table_id and navigates on success', async () => {
       global.fetch = vi.fn().mockResolvedValueOnce({
+        ok: true,
         json: (): Promise<{ success: boolean; data: { order_id: string; status: string } }> =>
           Promise.resolve({ success: true, data: { order_id: 'new-order-xyz', status: 'open' } }),
       })
@@ -72,6 +74,7 @@ describe('TableCard', () => {
 
     it('shows the API error message when create_order returns success: false', async () => {
       global.fetch = vi.fn().mockResolvedValueOnce({
+        ok: true,
         json: (): Promise<{ success: boolean; error: string }> =>
           Promise.resolve({ success: false, error: 'Table already has an open order' }),
       })
@@ -124,6 +127,7 @@ describe('TableCard', () => {
     it('shows "Creating…" label while the API call is in flight', async () => {
       let resolveJson!: (value: unknown) => void
       global.fetch = vi.fn().mockResolvedValueOnce({
+        ok: true,
         json: (): Promise<unknown> =>
           new Promise((resolve) => {
             resolveJson = resolve
@@ -144,6 +148,7 @@ describe('TableCard', () => {
     it('disables the button while the API call is in flight', async () => {
       let resolveJson!: (value: unknown) => void
       global.fetch = vi.fn().mockResolvedValueOnce({
+        ok: true,
         json: (): Promise<unknown> =>
           new Promise((resolve) => {
             resolveJson = resolve

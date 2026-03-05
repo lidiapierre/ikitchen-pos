@@ -20,8 +20,13 @@ export async function callCreateOrder(
       Authorization: `Bearer ${apiKey}`,
       apikey: apiKey,
     },
+    // TODO(auth): replace placeholder-staff with authenticated staff_id once Supabase Auth is wired up
     body: JSON.stringify({ table_id: tableId, staff_id: 'placeholder-staff' }),
   })
+  if (!res.ok) {
+    const body = await res.text()
+    throw new Error(`create_order failed: ${res.status} ${res.statusText} — ${body}`)
+  }
   const json = (await res.json()) as CreateOrderResponse
   if (!json.success || !json.data) {
     throw new Error(json.error ?? 'Failed to create order')

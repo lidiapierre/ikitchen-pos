@@ -9,29 +9,73 @@ export interface MenuCategory {
   items: MenuItem[]
 }
 
-export const MENU_CATEGORIES: MenuCategory[] = [
-  {
-    name: 'Starters',
-    items: [
-      { id: '00000000-0000-0000-0000-000000000301', name: 'Bruschetta', price_cents: 850 },
-      { id: '00000000-0000-0000-0000-000000000302', name: 'Caesar Salad', price_cents: 1050 },
-      { id: '00000000-0000-0000-0000-000000000303', name: 'Soup of the Day', price_cents: 750 },
-    ],
-  },
-  {
-    name: 'Mains',
-    items: [
-      { id: '00000000-0000-0000-0000-000000000304', name: 'Grilled Salmon', price_cents: 1850 },
-      { id: '00000000-0000-0000-0000-000000000305', name: 'Ribeye Steak', price_cents: 2650 },
-      { id: '00000000-0000-0000-0000-000000000306', name: 'Mushroom Risotto', price_cents: 1450 },
-    ],
-  },
-  {
-    name: 'Drinks',
-    items: [
-      { id: '00000000-0000-0000-0000-000000000307', name: 'House Wine', price_cents: 950 },
-      { id: '00000000-0000-0000-0000-000000000308', name: 'Craft Beer', price_cents: 750 },
-      { id: '00000000-0000-0000-0000-000000000309', name: 'Fresh Lemonade', price_cents: 450 },
-    ],
-  },
-]
+interface MenuItemRow {
+  id: string
+  name: string
+  price_cents: number
+}
+
+interface MenuRow {
+  id: string
+  name: string
+  menu_items: MenuItemRow[]
+}
+
+interface OrderRow {
+  restaurant_id: string
+}
+
+export async function fetchMenuCategories(
+  supabaseUrl: string,
+  apiKey: string,
+  orderId: string,
+): Promise<MenuCategory[]> {
+  const orderUrl = new URL(`${supabaseUrl}/rest/v1/orders`)
+  orderUrl.searchParams.set('id', `eq.${orderId}`)
+  orderUrl.searchParams.set('select', 'restaurant_id')
+
+  const orderRes = await fetch(orderUrl.toString(), {
+    headers: {
+      apikey: apiKey,
+      Authorization: `Bearer ${apiKey}`,
+    },
+  })
+
+  if (!orderRes.ok) {
+    const body = await orderRes.text()
+    throw new Error(`Failed to fetch order: ${orderRes.status} ${orderRes.statusText} — ${body}`)
+  }
+
+  const orders = (await orderRes.json()) as OrderRow[]
+  if (orders.length === 0) {
+    throw new Error('Order not found')
+  }
+
+  const { restaurant_id } = orders[0]
+
+  const menusUrl = new URL(`${supabaseUrl}/rest/v1/menus`)
+  menusUrl.searchParams.set('restaurant_id', `eq.${restaurant_id}`)
+  menusUrl.searchParams.set('select', 'id,name,menu_items(id,name,price_cents)')
+
+  const menusRes = await fetch(menusUrl.toString(), {
+    headers: {
+      apikey: apiKey,
+      Authorization: `Bearer ${apiKey}`,
+    },
+  })
+
+  if (!menusRes.ok) {
+    const body = await menusRes.text()
+    throw new Error(`Failed to fetch menus: ${menusRes.status} ${menusRes.statusText} — ${body}`)
+  }
+
+  const menus = (await menusRes.json()) as MenuRow[]
+  return menus.map((menu) => ({
+    name: menu.name,
+    items: menu.menu_items.map((item) => ({
+      id: item.id,
+      name: item.name,
+      price_cents: item.price_cents,
+    })),
+  }))
+}

@@ -250,6 +250,13 @@ When auth is implemented:
 
 This is a temporary dev shortcut. No production deployment should use this pattern.
 
+### CORS
+All edge functions must include `x-demo-staff-id` in `Access-Control-Allow-Headers`:
+```ts
+'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-demo-staff-id'
+```
+This applies to all OPTIONS preflight responses.
+
 ## 14. Product Brief
 
 ### Who uses this

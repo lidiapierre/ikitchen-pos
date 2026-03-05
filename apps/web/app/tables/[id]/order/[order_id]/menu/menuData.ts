@@ -48,7 +48,7 @@ export async function fetchMenuCategories(
 
   const orders = (await orderRes.json()) as OrderRow[]
   if (orders.length === 0) {
-    throw new Error('Order not found')
+    throw new Error('Unable to load menu')
   }
 
   const { restaurant_id } = orders[0]

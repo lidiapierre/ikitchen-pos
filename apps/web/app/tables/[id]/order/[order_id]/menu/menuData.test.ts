@@ -107,7 +107,7 @@ describe('fetchMenuCategories', () => {
     )
 
     await expect(fetchMenuCategories(BASE_URL, API_KEY, ORDER_ID)).rejects.toThrow(
-      'Order not found',
+      'Unable to load menu',
     )
   })
 

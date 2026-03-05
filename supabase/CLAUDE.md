@@ -14,6 +14,17 @@ supabase/functions/<action-name>/
   validator.ts   # Input validation
 ```
 
+### Registering a new edge function
+
+Every new edge function must be registered in `supabase/config.toml` or it will never be deployed. Add an entry like this:
+
+```toml
+[functions.<action-name>]
+verify_jwt = false
+```
+
+This must be done in the same PR that creates the function. A function that exists in `supabase/functions/` but is not in `config.toml` will return 404 in all environments.
+
 ### Every action must
 
 1. Validate the caller's role (see `docs/architecture.md` section 11)

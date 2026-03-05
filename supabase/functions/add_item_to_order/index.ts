@@ -4,7 +4,27 @@ export const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
-export async function handler(req: Request): Promise<Response> {
+export type FetchFn = (input: string, init?: RequestInit) => Promise<Response>
+
+export interface HandlerEnv {
+  supabaseUrl: string
+  serviceKey: string
+}
+
+function readEnv(): HandlerEnv | null {
+  const g = globalThis as { Deno?: { env: { get: (key: string) => string | undefined } } }
+  if (!g.Deno) return null
+  const supabaseUrl = g.Deno.env.get('SUPABASE_URL') ?? ''
+  const serviceKey = g.Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+  if (!supabaseUrl || !serviceKey) return null
+  return { supabaseUrl, serviceKey }
+}
+
+export async function handler(
+  req: Request,
+  fetchFn: FetchFn = fetch,
+  env: HandlerEnv | null = readEnv(),
+): Promise<Response> {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { status: 200, headers: corsHeaders })
   }
@@ -40,12 +60,154 @@ export async function handler(req: Request): Promise<Response> {
     )
   }
 
-  return new Response(
-    JSON.stringify({ success: true, data: { order_item_id: crypto.randomUUID(), order_total: 0 } }),
-    { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
-  )
+  const orderId = payload['order_id'] as string
+  const menuItemId = payload['menu_item_id'] as string
+
+  if (!env) {
+    return new Response(
+      JSON.stringify({ success: false, error: 'Server configuration error' }),
+      { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    )
+  }
+
+  const { supabaseUrl, serviceKey } = env
+  const dbHeaders = {
+    apikey: serviceKey,
+    Authorization: `Bearer ${serviceKey}`,
+    'Content-Type': 'application/json',
+    Prefer: 'return=representation',
+  }
+
+  try {
+    // 1. Fetch menu item to get price
+    const menuItemRes = await fetchFn(
+      `${supabaseUrl}/rest/v1/menu_items?select=price_cents&id=eq.${menuItemId}`,
+      { headers: dbHeaders },
+    )
+    if (!menuItemRes.ok) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Failed to fetch menu item' }),
+        { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+      )
+    }
+    const menuItems = (await menuItemRes.json()) as Array<{ price_cents: number }>
+    if (menuItems.length === 0) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Menu item not found' }),
+        { status: 404, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+      )
+    }
+    const priceCents = menuItems[0].price_cents
+
+    // 2. Verify order exists and is open
+    const orderRes = await fetchFn(
+      `${supabaseUrl}/rest/v1/orders?select=status&id=eq.${orderId}`,
+      { headers: dbHeaders },
+    )
+    if (!orderRes.ok) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Failed to fetch order' }),
+        { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+      )
+    }
+    const orders = (await orderRes.json()) as Array<{ status: string }>
+    if (orders.length === 0) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Order not found' }),
+        { status: 404, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+      )
+    }
+    if (orders[0].status !== 'open') {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Order is not open' }),
+        { status: 409, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+      )
+    }
+
+    // 3. Check for an existing non-voided order item for this menu item
+    const existingRes = await fetchFn(
+      `${supabaseUrl}/rest/v1/order_items?select=id,quantity&order_id=eq.${orderId}&menu_item_id=eq.${menuItemId}&voided=eq.false`,
+      { headers: dbHeaders },
+    )
+    if (!existingRes.ok) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Failed to fetch order items' }),
+        { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+      )
+    }
+    const existingItems = (await existingRes.json()) as Array<{ id: string; quantity: number }>
+
+    let orderItemId: string
+    if (existingItems.length > 0) {
+      // Increment quantity on the existing item
+      const existing = existingItems[0]
+      const patchRes = await fetchFn(
+        `${supabaseUrl}/rest/v1/order_items?id=eq.${existing.id}`,
+        {
+          method: 'PATCH',
+          headers: { ...dbHeaders, Prefer: 'return=minimal' },
+          body: JSON.stringify({ quantity: existing.quantity + 1 }),
+        },
+      )
+      if (!patchRes.ok) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Failed to update order item' }),
+          { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+        )
+      }
+      orderItemId = existing.id
+    } else {
+      // Insert a new order item
+      const insertRes = await fetchFn(
+        `${supabaseUrl}/rest/v1/order_items`,
+        {
+          method: 'POST',
+          headers: dbHeaders,
+          body: JSON.stringify({
+            order_id: orderId,
+            menu_item_id: menuItemId,
+            unit_price_cents: priceCents,
+            quantity: 1,
+          }),
+        },
+      )
+      if (!insertRes.ok) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Failed to insert order item' }),
+          { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+        )
+      }
+      const inserted = (await insertRes.json()) as Array<{ id: string }>
+      orderItemId = inserted[0].id
+    }
+
+    // 4. Calculate the updated order total
+    const totalRes = await fetchFn(
+      `${supabaseUrl}/rest/v1/order_items?select=unit_price_cents,quantity&order_id=eq.${orderId}&voided=eq.false`,
+      { headers: { ...dbHeaders, Prefer: 'count=none' } },
+    )
+    if (!totalRes.ok) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Failed to calculate order total' }),
+        { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+      )
+    }
+    const allItems = (await totalRes.json()) as Array<{ unit_price_cents: number; quantity: number }>
+    const orderTotal = allItems.reduce((sum, item) => sum + item.unit_price_cents * item.quantity, 0)
+
+    return new Response(
+      JSON.stringify({ success: true, data: { order_item_id: orderItemId, order_total: orderTotal } }),
+      { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    )
+  } catch {
+    return new Response(
+      JSON.stringify({ success: false, error: 'Internal server error' }),
+      { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    )
+  }
 }
 
 if (typeof (globalThis as { Deno?: unknown }).Deno !== 'undefined') {
-  Deno.serve(handler)
+  const g = globalThis as { Deno: { serve: (h: (req: Request) => Promise<Response>) => void } }
+  g.Deno.serve((req: Request) => handler(req))
 }

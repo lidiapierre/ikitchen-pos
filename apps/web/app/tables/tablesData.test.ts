@@ -41,7 +41,7 @@ describe('fetchTables', () => {
 
     const [url] = mockFetch.mock.calls[0] as [string]
     expect(url).toContain(`${BASE_URL}/rest/v1/tables`)
-    expect(url).toContain('select=id%2Clabel%2Corders%28id%29')
+    expect(url).toContain('select=id%2Clabel%2Corders%21left%28id%29')
     expect(url).toContain('orders.status=eq.open')
   })
 

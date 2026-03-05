@@ -19,7 +19,7 @@ export async function fetchTables(
   apiKey: string,
 ): Promise<TableRow[]> {
   const url = new URL(`${supabaseUrl}/rest/v1/tables`)
-  url.searchParams.set('select', 'id,label,orders(id)')
+  url.searchParams.set('select', 'id,label,orders!left(id)')
   url.searchParams.set('orders.status', 'eq.open')
 
   const res = await fetch(url.toString(), {

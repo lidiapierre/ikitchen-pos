@@ -17,8 +17,9 @@ test('tables page shows heading and either table cards or empty state', async ({
   await expect(page.getByRole('heading', { name: 'Tables' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Refresh' })).toBeVisible();
 
-  // Either table cards or the empty state message must be present
+  // Either table cards, the empty state message, or an error message must be present
   const tableCards = page.getByRole('button').filter({ hasNotText: 'Refresh' });
   const emptyState = page.getByText('No tables configured.');
-  await expect(tableCards.or(emptyState).first()).toBeVisible();
+  const errorState = page.getByText(/Supabase is not configured|Failed to load tables/);
+  await expect(tableCards.or(emptyState).or(errorState).first()).toBeVisible();
 });

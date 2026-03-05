@@ -35,22 +35,6 @@ export default function TablesPage(): JSX.Element {
     loadTables()
   }, [loadTables])
 
-  if (loading) {
-    return (
-      <main className="min-h-screen bg-zinc-900 p-6 flex items-center justify-center">
-        <p className="text-zinc-400 text-lg">Loading tables…</p>
-      </main>
-    )
-  }
-
-  if (error !== null) {
-    return (
-      <main className="min-h-screen bg-zinc-900 p-6 flex items-center justify-center">
-        <p className="text-red-400 text-lg">{error}</p>
-      </main>
-    )
-  }
-
   return (
     <main className="min-h-screen bg-zinc-900 p-6">
       <div className="flex items-center justify-between mb-8">
@@ -63,13 +47,19 @@ export default function TablesPage(): JSX.Element {
           Refresh
         </button>
       </div>
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-        {tables.length === 0 ? (
-          <p className="text-zinc-400 text-lg col-span-full">No tables configured.</p>
-        ) : tables.map((table) => (
-          <TableCard key={table.id} table={table} />
-        ))}
-      </div>
+      {loading ? (
+        <p className="text-zinc-400 text-lg">Loading tables…</p>
+      ) : error !== null ? (
+        <p className="text-red-400 text-lg">{error}</p>
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+          {tables.length === 0 ? (
+            <p className="text-zinc-400 text-lg col-span-full">No tables configured.</p>
+          ) : tables.map((table) => (
+            <TableCard key={table.id} table={table} />
+          ))}
+        </div>
+      )}
     </main>
   )
 }

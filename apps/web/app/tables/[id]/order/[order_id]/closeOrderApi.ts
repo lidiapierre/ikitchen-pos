@@ -13,6 +13,7 @@ export async function callCloseOrder(
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
       apikey: apiKey,
       'x-demo-staff-id': '00000000-0000-0000-0000-000000000010',
     },

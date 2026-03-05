@@ -38,6 +38,7 @@ describe('callCloseOrder', () => {
       expect.any(String),
       expect.objectContaining({
         headers: expect.objectContaining({
+          Authorization: 'Bearer my-api-key',
           apikey: 'my-api-key',
           'x-demo-staff-id': '00000000-0000-0000-0000-000000000010',
         }),

@@ -28,6 +28,8 @@ jobs:
           prompt: |
             Review this pull request against the standards defined in CLAUDE.md and docs/architecture.md.
 
+            IMPORTANT: Only flag issues introduced by this PR. Do not flag pre-existing gaps that are not touched by this PR's changes. If a gap is pre-existing and already tracked, note it briefly as "pre-existing, tracked separately" and move on.
+
             Check for:
             1. TypeScript strict mode — no `any` types, all functions have explicit return types
             2. All state changes go through the Action API — no direct DB writes from frontend

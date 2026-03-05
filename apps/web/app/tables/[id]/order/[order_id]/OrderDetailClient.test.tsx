@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import type { ReactNode, JSX } from 'react'
 import OrderDetailClient from './OrderDetailClient'
@@ -29,6 +29,12 @@ vi.mock('./orderData', () => ({
 describe('OrderDetailClient', () => {
   beforeEach((): void => {
     vi.clearAllMocks()
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://example.supabase.co')
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY', 'test-publishable-key')
+  })
+
+  afterEach((): void => {
+    vi.unstubAllEnvs()
   })
 
   it('renders all mock item names', (): void => {
@@ -151,6 +157,18 @@ describe('OrderDetailClient', () => {
 
     await waitFor((): void => {
       expect(screen.getByRole('button', { name: 'Close Order' })).not.toBeDisabled()
+    })
+  })
+
+  it('shows "API not configured" error when Supabase env vars are absent', async (): Promise<void> => {
+    vi.unstubAllEnvs()
+
+    render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close Order' }))
+
+    await waitFor((): void => {
+      expect(screen.getByText('API not configured')).toBeInTheDocument()
     })
   })
 })

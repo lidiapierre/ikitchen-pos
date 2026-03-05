@@ -8,6 +8,8 @@ import { fetchOrderItems } from './orderData'
 import type { OrderItem } from './orderData'
 import { callCloseOrder } from './closeOrderApi'
 import { callRecordPayment } from './recordPaymentApi'
+import { callVoidItem } from './voidItemApi'
+import { callCancelOrder } from './cancelOrderApi'
 
 interface OrderDetailClientProps {
   tableId: string
@@ -28,7 +30,19 @@ export default function OrderDetailClient({ tableId, orderId }: OrderDetailClien
   const [changeDueCents, setChangeDueCents] = useState(0)
   const [amountTenderedDollars, setAmountTenderedDollars] = useState<string>('')
 
-  useEffect(() => {
+  // Void item state
+  const [voidingItem, setVoidingItem] = useState<OrderItem | null>(null)
+  const [voidReason, setVoidReason] = useState('')
+  const [voidingInProgress, setVoidingInProgress] = useState(false)
+  const [voidError, setVoidError] = useState<string | null>(null)
+
+  // Cancel order state
+  const [showCancelDialog, setShowCancelDialog] = useState(false)
+  const [cancelReason, setCancelReason] = useState('')
+  const [cancelling, setCancelling] = useState(false)
+  const [cancelError, setCancelError] = useState<string | null>(null)
+
+  function loadItems(): void {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
     const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
     if (!supabaseUrl || !supabaseKey) {
@@ -37,6 +51,8 @@ export default function OrderDetailClient({ tableId, orderId }: OrderDetailClien
       return
     }
 
+    setLoading(true)
+    setFetchError(null)
     fetchOrderItems(supabaseUrl, supabaseKey, orderId)
       .then((data) => {
         setItems(data)
@@ -47,6 +63,11 @@ export default function OrderDetailClient({ tableId, orderId }: OrderDetailClien
       .finally(() => {
         setLoading(false)
       })
+  }
+
+  useEffect(() => {
+    loadItems()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderId])
 
   const totalCents = items.reduce((sum, item) => sum + item.quantity * item.price_cents, 0)
@@ -102,6 +123,45 @@ export default function OrderDetailClient({ tableId, orderId }: OrderDetailClien
     }
   }
 
+  async function handleVoidItem(): Promise<void> {
+    if (!voidingItem) return
+    setVoidError(null)
+    setVoidingInProgress(true)
+    try {
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+      if (!supabaseUrl || !supabaseKey) {
+        throw new Error('API not configured')
+      }
+      await callVoidItem(supabaseUrl, supabaseKey, voidingItem.id, voidReason)
+      setVoidingItem(null)
+      setVoidReason('')
+      loadItems()
+    } catch (err) {
+      setVoidError(err instanceof Error ? err.message : 'Failed to void item')
+    } finally {
+      setVoidingInProgress(false)
+    }
+  }
+
+  async function handleCancelOrder(): Promise<void> {
+    setCancelError(null)
+    setCancelling(true)
+    try {
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+      if (!supabaseUrl || !supabaseKey) {
+        throw new Error('API not configured')
+      }
+      await callCancelOrder(supabaseUrl, supabaseKey, orderId, cancelReason)
+      router.push(`/tables/${tableId}`)
+    } catch (err) {
+      setCancelError(err instanceof Error ? err.message : 'Failed to cancel order')
+    } finally {
+      setCancelling(false)
+    }
+  }
+
   function renderItems(): JSX.Element {
     if (loading) {
       return <p className="text-zinc-400 text-base">Loading items…</p>
@@ -126,6 +186,19 @@ export default function OrderDetailClient({ tableId, orderId }: OrderDetailClien
               <span className="text-zinc-400">×{item.quantity}</span>
               <span className="text-zinc-400">${priceEach.toFixed(2)} each</span>
               <span className="font-bold text-amber-400">${lineTotal.toFixed(2)}</span>
+              {step === 'order' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setVoidingItem(item)
+                    setVoidReason('')
+                    setVoidError(null)
+                  }}
+                  className="min-h-[48px] min-w-[48px] px-3 rounded-lg text-sm font-semibold text-red-400 hover:text-white hover:bg-red-700 transition-colors"
+                >
+                  Void
+                </button>
+              )}
             </li>
           )
         })}
@@ -135,6 +208,114 @@ export default function OrderDetailClient({ tableId, orderId }: OrderDetailClien
 
   return (
     <main className="min-h-screen bg-zinc-900 p-6 flex flex-col">
+      {/* Void item dialog */}
+      {voidingItem !== null && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70">
+          <div className="w-full max-w-lg bg-zinc-800 rounded-t-2xl p-6 space-y-4">
+            <h2 className="text-xl font-semibold text-white">Void Item</h2>
+            <p className="text-zinc-300 text-base">
+              Void <span className="font-semibold text-white">{voidingItem.name}</span>?
+            </p>
+            <div>
+              <label htmlFor="void-reason" className="block text-zinc-400 text-base mb-2">
+                Reason
+              </label>
+              <input
+                id="void-reason"
+                type="text"
+                placeholder="e.g. wrong item ordered"
+                value={voidReason}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setVoidReason(e.target.value) }}
+                className="w-full min-h-[48px] px-4 rounded-xl text-base bg-zinc-700 text-white border-2 border-zinc-600 focus:border-amber-400 focus:outline-none"
+              />
+            </div>
+            {voidError !== null && (
+              <p className="text-base text-red-400">{voidError}</p>
+            )}
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setVoidingItem(null)
+                  setVoidReason('')
+                  setVoidError(null)
+                }}
+                disabled={voidingInProgress}
+                className="flex-1 min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold border-2 border-zinc-600 text-zinc-300 hover:border-zinc-400 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => { void handleVoidItem() }}
+                disabled={voidingInProgress || voidReason.trim() === ''}
+                className={[
+                  'flex-1 min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold transition-colors',
+                  voidingInProgress || voidReason.trim() === ''
+                    ? 'bg-zinc-700 text-zinc-400 cursor-wait'
+                    : 'bg-red-700 hover:bg-red-600 text-white',
+                ].join(' ')}
+              >
+                {voidingInProgress ? 'Voiding…' : 'Confirm Void'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Cancel order dialog */}
+      {showCancelDialog && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70">
+          <div className="w-full max-w-lg bg-zinc-800 rounded-t-2xl p-6 space-y-4">
+            <h2 className="text-xl font-semibold text-white">Cancel Order</h2>
+            <p className="text-zinc-300 text-base">This will cancel the entire order. Please provide a reason.</p>
+            <div>
+              <label htmlFor="cancel-reason" className="block text-zinc-400 text-base mb-2">
+                Reason
+              </label>
+              <input
+                id="cancel-reason"
+                type="text"
+                placeholder="e.g. customer left"
+                value={cancelReason}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setCancelReason(e.target.value) }}
+                className="w-full min-h-[48px] px-4 rounded-xl text-base bg-zinc-700 text-white border-2 border-zinc-600 focus:border-amber-400 focus:outline-none"
+              />
+            </div>
+            {cancelError !== null && (
+              <p className="text-base text-red-400">{cancelError}</p>
+            )}
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowCancelDialog(false)
+                  setCancelReason('')
+                  setCancelError(null)
+                }}
+                disabled={cancelling}
+                className="flex-1 min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold border-2 border-zinc-600 text-zinc-300 hover:border-zinc-400 transition-colors disabled:opacity-50"
+              >
+                Back
+              </button>
+              <button
+                type="button"
+                onClick={() => { void handleCancelOrder() }}
+                disabled={cancelling || cancelReason.trim() === ''}
+                className={[
+                  'flex-1 min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold transition-colors',
+                  cancelling || cancelReason.trim() === ''
+                    ? 'bg-zinc-700 text-zinc-400 cursor-wait'
+                    : 'bg-red-700 hover:bg-red-600 text-white',
+                ].join(' ')}
+              >
+                {cancelling ? 'Cancelling…' : 'Confirm Cancel'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <Link
         href="/tables"
         className="inline-flex items-center gap-2 text-zinc-400 hover:text-white text-base mb-8 min-h-[48px] min-w-[48px]"
@@ -169,7 +350,7 @@ export default function OrderDetailClient({ tableId, orderId }: OrderDetailClien
 
         {step === 'order' ? (
           <>
-            <div className="flex gap-4">
+            <div className="flex gap-4 mb-3">
               <Link
                 href={`/tables/${tableId}/order/${orderId}/menu`}
                 className="flex-1 inline-flex items-center justify-center min-h-[48px] min-w-[48px] px-6 rounded-xl border-2 border-zinc-600 text-white text-base font-semibold hover:border-zinc-400 transition-colors"
@@ -190,6 +371,18 @@ export default function OrderDetailClient({ tableId, orderId }: OrderDetailClien
                 {closing ? 'Closing…' : 'Close Order'}
               </button>
             </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                setCancelReason('')
+                setCancelError(null)
+                setShowCancelDialog(true)
+              }}
+              className="w-full min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold text-zinc-400 hover:text-red-400 border-2 border-zinc-700 hover:border-red-700 transition-colors"
+            >
+              Cancel order
+            </button>
 
             {closeError !== null && (
               <p className="mt-4 text-base text-red-400">{closeError}</p>

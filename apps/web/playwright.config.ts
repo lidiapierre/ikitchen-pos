@@ -7,6 +7,13 @@ export default defineConfig({
     url: 'http://localhost:3000',
     reuseExistingServer: !process.env.CI,
     timeout: 120000,
+    env: {
+      // Provide dummy values so the component proceeds to make fetch calls
+      // that Playwright route mocks can intercept. Real values are not needed
+      // because all API calls are mocked in E2E tests.
+      NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL ?? 'http://localhost:54321',
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? 'e2e-placeholder-key',
+    },
   },
   use: {
     baseURL: 'http://localhost:3000',

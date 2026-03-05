@@ -1,4 +1,6 @@
-type BadgeStatus = 'empty' | 'occupied' | 'pending_payment'
+import React from 'react'
+
+export type BadgeStatus = 'empty' | 'occupied' | 'pending_payment'
 
 interface StatusBadgeProps {
   status: BadgeStatus

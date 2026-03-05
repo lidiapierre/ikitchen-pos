@@ -32,7 +32,7 @@ export async function handler(
   env: HandlerEnv | null = readEnv(),
 ): Promise<Response> {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { status: 200, headers: corsHeaders })
+    return new Response(null, { status: 204, headers: corsHeaders })
   }
 
   let body: unknown
@@ -61,6 +61,13 @@ export async function handler(
   }
 
   const orderId = payload['order_id'] as string
+  if (!isValidUuid(orderId)) {
+    return new Response(
+      JSON.stringify({ success: false, error: 'order_id must be a valid UUID' }),
+      { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    )
+  }
+
   const staffIdHeader = req.headers.get('x-demo-staff-id') ?? ''
   const userId = isValidUuid(staffIdHeader) ? staffIdHeader : SYSTEM_USER_ID
 
@@ -120,13 +127,13 @@ export async function handler(
     const items = (await itemsRes.json()) as Array<{ unit_price_cents: number; quantity: number }>
     const finalTotal = items.reduce((sum, item) => sum + item.unit_price_cents * item.quantity, 0)
 
-    // 3. Update order status to pending_payment
+    // 3. Update order status to pending_payment and persist final_total_cents
     const updateRes = await fetchFn(
       `${supabaseUrl}/rest/v1/orders?id=eq.${orderId}`,
       {
         method: 'PATCH',
         headers: { ...dbHeaders, Prefer: 'return=minimal' },
-        body: JSON.stringify({ status: 'pending_payment' }),
+        body: JSON.stringify({ status: 'pending_payment', final_total_cents: finalTotal }),
       },
     )
     if (!updateRes.ok) {
@@ -137,7 +144,7 @@ export async function handler(
     }
 
     // 4. Emit audit log entry
-    await fetchFn(
+    const auditRes = await fetchFn(
       `${supabaseUrl}/rest/v1/audit_log`,
       {
         method: 'POST',
@@ -148,13 +155,19 @@ export async function handler(
           action: 'close_order',
           entity_type: 'orders',
           entity_id: orderId,
-          payload: { final_total: finalTotal },
+          payload: { final_total_cents: finalTotal },
         }),
       },
     )
+    if (!auditRes.ok) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Failed to write audit log' }),
+        { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+      )
+    }
 
     return new Response(
-      JSON.stringify({ success: true, data: { final_total: finalTotal } }),
+      JSON.stringify({ success: true, data: { final_total_cents: finalTotal } }),
       { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
     )
   } catch {

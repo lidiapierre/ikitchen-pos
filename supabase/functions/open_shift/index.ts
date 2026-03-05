@@ -20,13 +20,17 @@ function readEnv(): HandlerEnv | null {
   return { supabaseUrl, serviceKey }
 }
 
+function isValidUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)
+}
+
 export async function handler(
   req: Request,
   fetchFn: FetchFn = fetch,
   env: HandlerEnv | null = readEnv(),
 ): Promise<Response> {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { status: 200, headers: corsHeaders })
+    return new Response(null, { status: 204, headers: corsHeaders })
   }
 
   let body: unknown
@@ -61,6 +65,12 @@ export async function handler(
   }
 
   const staffId = payload['staff_id'] as string
+  if (!isValidUuid(staffId)) {
+    return new Response(
+      JSON.stringify({ success: false, error: 'staff_id must be a valid UUID' }),
+      { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    )
+  }
   const openingFloat = payload['opening_float'] as number
 
   if (!env) {
@@ -99,7 +109,26 @@ export async function handler(
     }
     const restaurantId = users[0].restaurant_id
 
-    // 2. Insert row into shifts
+    // 2. Guard against duplicate open shifts
+    const openShiftRes = await fetchFn(
+      `${supabaseUrl}/rest/v1/shifts?select=id&user_id=eq.${staffId}&closed_at=is.null`,
+      { headers: { ...dbHeaders, Prefer: 'count=none' } },
+    )
+    if (!openShiftRes.ok) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Failed to check existing shifts' }),
+        { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+      )
+    }
+    const openShifts = (await openShiftRes.json()) as Array<{ id: string }>
+    if (openShifts.length > 0) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'User already has an open shift' }),
+        { status: 409, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+      )
+    }
+
+    // 3. Insert row into shifts, persisting opening_float_cents
     const insertRes = await fetchFn(
       `${supabaseUrl}/rest/v1/shifts`,
       {
@@ -108,6 +137,7 @@ export async function handler(
         body: JSON.stringify({
           restaurant_id: restaurantId,
           user_id: staffId,
+          opening_float_cents: openingFloat,
         }),
       },
     )
@@ -120,8 +150,8 @@ export async function handler(
     const inserted = (await insertRes.json()) as Array<{ id: string; opened_at: string }>
     const shift = inserted[0]
 
-    // 3. Emit audit log entry
-    await fetchFn(
+    // 4. Emit audit log entry
+    const auditRes = await fetchFn(
       `${supabaseUrl}/rest/v1/audit_log`,
       {
         method: 'POST',
@@ -132,10 +162,16 @@ export async function handler(
           action: 'open_shift',
           entity_type: 'shifts',
           entity_id: shift.id,
-          payload: { opening_float: openingFloat },
+          payload: { opening_float_cents: openingFloat },
         }),
       },
     )
+    if (!auditRes.ok) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Failed to write audit log' }),
+        { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+      )
+    }
 
     return new Response(
       JSON.stringify({ success: true, data: { shift_id: shift.id, started_at: shift.opened_at } }),

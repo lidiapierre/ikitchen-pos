@@ -32,7 +32,7 @@ export async function handler(
   env: HandlerEnv | null = readEnv(),
 ): Promise<Response> {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { status: 200, headers: corsHeaders })
+    return new Response(null, { status: 204, headers: corsHeaders })
   }
 
   let body: unknown
@@ -67,6 +67,12 @@ export async function handler(
   }
 
   const shiftId = payload['shift_id'] as string
+  if (!isValidUuid(shiftId)) {
+    return new Response(
+      JSON.stringify({ success: false, error: 'shift_id must be a valid UUID' }),
+      { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    )
+  }
   const closingFloat = payload['closing_float'] as number
 
   const staffIdHeader = req.headers.get('x-demo-staff-id') ?? ''
@@ -114,13 +120,13 @@ export async function handler(
     }
     const restaurantId = shifts[0].restaurant_id
 
-    // 2. Close the shift by setting closed_at
+    // 2. Close the shift by setting closed_at and persisting closing_float_cents
     const updateRes = await fetchFn(
       `${supabaseUrl}/rest/v1/shifts?id=eq.${shiftId}`,
       {
         method: 'PATCH',
         headers: { ...dbHeaders, Prefer: 'return=minimal' },
-        body: JSON.stringify({ closed_at: new Date().toISOString() }),
+        body: JSON.stringify({ closed_at: new Date().toISOString(), closing_float_cents: closingFloat }),
       },
     )
     if (!updateRes.ok) {
@@ -131,7 +137,7 @@ export async function handler(
     }
 
     // 3. Emit audit log entry
-    await fetchFn(
+    const auditRes = await fetchFn(
       `${supabaseUrl}/rest/v1/audit_log`,
       {
         method: 'POST',
@@ -142,10 +148,16 @@ export async function handler(
           action: 'close_shift',
           entity_type: 'shifts',
           entity_id: shiftId,
-          payload: { closing_float: closingFloat },
+          payload: { closing_float_cents: closingFloat },
         }),
       },
     )
+    if (!auditRes.ok) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Failed to write audit log' }),
+        { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+      )
+    }
 
     return new Response(
       JSON.stringify({ success: true, data: { shift_id: shiftId } }),

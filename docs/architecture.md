@@ -55,7 +55,7 @@ Agents must prioritise:
 - **Auth:** Supabase Auth
 - **API:** Supabase Edge Functions (Action API)
 - **Storage:** Supabase Storage (receipts, logos)
-- **Location:** `/apps/api`
+- **Location:** `/supabase/functions`
 
 ---
 

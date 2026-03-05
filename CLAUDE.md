@@ -39,12 +39,6 @@ Never create new top-level directories without human approval.
 
 Do not introduce any library not listed here without human approval.
 
-## Supabase API Keys
-This project uses Supabase's new API key system (not legacy anon/service_role keys).
-- Client-side: NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY (sb_publishable_...)
-- Server-side: SUPABASE_SECRET_KEY (sb_secret_...)
-Never reference SUPABASE_ANON_KEY or SUPABASE_SERVICE_ROLE_KEY — these are not used.
-
 ## Code style
 
 - TypeScript strict mode — no `any`
@@ -52,6 +46,8 @@ Never reference SUPABASE_ANON_KEY or SUPABASE_SERVICE_ROLE_KEY — these are not
 - No commented-out code in PRs
 - No `console.log` in production code — use structured logging
 - Every new function needs at least one unit test
+
+- After adding any dependency to `package.json`, always run `npm install` in that directory to update `package-lock.json` and commit both files together
 
 ## Agent efficiency
 - Minimise exploration turns — read only files directly relevant to the task

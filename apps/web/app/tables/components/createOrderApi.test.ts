@@ -3,6 +3,7 @@ import { callCreateOrder } from './createOrderApi'
 
 const BASE_URL = 'https://example.supabase.co'
 const API_KEY = 'test-api-key'
+const TABLE_ID = 'table-uuid-005'
 
 afterEach(() => {
   vi.restoreAllMocks()
@@ -21,7 +22,7 @@ describe('callCreateOrder', () => {
       }),
     )
 
-    const result = await callCreateOrder(BASE_URL, API_KEY, 5)
+    const result = await callCreateOrder(BASE_URL, API_KEY, TABLE_ID)
     expect(result.order_id).toBe('abc-123')
   })
 
@@ -35,7 +36,7 @@ describe('callCreateOrder', () => {
     })
     vi.stubGlobal('fetch', mockFetch)
 
-    await callCreateOrder(BASE_URL, API_KEY, 3)
+    await callCreateOrder(BASE_URL, API_KEY, 'table-uuid-003')
 
     expect(mockFetch).toHaveBeenCalledWith(
       `${BASE_URL}/functions/v1/create_order`,
@@ -60,11 +61,11 @@ describe('callCreateOrder', () => {
     })
     vi.stubGlobal('fetch', mockFetch)
 
-    await callCreateOrder(BASE_URL, API_KEY, 7)
+    await callCreateOrder(BASE_URL, API_KEY, 'table-uuid-007')
 
     const [, init] = mockFetch.mock.calls[0] as [string, RequestInit]
-    const body = JSON.parse(init.body as string) as { table_id: number }
-    expect(body.table_id).toBe(7)
+    const body = JSON.parse(init.body as string) as { table_id: string }
+    expect(body.table_id).toBe('table-uuid-007')
   })
 
   it('sends staff_id placeholder in the request body', async (): Promise<void> => {
@@ -77,7 +78,7 @@ describe('callCreateOrder', () => {
     })
     vi.stubGlobal('fetch', mockFetch)
 
-    await callCreateOrder(BASE_URL, API_KEY, 7)
+    await callCreateOrder(BASE_URL, API_KEY, 'table-uuid-007')
 
     const [, init] = mockFetch.mock.calls[0] as [string, RequestInit]
     const body = JSON.parse(init.body as string) as { staff_id: string }
@@ -96,7 +97,7 @@ describe('callCreateOrder', () => {
       }),
     )
 
-    await expect(callCreateOrder(BASE_URL, API_KEY, 99)).rejects.toThrow('Table not found')
+    await expect(callCreateOrder(BASE_URL, API_KEY, 'table-uuid-099')).rejects.toThrow('Table not found')
   })
 
   it('throws a fallback message when success is false and error is absent', async (): Promise<void> => {
@@ -107,7 +108,7 @@ describe('callCreateOrder', () => {
       }),
     )
 
-    await expect(callCreateOrder(BASE_URL, API_KEY, 1)).rejects.toThrow('Failed to create order')
+    await expect(callCreateOrder(BASE_URL, API_KEY, 'table-uuid-001')).rejects.toThrow('Failed to create order')
   })
 
   it('throws when data is missing even if success is true', async (): Promise<void> => {
@@ -118,12 +119,12 @@ describe('callCreateOrder', () => {
       }),
     )
 
-    await expect(callCreateOrder(BASE_URL, API_KEY, 1)).rejects.toThrow('Failed to create order')
+    await expect(callCreateOrder(BASE_URL, API_KEY, 'table-uuid-001')).rejects.toThrow('Failed to create order')
   })
 
   it('propagates network errors', async (): Promise<void> => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('Network error')))
 
-    await expect(callCreateOrder(BASE_URL, API_KEY, 2)).rejects.toThrow('Network error')
+    await expect(callCreateOrder(BASE_URL, API_KEY, 'table-uuid-002')).rejects.toThrow('Network error')
   })
 })

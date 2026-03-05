@@ -26,6 +26,14 @@ vi.mock('./orderData', () => ({
   fetchOrderItems: vi.fn(),
 }))
 
+vi.mock('./voidItemApi', () => ({
+  callVoidItem: vi.fn(),
+}))
+
+vi.mock('./cancelOrderApi', () => ({
+  callCancelOrder: vi.fn(),
+}))
+
 const mockItems = [
   { id: '1', name: 'Bruschetta', quantity: 2, price_cents: 850 },
   { id: '2', name: 'Grilled Salmon', quantity: 1, price_cents: 1850 },
@@ -195,6 +203,314 @@ describe('OrderDetailClient', () => {
 
     await waitFor((): void => {
       expect(screen.getAllByText('API not configured').length).toBeGreaterThanOrEqual(1)
+    })
+  })
+
+  describe('void item', () => {
+    it('renders a Void button for each item row', async (): Promise<void> => {
+      render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
+
+      await screen.findByText('Bruschetta')
+
+      const voidButtons = screen.getAllByRole('button', { name: 'Void' })
+      expect(voidButtons).toHaveLength(mockItems.length)
+    })
+
+    it('each Void button has minimum 48px touch target', async (): Promise<void> => {
+      render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
+
+      await screen.findByText('Bruschetta')
+
+      const voidButtons = screen.getAllByRole('button', { name: 'Void' })
+      voidButtons.forEach((btn) => {
+        expect(btn.className).toContain('min-h-[48px]')
+      })
+    })
+
+    it('tapping Void opens the void dialog for that item', async (): Promise<void> => {
+      render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
+
+      await screen.findByText('Bruschetta')
+
+      const voidButtons = screen.getAllByRole('button', { name: 'Void' })
+      fireEvent.click(voidButtons[0])
+
+      expect(screen.getByText('Void Item')).toBeInTheDocument()
+      expect(screen.getByText(/Bruschetta/)).toBeInTheDocument()
+    })
+
+    it('Confirm Void is disabled when reason is empty', async (): Promise<void> => {
+      render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
+
+      await screen.findByText('Bruschetta')
+
+      const voidButtons = screen.getAllByRole('button', { name: 'Void' })
+      fireEvent.click(voidButtons[0])
+
+      expect(screen.getByRole('button', { name: 'Confirm Void' })).toBeDisabled()
+    })
+
+    it('Confirm Void is enabled after typing a reason', async (): Promise<void> => {
+      render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
+
+      await screen.findByText('Bruschetta')
+
+      const voidButtons = screen.getAllByRole('button', { name: 'Void' })
+      fireEvent.click(voidButtons[0])
+
+      fireEvent.change(screen.getByPlaceholderText('e.g. wrong item ordered'), {
+        target: { value: 'customer changed mind' },
+      })
+
+      expect(screen.getByRole('button', { name: 'Confirm Void' })).not.toBeDisabled()
+    })
+
+    it('calls callVoidItem with the item id and reason', async (): Promise<void> => {
+      const { callVoidItem } = await import('./voidItemApi')
+      vi.mocked(callVoidItem).mockResolvedValue(undefined)
+
+      render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
+
+      await screen.findByText('Bruschetta')
+
+      const voidButtons = screen.getAllByRole('button', { name: 'Void' })
+      fireEvent.click(voidButtons[0])
+
+      fireEvent.change(screen.getByPlaceholderText('e.g. wrong item ordered'), {
+        target: { value: 'wrong item' },
+      })
+      fireEvent.click(screen.getByRole('button', { name: 'Confirm Void' }))
+
+      await waitFor((): void => {
+        expect(callVoidItem).toHaveBeenCalledWith(
+          'https://example.supabase.co',
+          'test-publishable-key',
+          '1',
+          'wrong item',
+        )
+      })
+    })
+
+    it('shows "Voiding…" and disables Confirm Void while in progress', async (): Promise<void> => {
+      const { callVoidItem } = await import('./voidItemApi')
+      vi.mocked(callVoidItem).mockImplementation(
+        (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 100)),
+      )
+
+      render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
+
+      await screen.findByText('Bruschetta')
+
+      const voidButtons = screen.getAllByRole('button', { name: 'Void' })
+      fireEvent.click(voidButtons[0])
+
+      fireEvent.change(screen.getByPlaceholderText('e.g. wrong item ordered'), {
+        target: { value: 'test' },
+      })
+      fireEvent.click(screen.getByRole('button', { name: 'Confirm Void' }))
+
+      await waitFor((): void => {
+        expect(screen.getByRole('button', { name: 'Voiding…' })).toBeDisabled()
+      })
+    })
+
+    it('closes the dialog and refreshes items after a successful void', async (): Promise<void> => {
+      const { callVoidItem } = await import('./voidItemApi')
+      vi.mocked(callVoidItem).mockResolvedValue(undefined)
+      const { fetchOrderItems } = await import('./orderData')
+      vi.mocked(fetchOrderItems).mockResolvedValue(mockItems)
+
+      render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
+
+      await screen.findByText('Bruschetta')
+
+      const voidButtons = screen.getAllByRole('button', { name: 'Void' })
+      fireEvent.click(voidButtons[0])
+
+      fireEvent.change(screen.getByPlaceholderText('e.g. wrong item ordered'), {
+        target: { value: 'test reason' },
+      })
+      fireEvent.click(screen.getByRole('button', { name: 'Confirm Void' }))
+
+      await waitFor((): void => {
+        expect(screen.queryByText('Void Item')).not.toBeInTheDocument()
+      })
+      expect(fetchOrderItems).toHaveBeenCalledTimes(2)
+    })
+
+    it('shows an inline error when void API call fails', async (): Promise<void> => {
+      const { callVoidItem } = await import('./voidItemApi')
+      vi.mocked(callVoidItem).mockRejectedValue(new Error('Item already voided'))
+
+      render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
+
+      await screen.findByText('Bruschetta')
+
+      const voidButtons = screen.getAllByRole('button', { name: 'Void' })
+      fireEvent.click(voidButtons[0])
+
+      fireEvent.change(screen.getByPlaceholderText('e.g. wrong item ordered'), {
+        target: { value: 'test' },
+      })
+      fireEvent.click(screen.getByRole('button', { name: 'Confirm Void' }))
+
+      await waitFor((): void => {
+        expect(screen.getByText('Item already voided')).toBeInTheDocument()
+      })
+      // Dialog stays open
+      expect(screen.getByText('Void Item')).toBeInTheDocument()
+    })
+
+    it('dismisses the void dialog when Cancel is clicked', async (): Promise<void> => {
+      render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
+
+      await screen.findByText('Bruschetta')
+
+      const voidButtons = screen.getAllByRole('button', { name: 'Void' })
+      fireEvent.click(voidButtons[0])
+
+      expect(screen.getByText('Void Item')).toBeInTheDocument()
+
+      fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+
+      expect(screen.queryByText('Void Item')).not.toBeInTheDocument()
+    })
+  })
+
+  describe('cancel order', () => {
+    it('renders a Cancel order button', (): void => {
+      render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
+
+      expect(screen.getByRole('button', { name: 'Cancel order' })).toBeInTheDocument()
+    })
+
+    it('Cancel order button has minimum 48px touch target', (): void => {
+      render(<OrderDetailClient tableId="1" orderId="order-xyz" />)
+
+      const btn = screen.getByRole('button', { name: 'Cancel order' })
+      expect(btn.className).toContain('min-h-[48px]')
+    })
+
+    it('tapping Cancel order opens the cancel dialog', (): void => {
+      render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
+
+      fireEvent.click(screen.getByRole('button', { name: 'Cancel order' }))
+
+      expect(screen.getByText('Cancel Order')).toBeInTheDocument()
+      expect(screen.getByPlaceholderText('e.g. customer left')).toBeInTheDocument()
+    })
+
+    it('Confirm Cancel is disabled when reason is empty', (): void => {
+      render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
+
+      fireEvent.click(screen.getByRole('button', { name: 'Cancel order' }))
+
+      expect(screen.getByRole('button', { name: 'Confirm Cancel' })).toBeDisabled()
+    })
+
+    it('Confirm Cancel is enabled after typing a reason', (): void => {
+      render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
+
+      fireEvent.click(screen.getByRole('button', { name: 'Cancel order' }))
+
+      fireEvent.change(screen.getByPlaceholderText('e.g. customer left'), {
+        target: { value: 'customer left' },
+      })
+
+      expect(screen.getByRole('button', { name: 'Confirm Cancel' })).not.toBeDisabled()
+    })
+
+    it('calls callCancelOrder with the order id and reason', async (): Promise<void> => {
+      const { callCancelOrder } = await import('./cancelOrderApi')
+      vi.mocked(callCancelOrder).mockResolvedValue(undefined)
+
+      render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
+
+      fireEvent.click(screen.getByRole('button', { name: 'Cancel order' }))
+
+      fireEvent.change(screen.getByPlaceholderText('e.g. customer left'), {
+        target: { value: 'customer walked out' },
+      })
+      fireEvent.click(screen.getByRole('button', { name: 'Confirm Cancel' }))
+
+      await waitFor((): void => {
+        expect(callCancelOrder).toHaveBeenCalledWith(
+          'https://example.supabase.co',
+          'test-publishable-key',
+          'order-abc-123',
+          'customer walked out',
+        )
+      })
+    })
+
+    it('shows "Cancelling…" while cancel is in progress', async (): Promise<void> => {
+      const { callCancelOrder } = await import('./cancelOrderApi')
+      vi.mocked(callCancelOrder).mockImplementation(
+        (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 100)),
+      )
+
+      render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
+
+      fireEvent.click(screen.getByRole('button', { name: 'Cancel order' }))
+
+      fireEvent.change(screen.getByPlaceholderText('e.g. customer left'), {
+        target: { value: 'test' },
+      })
+      fireEvent.click(screen.getByRole('button', { name: 'Confirm Cancel' }))
+
+      await waitFor((): void => {
+        expect(screen.getByRole('button', { name: 'Cancelling…' })).toBeDisabled()
+      })
+    })
+
+    it('navigates to table overview after successful cancel', async (): Promise<void> => {
+      const { callCancelOrder } = await import('./cancelOrderApi')
+      vi.mocked(callCancelOrder).mockResolvedValue(undefined)
+
+      render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
+
+      fireEvent.click(screen.getByRole('button', { name: 'Cancel order' }))
+
+      fireEvent.change(screen.getByPlaceholderText('e.g. customer left'), {
+        target: { value: 'customer left' },
+      })
+      fireEvent.click(screen.getByRole('button', { name: 'Confirm Cancel' }))
+
+      await waitFor((): void => {
+        expect(mockPush).toHaveBeenCalledWith('/tables/5')
+      })
+    })
+
+    it('shows an inline error when cancel API call fails', async (): Promise<void> => {
+      const { callCancelOrder } = await import('./cancelOrderApi')
+      vi.mocked(callCancelOrder).mockRejectedValue(new Error('Order already cancelled'))
+
+      render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
+
+      fireEvent.click(screen.getByRole('button', { name: 'Cancel order' }))
+
+      fireEvent.change(screen.getByPlaceholderText('e.g. customer left'), {
+        target: { value: 'test' },
+      })
+      fireEvent.click(screen.getByRole('button', { name: 'Confirm Cancel' }))
+
+      await waitFor((): void => {
+        expect(screen.getByText('Order already cancelled')).toBeInTheDocument()
+      })
+      // Dialog stays open
+      expect(screen.getByText('Cancel Order')).toBeInTheDocument()
+    })
+
+    it('dismisses the cancel dialog when Back is clicked', (): void => {
+      render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
+
+      fireEvent.click(screen.getByRole('button', { name: 'Cancel order' }))
+
+      expect(screen.getByText('Cancel Order')).toBeInTheDocument()
+
+      fireEvent.click(screen.getByRole('button', { name: 'Back' }))
+
+      expect(screen.queryByText('Cancel Order')).not.toBeInTheDocument()
     })
   })
 

@@ -1,10 +1,10 @@
-export const corsHeaders = {
+const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-demo-staff-id',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
-export async function handler(req: Request): Promise<Response> {
+Deno.serve(async (req: Request): Promise<Response> => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { status: 200, headers: corsHeaders })
   }
@@ -38,8 +38,4 @@ export async function handler(req: Request): Promise<Response> {
     JSON.stringify({ success: true, data: { success: true, final_total: 0 } }),
     { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
   )
-}
-
-if (typeof (globalThis as { Deno?: unknown }).Deno !== 'undefined') {
-  Deno.serve(handler)
-}
+})

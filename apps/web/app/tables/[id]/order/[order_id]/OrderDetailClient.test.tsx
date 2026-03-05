@@ -18,6 +18,10 @@ vi.mock('./closeOrderApi', () => ({
   callCloseOrder: vi.fn(),
 }))
 
+vi.mock('./recordPaymentApi', () => ({
+  callRecordPayment: vi.fn(),
+}))
+
 vi.mock('./orderData', () => ({
   MOCK_ORDER_ITEMS: [
     { id: '1', name: 'Bruschetta', quantity: 2, price_cents: 850 },
@@ -121,7 +125,7 @@ describe('OrderDetailClient', () => {
     })
   })
 
-  it('navigates to /tables/${tableId} on successful close', async (): Promise<void> => {
+  it('shows payment step after order is closed successfully', async (): Promise<void> => {
     const { callCloseOrder } = await import('./closeOrderApi')
     vi.mocked(callCloseOrder).mockResolvedValue(undefined)
 
@@ -130,11 +134,12 @@ describe('OrderDetailClient', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Close Order' }))
 
     await waitFor((): void => {
-      expect(mockPush).toHaveBeenCalledWith('/tables/5')
+      expect(screen.getByText('Record Payment')).toBeInTheDocument()
     })
+    expect(mockPush).not.toHaveBeenCalled()
   })
 
-  it('shows an error message when the API call fails', async (): Promise<void> => {
+  it('shows an error message when the close order API call fails', async (): Promise<void> => {
     const { callCloseOrder } = await import('./closeOrderApi')
     vi.mocked(callCloseOrder).mockRejectedValue(new Error('Order has no items'))
 
@@ -169,6 +174,128 @@ describe('OrderDetailClient', () => {
 
     await waitFor((): void => {
       expect(screen.getByText('API not configured')).toBeInTheDocument()
+    })
+  })
+
+  describe('payment step', () => {
+    async function openPaymentStep(): Promise<void> {
+      const { callCloseOrder } = await import('./closeOrderApi')
+      vi.mocked(callCloseOrder).mockResolvedValue(undefined)
+      fireEvent.click(screen.getByRole('button', { name: 'Close Order' }))
+      await waitFor((): void => {
+        expect(screen.getByText('Record Payment')).toBeInTheDocument()
+      })
+    }
+
+    it('shows Cash and Card payment method buttons', async (): Promise<void> => {
+      render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
+      await openPaymentStep()
+
+      expect(screen.getByRole('button', { name: 'Cash' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Card' })).toBeInTheDocument()
+    })
+
+    it('shows the confirm payment button with the total amount', async (): Promise<void> => {
+      render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
+      await openPaymentStep()
+
+      expect(screen.getByRole('button', { name: /Confirm Payment/ })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /\$54\.50/ })).toBeInTheDocument()
+    })
+
+    it('confirm payment button has minimum 48px touch target', async (): Promise<void> => {
+      render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
+      await openPaymentStep()
+
+      const btn = screen.getByRole('button', { name: /Confirm Payment/ })
+      expect(btn.className).toContain('min-h-[48px]')
+    })
+
+    it('calls callRecordPayment with cash method by default', async (): Promise<void> => {
+      const { callRecordPayment } = await import('./recordPaymentApi')
+      vi.mocked(callRecordPayment).mockResolvedValue(undefined)
+
+      render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
+      await openPaymentStep()
+
+      fireEvent.click(screen.getByRole('button', { name: /Confirm Payment/ }))
+
+      await waitFor((): void => {
+        expect(callRecordPayment).toHaveBeenCalledWith(
+          'https://example.supabase.co',
+          'test-publishable-key',
+          'order-abc-123',
+          5450,
+          'cash',
+        )
+      })
+    })
+
+    it('calls callRecordPayment with card method when card is selected', async (): Promise<void> => {
+      const { callRecordPayment } = await import('./recordPaymentApi')
+      vi.mocked(callRecordPayment).mockResolvedValue(undefined)
+
+      render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
+      await openPaymentStep()
+
+      fireEvent.click(screen.getByRole('button', { name: 'Card' }))
+      fireEvent.click(screen.getByRole('button', { name: /Confirm Payment/ }))
+
+      await waitFor((): void => {
+        expect(callRecordPayment).toHaveBeenCalledWith(
+          'https://example.supabase.co',
+          'test-publishable-key',
+          'order-abc-123',
+          5450,
+          'card',
+        )
+      })
+    })
+
+    it('navigates to /tables/${tableId} after successful payment', async (): Promise<void> => {
+      const { callRecordPayment } = await import('./recordPaymentApi')
+      vi.mocked(callRecordPayment).mockResolvedValue(undefined)
+
+      render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
+      await openPaymentStep()
+
+      fireEvent.click(screen.getByRole('button', { name: /Confirm Payment/ }))
+
+      await waitFor((): void => {
+        expect(mockPush).toHaveBeenCalledWith('/tables/5')
+      })
+    })
+
+    it('shows inline error without losing form when payment API fails', async (): Promise<void> => {
+      const { callRecordPayment } = await import('./recordPaymentApi')
+      vi.mocked(callRecordPayment).mockRejectedValue(new Error('Payment declined'))
+
+      render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
+      await openPaymentStep()
+
+      fireEvent.click(screen.getByRole('button', { name: /Confirm Payment/ }))
+
+      await waitFor((): void => {
+        expect(screen.getByText('Payment declined')).toBeInTheDocument()
+      })
+      // Form is still visible
+      expect(screen.getByRole('button', { name: /Confirm Payment/ })).toBeInTheDocument()
+    })
+
+    it('shows "Recording…" and disables button while payment is in progress', async (): Promise<void> => {
+      const { callRecordPayment } = await import('./recordPaymentApi')
+      vi.mocked(callRecordPayment).mockImplementation(
+        (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 100)),
+      )
+
+      render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
+      await openPaymentStep()
+
+      fireEvent.click(screen.getByRole('button', { name: /Confirm Payment/ }))
+
+      await waitFor((): void => {
+        expect(screen.getByRole('button', { name: 'Recording…' })).toBeDisabled()
+      })
     })
   })
 })

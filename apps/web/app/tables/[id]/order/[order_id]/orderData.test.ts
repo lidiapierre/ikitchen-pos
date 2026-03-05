@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { fetchOrderItems } from './orderData'
+import { fetchOrderItems, fetchOrderSummary } from './orderData'
 
 const mockFetch = vi.fn()
 vi.stubGlobal('fetch', mockFetch)
@@ -77,5 +77,103 @@ describe('fetchOrderItems', () => {
     expect(url).toContain('/rest/v1/order_items')
     expect(url).toContain('order_id=eq.order-abc')
     expect(url).toContain('voided=eq.false')
+  })
+})
+
+describe('fetchOrderSummary', () => {
+  it('returns status open with null payment_method for open orders', async (): Promise<void> => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async (): Promise<Array<{ status: string }>> => [{ status: 'open' }],
+    })
+
+    const result = await fetchOrderSummary('https://example.supabase.co', 'test-key', 'order-123')
+
+    expect(result).toEqual({ status: 'open', payment_method: null })
+  })
+
+  it('fetches payment method when order is paid', async (): Promise<void> => {
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async (): Promise<Array<{ status: string }>> => [{ status: 'paid' }],
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async (): Promise<Array<{ method: string }>> => [{ method: 'card' }],
+      })
+
+    const result = await fetchOrderSummary('https://example.supabase.co', 'test-key', 'order-123')
+
+    expect(result).toEqual({ status: 'paid', payment_method: 'card' })
+  })
+
+  it('returns null payment_method when payment fetch fails for paid order', async (): Promise<void> => {
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async (): Promise<Array<{ status: string }>> => [{ status: 'paid' }],
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        statusText: 'Internal Server Error',
+        text: async (): Promise<string> => 'error',
+      })
+
+    const result = await fetchOrderSummary('https://example.supabase.co', 'test-key', 'order-123')
+
+    expect(result).toEqual({ status: 'paid', payment_method: null })
+  })
+
+  it('throws when the order fetch fails', async (): Promise<void> => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 404,
+      statusText: 'Not Found',
+      text: async (): Promise<string> => 'not found',
+    })
+
+    await expect(
+      fetchOrderSummary('https://example.supabase.co', 'test-key', 'order-missing'),
+    ).rejects.toThrow('Failed to fetch order: 404 Not Found')
+  })
+
+  it('throws when the order does not exist', async (): Promise<void> => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async (): Promise<[]> => [],
+    })
+
+    await expect(
+      fetchOrderSummary('https://example.supabase.co', 'test-key', 'order-missing'),
+    ).rejects.toThrow('Order not found')
+  })
+
+  it('passes correct auth headers', async (): Promise<void> => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async (): Promise<Array<{ status: string }>> => [{ status: 'open' }],
+    })
+
+    await fetchOrderSummary('https://example.supabase.co', 'my-key', 'order-abc')
+
+    const [, options] = mockFetch.mock.calls[0] as [string, RequestInit]
+    const headers = options.headers as Record<string, string>
+    expect(headers['apikey']).toBe('my-key')
+    expect(headers['Authorization']).toBe('Bearer my-key')
+  })
+
+  it('queries the correct order endpoint with id filter', async (): Promise<void> => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async (): Promise<Array<{ status: string }>> => [{ status: 'open' }],
+    })
+
+    await fetchOrderSummary('https://example.supabase.co', 'test-key', 'order-xyz')
+
+    const [url] = mockFetch.mock.calls[0] as [string]
+    expect(url).toContain('/rest/v1/orders')
+    expect(url).toContain('id=eq.order-xyz')
   })
 })

@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import type { JSX } from 'react'
-import { fetchOrderItems } from './orderData'
+import { fetchOrderItems, fetchOrderSummary } from './orderData'
 import type { OrderItem } from './orderData'
 import { callCloseOrder } from './closeOrderApi'
 import { callRecordPayment } from './recordPaymentApi'
@@ -23,12 +23,18 @@ export default function OrderDetailClient({ tableId, orderId }: OrderDetailClien
   const [items, setItems] = useState<OrderItem[]>([])
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState<string | null>(null)
-  const [step, setStep] = useState<'order' | 'payment' | 'change'>('order')
+  const [step, setStep] = useState<'order' | 'payment' | 'change' | 'success'>('order')
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card'>('cash')
   const [paying, setPaying] = useState(false)
   const [paymentError, setPaymentError] = useState<string | null>(null)
   const [changeDueCents, setChangeDueCents] = useState(0)
   const [amountTenderedDollars, setAmountTenderedDollars] = useState<string>('')
+  const [confirmedPaymentMethod, setConfirmedPaymentMethod] = useState<string | null>(null)
+
+  // Paid order state (for orders already paid when navigated to directly)
+  const [orderIsPaid, setOrderIsPaid] = useState(false)
+  const [paidPaymentMethod, setPaidPaymentMethod] = useState<string | null>(null)
+  const [statusLoading, setStatusLoading] = useState(true)
 
   // Void item state
   const [voidingItem, setVoidingItem] = useState<OrderItem | null>(null)
@@ -65,10 +71,43 @@ export default function OrderDetailClient({ tableId, orderId }: OrderDetailClien
       })
   }
 
+  function loadOrderStatus(): void {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+    if (!supabaseUrl || !supabaseKey) {
+      setStatusLoading(false)
+      return
+    }
+
+    fetchOrderSummary(supabaseUrl, supabaseKey, orderId)
+      .then((summary) => {
+        if (summary.status === 'paid') {
+          setOrderIsPaid(true)
+          setPaidPaymentMethod(summary.payment_method)
+        }
+      })
+      .catch(() => {
+        // Non-fatal: fall back to normal order view if status check fails
+      })
+      .finally(() => {
+        setStatusLoading(false)
+      })
+  }
+
   useEffect(() => {
     loadItems()
+    loadOrderStatus()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderId])
+
+  // Auto-navigate to /tables after success state is shown for 1.5s
+  useEffect(() => {
+    if (step !== 'success') return
+    const timer = setTimeout(() => {
+      router.push('/tables')
+    }, 1500)
+    return () => { clearTimeout(timer) }
+  }, [step, router])
 
   const totalCents = items.reduce((sum, item) => sum + item.quantity * item.price_cents, 0)
   const totalFormatted = `$${(totalCents / 100).toFixed(2)}`
@@ -110,11 +149,12 @@ export default function OrderDetailClient({ tableId, orderId }: OrderDetailClien
         throw new Error('API not configured')
       }
       const result = await callRecordPayment(supabaseUrl, supabaseKey, orderId, amountCentsToTender, paymentMethod, totalCents)
+      setConfirmedPaymentMethod(paymentMethod)
       if (paymentMethod === 'cash') {
         setChangeDueCents(result.change_due)
         setStep('change')
       } else {
-        router.push(`/tables/${tableId}`)
+        setStep('success')
       }
     } catch (err) {
       setPaymentError(err instanceof Error ? err.message : 'Failed to record payment')
@@ -203,6 +243,93 @@ export default function OrderDetailClient({ tableId, orderId }: OrderDetailClien
           )
         })}
       </ul>
+    )
+  }
+
+  // Read-only items list for paid orders
+  function renderReadOnlyItems(): JSX.Element {
+    if (loading) {
+      return <p className="text-zinc-400 text-base">Loading items…</p>
+    }
+    if (fetchError !== null) {
+      return <p className="text-red-400 text-base">{fetchError}</p>
+    }
+    if (items.length === 0) {
+      return <p className="text-zinc-500 text-base">No items on this order.</p>
+    }
+    return (
+      <ul className="space-y-2 mb-6">
+        {items.map((item) => {
+          const lineTotal = (item.quantity * item.price_cents) / 100
+          const priceEach = item.price_cents / 100
+          return (
+            <li
+              key={item.id}
+              className="flex items-center justify-between gap-4 bg-zinc-800 rounded-xl px-4 py-3 text-base"
+            >
+              <span className="font-semibold text-white flex-1">{item.name}</span>
+              <span className="text-zinc-400">×{item.quantity}</span>
+              <span className="text-zinc-400">${priceEach.toFixed(2)} each</span>
+              <span className="font-bold text-amber-400">${lineTotal.toFixed(2)}</span>
+            </li>
+          )
+        })}
+      </ul>
+    )
+  }
+
+  // Paid read-only view (for orders already paid when navigated to directly)
+  if (!statusLoading && orderIsPaid && step === 'order') {
+    return (
+      <main className="min-h-screen bg-zinc-900 p-6 flex flex-col">
+        <Link
+          href="/tables"
+          className="inline-flex items-center gap-2 text-zinc-400 hover:text-white text-base mb-8 min-h-[48px] min-w-[48px]"
+        >
+          ← Back to tables
+        </Link>
+
+        <header className="mb-6">
+          <h1 className="text-2xl font-bold text-white mb-4">Order</h1>
+          <div className="inline-flex items-center gap-2 bg-green-900/40 border border-green-700 rounded-xl px-4 py-2 mb-4">
+            <span className="text-green-400 font-semibold text-base">Paid</span>
+          </div>
+          <dl className="space-y-2 text-base">
+            <div className="flex gap-3">
+              <dt className="text-zinc-500">Table</dt>
+              <dd className="font-semibold text-white">{tableId}</dd>
+            </div>
+            <div className="flex gap-3">
+              <dt className="text-zinc-500">Order ID</dt>
+              <dd className="font-mono text-sm text-zinc-300">{orderId}</dd>
+            </div>
+            {paidPaymentMethod !== null && (
+              <div className="flex gap-3">
+                <dt className="text-zinc-500">Payment method</dt>
+                <dd className="font-semibold text-white capitalize">{paidPaymentMethod}</dd>
+              </div>
+            )}
+          </dl>
+        </header>
+
+        <section className="flex-1">
+          <h2 className="text-lg font-semibold text-white mb-4">Items</h2>
+          {renderReadOnlyItems()}
+        </section>
+
+        <footer className="mt-6 pt-4 border-t border-zinc-700">
+          <div className="flex items-center justify-between mb-6">
+            <span className="text-lg text-zinc-400">Total</span>
+            <span className="text-2xl font-bold text-white">{totalFormatted}</span>
+          </div>
+          <Link
+            href="/tables"
+            className="w-full inline-flex items-center justify-center min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold bg-zinc-700 hover:bg-zinc-600 text-white transition-colors"
+          >
+            Back to tables
+          </Link>
+        </footer>
+      </main>
     )
   }
 
@@ -463,7 +590,7 @@ export default function OrderDetailClient({ tableId, orderId }: OrderDetailClien
               <p className="text-base text-red-400">{paymentError}</p>
             )}
           </div>
-        ) : (
+        ) : step === 'change' ? (
           <div className="space-y-5">
             <h2 className="text-xl font-semibold text-white">Change Due</h2>
             <p className="text-4xl font-bold text-amber-400">
@@ -471,11 +598,20 @@ export default function OrderDetailClient({ tableId, orderId }: OrderDetailClien
             </p>
             <button
               type="button"
-              onClick={() => { router.push(`/tables/${tableId}`) }}
+              onClick={() => { setStep('success') }}
               className="w-full min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold bg-amber-500 hover:bg-amber-400 text-zinc-900 transition-colors"
             >
               Done
             </button>
+          </div>
+        ) : (
+          <div className="space-y-5 text-center py-4">
+            <div className="text-5xl mb-2">✓</div>
+            <h2 className="text-2xl font-bold text-green-400">Payment recorded — order closed</h2>
+            {confirmedPaymentMethod !== null && (
+              <p className="text-zinc-400 text-base capitalize">Paid by {confirmedPaymentMethod}</p>
+            )}
+            <p className="text-zinc-400 text-base">Returning to tables…</p>
           </div>
         )}
       </footer>

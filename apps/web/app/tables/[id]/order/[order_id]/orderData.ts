@@ -5,6 +5,11 @@ export interface OrderItem {
   price_cents: number
 }
 
+export interface OrderSummary {
+  status: string
+  payment_method: string | null
+}
+
 interface OrderItemRow {
   id: string
   quantity: number
@@ -41,4 +46,51 @@ export async function fetchOrderItems(
     quantity: row.quantity,
     price_cents: row.unit_price_cents,
   }))
+}
+
+export async function fetchOrderSummary(
+  supabaseUrl: string,
+  apiKey: string,
+  orderId: string,
+): Promise<OrderSummary> {
+  const headers = {
+    apikey: apiKey,
+    Authorization: `Bearer ${apiKey}`,
+  }
+
+  const orderUrl = new URL(`${supabaseUrl}/rest/v1/orders`)
+  orderUrl.searchParams.set('id', `eq.${orderId}`)
+  orderUrl.searchParams.set('select', 'status')
+
+  const orderRes = await fetch(orderUrl.toString(), { headers })
+  if (!orderRes.ok) {
+    const body = await orderRes.text()
+    throw new Error(`Failed to fetch order: ${orderRes.status} ${orderRes.statusText} — ${body}`)
+  }
+
+  const orders = (await orderRes.json()) as Array<{ status: string }>
+  if (orders.length === 0) {
+    throw new Error('Order not found')
+  }
+
+  const { status } = orders[0]
+  if (status !== 'paid') {
+    return { status, payment_method: null }
+  }
+
+  const paymentUrl = new URL(`${supabaseUrl}/rest/v1/payments`)
+  paymentUrl.searchParams.set('order_id', `eq.${orderId}`)
+  paymentUrl.searchParams.set('select', 'method')
+  paymentUrl.searchParams.set('limit', '1')
+
+  const paymentRes = await fetch(paymentUrl.toString(), { headers })
+  if (!paymentRes.ok) {
+    return { status, payment_method: null }
+  }
+
+  const payments = (await paymentRes.json()) as Array<{ method: string }>
+  return {
+    status,
+    payment_method: payments.length > 0 ? payments[0].method : null,
+  }
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import type { ReactNode, JSX } from 'react'
 import OrderDetailClient from './OrderDetailClient'
 
@@ -24,6 +24,7 @@ vi.mock('./recordPaymentApi', () => ({
 
 vi.mock('./orderData', () => ({
   fetchOrderItems: vi.fn(),
+  fetchOrderSummary: vi.fn(),
 }))
 
 vi.mock('./voidItemApi', () => ({
@@ -43,14 +44,18 @@ const mockItems = [
 describe('OrderDetailClient', () => {
   beforeEach(async (): Promise<void> => {
     vi.clearAllMocks()
+    vi.useFakeTimers()
     vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://example.supabase.co')
     vi.stubEnv('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY', 'test-publishable-key')
     const { fetchOrderItems } = await import('./orderData')
     vi.mocked(fetchOrderItems).mockResolvedValue(mockItems)
+    const { fetchOrderSummary } = await import('./orderData')
+    vi.mocked(fetchOrderSummary).mockResolvedValue({ status: 'open', payment_method: null })
   })
 
   afterEach((): void => {
     vi.unstubAllEnvs()
+    vi.useRealTimers()
   })
 
   it('shows a loading state while items are being fetched', (): void => {
@@ -670,7 +675,7 @@ describe('OrderDetailClient', () => {
       })
     })
 
-    it('navigates to /tables/${tableId} immediately after successful card payment', async (): Promise<void> => {
+    it('shows success state after successful card payment', async (): Promise<void> => {
       const { callRecordPayment } = await import('./recordPaymentApi')
       vi.mocked(callRecordPayment).mockResolvedValue({ change_due: 0 })
 
@@ -681,8 +686,32 @@ describe('OrderDetailClient', () => {
       fireEvent.click(screen.getByRole('button', { name: /Confirm Payment/ }))
 
       await waitFor((): void => {
-        expect(mockPush).toHaveBeenCalledWith('/tables/5')
+        expect(screen.getByText('Payment recorded — order closed')).toBeInTheDocument()
       })
+      expect(mockPush).not.toHaveBeenCalled()
+    })
+
+    it('navigates to /tables after 1.5s following successful card payment', async (): Promise<void> => {
+      const { callRecordPayment } = await import('./recordPaymentApi')
+      vi.mocked(callRecordPayment).mockResolvedValue({ change_due: 0 })
+
+      render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
+      await openPaymentStep()
+
+      fireEvent.click(screen.getByRole('button', { name: 'Card' }))
+      fireEvent.click(screen.getByRole('button', { name: /Confirm Payment/ }))
+
+      await waitFor((): void => {
+        expect(screen.getByText('Payment recorded — order closed')).toBeInTheDocument()
+      })
+
+      expect(mockPush).not.toHaveBeenCalled()
+
+      await act(async (): Promise<void> => {
+        vi.advanceTimersByTime(1500)
+      })
+
+      expect(mockPush).toHaveBeenCalledWith('/tables')
     })
 
     it('shows change due screen after successful cash payment', async (): Promise<void> => {
@@ -703,7 +732,7 @@ describe('OrderDetailClient', () => {
       expect(mockPush).not.toHaveBeenCalled()
     })
 
-    it('navigates to /tables/${tableId} when Done is clicked after cash payment', async (): Promise<void> => {
+    it('shows success state when Done is clicked after cash payment', async (): Promise<void> => {
       const { callRecordPayment } = await import('./recordPaymentApi')
       vi.mocked(callRecordPayment).mockResolvedValue({ change_due: 0 })
 
@@ -720,7 +749,40 @@ describe('OrderDetailClient', () => {
 
       fireEvent.click(screen.getByRole('button', { name: 'Done' }))
 
-      expect(mockPush).toHaveBeenCalledWith('/tables/5')
+      await waitFor((): void => {
+        expect(screen.getByText('Payment recorded — order closed')).toBeInTheDocument()
+      })
+      expect(mockPush).not.toHaveBeenCalled()
+    })
+
+    it('navigates to /tables after 1.5s following Done click on cash payment', async (): Promise<void> => {
+      const { callRecordPayment } = await import('./recordPaymentApi')
+      vi.mocked(callRecordPayment).mockResolvedValue({ change_due: 0 })
+
+      render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
+      await openPaymentStep()
+
+      const input = screen.getByRole('spinbutton')
+      fireEvent.change(input, { target: { value: '54.50' } })
+      fireEvent.click(screen.getByRole('button', { name: /Confirm Payment/ }))
+
+      await waitFor((): void => {
+        expect(screen.getByText('Change Due')).toBeInTheDocument()
+      })
+
+      fireEvent.click(screen.getByRole('button', { name: 'Done' }))
+
+      await waitFor((): void => {
+        expect(screen.getByText('Payment recorded — order closed')).toBeInTheDocument()
+      })
+
+      expect(mockPush).not.toHaveBeenCalled()
+
+      await act(async (): Promise<void> => {
+        vi.advanceTimersByTime(1500)
+      })
+
+      expect(mockPush).toHaveBeenCalledWith('/tables')
     })
 
     it('shows inline error without losing form when payment API fails', async (): Promise<void> => {
@@ -771,6 +833,74 @@ describe('OrderDetailClient', () => {
 
       await waitFor((): void => {
         expect(screen.getByText('API not configured')).toBeInTheDocument()
+      })
+    })
+  })
+
+  describe('paid order read-only view', () => {
+    it('shows read-only paid state when navigating to an already-paid order', async (): Promise<void> => {
+      const { fetchOrderSummary } = await import('./orderData')
+      vi.mocked(fetchOrderSummary).mockResolvedValue({ status: 'paid', payment_method: 'card' })
+
+      render(<OrderDetailClient tableId="5" orderId="order-paid-123" />)
+
+      await waitFor((): void => {
+        expect(screen.getByText('Paid')).toBeInTheDocument()
+      })
+    })
+
+    it('shows payment method in paid read-only view', async (): Promise<void> => {
+      const { fetchOrderSummary } = await import('./orderData')
+      vi.mocked(fetchOrderSummary).mockResolvedValue({ status: 'paid', payment_method: 'cash' })
+
+      render(<OrderDetailClient tableId="5" orderId="order-paid-123" />)
+
+      await waitFor((): void => {
+        expect(screen.getByText('Payment method')).toBeInTheDocument()
+        expect(screen.getByText('cash')).toBeInTheDocument()
+      })
+    })
+
+    it('does not show Close Order or Add Items in paid read-only view', async (): Promise<void> => {
+      const { fetchOrderSummary } = await import('./orderData')
+      vi.mocked(fetchOrderSummary).mockResolvedValue({ status: 'paid', payment_method: 'card' })
+
+      render(<OrderDetailClient tableId="5" orderId="order-paid-123" />)
+
+      await waitFor((): void => {
+        expect(screen.getByText('Paid')).toBeInTheDocument()
+      })
+
+      expect(screen.queryByRole('button', { name: 'Close Order' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('link', { name: 'Add Items' })).not.toBeInTheDocument()
+    })
+
+    it('shows order total in paid read-only view', async (): Promise<void> => {
+      const { fetchOrderSummary } = await import('./orderData')
+      vi.mocked(fetchOrderSummary).mockResolvedValue({ status: 'paid', payment_method: 'card' })
+
+      render(<OrderDetailClient tableId="5" orderId="order-paid-123" />)
+
+      await waitFor((): void => {
+        expect(screen.getByText('Paid')).toBeInTheDocument()
+      })
+      // 2×850 + 1×1850 + 2×950 = $54.50
+      expect(screen.getByText('$54.50')).toBeInTheDocument()
+    })
+
+    it('Back to tables link has minimum 48px touch target in paid view', async (): Promise<void> => {
+      const { fetchOrderSummary } = await import('./orderData')
+      vi.mocked(fetchOrderSummary).mockResolvedValue({ status: 'paid', payment_method: 'card' })
+
+      render(<OrderDetailClient tableId="5" orderId="order-paid-123" />)
+
+      await waitFor((): void => {
+        expect(screen.getByText('Paid')).toBeInTheDocument()
+      })
+
+      const backLinks = screen.getAllByRole('link', { name: /Back to tables/ })
+      backLinks.forEach((link) => {
+        expect(link.className).toContain('min-h-[48px]')
       })
     })
   })

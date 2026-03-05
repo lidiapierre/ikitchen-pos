@@ -11,7 +11,7 @@ export interface CreateOrderResult {
 export async function callCreateOrder(
   supabaseUrl: string,
   apiKey: string,
-  tableId: number,
+  tableId: string,
 ): Promise<CreateOrderResult> {
   const res = await fetch(`${supabaseUrl}/functions/v1/create_order`, {
     method: 'POST',

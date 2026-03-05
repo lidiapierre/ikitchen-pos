@@ -12,6 +12,7 @@ export interface Table {
   number: number
   status: TableStatus
   seats: number
+  table_db_id: string
   open_order_id?: string
 }
 
@@ -40,7 +41,7 @@ export default function TableCard({ table }: TableCardProps): JSX.Element {
       if (!supabaseUrl || !supabasePublishableKey) {
         throw new Error('API not configured')
       }
-      const result = await callCreateOrder(supabaseUrl, supabasePublishableKey, table.id)
+      const result = await callCreateOrder(supabaseUrl, supabasePublishableKey, table.table_db_id)
       router.push(`/tables/${table.id}/order/${result.order_id}`)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create order')

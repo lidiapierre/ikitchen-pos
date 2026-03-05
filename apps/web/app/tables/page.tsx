@@ -1,26 +1,65 @@
-import type { JSX } from 'react'
-import TableCard, { type Table } from './components/TableCard'
+'use client'
 
-const TABLES: Table[] = [
-  { id: 1, number: 1, status: 'occupied', seats: 4, open_order_id: '00000000-0000-0000-0000-000000000001' },
-  { id: 2, number: 2, status: 'empty', seats: 2 },
-  { id: 3, number: 3, status: 'occupied', seats: 6, open_order_id: '00000000-0000-0000-0000-000000000003' },
-  { id: 4, number: 4, status: 'empty', seats: 4 },
-  { id: 5, number: 5, status: 'empty', seats: 2 },
-  { id: 6, number: 6, status: 'occupied', seats: 8, open_order_id: '00000000-0000-0000-0000-000000000006' },
-  { id: 7, number: 7, status: 'empty', seats: 4 },
-  { id: 8, number: 8, status: 'occupied', seats: 6, open_order_id: '00000000-0000-0000-0000-000000000008' },
-]
+import { useCallback, useEffect, useState } from 'react'
+import type { JSX } from 'react'
+import TableCard from './components/TableCard'
+import { fetchTables } from './tablesData'
+import type { TableRow } from './tablesData'
 
 export default function TablesPage(): JSX.Element {
+  const [tables, setTables] = useState<TableRow[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const loadTables = useCallback((): void => {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+
+    if (!supabaseUrl || !supabaseKey) {
+      setError('Supabase is not configured')
+      setLoading(false)
+      return
+    }
+
+    setLoading(true)
+    setError(null)
+    fetchTables(supabaseUrl, supabaseKey)
+      .then(setTables)
+      .catch((err: unknown) => {
+        setError(err instanceof Error ? err.message : 'Failed to load tables')
+      })
+      .finally(() => { setLoading(false) })
+  }, [])
+
+  useEffect(() => {
+    loadTables()
+  }, [loadTables])
+
   return (
     <main className="min-h-screen bg-zinc-900 p-6">
-      <h1 className="text-2xl font-bold text-white mb-8">Tables</h1>
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-        {TABLES.map((table) => (
-          <TableCard key={table.id} table={table} />
-        ))}
+      <div className="flex items-center justify-between mb-8">
+        <h1 className="text-2xl font-bold text-white">Tables</h1>
+        <button
+          type="button"
+          onClick={loadTables}
+          className="text-zinc-400 hover:text-white text-base font-medium px-4 py-2 rounded-lg border border-zinc-700 hover:border-zinc-500 transition-colors min-h-[48px]"
+        >
+          Refresh
+        </button>
       </div>
+      {loading ? (
+        <p className="text-zinc-400 text-lg">Loading tables…</p>
+      ) : error !== null ? (
+        <p className="text-red-400 text-lg">{error}</p>
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+          {tables.length === 0 ? (
+            <p className="text-zinc-400 text-lg col-span-full">No tables configured.</p>
+          ) : tables.map((table) => (
+            <TableCard key={table.id} table={table} />
+          ))}
+        </div>
+      )}
     </main>
   )
 }

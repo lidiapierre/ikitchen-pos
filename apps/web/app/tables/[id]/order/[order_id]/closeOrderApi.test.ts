@@ -9,6 +9,7 @@ describe('callCloseOrder', () => {
   it('calls the close_order endpoint with the correct payload', async (): Promise<void> => {
     const mockFetch = vi.mocked(fetch)
     mockFetch.mockResolvedValue({
+      ok: true,
       json: (): Promise<{ success: boolean; data: { success: boolean; final_total: number } }> =>
         Promise.resolve({ success: true, data: { success: true, final_total: 5450 } }),
     } as Response)
@@ -27,6 +28,7 @@ describe('callCloseOrder', () => {
   it('sends the apikey and x-demo-staff-id headers', async (): Promise<void> => {
     const mockFetch = vi.mocked(fetch)
     mockFetch.mockResolvedValue({
+      ok: true,
       json: (): Promise<{ success: boolean }> => Promise.resolve({ success: true }),
     } as Response)
 
@@ -46,6 +48,7 @@ describe('callCloseOrder', () => {
   it('throws with the API error message when success is false', async (): Promise<void> => {
     const mockFetch = vi.mocked(fetch)
     mockFetch.mockResolvedValue({
+      ok: true,
       json: (): Promise<{ success: boolean; error: string }> =>
         Promise.resolve({ success: false, error: 'Order has no items' }),
     } as Response)
@@ -58,6 +61,7 @@ describe('callCloseOrder', () => {
   it('throws a fallback message when success is false and no error field is present', async (): Promise<void> => {
     const mockFetch = vi.mocked(fetch)
     mockFetch.mockResolvedValue({
+      ok: true,
       json: (): Promise<{ success: boolean }> => Promise.resolve({ success: false }),
     } as Response)
 
@@ -72,5 +76,13 @@ describe('callCloseOrder', () => {
     await expect(
       callCloseOrder('https://example.supabase.co', 'test-key', 'order-123'),
     ).rejects.toThrow('Network request failed')
+  })
+
+  it('throws on a non-2xx HTTP response', async (): Promise<void> => {
+    vi.mocked(fetch).mockResolvedValue({ ok: false, status: 500 } as Response)
+
+    await expect(
+      callCloseOrder('https://example.supabase.co', 'test-key', 'order-123'),
+    ).rejects.toThrow('HTTP 500')
   })
 })

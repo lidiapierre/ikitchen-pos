@@ -18,6 +18,9 @@ export async function callCloseOrder(
     },
     body: JSON.stringify({ order_id: orderId }),
   })
+  if (!res.ok) {
+    throw new Error(`HTTP ${res.status}`)
+  }
   const json = (await res.json()) as CloseOrderResponse
   if (!json.success) {
     throw new Error(json.error ?? 'Failed to close order')

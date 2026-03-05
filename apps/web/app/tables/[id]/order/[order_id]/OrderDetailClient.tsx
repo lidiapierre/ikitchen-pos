@@ -31,7 +31,7 @@ export default function OrderDetailClient({ tableId, orderId }: OrderDetailClien
         throw new Error('API not configured')
       }
       await callCloseOrder(supabaseUrl, supabaseKey, orderId)
-      router.push('/tables')
+      router.push(`/tables/${tableId}`)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to close order')
     } finally {

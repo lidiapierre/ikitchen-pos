@@ -121,7 +121,7 @@ describe('OrderDetailClient', () => {
     })
   })
 
-  it('navigates to /tables on successful close', async (): Promise<void> => {
+  it('navigates to /tables/${tableId} on successful close', async (): Promise<void> => {
     const { callCloseOrder } = await import('./closeOrderApi')
     vi.mocked(callCloseOrder).mockResolvedValue(undefined)
 
@@ -130,7 +130,7 @@ describe('OrderDetailClient', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Close Order' }))
 
     await waitFor((): void => {
-      expect(mockPush).toHaveBeenCalledWith('/tables')
+      expect(mockPush).toHaveBeenCalledWith('/tables/5')
     })
   })
 

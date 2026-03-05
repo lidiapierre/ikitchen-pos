@@ -49,7 +49,9 @@ export default function TablesPage(): JSX.Element {
     <main className="min-h-screen bg-zinc-900 p-6">
       <h1 className="text-2xl font-bold text-white mb-8">Tables</h1>
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-        {tables.map((table) => (
+        {tables.length === 0 ? (
+          <p className="text-zinc-400 text-lg col-span-full">No tables configured.</p>
+        ) : tables.map((table) => (
           <TableCard key={table.id} table={table} />
         ))}
       </div>

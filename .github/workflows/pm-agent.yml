@@ -1,0 +1,63 @@
+name: PM Agent
+
+on:
+  workflow_dispatch:
+
+jobs:
+  pm:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            You are the PM agent for iKitchen POS. Your job is to analyse the current state of the project and propose the 3 most valuable next features to implement.
+
+            ## Step 1 — Understand the project
+            Read these files:
+            - `docs/architecture.md` — product brief, MVP definition, prioritisation principles
+            - `CLAUDE.md` — tech stack and constraints
+
+            ## Step 2 — Understand what has been built
+            - Run `git log --oneline -30` to see recent commits
+            - Use the GitHub API to list recently closed issues: `gh issue list --state closed --limit 20`
+            - Use the GitHub API to list open PRs: `gh pr list --state open`
+
+            ## Step 3 — Identify gaps
+            Based on the MVP user journeys in `docs/architecture.md` section 14, identify what is missing or incomplete. Think in terms of user journeys, not technical tasks.
+
+            ## Step 4 — Open 3 GitHub issues
+            Open exactly 3 issues using `gh issue create`. Each issue must:
+            - Be scoped to one area only (UI, API, or DB — not all three)
+            - Follow this exact template:
+
+            ```
+            ## What should this feature do?
+            <clear description of the user-facing behaviour>
+
+            ## Acceptance criteria
+            - [ ] <specific, testable criterion>
+            - [ ] <specific, testable criterion>
+
+            ## Affected areas (UI / API / DB)
+            - **UI**: <files or none>
+            - **API**: <files or none>
+            - **DB**: <files or none>
+            ```
+
+            - Be labelled `pm-suggested`
+            - Have a title that starts with the area in brackets e.g. `[UI]`, `[API]`, `[DB]`
+
+            ## Step 5 — Post a summary
+            After opening the 3 issues, create a final summary issue titled `PM Agent — Sprint suggestions <date>` that lists the 3 issues with links and a one-sentence rationale for each, explaining which MVP user journey it unblocks.
+
+          claude_args: "--max-turns 30 --dangerously-skip-permissions"

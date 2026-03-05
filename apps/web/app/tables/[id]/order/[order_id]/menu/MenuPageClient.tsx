@@ -10,15 +10,26 @@ import MenuItemCard from './MenuItemCard'
 interface MenuPageClientProps {
   tableId: string
   orderId: string
+  /** Menu data pre-fetched server-side. When provided the client skips its own fetch. */
+  initialCategories?: MenuCategory[] | null
 }
 
-export default function MenuPageClient({ tableId, orderId }: MenuPageClientProps): JSX.Element {
+export default function MenuPageClient({
+  tableId,
+  orderId,
+  initialCategories,
+}: MenuPageClientProps): JSX.Element {
   const [orderTotalCents, setOrderTotalCents] = useState(0)
-  const [categories, setCategories] = useState<MenuCategory[]>([])
-  const [loading, setLoading] = useState(true)
+  const [categories, setCategories] = useState<MenuCategory[]>(initialCategories ?? [])
+  const [loading, setLoading] = useState(initialCategories === null || initialCategories === undefined)
   const [fetchError, setFetchError] = useState<string | null>(null)
 
   useEffect(() => {
+    // Server component already resolved the data — skip client fetch.
+    if (initialCategories !== null && initialCategories !== undefined) {
+      return
+    }
+
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
     const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
     if (!supabaseUrl || !supabaseKey) {
@@ -37,7 +48,7 @@ export default function MenuPageClient({ tableId, orderId }: MenuPageClientProps
       .finally(() => {
         setLoading(false)
       })
-  }, [orderId])
+  }, [orderId, initialCategories])
 
   function handleItemAdded(priceCents: number): void {
     setOrderTotalCents((prev) => prev + priceCents)

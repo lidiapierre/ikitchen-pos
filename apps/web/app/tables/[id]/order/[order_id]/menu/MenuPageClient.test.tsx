@@ -139,6 +139,36 @@ describe('MenuPageClient', () => {
     })
   })
 
+  describe('initialCategories prop', () => {
+    it('renders categories immediately without fetching when initialCategories is provided', () => {
+      render(
+        <MenuPageClient
+          tableId={TABLE_ID}
+          orderId={ORDER_ID}
+          initialCategories={MOCK_CATEGORIES}
+        />,
+      )
+      expect(screen.queryByText('Loading menu…')).not.toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: 'Starters' })).toBeInTheDocument()
+      expect(vi.mocked(fetchMenuCategories)).not.toHaveBeenCalled()
+    })
+
+    it('shows empty state when initialCategories is an empty array', () => {
+      render(
+        <MenuPageClient tableId={TABLE_ID} orderId={ORDER_ID} initialCategories={[]} />,
+      )
+      expect(screen.getByText('No menu items available')).toBeInTheDocument()
+    })
+
+    it('falls back to client fetch when initialCategories is null', async () => {
+      render(
+        <MenuPageClient tableId={TABLE_ID} orderId={ORDER_ID} initialCategories={null} />,
+      )
+      expect(await screen.findByRole('heading', { name: 'Starters' })).toBeInTheDocument()
+      expect(vi.mocked(fetchMenuCategories)).toHaveBeenCalledOnce()
+    })
+  })
+
   describe('handleItemAdded', () => {
     it('updates the order total when a single item is added', async () => {
       render(<MenuPageClient tableId={TABLE_ID} orderId={ORDER_ID} />)

@@ -918,5 +918,73 @@ describe('OrderDetailClient', () => {
       expect(screen.getByRole('button', { name: 'Close Order' })).toBeInTheDocument()
       expect(screen.getByRole('link', { name: 'Add Items' })).toBeInTheDocument()
     })
+
+    it('shows normal view when env vars are not configured (loadOrderStatus early-exit)', async (): Promise<void> => {
+      vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', '')
+      vi.stubEnv('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY', '')
+
+      const { fetchOrderSummary } = await import('./orderData')
+
+      render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
+
+      // loadOrderStatus returns early — fetchOrderSummary is never called
+      // loadItems also returns early — shows API not configured error
+      await waitFor((): void => {
+        expect(screen.getByText('API not configured')).toBeInTheDocument()
+      })
+      expect(vi.mocked(fetchOrderSummary)).not.toHaveBeenCalled()
+      expect(screen.queryByText('Paid')).not.toBeInTheDocument()
+    })
+
+    it('shows loading indicator for items in paid read-only view', async (): Promise<void> => {
+      const { fetchOrderSummary } = await import('./orderData')
+      const { fetchOrderItems } = await import('./orderData')
+
+      vi.mocked(fetchOrderSummary).mockResolvedValue({ status: 'paid', payment_method: 'card' })
+      // fetchOrderItems never resolves — items remain in loading state
+      vi.mocked(fetchOrderItems).mockReturnValue(new Promise<never>(() => {}))
+
+      render(<OrderDetailClient tableId="5" orderId="order-paid-loading" />)
+
+      await waitFor((): void => {
+        expect(screen.getByText('Paid')).toBeInTheDocument()
+      })
+
+      expect(screen.getByText('Loading items…')).toBeInTheDocument()
+    })
+
+    it('shows fetch error in paid read-only view when items fail to load', async (): Promise<void> => {
+      const { fetchOrderSummary } = await import('./orderData')
+      const { fetchOrderItems } = await import('./orderData')
+
+      vi.mocked(fetchOrderSummary).mockResolvedValue({ status: 'paid', payment_method: 'card' })
+      vi.mocked(fetchOrderItems).mockRejectedValue(new Error('Items load failed'))
+
+      render(<OrderDetailClient tableId="5" orderId="order-paid-err" />)
+
+      await waitFor((): void => {
+        expect(screen.getByText('Paid')).toBeInTheDocument()
+      })
+
+      await waitFor((): void => {
+        expect(screen.getByText('Items load failed')).toBeInTheDocument()
+      })
+    })
+
+    it('shows empty state in paid read-only view when order has no items', async (): Promise<void> => {
+      const { fetchOrderSummary } = await import('./orderData')
+      const { fetchOrderItems } = await import('./orderData')
+
+      vi.mocked(fetchOrderSummary).mockResolvedValue({ status: 'paid', payment_method: 'card' })
+      vi.mocked(fetchOrderItems).mockResolvedValue([])
+
+      render(<OrderDetailClient tableId="5" orderId="order-paid-empty" />)
+
+      await waitFor((): void => {
+        expect(screen.getByText('Paid')).toBeInTheDocument()
+      })
+
+      expect(screen.getByText('No items on this order.')).toBeInTheDocument()
+    })
   })
 })

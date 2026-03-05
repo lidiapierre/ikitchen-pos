@@ -62,6 +62,27 @@ jobs:
       - name: Skip (no source yet)
         run: echo "Tests will run once source code exists"
 
+  e2e:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install dependencies
+        working-directory: apps/web
+        run: npm ci
+      - name: Install Playwright browsers
+        working-directory: apps/web
+        run: npx playwright install --with-deps chromium
+      - name: Build app
+        working-directory: apps/web
+        run: npm run build
+      - name: Run E2E tests
+        working-directory: apps/web
+        run: npm run test:e2e
+
   migration-validation:
     name: Migration Validation
     runs-on: ubuntu-latest
@@ -81,5 +102,22 @@ jobs:
       - name: Deploy edge functions
         run: |
           supabase functions deploy --project-ref ${{ secrets.SUPABASE_PROJECT_REF }}
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          
+  deploy-migrations:
+    name: Deploy Migrations
+    runs-on: ubuntu-latest
+    needs: [typecheck, lint, test]
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Deploy migrations
+        run: supabase db push --project-ref ${{ secrets.SUPABASE_PROJECT_REF }}
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}

@@ -1,6 +1,6 @@
 export const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-demo-staff-id',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
@@ -51,9 +51,20 @@ export async function handler(req: Request): Promise<Response> {
       { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
     )
   }
+  if (payload['method'] !== 'cash' && payload['method'] !== 'card') {
+    return new Response(
+      JSON.stringify({ success: false, error: 'method must be cash or card' }),
+      { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    )
+  }
+
+  const orderTotalCents = typeof payload['order_total_cents'] === 'number' ? payload['order_total_cents'] as number : null
+  const changeDue = orderTotalCents !== null && payload['method'] === 'cash'
+    ? Math.max(0, (payload['amount'] as number) - orderTotalCents)
+    : 0
 
   return new Response(
-    JSON.stringify({ success: true, data: { payment_id: crypto.randomUUID(), change_due: 0 } }),
+    JSON.stringify({ success: true, data: { payment_id: crypto.randomUUID(), change_due: changeDue } }),
     { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
   )
 }

@@ -21,7 +21,7 @@ describe('record_payment handler', () => {
   })
 
   describe('POST — happy path', () => {
-    it('returns 200 with payment_id and change_due 0', async (): Promise<void> => {
+    it('returns 200 with payment_id and change_due 0 when order_total_cents is absent', async (): Promise<void> => {
       const req = new Request('http://localhost/functions/v1/record_payment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -32,6 +32,32 @@ describe('record_payment handler', () => {
       const json = await res.json() as { success: boolean; data: { payment_id: string; change_due: number } }
       expect(json.success).toBe(true)
       expect(json.data.payment_id).toBe(FIXED_UUID)
+      expect(json.data.change_due).toBe(0)
+    })
+
+    it('returns change_due computed from amount minus order_total_cents for cash', async (): Promise<void> => {
+      const req = new Request('http://localhost/functions/v1/record_payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order_id: 'order-abc-123', amount: 6000, method: 'cash', order_total_cents: 5450 }),
+      })
+      const res = await handler(req)
+      expect(res.status).toBe(200)
+      const json = await res.json() as { success: boolean; data: { payment_id: string; change_due: number } }
+      expect(json.success).toBe(true)
+      expect(json.data.change_due).toBe(550)
+    })
+
+    it('returns change_due 0 for card even when order_total_cents is provided', async (): Promise<void> => {
+      const req = new Request('http://localhost/functions/v1/record_payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order_id: 'order-abc-123', amount: 5450, method: 'card', order_total_cents: 5450 }),
+      })
+      const res = await handler(req)
+      expect(res.status).toBe(200)
+      const json = await res.json() as { success: boolean; data: { payment_id: string; change_due: number } }
+      expect(json.success).toBe(true)
       expect(json.data.change_due).toBe(0)
     })
 
@@ -164,6 +190,19 @@ describe('record_payment handler', () => {
       const json = await res.json() as { success: boolean; error: string }
       expect(json.success).toBe(false)
       expect(json.error).toBe('method is required')
+    })
+
+    it('returns 400 when method is not cash or card', async (): Promise<void> => {
+      const req = new Request('http://localhost/functions/v1/record_payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order_id: 'order-abc-123', amount: 10, method: 'bitcoin' }),
+      })
+      const res = await handler(req)
+      expect(res.status).toBe(400)
+      const json = await res.json() as { success: boolean; error: string }
+      expect(json.success).toBe(false)
+      expect(json.error).toBe('method must be cash or card')
     })
 
     it('returns 400 when amount is zero', async (): Promise<void> => {

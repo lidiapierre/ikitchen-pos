@@ -1,4 +1,47 @@
-# Database Rules
+# Database & Edge Function Rules
+
+## Edge functions
+
+All edge functions live in `supabase/functions/<action-name>/index.ts`.
+This is where the Supabase CLI looks when running `supabase functions deploy`.
+Never create edge functions in `apps/api/` — they will not be deployed.
+
+### Edge function structure
+
+```
+supabase/functions/<action-name>/
+  index.ts       # Handler
+  validator.ts   # Input validation
+```
+
+### Every action must
+
+1. Validate the caller's role (see `docs/architecture.md` section 11)
+2. Validate the state transition is legal
+3. Emit an audit event to `audit_log` for destructive actions (see section 12)
+4. Return a structured result: `{ success: boolean, data?: T, error?: string }`
+
+### CORS
+
+Every edge function must handle OPTIONS preflight and include `x-demo-staff-id` in allowed headers:
+
+```ts
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-demo-staff-id',
+}
+
+if (req.method === 'OPTIONS') {
+  return new Response(null, { status: 204, headers: CORS_HEADERS })
+}
+```
+
+### Error handling
+
+- Never expose internal error details to the client
+- Log full error internally, return a safe generic message externally
+- Use typed error codes, not free-form strings
 
 ## Migrations
 

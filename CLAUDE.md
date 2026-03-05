@@ -18,7 +18,7 @@ A deterministic POS system for restaurants and cafés.
 /apps/web           # Next.js PWA (frontend)
 /apps/api           # Supabase Edge Functions (Action API)
 /packages/shared    # Shared TypeScript types
-/supabase           # Migrations, seed, config
+/supabase           # Migrations, seed, config, edge functions
 /docs               # Architecture and feature specs
 ```
 
@@ -31,7 +31,7 @@ Never create new top-level directories without human approval.
 | Frontend   | Next.js + TypeScript        |
 | Styling    | Tailwind CSS                |
 | PWA        | next-pwa                    |
-| Backend    | Supabase Edge Functions     |
+| Backend    | Supabase Edge Functions (in `supabase/functions/`) |
 | Database   | Postgres via Supabase       |
 | Auth       | Supabase Auth               |
 | E2E Tests  | Playwright                  |

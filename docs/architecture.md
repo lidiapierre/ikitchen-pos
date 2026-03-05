@@ -249,3 +249,27 @@ When auth is implemented:
 - Permission validation becomes enforced
 
 This is a temporary dev shortcut. No production deployment should use this pattern.
+
+## 14. Product Brief
+
+### Who uses this
+Restaurant and café staff — servers, managers, and admins — working in a fast-paced environment on a shared tablet at the counter or on the floor.
+
+### Core user journeys (MVP)
+These are the journeys that must work end-to-end for the product to be usable in a real restaurant:
+
+1. **Server opens a table** — sees available tables, taps one, starts a new order
+2. **Server builds an order** — browses the menu, adds items and modifiers, sees a running total
+3. **Manager closes and charges** — reviews the order, records payment, marks it as paid
+4. **Manager voids or cancels** — removes an item or cancels an order with a reason
+5. **Admin manages shifts** — opens and closes staff shifts, views shift summary
+
+### MVP definition
+The product is MVP-complete when a server and manager can complete journeys 1–4 end-to-end on a real tablet connected to a real Supabase database, without hitting any errors or dead ends.
+
+### Prioritisation principles
+When choosing what to build next, prefer:
+- Features that unblock a core user journey over infrastructure improvements
+- End-to-end flow completion over adding new features to an incomplete flow
+- Real data over mock data — replace stubs as soon as the flow they support is working
+- Simplicity over completeness — a working basic flow beats a feature-rich broken one

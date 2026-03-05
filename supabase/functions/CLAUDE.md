@@ -22,9 +22,8 @@ See `@docs/architecture.md` for the full Action API table.
 ## Edge function structure
 
 ```
-/apps/api/<action-name>/
-  index.ts       # Handler
-  validator.ts   # Input validation
+/supabase/functions/<action-name>/
+  index.ts       # Handler (exports `handler` function + conditional Deno.serve)
   index.test.ts  # Unit tests
 ```
 

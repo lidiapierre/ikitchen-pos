@@ -357,6 +357,12 @@ allow_dynamic_registration = false
 [functions.create_order]
 verify_jwt = false
 
+[functions.close_order]
+verify_jwt = false
+
+[functions.record_payment]
+verify_jwt = false
+
 [edge_runtime]
 enabled = true
 # Supported request policies: `oneshot`, `per_worker`.

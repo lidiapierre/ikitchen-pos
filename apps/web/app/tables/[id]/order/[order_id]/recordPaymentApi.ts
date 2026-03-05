@@ -10,6 +10,7 @@ export async function callRecordPayment(
   orderId: string,
   amountCents: number,
   method: 'cash' | 'card',
+  orderTotalCents: number,
 ): Promise<{ change_due: number }> {
   const res = await fetch(`${supabaseUrl}/functions/v1/record_payment`, {
     method: 'POST',
@@ -18,7 +19,7 @@ export async function callRecordPayment(
       apikey: apiKey,
       'x-demo-staff-id': '00000000-0000-0000-0000-000000000010',
     },
-    body: JSON.stringify({ order_id: orderId, amount: amountCents, method }),
+    body: JSON.stringify({ order_id: orderId, amount: amountCents, method, order_total_cents: orderTotalCents }),
   })
   if (!res.ok) {
     throw new Error(`HTTP ${res.status}`)

@@ -14,13 +14,13 @@ describe('callRecordPayment', () => {
       }),
     )
 
-    await callRecordPayment('https://example.supabase.co', 'test-key', 'order-123', 5450, 'cash')
+    await callRecordPayment('https://example.supabase.co', 'test-key', 'order-123', 5450, 'cash', 5450)
 
     expect(mockFetch).toHaveBeenCalledWith(
       'https://example.supabase.co/functions/v1/record_payment',
       expect.objectContaining({
         method: 'POST',
-        body: JSON.stringify({ order_id: 'order-123', amount: 5450, method: 'cash' }),
+        body: JSON.stringify({ order_id: 'order-123', amount: 5450, method: 'cash', order_total_cents: 5450 }),
       }),
     )
   })
@@ -34,7 +34,7 @@ describe('callRecordPayment', () => {
     )
 
     await expect(
-      callRecordPayment('https://example.supabase.co', 'test-key', 'order-123', 5450, 'card'),
+      callRecordPayment('https://example.supabase.co', 'test-key', 'order-123', 5450, 'card', 5450),
     ).resolves.toEqual({ change_due: 250 })
   })
 
@@ -44,7 +44,7 @@ describe('callRecordPayment', () => {
     )
 
     await expect(
-      callRecordPayment('https://example.supabase.co', 'test-key', 'order-123', 5450, 'cash'),
+      callRecordPayment('https://example.supabase.co', 'test-key', 'order-123', 5450, 'cash', 5450),
     ).rejects.toThrow('HTTP 404')
   })
 
@@ -57,7 +57,7 @@ describe('callRecordPayment', () => {
     )
 
     await expect(
-      callRecordPayment('https://example.supabase.co', 'test-key', 'order-123', 5450, 'cash'),
+      callRecordPayment('https://example.supabase.co', 'test-key', 'order-123', 5450, 'cash', 5450),
     ).rejects.toThrow('Order is not closed')
   })
 })

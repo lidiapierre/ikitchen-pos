@@ -242,6 +242,8 @@ describe('OrderDetailClient', () => {
       render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
       await openPaymentStep()
 
+      const input = screen.getByRole('spinbutton')
+      fireEvent.change(input, { target: { value: '54.50' } })
       fireEvent.click(screen.getByRole('button', { name: /Confirm Payment/ }))
 
       await waitFor((): void => {
@@ -251,6 +253,7 @@ describe('OrderDetailClient', () => {
           'order-abc-123',
           5450,
           'cash',
+          5450,
         )
       })
     })
@@ -272,6 +275,60 @@ describe('OrderDetailClient', () => {
           'order-abc-123',
           5450,
           'card',
+          5450,
+        )
+      })
+    })
+
+    it('shows amount tendered input for cash payment', async (): Promise<void> => {
+      render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
+      await openPaymentStep()
+
+      expect(screen.getByText('Amount tendered')).toBeInTheDocument()
+      expect(screen.getByRole('spinbutton')).toBeInTheDocument()
+    })
+
+    it('does not show amount tendered input for card payment', async (): Promise<void> => {
+      render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
+      await openPaymentStep()
+
+      fireEvent.click(screen.getByRole('button', { name: 'Card' }))
+
+      expect(screen.queryByText('Amount tendered')).not.toBeInTheDocument()
+    })
+
+    it('shows error when amount tendered is less than order total', async (): Promise<void> => {
+      render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
+      await openPaymentStep()
+
+      const input = screen.getByRole('spinbutton')
+      fireEvent.change(input, { target: { value: '50.00' } })
+      fireEvent.click(screen.getByRole('button', { name: /Confirm Payment/ }))
+
+      await waitFor((): void => {
+        expect(screen.getByText('Amount tendered must be at least the order total')).toBeInTheDocument()
+      })
+    })
+
+    it('passes tendered amount to callRecordPayment for cash overpayment', async (): Promise<void> => {
+      const { callRecordPayment } = await import('./recordPaymentApi')
+      vi.mocked(callRecordPayment).mockResolvedValue({ change_due: 550 })
+
+      render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
+      await openPaymentStep()
+
+      const input = screen.getByRole('spinbutton')
+      fireEvent.change(input, { target: { value: '60.00' } })
+      fireEvent.click(screen.getByRole('button', { name: /Confirm Payment/ }))
+
+      await waitFor((): void => {
+        expect(callRecordPayment).toHaveBeenCalledWith(
+          'https://example.supabase.co',
+          'test-publishable-key',
+          'order-abc-123',
+          6000,
+          'cash',
+          5450,
         )
       })
     })
@@ -298,6 +355,8 @@ describe('OrderDetailClient', () => {
       render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
       await openPaymentStep()
 
+      const input = screen.getByRole('spinbutton')
+      fireEvent.change(input, { target: { value: '57.00' } })
       fireEvent.click(screen.getByRole('button', { name: /Confirm Payment/ }))
 
       await waitFor((): void => {
@@ -314,6 +373,8 @@ describe('OrderDetailClient', () => {
       render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
       await openPaymentStep()
 
+      const input = screen.getByRole('spinbutton')
+      fireEvent.change(input, { target: { value: '54.50' } })
       fireEvent.click(screen.getByRole('button', { name: /Confirm Payment/ }))
 
       await waitFor((): void => {
@@ -332,6 +393,8 @@ describe('OrderDetailClient', () => {
       render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
       await openPaymentStep()
 
+      const input = screen.getByRole('spinbutton')
+      fireEvent.change(input, { target: { value: '54.50' } })
       fireEvent.click(screen.getByRole('button', { name: /Confirm Payment/ }))
 
       await waitFor((): void => {
@@ -350,6 +413,8 @@ describe('OrderDetailClient', () => {
       render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
       await openPaymentStep()
 
+      const input = screen.getByRole('spinbutton')
+      fireEvent.change(input, { target: { value: '54.50' } })
       fireEvent.click(screen.getByRole('button', { name: /Confirm Payment/ }))
 
       await waitFor((): void => {
@@ -363,6 +428,8 @@ describe('OrderDetailClient', () => {
 
       vi.unstubAllEnvs()
 
+      const input = screen.getByRole('spinbutton')
+      fireEvent.change(input, { target: { value: '54.50' } })
       fireEvent.click(screen.getByRole('button', { name: /Confirm Payment/ }))
 
       await waitFor((): void => {

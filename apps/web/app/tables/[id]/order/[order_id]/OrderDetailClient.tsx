@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import type { JSX } from 'react'
@@ -22,6 +22,7 @@ export default function OrderDetailClient({ tableId, orderId }: OrderDetailClien
   const [paying, setPaying] = useState(false)
   const [paymentError, setPaymentError] = useState<string | null>(null)
   const [changeDueCents, setChangeDueCents] = useState(0)
+  const [amountTenderedDollars, setAmountTenderedDollars] = useState<string>('')
 
   const items = MOCK_ORDER_ITEMS
   const totalCents = items.reduce((sum, item) => sum + item.quantity * item.price_cents, 0)
@@ -47,6 +48,15 @@ export default function OrderDetailClient({ tableId, orderId }: OrderDetailClien
 
   async function handleRecordPayment(): Promise<void> {
     setPaymentError(null)
+
+    const amountCentsToTender = paymentMethod === 'cash'
+      ? Math.round(parseFloat(amountTenderedDollars || '0') * 100)
+      : totalCents
+    if (paymentMethod === 'cash' && amountCentsToTender < totalCents) {
+      setPaymentError('Amount tendered must be at least the order total')
+      return
+    }
+
     setPaying(true)
     try {
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -54,7 +64,7 @@ export default function OrderDetailClient({ tableId, orderId }: OrderDetailClien
       if (!supabaseUrl || !supabaseKey) {
         throw new Error('API not configured')
       }
-      const result = await callRecordPayment(supabaseUrl, supabaseKey, orderId, totalCents, paymentMethod)
+      const result = await callRecordPayment(supabaseUrl, supabaseKey, orderId, amountCentsToTender, paymentMethod, totalCents)
       if (paymentMethod === 'cash') {
         setChangeDueCents(result.change_due)
         setStep('change')
@@ -183,6 +193,21 @@ export default function OrderDetailClient({ tableId, orderId }: OrderDetailClien
                 </button>
               </div>
             </div>
+
+            {paymentMethod === 'cash' && (
+              <div>
+                <p className="text-zinc-400 text-base mb-2">Amount tendered</p>
+                <input
+                  type="number"
+                  min={(totalCents / 100).toFixed(2)}
+                  step="0.01"
+                  placeholder={(totalCents / 100).toFixed(2)}
+                  value={amountTenderedDollars}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setAmountTenderedDollars(e.target.value) }}
+                  className="w-full min-h-[48px] px-4 rounded-xl text-base bg-zinc-800 text-white border-2 border-zinc-600 focus:border-amber-400 focus:outline-none"
+                />
+              </div>
+            )}
 
             <button
               type="button"

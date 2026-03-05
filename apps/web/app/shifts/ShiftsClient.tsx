@@ -104,8 +104,11 @@ export default function ShiftsClient(): JSX.Element {
         : '/functions/v1/open_shift'
       const res = await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ staff_id: 'demo-staff', opening_float: 0 }),
+        headers: {
+          'Content-Type': 'application/json',
+          'x-demo-staff-id': '00000000-0000-0000-0000-000000000010',
+        },
+        body: JSON.stringify({ opening_float: 0 }),
       })
       const json = (await res.json()) as {
         success: boolean

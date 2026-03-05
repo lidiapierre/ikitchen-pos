@@ -3,6 +3,7 @@ import { handler, corsHeaders } from './index'
 
 const FIXED_UUID = '44444444-4444-4444-4444-444444444444'
 const FIXED_ISO = '2026-02-27T00:00:00.000Z'
+const DEMO_STAFF_ID = '00000000-0000-0000-0000-000000000010'
 
 beforeEach(() => {
   vi.useFakeTimers()
@@ -17,12 +18,12 @@ afterEach(() => {
 
 describe('open_shift handler', () => {
   describe('OPTIONS preflight', () => {
-    it('returns 200 with CORS headers', async (): Promise<void> => {
+    it('returns 204 with CORS headers', async (): Promise<void> => {
       const req = new Request('http://localhost/functions/v1/open_shift', {
         method: 'OPTIONS',
       })
       const res = await handler(req)
-      expect(res.status).toBe(200)
+      expect(res.status).toBe(204)
       expect(res.headers.get('Access-Control-Allow-Origin')).toBe(corsHeaders['Access-Control-Allow-Origin'])
       expect(res.headers.get('Access-Control-Allow-Methods')).toBe(corsHeaders['Access-Control-Allow-Methods'])
     })
@@ -32,8 +33,8 @@ describe('open_shift handler', () => {
     it('returns 200 with shift_id and started_at', async (): Promise<void> => {
       const req = new Request('http://localhost/functions/v1/open_shift', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ staff_id: 'staff-abc', opening_float: 100 }),
+        headers: { 'Content-Type': 'application/json', 'x-demo-staff-id': DEMO_STAFF_ID },
+        body: JSON.stringify({ opening_float: 100 }),
       })
       const res = await handler(req)
       expect(res.status).toBe(200)
@@ -47,11 +48,35 @@ describe('open_shift handler', () => {
     it('includes CORS headers in success response', async (): Promise<void> => {
       const req = new Request('http://localhost/functions/v1/open_shift', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ staff_id: 'staff-abc', opening_float: 100 }),
+        headers: { 'Content-Type': 'application/json', 'x-demo-staff-id': DEMO_STAFF_ID },
+        body: JSON.stringify({ opening_float: 100 }),
       })
       const res = await handler(req)
       expect(res.headers.get('Access-Control-Allow-Origin')).toBe('*')
+    })
+
+    it('falls back to SYSTEM_USER_ID when x-demo-staff-id header is absent', async (): Promise<void> => {
+      const req = new Request('http://localhost/functions/v1/open_shift', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ opening_float: 100 }),
+      })
+      const res = await handler(req)
+      expect(res.status).toBe(200)
+      const json = await res.json() as { success: boolean; data: { shift_id: string; started_at: string } }
+      expect(json.success).toBe(true)
+    })
+
+    it('falls back to SYSTEM_USER_ID when x-demo-staff-id header is not a valid UUID', async (): Promise<void> => {
+      const req = new Request('http://localhost/functions/v1/open_shift', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-demo-staff-id': 'not-a-uuid' },
+        body: JSON.stringify({ opening_float: 100 }),
+      })
+      const res = await handler(req)
+      expect(res.status).toBe(200)
+      const json = await res.json() as { success: boolean; data: { shift_id: string; started_at: string } }
+      expect(json.success).toBe(true)
     })
   })
 
@@ -95,37 +120,11 @@ describe('open_shift handler', () => {
   })
 
   describe('POST — missing required fields', () => {
-    it('returns 400 when staff_id is absent', async (): Promise<void> => {
-      const req = new Request('http://localhost/functions/v1/open_shift', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ opening_float: 100 }),
-      })
-      const res = await handler(req)
-      expect(res.status).toBe(400)
-      const json = await res.json() as { success: boolean; error: string }
-      expect(json.success).toBe(false)
-      expect(json.error).toBe('staff_id is required')
-    })
-
-    it('returns 400 when staff_id is an empty string', async (): Promise<void> => {
-      const req = new Request('http://localhost/functions/v1/open_shift', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ staff_id: '', opening_float: 100 }),
-      })
-      const res = await handler(req)
-      expect(res.status).toBe(400)
-      const json = await res.json() as { success: boolean; error: string }
-      expect(json.success).toBe(false)
-      expect(json.error).toBe('staff_id is required')
-    })
-
     it('returns 400 when opening_float is absent', async (): Promise<void> => {
       const req = new Request('http://localhost/functions/v1/open_shift', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ staff_id: 'staff-abc' }),
+        body: JSON.stringify({}),
       })
       const res = await handler(req)
       expect(res.status).toBe(400)
@@ -138,7 +137,7 @@ describe('open_shift handler', () => {
       const req = new Request('http://localhost/functions/v1/open_shift', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ staff_id: 'staff-abc', opening_float: '100' }),
+        body: JSON.stringify({ opening_float: '100' }),
       })
       const res = await handler(req)
       expect(res.status).toBe(400)
@@ -151,7 +150,7 @@ describe('open_shift handler', () => {
       const req = new Request('http://localhost/functions/v1/open_shift', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ staff_id: 'staff-abc', opening_float: null }),
+        body: JSON.stringify({ opening_float: null }),
       })
       const res = await handler(req)
       expect(res.status).toBe(400)
@@ -164,7 +163,7 @@ describe('open_shift handler', () => {
       const req = new Request('http://localhost/functions/v1/open_shift', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ opening_float: 100 }),
+        body: JSON.stringify({}),
       })
       const res = await handler(req)
       expect(res.status).toBe(400)

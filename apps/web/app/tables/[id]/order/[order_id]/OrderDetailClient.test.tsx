@@ -903,5 +903,20 @@ describe('OrderDetailClient', () => {
         expect(link.className).toContain('min-h-[48px]')
       })
     })
+
+    it('falls back to normal order view when fetchOrderSummary rejects', async (): Promise<void> => {
+      const { fetchOrderSummary } = await import('./orderData')
+      vi.mocked(fetchOrderSummary).mockRejectedValue(new Error('Network error'))
+
+      render(<OrderDetailClient tableId="5" orderId="order-open-456" />)
+
+      // Wait for items to load (fetchOrderItems succeeds)
+      await screen.findByText('Bruschetta')
+
+      // Normal order view is shown — no paid badge, actions still present
+      expect(screen.queryByText('Paid')).not.toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Close Order' })).toBeInTheDocument()
+      expect(screen.getByRole('link', { name: 'Add Items' })).toBeInTheDocument()
+    })
   })
 })

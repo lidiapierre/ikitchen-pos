@@ -142,6 +142,21 @@ export async function handler(
     //    modifier combination appears as its own line. When no modifiers are
     //    specified, use the existing increment-quantity behaviour.
     if (modifierIds.length > 0) {
+      // Fetch modifier price deltas and add them to the base price
+      const modifierRes = await fetchFn(
+        `${supabaseUrl}/rest/v1/modifiers?select=id,price_delta_cents&id=in.(${modifierIds.join(',')})`,
+        { headers: dbHeaders },
+      )
+      if (!modifierRes.ok) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Failed to fetch modifiers' }),
+          { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+        )
+      }
+      const modifiers = (await modifierRes.json()) as Array<{ id: string; price_delta_cents: number }>
+      const modifierDeltaCents = modifiers.reduce((sum, mod) => sum + mod.price_delta_cents, 0)
+      const unitPriceCents = priceCents + modifierDeltaCents
+
       const insertRes = await fetchFn(
         `${supabaseUrl}/rest/v1/order_items`,
         {
@@ -150,7 +165,7 @@ export async function handler(
           body: JSON.stringify({
             order_id: orderId,
             menu_item_id: menuItemId,
-            unit_price_cents: priceCents,
+            unit_price_cents: unitPriceCents,
             quantity: 1,
             modifier_ids: modifierIds,
           }),

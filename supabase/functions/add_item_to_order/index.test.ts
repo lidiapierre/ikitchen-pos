@@ -282,8 +282,9 @@ describe('add_item_to_order handler', () => {
       const mockFetch: FetchFn = vi.fn()
         .mockResolvedValueOnce(mockOkJson([{ price_cents: 1200 }]))           // menu_items
         .mockResolvedValueOnce(mockOkJson([{ status: 'open' }]))              // orders
+        .mockResolvedValueOnce(mockOkJson([{ id: 'mod-uuid-001', price_delta_cents: 200 }])) // modifiers
         .mockResolvedValueOnce(mockOkJson([{ id: newItemId }]))               // insert order_item
-        .mockResolvedValueOnce(mockOkJson([{ unit_price_cents: 1200, quantity: 1 }])) // total
+        .mockResolvedValueOnce(mockOkJson([{ unit_price_cents: 1400, quantity: 1 }])) // total
 
       const req = new Request('http://localhost/functions/v1/add_item_to_order', {
         method: 'POST',
@@ -301,12 +302,16 @@ describe('add_item_to_order handler', () => {
       expect(json.data.order_item_id).toBe(newItemId)
     })
 
-    it('includes modifier_ids in the insert body', async (): Promise<void> => {
+    it('adds modifier price_delta_cents to unit_price_cents', async (): Promise<void> => {
       const mockFetch: FetchFn = vi.fn()
-        .mockResolvedValueOnce(mockOkJson([{ price_cents: 1200 }]))
-        .mockResolvedValueOnce(mockOkJson([{ status: 'open' }]))
-        .mockResolvedValueOnce(mockOkJson([{ id: 'new-item-id' }]))
-        .mockResolvedValueOnce(mockOkJson([{ unit_price_cents: 1200, quantity: 1 }]))
+        .mockResolvedValueOnce(mockOkJson([{ price_cents: 1200 }]))           // menu_items
+        .mockResolvedValueOnce(mockOkJson([{ status: 'open' }]))              // orders
+        .mockResolvedValueOnce(mockOkJson([                                   // modifiers
+          { id: 'mod-uuid-001', price_delta_cents: 200 },
+          { id: 'mod-uuid-002', price_delta_cents: 150 },
+        ]))
+        .mockResolvedValueOnce(mockOkJson([{ id: 'new-item-id' }]))           // insert order_item
+        .mockResolvedValueOnce(mockOkJson([{ unit_price_cents: 1550, quantity: 1 }])) // total
 
       const req = new Request('http://localhost/functions/v1/add_item_to_order', {
         method: 'POST',
@@ -319,8 +324,36 @@ describe('add_item_to_order handler', () => {
       })
       await handler(req, mockFetch, TEST_ENV)
 
-      // The third call (index 2) is the insert; check its body contains modifier_ids
-      const insertCall = (mockFetch as ReturnType<typeof vi.fn>).mock.calls[2] as [string, RequestInit]
+      // The fourth call (index 3) is the insert; check its body contains the correct unit_price_cents
+      const insertCall = (mockFetch as ReturnType<typeof vi.fn>).mock.calls[3] as [string, RequestInit]
+      const body = JSON.parse(insertCall[1].body as string) as { unit_price_cents: number }
+      expect(body.unit_price_cents).toBe(1550) // 1200 base + 200 + 150 deltas
+    })
+
+    it('includes modifier_ids in the insert body', async (): Promise<void> => {
+      const mockFetch: FetchFn = vi.fn()
+        .mockResolvedValueOnce(mockOkJson([{ price_cents: 1200 }]))
+        .mockResolvedValueOnce(mockOkJson([{ status: 'open' }]))
+        .mockResolvedValueOnce(mockOkJson([                                   // modifiers
+          { id: 'mod-uuid-001', price_delta_cents: 100 },
+          { id: 'mod-uuid-002', price_delta_cents: 50 },
+        ]))
+        .mockResolvedValueOnce(mockOkJson([{ id: 'new-item-id' }]))
+        .mockResolvedValueOnce(mockOkJson([{ unit_price_cents: 1350, quantity: 1 }]))
+
+      const req = new Request('http://localhost/functions/v1/add_item_to_order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          order_id: 'order-abc-123',
+          menu_item_id: 'item-uuid-001',
+          modifier_ids: ['mod-uuid-001', 'mod-uuid-002'],
+        }),
+      })
+      await handler(req, mockFetch, TEST_ENV)
+
+      // The fourth call (index 3) is the insert; check its body contains modifier_ids
+      const insertCall = (mockFetch as ReturnType<typeof vi.fn>).mock.calls[3] as [string, RequestInit]
       const body = JSON.parse(insertCall[1].body as string) as { modifier_ids: string[] }
       expect(body.modifier_ids).toEqual(['mod-uuid-001', 'mod-uuid-002'])
     })

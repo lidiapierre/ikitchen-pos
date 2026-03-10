@@ -80,11 +80,11 @@ async function fetchMenus(supabaseUrl: string, apiKey: string): Promise<AdminMen
     id: menu.id,
     name: menu.name,
     restaurant_id: menu.restaurant_id,
-    items: menu.menu_items.map((item) => ({
+    items: (menu.menu_items ?? []).map((item) => ({
       id: item.id,
       name: item.name,
       price_cents: item.price_cents,
-      modifiers: item.modifiers.map((mod) => ({
+      modifiers: (item.modifiers ?? []).map((mod) => ({
         id: mod.id,
         name: mod.name,
         price_delta_cents: mod.price_delta_cents,

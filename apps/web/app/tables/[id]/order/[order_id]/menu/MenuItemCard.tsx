@@ -33,7 +33,10 @@ export default function MenuItemCard({ item, orderId, onItemAdded }: MenuItemCar
       }
       await callAddItemToOrder(supabaseUrl, supabaseKey, orderId, item.id, modifierIds.length > 0 ? modifierIds : undefined)
       setSuccess(true)
-      onItemAdded(item.price_cents)
+      const modifierDeltaCents = item.modifiers
+        .filter((mod) => modifierIds.includes(mod.id))
+        .reduce((sum, mod) => sum + mod.price_delta_cents, 0)
+      onItemAdded(item.price_cents + modifierDeltaCents)
       setTimeout(() => setSuccess(false), 1500)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to add item')

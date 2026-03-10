@@ -218,7 +218,26 @@ describe('MenuItemCard', () => {
       expect(body.modifier_ids).toEqual(['mod-001'])
     })
 
-    it('calls onItemAdded after confirming modifier selection', async () => {
+    it('calls onItemAdded with base price when no modifiers are selected', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        json: () =>
+          Promise.resolve({
+            success: true,
+            data: { order_item_id: 'new-item-uuid', order_total: 1200 },
+          }),
+      })
+
+      const onItemAdded = vi.fn()
+      render(<MenuItemCard item={mockItemWithModifiers} orderId={ORDER_ID} onItemAdded={onItemAdded} />)
+      await userEvent.click(screen.getByRole('button', { name: 'Add' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Add to Order' }))
+
+      await waitFor(() => {
+        expect(onItemAdded).toHaveBeenCalledWith(1200)
+      })
+    })
+
+    it('calls onItemAdded with base price plus modifier price_delta_cents when modifier is selected', async () => {
       global.fetch = vi.fn().mockResolvedValue({
         json: () =>
           Promise.resolve({
@@ -230,10 +249,11 @@ describe('MenuItemCard', () => {
       const onItemAdded = vi.fn()
       render(<MenuItemCard item={mockItemWithModifiers} orderId={ORDER_ID} onItemAdded={onItemAdded} />)
       await userEvent.click(screen.getByRole('button', { name: 'Add' }))
+      await userEvent.click(screen.getByRole('button', { name: /Extra cheese/ }))
       await userEvent.click(screen.getByRole('button', { name: 'Add to Order' }))
 
       await waitFor(() => {
-        expect(onItemAdded).toHaveBeenCalledWith(1200)
+        expect(onItemAdded).toHaveBeenCalledWith(1250) // 1200 base + 50 delta
       })
     })
   })

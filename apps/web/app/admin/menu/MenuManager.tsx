@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import type { JSX } from 'react'
-import { fetchMenuAdminData } from './menuAdminData'
+import { fetchMenuAdminData, fetchRestaurantId } from './menuAdminData'
 import type { AdminMenu, AdminMenuItem, AdminModifier } from './menuAdminData'
 import {
   callCreateMenu,
@@ -326,9 +326,26 @@ export default function MenuManager(): JSX.Element {
     }
     const config = supabaseConfig.current
     if (!config) return
+
+    // restaurantId is populated from the menus on load; fetch lazily only when
+    // no menus exist yet (and therefore no restaurant_id was available on load).
+    let resolvedRestaurantId = restaurantId
+    if (!resolvedRestaurantId) {
+      try {
+        resolvedRestaurantId = await fetchRestaurantId(config.url, config.key)
+        setRestaurantId(resolvedRestaurantId)
+      } catch (err) {
+        showFeedback(
+          'error',
+          err instanceof Error ? err.message : 'Could not determine restaurant ID.',
+        )
+        return
+      }
+    }
+
     setSubmitting(true)
     try {
-      const menuId = await callCreateMenu(config.url, config.key, restaurantId, categoryName.trim())
+      const menuId = await callCreateMenu(config.url, config.key, resolvedRestaurantId, categoryName.trim())
       const newMenu: AdminMenu = {
         id: menuId,
         name: categoryName.trim(),

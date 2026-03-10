@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import MenuManager, { formatCurrency, generateId } from './MenuManager'
-import { fetchMenuAdminData } from './menuAdminData'
+import { fetchMenuAdminData, fetchRestaurantId } from './menuAdminData'
 import type { MenuAdminData } from './menuAdminData'
 import {
   callCreateMenu,
@@ -15,6 +15,7 @@ import {
 
 vi.mock('./menuAdminData', () => ({
   fetchMenuAdminData: vi.fn(),
+  fetchRestaurantId: vi.fn(),
 }))
 
 vi.mock('./menuAdminApi', () => ({
@@ -86,6 +87,7 @@ beforeEach(() => {
     NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: 'test-key',
   }
   vi.mocked(fetchMenuAdminData).mockResolvedValue(MOCK_DATA)
+  vi.mocked(fetchRestaurantId).mockResolvedValue('rest-1')
   vi.mocked(callCreateMenu).mockResolvedValue('new-menu-id')
   vi.mocked(callUpdateMenu).mockResolvedValue(undefined)
   vi.mocked(callDeleteMenu).mockResolvedValue(undefined)

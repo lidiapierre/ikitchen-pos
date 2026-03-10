@@ -47,7 +47,7 @@ interface RestaurantRow {
   id: string
 }
 
-async function fetchRestaurantId(supabaseUrl: string, apiKey: string): Promise<string> {
+export async function fetchRestaurantId(supabaseUrl: string, apiKey: string): Promise<string> {
   const headers = { apikey: apiKey, Authorization: `Bearer ${apiKey}` }
   const url = new URL(`${supabaseUrl}/rest/v1/restaurants`)
   url.searchParams.set('select', 'id')
@@ -97,9 +97,11 @@ export async function fetchMenuAdminData(
   supabaseUrl: string,
   apiKey: string,
 ): Promise<MenuAdminData> {
-  const [restaurantId, menus] = await Promise.all([
-    fetchRestaurantId(supabaseUrl, apiKey),
-    fetchMenus(supabaseUrl, apiKey),
-  ])
+  // Only fetch menus on page load — the restaurants table may not be readable by
+  // the anon key until the allow_anon_read migration is applied to production.
+  // restaurantId is extracted from the loaded menus (every menu row includes it),
+  // and fetched lazily from the restaurants table only when no menus exist yet.
+  const menus = await fetchMenus(supabaseUrl, apiKey)
+  const restaurantId = menus[0]?.restaurant_id ?? ''
   return { restaurantId, menus }
 }

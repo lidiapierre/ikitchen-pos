@@ -1,0 +1,196 @@
+export const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-demo-staff-id',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+}
+
+export type FetchFn = (input: string, init?: RequestInit) => Promise<Response>
+
+export interface HandlerEnv {
+  supabaseUrl: string
+  serviceKey: string
+}
+
+interface ModifierInput {
+  name: string
+  price_delta_cents: number
+}
+
+function readEnv(): HandlerEnv | null {
+  const g = globalThis as { Deno?: { env: { get: (key: string) => string | undefined } } }
+  if (!g.Deno) return null
+  const supabaseUrl = g.Deno.env.get('SUPABASE_URL') ?? ''
+  const serviceKey = g.Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+  if (!supabaseUrl || !serviceKey) return null
+  return { supabaseUrl, serviceKey }
+}
+
+function isModifierInputArray(value: unknown): value is ModifierInput[] {
+  if (!Array.isArray(value)) return false
+  return value.every(
+    (m) =>
+      typeof m === 'object' &&
+      m !== null &&
+      typeof (m as Record<string, unknown>)['name'] === 'string' &&
+      typeof (m as Record<string, unknown>)['price_delta_cents'] === 'number',
+  )
+}
+
+export async function handler(
+  req: Request,
+  fetchFn: FetchFn = fetch,
+  env: HandlerEnv | null = readEnv(),
+): Promise<Response> {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { status: 200, headers: corsHeaders })
+  }
+
+  let body: unknown
+  try {
+    body = await req.json()
+  } catch {
+    return new Response(
+      JSON.stringify({ success: false, error: 'Invalid or missing request body' }),
+      { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    )
+  }
+
+  if (!body) {
+    return new Response(
+      JSON.stringify({ success: false, error: 'Missing request body' }),
+      { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    )
+  }
+
+  const payload = body as Record<string, unknown>
+  if (typeof payload['menu_item_id'] !== 'string' || payload['menu_item_id'] === '') {
+    return new Response(
+      JSON.stringify({ success: false, error: 'menu_item_id is required' }),
+      { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    )
+  }
+  if (typeof payload['name'] !== 'string' || (payload['name'] as string).trim() === '') {
+    return new Response(
+      JSON.stringify({ success: false, error: 'name is required' }),
+      { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    )
+  }
+  if (typeof payload['price_cents'] !== 'number' || !Number.isInteger(payload['price_cents']) || (payload['price_cents'] as number) < 0) {
+    return new Response(
+      JSON.stringify({ success: false, error: 'price_cents must be a non-negative integer' }),
+      { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    )
+  }
+  if (!isModifierInputArray(payload['modifiers'])) {
+    return new Response(
+      JSON.stringify({ success: false, error: 'modifiers must be an array of {name, price_delta_cents}' }),
+      { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    )
+  }
+
+  const menuItemId = payload['menu_item_id'] as string
+  const name = (payload['name'] as string).trim()
+  const priceCents = payload['price_cents'] as number
+  const modifiers = payload['modifiers'] as ModifierInput[]
+
+  if (!env) {
+    return new Response(
+      JSON.stringify({ success: false, error: 'Server configuration error' }),
+      { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    )
+  }
+
+  const { supabaseUrl, serviceKey } = env
+  const dbHeaders = {
+    apikey: serviceKey,
+    Authorization: `Bearer ${serviceKey}`,
+    'Content-Type': 'application/json',
+    Prefer: 'return=representation',
+  }
+
+  try {
+    const itemRes = await fetchFn(
+      `${supabaseUrl}/rest/v1/menu_items?select=id&id=eq.${menuItemId}`,
+      { headers: dbHeaders },
+    )
+    if (!itemRes.ok) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Failed to fetch menu item' }),
+        { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+      )
+    }
+    const items = (await itemRes.json()) as Array<{ id: string }>
+    if (items.length === 0) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Menu item not found' }),
+        { status: 404, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+      )
+    }
+
+    const patchRes = await fetchFn(
+      `${supabaseUrl}/rest/v1/menu_items?id=eq.${menuItemId}`,
+      {
+        method: 'PATCH',
+        headers: { ...dbHeaders, Prefer: 'return=minimal' },
+        body: JSON.stringify({ name, price_cents: priceCents }),
+      },
+    )
+    if (!patchRes.ok) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Failed to update menu item' }),
+        { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+      )
+    }
+
+    const deleteModRes = await fetchFn(
+      `${supabaseUrl}/rest/v1/modifiers?menu_item_id=eq.${menuItemId}`,
+      {
+        method: 'DELETE',
+        headers: { ...dbHeaders, Prefer: 'return=minimal' },
+      },
+    )
+    if (!deleteModRes.ok) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Failed to replace modifiers' }),
+        { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+      )
+    }
+
+    if (modifiers.length > 0) {
+      const modifierRows = modifiers.map((m) => ({
+        menu_item_id: menuItemId,
+        name: m.name,
+        price_delta_cents: m.price_delta_cents,
+      }))
+      const modInsertRes = await fetchFn(
+        `${supabaseUrl}/rest/v1/modifiers`,
+        {
+          method: 'POST',
+          headers: { ...dbHeaders, Prefer: 'return=minimal' },
+          body: JSON.stringify(modifierRows),
+        },
+      )
+      if (!modInsertRes.ok) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Failed to insert updated modifiers' }),
+          { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+        )
+      }
+    }
+
+    return new Response(
+      JSON.stringify({ success: true }),
+      { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    )
+  } catch {
+    return new Response(
+      JSON.stringify({ success: false, error: 'Internal server error' }),
+      { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    )
+  }
+}
+
+if (typeof (globalThis as { Deno?: unknown }).Deno !== 'undefined') {
+  const g = globalThis as { Deno: { serve: (h: (req: Request) => Promise<Response>) => void } }
+  g.Deno.serve((req: Request) => handler(req))
+}

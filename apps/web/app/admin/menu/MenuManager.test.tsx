@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
-import MenuManager, { formatCurrency } from './MenuManager'
+import MenuManager, { formatCurrency, generateId } from './MenuManager'
 
 describe('formatCurrency', () => {
   it('formats 6.5 as £6.50', () => {
@@ -9,6 +9,21 @@ describe('formatCurrency', () => {
 
   it('formats 12 as £12.00', () => {
     expect(formatCurrency(12)).toBe('£12.00')
+  })
+})
+
+describe('generateId', () => {
+  it('returns a non-empty string prefixed with "id-"', () => {
+    const id = generateId()
+    expect(typeof id).toBe('string')
+    expect(id.startsWith('id-')).toBe(true)
+    expect(id.length).toBeGreaterThan(4)
+  })
+
+  it('returns a unique value on each call', () => {
+    const id1 = generateId()
+    const id2 = generateId()
+    expect(id1).not.toBe(id2)
   })
 })
 

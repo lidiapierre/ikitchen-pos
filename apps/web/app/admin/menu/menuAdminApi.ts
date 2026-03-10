@@ -1,24 +1,36 @@
-interface ActionResult<T = undefined> {
-  success: boolean
-  data?: T
-  error?: string
-}
-
 export interface ModifierInput {
   name: string
   price_delta_cents: number
 }
 
-function actionUrl(supabaseUrl: string, action: string): string {
-  return `${supabaseUrl}/functions/v1/${action}`
-}
-
-function headers(apiKey: string): Record<string, string> {
-  return {
+function buildHeaders(apiKey: string, withPreferRepresentation = false): Record<string, string> {
+  const h: Record<string, string> = {
     'Content-Type': 'application/json',
     apikey: apiKey,
     Authorization: `Bearer ${apiKey}`,
   }
+  if (withPreferRepresentation) h['Prefer'] = 'return=representation'
+  return h
+}
+
+async function postgrestRequest(
+  url: string,
+  method: string,
+  apiKey: string,
+  body?: unknown,
+  returnRepresentation = false,
+): Promise<unknown> {
+  const res = await fetch(url, {
+    method,
+    headers: buildHeaders(apiKey, returnRepresentation),
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  })
+  if (!res.ok) {
+    const text = await res.text()
+    throw new Error(`${method} ${url} failed: ${res.status} — ${text}`)
+  }
+  const text = await res.text()
+  return text ? JSON.parse(text) : undefined
 }
 
 export async function callCreateMenu(
@@ -27,14 +39,15 @@ export async function callCreateMenu(
   restaurantId: string,
   name: string,
 ): Promise<string> {
-  const res = await fetch(actionUrl(supabaseUrl, 'create_menu'), {
-    method: 'POST',
-    headers: headers(apiKey),
-    body: JSON.stringify({ restaurant_id: restaurantId, name }),
-  })
-  const json = (await res.json()) as ActionResult<{ menu_id: string }>
-  if (!json.success || !json.data) throw new Error(json.error ?? 'Failed to create menu')
-  return json.data.menu_id
+  const rows = (await postgrestRequest(
+    `${supabaseUrl}/rest/v1/menus`,
+    'POST',
+    apiKey,
+    { restaurant_id: restaurantId, name },
+    true,
+  )) as Array<{ id: string }>
+  if (!rows || rows.length === 0) throw new Error('Menu creation returned no data')
+  return rows[0].id
 }
 
 export async function callUpdateMenu(
@@ -43,13 +56,12 @@ export async function callUpdateMenu(
   menuId: string,
   name: string,
 ): Promise<void> {
-  const res = await fetch(actionUrl(supabaseUrl, 'update_menu'), {
-    method: 'POST',
-    headers: headers(apiKey),
-    body: JSON.stringify({ menu_id: menuId, name }),
-  })
-  const json = (await res.json()) as ActionResult
-  if (!json.success) throw new Error(json.error ?? 'Failed to update menu')
+  await postgrestRequest(
+    `${supabaseUrl}/rest/v1/menus?id=eq.${menuId}`,
+    'PATCH',
+    apiKey,
+    { name },
+  )
 }
 
 export async function callDeleteMenu(
@@ -57,13 +69,7 @@ export async function callDeleteMenu(
   apiKey: string,
   menuId: string,
 ): Promise<void> {
-  const res = await fetch(actionUrl(supabaseUrl, 'delete_menu'), {
-    method: 'POST',
-    headers: headers(apiKey),
-    body: JSON.stringify({ menu_id: menuId }),
-  })
-  const json = (await res.json()) as ActionResult
-  if (!json.success) throw new Error(json.error ?? 'Failed to delete menu')
+  await postgrestRequest(`${supabaseUrl}/rest/v1/menus?id=eq.${menuId}`, 'DELETE', apiKey)
 }
 
 export async function callCreateMenuItem(
@@ -74,14 +80,30 @@ export async function callCreateMenuItem(
   priceCents: number,
   modifiers: ModifierInput[],
 ): Promise<string> {
-  const res = await fetch(actionUrl(supabaseUrl, 'create_menu_item'), {
-    method: 'POST',
-    headers: headers(apiKey),
-    body: JSON.stringify({ menu_id: menuId, name, price_cents: priceCents, modifiers }),
-  })
-  const json = (await res.json()) as ActionResult<{ menu_item_id: string }>
-  if (!json.success || !json.data) throw new Error(json.error ?? 'Failed to create menu item')
-  return json.data.menu_item_id
+  const rows = (await postgrestRequest(
+    `${supabaseUrl}/rest/v1/menu_items`,
+    'POST',
+    apiKey,
+    { menu_id: menuId, name, price_cents: priceCents },
+    true,
+  )) as Array<{ id: string }>
+  if (!rows || rows.length === 0) throw new Error('Menu item creation returned no data')
+  const menuItemId = rows[0].id
+
+  if (modifiers.length > 0) {
+    await postgrestRequest(
+      `${supabaseUrl}/rest/v1/modifiers`,
+      'POST',
+      apiKey,
+      modifiers.map((m) => ({
+        menu_item_id: menuItemId,
+        name: m.name,
+        price_delta_cents: m.price_delta_cents,
+      })),
+    )
+  }
+
+  return menuItemId
 }
 
 export async function callUpdateMenuItem(
@@ -92,13 +114,32 @@ export async function callUpdateMenuItem(
   priceCents: number,
   modifiers: ModifierInput[],
 ): Promise<void> {
-  const res = await fetch(actionUrl(supabaseUrl, 'update_menu_item'), {
-    method: 'POST',
-    headers: headers(apiKey),
-    body: JSON.stringify({ menu_item_id: menuItemId, name, price_cents: priceCents, modifiers }),
-  })
-  const json = (await res.json()) as ActionResult
-  if (!json.success) throw new Error(json.error ?? 'Failed to update menu item')
+  await postgrestRequest(
+    `${supabaseUrl}/rest/v1/menu_items?id=eq.${menuItemId}`,
+    'PATCH',
+    apiKey,
+    { name, price_cents: priceCents },
+  )
+
+  // Replace modifiers: delete existing then insert updated set
+  await postgrestRequest(
+    `${supabaseUrl}/rest/v1/modifiers?menu_item_id=eq.${menuItemId}`,
+    'DELETE',
+    apiKey,
+  )
+
+  if (modifiers.length > 0) {
+    await postgrestRequest(
+      `${supabaseUrl}/rest/v1/modifiers`,
+      'POST',
+      apiKey,
+      modifiers.map((m) => ({
+        menu_item_id: menuItemId,
+        name: m.name,
+        price_delta_cents: m.price_delta_cents,
+      })),
+    )
+  }
 }
 
 export async function callDeleteMenuItem(
@@ -106,11 +147,10 @@ export async function callDeleteMenuItem(
   apiKey: string,
   menuItemId: string,
 ): Promise<void> {
-  const res = await fetch(actionUrl(supabaseUrl, 'delete_menu_item'), {
-    method: 'POST',
-    headers: headers(apiKey),
-    body: JSON.stringify({ menu_item_id: menuItemId }),
-  })
-  const json = (await res.json()) as ActionResult
-  if (!json.success) throw new Error(json.error ?? 'Failed to delete menu item')
+  // Modifiers cascade-delete via ON DELETE CASCADE in the schema
+  await postgrestRequest(
+    `${supabaseUrl}/rest/v1/menu_items?id=eq.${menuItemId}`,
+    'DELETE',
+    apiKey,
+  )
 }

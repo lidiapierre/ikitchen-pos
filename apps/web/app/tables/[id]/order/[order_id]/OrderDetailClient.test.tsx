@@ -36,9 +36,9 @@ vi.mock('./cancelOrderApi', () => ({
 }))
 
 const mockItems = [
-  { id: '1', name: 'Bruschetta', quantity: 2, price_cents: 850 },
-  { id: '2', name: 'Grilled Salmon', quantity: 1, price_cents: 1850 },
-  { id: '3', name: 'House Wine', quantity: 2, price_cents: 950 },
+  { id: '1', name: 'Bruschetta', quantity: 2, price_cents: 850, modifier_ids: [], modifier_names: [] },
+  { id: '2', name: 'Grilled Salmon', quantity: 1, price_cents: 1850, modifier_ids: [], modifier_names: [] },
+  { id: '3', name: 'House Wine', quantity: 2, price_cents: 950, modifier_ids: [], modifier_names: [] },
 ]
 
 describe('OrderDetailClient', () => {
@@ -834,6 +834,64 @@ describe('OrderDetailClient', () => {
       await waitFor((): void => {
         expect(screen.getByText('API not configured')).toBeInTheDocument()
       })
+    })
+  })
+
+  describe('modifier sub-lines', () => {
+    it('shows modifier names beneath the item row when modifier_names is non-empty', async (): Promise<void> => {
+      const { fetchOrderItems } = await import('./orderData')
+      vi.mocked(fetchOrderItems).mockResolvedValue([
+        {
+          id: '1',
+          name: 'Burger',
+          quantity: 1,
+          price_cents: 1200,
+          modifier_ids: ['mod-001', 'mod-002'],
+          modifier_names: ['Extra cheese', 'No onions'],
+        },
+      ])
+
+      render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
+
+      await screen.findByText('Burger')
+
+      expect(screen.getByText('+ Extra cheese')).toBeInTheDocument()
+      expect(screen.getByText('+ No onions')).toBeInTheDocument()
+    })
+
+    it('does not render modifier sub-lines when modifier_names is empty', async (): Promise<void> => {
+      render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
+
+      await screen.findByText('Bruschetta')
+
+      // No "+ …" lines should appear for items without modifiers
+      const plusLines = screen.queryAllByText(/^\+ /)
+      expect(plusLines).toHaveLength(0)
+    })
+
+    it('shows modifier sub-lines in paid read-only view', async (): Promise<void> => {
+      const { fetchOrderSummary } = await import('./orderData')
+      const { fetchOrderItems } = await import('./orderData')
+
+      vi.mocked(fetchOrderSummary).mockResolvedValue({ status: 'paid', payment_method: 'card' })
+      vi.mocked(fetchOrderItems).mockResolvedValue([
+        {
+          id: '1',
+          name: 'Burger',
+          quantity: 1,
+          price_cents: 1200,
+          modifier_ids: ['mod-001'],
+          modifier_names: ['Extra cheese'],
+        },
+      ])
+
+      render(<OrderDetailClient tableId="5" orderId="order-paid-123" />)
+
+      await waitFor((): void => {
+        expect(screen.getByText('Paid')).toBeInTheDocument()
+      })
+
+      expect(screen.getByText('+ Extra cheese')).toBeInTheDocument()
     })
   })
 

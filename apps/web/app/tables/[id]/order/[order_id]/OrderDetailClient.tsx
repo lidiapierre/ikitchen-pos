@@ -244,7 +244,7 @@ export default function OrderDetailClient({ tableId, orderId }: OrderDetailClien
               {item.modifier_names.length > 0 && (
                 <ul className="mt-1 space-y-0.5 pl-2">
                   {item.modifier_names.map((modName) => (
-                    <li key={modName} className="text-sm text-zinc-400">
+                    <li key={modName} className="text-base text-zinc-400">
                       + {modName}
                     </li>
                   ))}
@@ -287,7 +287,7 @@ export default function OrderDetailClient({ tableId, orderId }: OrderDetailClien
               {item.modifier_names.length > 0 && (
                 <ul className="mt-1 space-y-0.5 pl-2">
                   {item.modifier_names.map((modName) => (
-                    <li key={modName} className="text-sm text-zinc-400">
+                    <li key={modName} className="text-base text-zinc-400">
                       + {modName}
                     </li>
                   ))}

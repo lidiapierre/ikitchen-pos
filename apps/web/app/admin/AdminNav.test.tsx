@@ -13,8 +13,13 @@ describe('AdminNav', () => {
     vi.mocked(usePathname).mockReturnValue('/admin')
     render(<AdminNav />)
     expect(screen.getByText('Dashboard')).toBeInTheDocument()
-    expect(screen.getByText('Tables')).toBeInTheDocument()
     expect(screen.getByText('Menu')).toBeInTheDocument()
+  })
+
+  it('does not render a Tables link', () => {
+    vi.mocked(usePathname).mockReturnValue('/admin')
+    render(<AdminNav />)
+    expect(screen.queryByText('Tables')).not.toBeInTheDocument()
   })
 
   it('highlights the active Dashboard link when on /admin', () => {
@@ -24,15 +29,15 @@ describe('AdminNav', () => {
     expect(dashboardLink?.className).toMatch(/bg-indigo-600/)
   })
 
-  it('highlights the active Tables link when on /admin/tables', () => {
-    vi.mocked(usePathname).mockReturnValue('/admin/tables')
+  it('highlights the active Menu link when on /admin/menu', () => {
+    vi.mocked(usePathname).mockReturnValue('/admin/menu')
     render(<AdminNav />)
-    const tablesLink = screen.getByText('Tables').closest('a')
-    expect(tablesLink?.className).toMatch(/bg-indigo-600/)
+    const menuLink = screen.getByText('Menu').closest('a')
+    expect(menuLink?.className).toMatch(/bg-indigo-600/)
   })
 
-  it('does not highlight Dashboard when on /admin/tables', () => {
-    vi.mocked(usePathname).mockReturnValue('/admin/tables')
+  it('does not highlight Dashboard when on /admin/menu', () => {
+    vi.mocked(usePathname).mockReturnValue('/admin/menu')
     render(<AdminNav />)
     const dashboardLink = screen.getByText('Dashboard').closest('a')
     expect(dashboardLink?.className).not.toMatch(/bg-indigo-600/)

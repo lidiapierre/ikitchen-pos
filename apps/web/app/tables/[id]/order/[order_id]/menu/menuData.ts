@@ -1,7 +1,14 @@
+export interface Modifier {
+  id: string
+  name: string
+  price_delta_cents: number
+}
+
 export interface MenuItem {
   id: string
   name: string
   price_cents: number
+  modifiers: Modifier[]
 }
 
 export interface MenuCategory {
@@ -9,10 +16,17 @@ export interface MenuCategory {
   items: MenuItem[]
 }
 
+interface ModifierRow {
+  id: string
+  name: string
+  price_delta_cents: number
+}
+
 interface MenuItemRow {
   id: string
   name: string
   price_cents: number
+  modifiers: ModifierRow[]
 }
 
 interface MenuRow {
@@ -58,7 +72,7 @@ export async function fetchMenuCategories(
 
   const menusUrl = new URL(`${supabaseUrl}/rest/v1/menus`)
   menusUrl.searchParams.set('restaurant_id', `eq.${restaurant_id}`)
-  menusUrl.searchParams.set('select', 'id,name,menu_items(id,name,price_cents)')
+  menusUrl.searchParams.set('select', 'id,name,menu_items(id,name,price_cents,modifiers(id,name,price_delta_cents))')
 
   const menusRes = await fetch(menusUrl.toString(), {
     headers: {
@@ -82,6 +96,11 @@ export async function fetchMenuCategories(
       id: item.id,
       name: item.name,
       price_cents: item.price_cents,
+      modifiers: item.modifiers.map((mod) => ({
+        id: mod.id,
+        name: mod.name,
+        price_delta_cents: mod.price_delta_cents,
+      })),
     })),
   }))
 }

@@ -60,8 +60,20 @@ export async function handler(
     )
   }
 
+  // Validate optional modifier_ids: if present must be an array of strings
+  const rawModifierIds = payload['modifier_ids']
+  if (rawModifierIds !== undefined) {
+    if (!Array.isArray(rawModifierIds) || rawModifierIds.some((id) => typeof id !== 'string')) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'modifier_ids must be an array of strings' }),
+        { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+      )
+    }
+  }
+
   const orderId = payload['order_id'] as string
   const menuItemId = payload['menu_item_id'] as string
+  const modifierIds: string[] = Array.isArray(rawModifierIds) ? (rawModifierIds as string[]) : []
 
   if (!env) {
     return new Response(
@@ -124,40 +136,12 @@ export async function handler(
       )
     }
 
-    // 3. Check for an existing non-voided order item for this menu item
-    const existingRes = await fetchFn(
-      `${supabaseUrl}/rest/v1/order_items?select=id,quantity&order_id=eq.${orderId}&menu_item_id=eq.${menuItemId}&voided=eq.false`,
-      { headers: dbHeaders },
-    )
-    if (!existingRes.ok) {
-      return new Response(
-        JSON.stringify({ success: false, error: 'Failed to fetch order items' }),
-        { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
-      )
-    }
-    const existingItems = (await existingRes.json()) as Array<{ id: string; quantity: number }>
-
     let orderItemId: string
-    if (existingItems.length > 0) {
-      // Increment quantity on the existing item
-      const existing = existingItems[0]
-      const patchRes = await fetchFn(
-        `${supabaseUrl}/rest/v1/order_items?id=eq.${existing.id}`,
-        {
-          method: 'PATCH',
-          headers: { ...dbHeaders, Prefer: 'return=minimal' },
-          body: JSON.stringify({ quantity: existing.quantity + 1 }),
-        },
-      )
-      if (!patchRes.ok) {
-        return new Response(
-          JSON.stringify({ success: false, error: 'Failed to update order item' }),
-          { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
-        )
-      }
-      orderItemId = existing.id
-    } else {
-      // Insert a new order item
+
+    // 3. When modifiers are selected, always insert a new order item so each
+    //    modifier combination appears as its own line. When no modifiers are
+    //    specified, use the existing increment-quantity behaviour.
+    if (modifierIds.length > 0) {
       const insertRes = await fetchFn(
         `${supabaseUrl}/rest/v1/order_items`,
         {
@@ -168,6 +152,7 @@ export async function handler(
             menu_item_id: menuItemId,
             unit_price_cents: priceCents,
             quantity: 1,
+            modifier_ids: modifierIds,
           }),
         },
       )
@@ -179,6 +164,62 @@ export async function handler(
       }
       const inserted = (await insertRes.json()) as Array<{ id: string }>
       orderItemId = inserted[0].id
+    } else {
+      // Check for an existing non-voided order item for this menu item (no modifiers)
+      const existingRes = await fetchFn(
+        `${supabaseUrl}/rest/v1/order_items?select=id,quantity&order_id=eq.${orderId}&menu_item_id=eq.${menuItemId}&voided=eq.false`,
+        { headers: dbHeaders },
+      )
+      if (!existingRes.ok) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Failed to fetch order items' }),
+          { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+        )
+      }
+      const existingItems = (await existingRes.json()) as Array<{ id: string; quantity: number }>
+
+      if (existingItems.length > 0) {
+        // Increment quantity on the existing item
+        const existing = existingItems[0]
+        const patchRes = await fetchFn(
+          `${supabaseUrl}/rest/v1/order_items?id=eq.${existing.id}`,
+          {
+            method: 'PATCH',
+            headers: { ...dbHeaders, Prefer: 'return=minimal' },
+            body: JSON.stringify({ quantity: existing.quantity + 1 }),
+          },
+        )
+        if (!patchRes.ok) {
+          return new Response(
+            JSON.stringify({ success: false, error: 'Failed to update order item' }),
+            { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+          )
+        }
+        orderItemId = existing.id
+      } else {
+        // Insert a new order item
+        const insertRes = await fetchFn(
+          `${supabaseUrl}/rest/v1/order_items`,
+          {
+            method: 'POST',
+            headers: dbHeaders,
+            body: JSON.stringify({
+              order_id: orderId,
+              menu_item_id: menuItemId,
+              unit_price_cents: priceCents,
+              quantity: 1,
+            }),
+          },
+        )
+        if (!insertRes.ok) {
+          return new Response(
+            JSON.stringify({ success: false, error: 'Failed to insert order item' }),
+            { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+          )
+        }
+        const inserted = (await insertRes.json()) as Array<{ id: string }>
+        orderItemId = inserted[0].id
+      }
     }
 
     // 4. Calculate the updated order total

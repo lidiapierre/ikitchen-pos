@@ -11,8 +11,8 @@ afterEach((): void => {
 describe('fetchOrderItems', () => {
   it('returns mapped order items from the API', async (): Promise<void> => {
     const mockRows = [
-      { id: 'item-1', quantity: 2, unit_price_cents: 850, menu_items: { name: 'Bruschetta' } },
-      { id: 'item-2', quantity: 1, unit_price_cents: 1850, menu_items: { name: 'Grilled Salmon' } },
+      { id: 'item-1', quantity: 2, unit_price_cents: 850, modifier_ids: [], menu_items: { name: 'Bruschetta' } },
+      { id: 'item-2', quantity: 1, unit_price_cents: 1850, modifier_ids: [], menu_items: { name: 'Grilled Salmon' } },
     ]
     mockFetch.mockResolvedValueOnce({
       ok: true,
@@ -22,9 +22,65 @@ describe('fetchOrderItems', () => {
     const result = await fetchOrderItems('https://example.supabase.co', 'test-key', 'order-123')
 
     expect(result).toEqual([
-      { id: 'item-1', name: 'Bruschetta', quantity: 2, price_cents: 850 },
-      { id: 'item-2', name: 'Grilled Salmon', quantity: 1, price_cents: 1850 },
+      { id: 'item-1', name: 'Bruschetta', quantity: 2, price_cents: 850, modifier_ids: [], modifier_names: [] },
+      { id: 'item-2', name: 'Grilled Salmon', quantity: 1, price_cents: 1850, modifier_ids: [], modifier_names: [] },
     ])
+  })
+
+  it('resolves modifier names for items with modifier_ids', async (): Promise<void> => {
+    const mockRows = [
+      {
+        id: 'item-1',
+        quantity: 1,
+        unit_price_cents: 1200,
+        modifier_ids: ['mod-001', 'mod-002'],
+        menu_items: { name: 'Burger' },
+      },
+    ]
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async (): Promise<typeof mockRows> => mockRows,
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async (): Promise<Array<{ id: string; name: string }>> => [
+          { id: 'mod-001', name: 'Extra cheese' },
+          { id: 'mod-002', name: 'No onions' },
+        ],
+      })
+
+    const result = await fetchOrderItems('https://example.supabase.co', 'test-key', 'order-123')
+
+    expect(result[0].modifier_ids).toEqual(['mod-001', 'mod-002'])
+    expect(result[0].modifier_names).toEqual(['Extra cheese', 'No onions'])
+  })
+
+  it('returns modifier_ids as-is when modifier name fetch fails', async (): Promise<void> => {
+    const mockRows = [
+      {
+        id: 'item-1',
+        quantity: 1,
+        unit_price_cents: 1200,
+        modifier_ids: ['mod-001'],
+        menu_items: { name: 'Burger' },
+      },
+    ]
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async (): Promise<typeof mockRows> => mockRows,
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        statusText: 'Internal Server Error',
+      })
+
+    const result = await fetchOrderItems('https://example.supabase.co', 'test-key', 'order-123')
+
+    // Falls back to ID as name when fetch fails
+    expect(result[0].modifier_names).toEqual(['mod-001'])
   })
 
   it('returns an empty array when the order has no items', async (): Promise<void> => {

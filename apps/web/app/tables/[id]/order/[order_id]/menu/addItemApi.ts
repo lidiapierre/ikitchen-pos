@@ -14,7 +14,12 @@ export async function callAddItemToOrder(
   apiKey: string,
   orderId: string,
   menuItemId: string,
+  modifierIds?: string[],
 ): Promise<AddItemResult> {
+  const body: Record<string, unknown> = { order_id: orderId, menu_item_id: menuItemId }
+  if (modifierIds !== undefined && modifierIds.length > 0) {
+    body['modifier_ids'] = modifierIds
+  }
   const res = await fetch(`${supabaseUrl}/functions/v1/add_item_to_order`, {
     method: 'POST',
     headers: {
@@ -22,7 +27,7 @@ export async function callAddItemToOrder(
       apikey: apiKey,
       Authorization: `Bearer ${apiKey}`,
     },
-    body: JSON.stringify({ order_id: orderId, menu_item_id: menuItemId }),
+    body: JSON.stringify(body),
   })
   const json = (await res.json()) as AddItemToOrderResponse
   if (!json.success || !json.data) {

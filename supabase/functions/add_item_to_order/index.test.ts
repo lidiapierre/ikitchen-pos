@@ -275,4 +275,67 @@ describe('add_item_to_order handler', () => {
       expect(res.headers.get('Access-Control-Allow-Origin')).toBe('*')
     })
   })
+
+  describe('POST — with modifier_ids', () => {
+    it('inserts a new item with modifier_ids when provided', async (): Promise<void> => {
+      const newItemId = 'new-item-with-modifier'
+      const mockFetch: FetchFn = vi.fn()
+        .mockResolvedValueOnce(mockOkJson([{ price_cents: 1200 }]))           // menu_items
+        .mockResolvedValueOnce(mockOkJson([{ status: 'open' }]))              // orders
+        .mockResolvedValueOnce(mockOkJson([{ id: newItemId }]))               // insert order_item
+        .mockResolvedValueOnce(mockOkJson([{ unit_price_cents: 1200, quantity: 1 }])) // total
+
+      const req = new Request('http://localhost/functions/v1/add_item_to_order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          order_id: 'order-abc-123',
+          menu_item_id: 'item-uuid-001',
+          modifier_ids: ['mod-uuid-001'],
+        }),
+      })
+      const res = await handler(req, mockFetch, TEST_ENV)
+      expect(res.status).toBe(200)
+      const json = await res.json() as { success: boolean; data: { order_item_id: string } }
+      expect(json.success).toBe(true)
+      expect(json.data.order_item_id).toBe(newItemId)
+    })
+
+    it('includes modifier_ids in the insert body', async (): Promise<void> => {
+      const mockFetch: FetchFn = vi.fn()
+        .mockResolvedValueOnce(mockOkJson([{ price_cents: 1200 }]))
+        .mockResolvedValueOnce(mockOkJson([{ status: 'open' }]))
+        .mockResolvedValueOnce(mockOkJson([{ id: 'new-item-id' }]))
+        .mockResolvedValueOnce(mockOkJson([{ unit_price_cents: 1200, quantity: 1 }]))
+
+      const req = new Request('http://localhost/functions/v1/add_item_to_order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          order_id: 'order-abc-123',
+          menu_item_id: 'item-uuid-001',
+          modifier_ids: ['mod-uuid-001', 'mod-uuid-002'],
+        }),
+      })
+      await handler(req, mockFetch, TEST_ENV)
+
+      // The third call (index 2) is the insert; check its body contains modifier_ids
+      const insertCall = (mockFetch as ReturnType<typeof vi.fn>).mock.calls[2] as [string, RequestInit]
+      const body = JSON.parse(insertCall[1].body as string) as { modifier_ids: string[] }
+      expect(body.modifier_ids).toEqual(['mod-uuid-001', 'mod-uuid-002'])
+    })
+
+    it('returns 400 when modifier_ids is not an array', async (): Promise<void> => {
+      const req = new Request('http://localhost/functions/v1/add_item_to_order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order_id: 'order-abc-123', menu_item_id: 'item-uuid-001', modifier_ids: 'not-an-array' }),
+      })
+      const res = await handler(req)
+      expect(res.status).toBe(400)
+      const json = await res.json() as { success: boolean; error: string }
+      expect(json.success).toBe(false)
+      expect(json.error).toBe('modifier_ids must be an array of strings')
+    })
+  })
 })

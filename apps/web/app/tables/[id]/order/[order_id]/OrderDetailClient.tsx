@@ -220,24 +220,35 @@ export default function OrderDetailClient({ tableId, orderId }: OrderDetailClien
           return (
             <li
               key={item.id}
-              className="flex items-center justify-between gap-4 bg-zinc-800 rounded-xl px-4 py-3 text-base"
+              className="bg-zinc-800 rounded-xl px-4 py-3 text-base"
             >
-              <span className="font-semibold text-white flex-1">{item.name}</span>
-              <span className="text-zinc-400">×{item.quantity}</span>
-              <span className="text-zinc-400">${priceEach.toFixed(2)} each</span>
-              <span className="font-bold text-amber-400">${lineTotal.toFixed(2)}</span>
-              {step === 'order' && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setVoidingItem(item)
-                    setVoidReason('')
-                    setVoidError(null)
-                  }}
-                  className="min-h-[48px] min-w-[48px] px-3 rounded-lg text-sm font-semibold text-red-400 hover:text-white hover:bg-red-700 transition-colors"
-                >
-                  Void
-                </button>
+              <div className="flex items-center justify-between gap-4">
+                <span className="font-semibold text-white flex-1">{item.name}</span>
+                <span className="text-zinc-400">×{item.quantity}</span>
+                <span className="text-zinc-400">${priceEach.toFixed(2)} each</span>
+                <span className="font-bold text-amber-400">${lineTotal.toFixed(2)}</span>
+                {step === 'order' && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setVoidingItem(item)
+                      setVoidReason('')
+                      setVoidError(null)
+                    }}
+                    className="min-h-[48px] min-w-[48px] px-3 rounded-lg text-sm font-semibold text-red-400 hover:text-white hover:bg-red-700 transition-colors"
+                  >
+                    Void
+                  </button>
+                )}
+              </div>
+              {item.modifier_names.length > 0 && (
+                <ul className="mt-1 space-y-0.5 pl-2">
+                  {item.modifier_names.map((modName) => (
+                    <li key={modName} className="text-base text-zinc-400">
+                      + {modName}
+                    </li>
+                  ))}
+                </ul>
               )}
             </li>
           )
@@ -265,12 +276,23 @@ export default function OrderDetailClient({ tableId, orderId }: OrderDetailClien
           return (
             <li
               key={item.id}
-              className="flex items-center justify-between gap-4 bg-zinc-800 rounded-xl px-4 py-3 text-base"
+              className="bg-zinc-800 rounded-xl px-4 py-3 text-base"
             >
-              <span className="font-semibold text-white flex-1">{item.name}</span>
-              <span className="text-zinc-400">×{item.quantity}</span>
-              <span className="text-zinc-400">${priceEach.toFixed(2)} each</span>
-              <span className="font-bold text-amber-400">${lineTotal.toFixed(2)}</span>
+              <div className="flex items-center justify-between gap-4">
+                <span className="font-semibold text-white flex-1">{item.name}</span>
+                <span className="text-zinc-400">×{item.quantity}</span>
+                <span className="text-zinc-400">${priceEach.toFixed(2)} each</span>
+                <span className="font-bold text-amber-400">${lineTotal.toFixed(2)}</span>
+              </div>
+              {item.modifier_names.length > 0 && (
+                <ul className="mt-1 space-y-0.5 pl-2">
+                  {item.modifier_names.map((modName) => (
+                    <li key={modName} className="text-base text-zinc-400">
+                      + {modName}
+                    </li>
+                  ))}
+                </ul>
+              )}
             </li>
           )
         })}

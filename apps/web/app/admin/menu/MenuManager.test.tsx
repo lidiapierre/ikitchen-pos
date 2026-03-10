@@ -140,12 +140,7 @@ describe('MenuManager', () => {
       expect(await screen.findByText('Unable to load menu data. Please try again.')).toBeInTheDocument()
     })
 
-    it('shows error when env vars are missing', async () => {
-      process.env.NEXT_PUBLIC_SUPABASE_URL = ''
-      render(<MenuManager />)
-      expect(await screen.findByText('Unable to load menu data. Please try again.')).toBeInTheDocument()
-    })
-  })
+})
 
   it('renders the Menu heading', () => {
     render(<MenuManager />)

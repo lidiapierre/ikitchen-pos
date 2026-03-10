@@ -111,14 +111,11 @@ export default function MenuManager(): JSX.Element {
   useEffect(() => {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
     const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
-    if (!supabaseUrl || !supabaseKey) {
-      setFetchError('API not configured')
-      setLoading(false)
-      return
+    if (supabaseUrl && supabaseKey) {
+      supabaseConfig.current = { url: supabaseUrl, key: supabaseKey }
     }
-    supabaseConfig.current = { url: supabaseUrl, key: supabaseKey }
 
-    fetchMenuAdminData(supabaseUrl, supabaseKey)
+    fetchMenuAdminData()
       .then((data) => {
         setRestaurantId(data.restaurantId)
         setMenus(data.menus)

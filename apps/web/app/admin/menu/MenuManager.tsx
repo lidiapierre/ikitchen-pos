@@ -426,6 +426,7 @@ export default function MenuManager(): JSX.Element {
       <div className="flex flex-col gap-6">
         <h1 className="text-2xl font-bold text-white">Menu</h1>
         <p className="text-red-400 text-base">Unable to load menu data. Please try again.</p>
+        <p className="text-red-300 text-sm font-mono">{fetchError}</p>
       </div>
     )
   }

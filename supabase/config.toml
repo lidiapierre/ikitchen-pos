@@ -394,7 +394,6 @@ verify_jwt = false
 
 [functions.update_menu_item]
 verify_jwt = false
-verify_jwt = false
 
 [edge_runtime]
 enabled = true

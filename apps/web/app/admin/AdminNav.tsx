@@ -11,7 +11,6 @@ interface NavLink {
 
 const NAV_LINKS: NavLink[] = [
   { href: '/admin', label: 'Dashboard' },
-  { href: '/admin/tables', label: 'Tables' },
   { href: '/admin/menu', label: 'Menu' },
 ]
 

@@ -8,6 +8,17 @@ const mockItem: MenuItem = {
   id: '00000000-0000-0000-0000-000000000301',
   name: 'Bruschetta',
   price_cents: 850,
+  modifiers: [],
+}
+
+const mockItemWithModifiers: MenuItem = {
+  id: '00000000-0000-0000-0000-000000000302',
+  name: 'Burger',
+  price_cents: 1200,
+  modifiers: [
+    { id: 'mod-001', name: 'Extra cheese', price_delta_cents: 50 },
+    { id: 'mod-002', name: 'No onions', price_delta_cents: 0 },
+  ],
 }
 
 const ORDER_ID = 'order-abc-123'
@@ -31,7 +42,7 @@ describe('MenuItemCard', () => {
     vi.useRealTimers()
   })
 
-  describe('rendering', () => {
+  describe('rendering — item without modifiers', () => {
     it('renders the item name', () => {
       render(<MenuItemCard item={mockItem} orderId={ORDER_ID} onItemAdded={vi.fn()} />)
       expect(screen.getByText('Bruschetta')).toBeInTheDocument()
@@ -59,6 +70,13 @@ describe('MenuItemCard', () => {
     })
   })
 
+  describe('rendering — item with modifiers', () => {
+    it('shows an options count hint', () => {
+      render(<MenuItemCard item={mockItemWithModifiers} orderId={ORDER_ID} onItemAdded={vi.fn()} />)
+      expect(screen.getByText('2 options')).toBeInTheDocument()
+    })
+  })
+
   describe('font-size compliance', () => {
     it('error message uses at least base (16px) font size', async () => {
       global.fetch = vi.fn().mockResolvedValue({
@@ -74,7 +92,25 @@ describe('MenuItemCard', () => {
     })
   })
 
-  describe('on successful add', () => {
+  describe('item without modifiers — direct add', () => {
+    it('adds item directly without showing a modal', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        json: () =>
+          Promise.resolve({
+            success: true,
+            data: { order_item_id: 'new-item-uuid', order_total: 850 },
+          }),
+      })
+
+      render(<MenuItemCard item={mockItem} orderId={ORDER_ID} onItemAdded={vi.fn()} />)
+      await userEvent.click(screen.getByRole('button', { name: 'Add' }))
+
+      expect(screen.queryByText(/Customise/)).not.toBeInTheDocument()
+      await waitFor(() => {
+        expect(screen.getByText('✓ Added')).toBeInTheDocument()
+      })
+    })
+
     it('shows "✓ Added" after a successful API call', async () => {
       global.fetch = vi.fn().mockResolvedValue({
         json: () =>
@@ -128,6 +164,77 @@ describe('MenuItemCard', () => {
       const body = JSON.parse(init.body as string) as { order_id: string; menu_item_id: string }
       expect(body.order_id).toBe(ORDER_ID)
       expect(body.menu_item_id).toBe(mockItem.id)
+    })
+  })
+
+  describe('item with modifiers — modal flow', () => {
+    it('shows the modifier selection modal when the item has modifiers', async () => {
+      render(<MenuItemCard item={mockItemWithModifiers} orderId={ORDER_ID} onItemAdded={vi.fn()} />)
+      await userEvent.click(screen.getByRole('button', { name: 'Add' }))
+
+      expect(screen.getByText(/Customise/)).toBeInTheDocument()
+      expect(screen.getByText('Extra cheese')).toBeInTheDocument()
+      expect(screen.getByText('No onions')).toBeInTheDocument()
+    })
+
+    it('modal modifier buttons have minimum 48px touch target', async () => {
+      render(<MenuItemCard item={mockItemWithModifiers} orderId={ORDER_ID} onItemAdded={vi.fn()} />)
+      await userEvent.click(screen.getByRole('button', { name: 'Add' }))
+
+      const cheeseButton = screen.getByRole('button', { name: /Extra cheese/ })
+      expect(cheeseButton.className).toContain('min-h-[48px]')
+    })
+
+    it('closes the modal when Cancel is clicked', async () => {
+      render(<MenuItemCard item={mockItemWithModifiers} orderId={ORDER_ID} onItemAdded={vi.fn()} />)
+      await userEvent.click(screen.getByRole('button', { name: 'Add' }))
+
+      expect(screen.getByText(/Customise/)).toBeInTheDocument()
+
+      await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+
+      expect(screen.queryByText(/Customise/)).not.toBeInTheDocument()
+    })
+
+    it('adds item with selected modifier IDs on confirm', async () => {
+      const mockFetch = vi.fn().mockResolvedValue({
+        json: () =>
+          Promise.resolve({
+            success: true,
+            data: { order_item_id: 'new-item-uuid', order_total: 1250 },
+          }),
+      })
+      global.fetch = mockFetch
+
+      render(<MenuItemCard item={mockItemWithModifiers} orderId={ORDER_ID} onItemAdded={vi.fn()} />)
+      await userEvent.click(screen.getByRole('button', { name: 'Add' }))
+
+      await userEvent.click(screen.getByRole('button', { name: /Extra cheese/ }))
+      await userEvent.click(screen.getByRole('button', { name: 'Add to Order' }))
+
+      await waitFor(() => expect(mockFetch).toHaveBeenCalled())
+      const [, init] = mockFetch.mock.calls[0] as [string, RequestInit]
+      const body = JSON.parse(init.body as string) as { modifier_ids: string[] }
+      expect(body.modifier_ids).toEqual(['mod-001'])
+    })
+
+    it('calls onItemAdded after confirming modifier selection', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        json: () =>
+          Promise.resolve({
+            success: true,
+            data: { order_item_id: 'new-item-uuid', order_total: 1250 },
+          }),
+      })
+
+      const onItemAdded = vi.fn()
+      render(<MenuItemCard item={mockItemWithModifiers} orderId={ORDER_ID} onItemAdded={onItemAdded} />)
+      await userEvent.click(screen.getByRole('button', { name: 'Add' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Add to Order' }))
+
+      await waitFor(() => {
+        expect(onItemAdded).toHaveBeenCalledWith(1200)
+      })
     })
   })
 

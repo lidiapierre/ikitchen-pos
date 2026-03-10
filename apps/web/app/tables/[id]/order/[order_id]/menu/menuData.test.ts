@@ -27,7 +27,12 @@ describe('fetchMenuCategories', () => {
                 id: 'menu-001',
                 name: 'Starters',
                 menu_items: [
-                  { id: 'item-001', name: 'Bruschetta', price_cents: 850 },
+                  {
+                    id: 'item-001',
+                    name: 'Bruschetta',
+                    price_cents: 850,
+                    modifiers: [],
+                  },
                 ],
               },
             ]),
@@ -41,6 +46,45 @@ describe('fetchMenuCategories', () => {
     expect(result[0].items).toHaveLength(1)
     expect(result[0].items[0].name).toBe('Bruschetta')
     expect(result[0].items[0].price_cents).toBe(850)
+    expect(result[0].items[0].modifiers).toEqual([])
+  })
+
+  it('returns modifiers for menu items that have them', async (): Promise<void> => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn()
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve([{ restaurant_id: RESTAURANT_ID }]),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () =>
+            Promise.resolve([
+              {
+                id: 'menu-001',
+                name: 'Mains',
+                menu_items: [
+                  {
+                    id: 'item-002',
+                    name: 'Burger',
+                    price_cents: 1200,
+                    modifiers: [
+                      { id: 'mod-001', name: 'Extra cheese', price_delta_cents: 50 },
+                      { id: 'mod-002', name: 'No onions', price_delta_cents: 0 },
+                    ],
+                  },
+                ],
+              },
+            ]),
+        }),
+    )
+
+    const result = await fetchMenuCategories(BASE_URL, API_KEY, ORDER_ID)
+
+    expect(result[0].items[0].modifiers).toHaveLength(2)
+    expect(result[0].items[0].modifiers[0]).toEqual({ id: 'mod-001', name: 'Extra cheese', price_delta_cents: 50 })
+    expect(result[0].items[0].modifiers[1]).toEqual({ id: 'mod-002', name: 'No onions', price_delta_cents: 0 })
   })
 
   it('fetches order to get restaurant_id', async (): Promise<void> => {
@@ -79,6 +123,24 @@ describe('fetchMenuCategories', () => {
     const [secondUrl] = mockFetch.mock.calls[1] as [string]
     expect(secondUrl).toContain('/rest/v1/menus')
     expect(secondUrl).toContain(RESTAURANT_ID)
+  })
+
+  it('requests modifiers nested in menu_items', async (): Promise<void> => {
+    const mockFetch = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve([{ restaurant_id: RESTAURANT_ID }]),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve([]),
+      })
+    vi.stubGlobal('fetch', mockFetch)
+
+    await fetchMenuCategories(BASE_URL, API_KEY, ORDER_ID)
+
+    const [secondUrl] = mockFetch.mock.calls[1] as [string]
+    expect(secondUrl).toContain('modifiers')
   })
 
   it('throws when the order fetch fails', async (): Promise<void> => {

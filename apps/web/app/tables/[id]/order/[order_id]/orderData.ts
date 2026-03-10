@@ -3,6 +3,8 @@ export interface OrderItem {
   name: string
   quantity: number
   price_cents: number
+  modifier_ids: string[]
+  modifier_names: string[]
 }
 
 export interface OrderSummary {
@@ -14,7 +16,13 @@ interface OrderItemRow {
   id: string
   quantity: number
   unit_price_cents: number
+  modifier_ids: string[]
   menu_items: { name: string }
+}
+
+interface ModifierRow {
+  id: string
+  name: string
 }
 
 export async function fetchOrderItems(
@@ -23,7 +31,7 @@ export async function fetchOrderItems(
   orderId: string,
 ): Promise<OrderItem[]> {
   const url = new URL(`${supabaseUrl}/rest/v1/order_items`)
-  url.searchParams.set('select', 'id,quantity,unit_price_cents,menu_items(name)')
+  url.searchParams.set('select', 'id,quantity,unit_price_cents,modifier_ids,menu_items(name)')
   url.searchParams.set('order_id', `eq.${orderId}`)
   url.searchParams.set('voided', 'eq.false')
 
@@ -40,12 +48,47 @@ export async function fetchOrderItems(
   }
 
   const rows = (await res.json()) as OrderItemRow[]
-  return rows.map((row) => ({
-    id: row.id,
-    name: row.menu_items.name,
-    quantity: row.quantity,
-    price_cents: row.unit_price_cents,
-  }))
+
+  // Collect all unique modifier IDs across all items
+  const allModifierIds = [...new Set(rows.flatMap((row) => row.modifier_ids ?? []))]
+
+  // Fetch modifier names if any items have modifiers
+  const modifierNameMap = new Map<string, string>()
+  if (allModifierIds.length > 0) {
+    try {
+      const modUrl = new URL(`${supabaseUrl}/rest/v1/modifiers`)
+      modUrl.searchParams.set('select', 'id,name')
+      modUrl.searchParams.set('id', `in.(${allModifierIds.join(',')})`)
+
+      const modRes = await fetch(modUrl.toString(), {
+        headers: {
+          apikey: apiKey,
+          Authorization: `Bearer ${apiKey}`,
+        },
+      })
+
+      if (modRes.ok) {
+        const mods = (await modRes.json()) as ModifierRow[]
+        for (const mod of mods) {
+          modifierNameMap.set(mod.id, mod.name)
+        }
+      }
+    } catch {
+      // Non-fatal: modifier names may not display but items will still show
+    }
+  }
+
+  return rows.map((row) => {
+    const ids = row.modifier_ids ?? []
+    return {
+      id: row.id,
+      name: row.menu_items.name,
+      quantity: row.quantity,
+      price_cents: row.unit_price_cents,
+      modifier_ids: ids,
+      modifier_names: ids.map((id) => modifierNameMap.get(id) ?? id),
+    }
+  })
 }
 
 export async function fetchOrderSummary(

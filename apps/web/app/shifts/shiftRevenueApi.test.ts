@@ -8,7 +8,7 @@ describe('fetchShiftRevenue', () => {
   beforeEach((): void => {
     vi.stubGlobal('fetch', vi.fn())
     vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://example.supabase.co')
-    vi.stubEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY', 'test-key')
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY', 'test-key')
   })
 
   it('returns correct order count and totals for a shift with mixed cash and card payments', async (): Promise<void> => {

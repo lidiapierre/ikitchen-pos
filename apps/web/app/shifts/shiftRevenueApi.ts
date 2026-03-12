@@ -13,7 +13,7 @@ type PaymentRow = {
 
 export async function fetchShiftRevenue(openedAt: string, closedAt: string): Promise<ShiftRevenue> {
   const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
   const url =
     `${baseUrl}/rest/v1/payments` +
     `?select=order_id,method,amount_cents,orders!inner(status)` +

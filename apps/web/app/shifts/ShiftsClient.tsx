@@ -109,7 +109,7 @@ export default function ShiftsClient(): JSX.Element {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-demo-staff-id': '00000000-0000-0000-0000-000000000010',
+          'x-demo-staff-id': '00000000-0000-0000-0000-000000000401',
         },
         body: JSON.stringify({ opening_float: 0 }),
       })

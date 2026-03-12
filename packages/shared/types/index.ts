@@ -20,6 +20,7 @@ export interface Table {
   id: string
   restaurant_id: string
   label: string
+  seat_count: number
   created_at: string
   updated_at: string
 }

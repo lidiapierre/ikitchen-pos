@@ -12,6 +12,7 @@ interface NavLink {
 const NAV_LINKS: NavLink[] = [
   { href: '/admin', label: 'Dashboard' },
   { href: '/admin/menu', label: 'Menu' },
+  { href: '/admin/tables', label: 'Tables' },
 ]
 
 export default function AdminNav(): JSX.Element {

@@ -5,22 +5,20 @@ const BASE_URL = 'https://test.supabase.co'
 const API_KEY = 'test-api-key'
 
 function makeFetchResponse(body: unknown, ok = true, status = 200): Response {
-  const text = body !== undefined ? JSON.stringify(body) : ''
   return {
     ok,
     status,
-    statusText: ok ? 'OK' : 'Bad Request',
-    text: vi.fn().mockResolvedValue(text),
+    statusText: ok ? 'OK' : 'Error',
     json: vi.fn().mockResolvedValue(body),
   } as unknown as Response
 }
 
-function makeErrorResponse(status: number, body: string): Response {
+function makeErrorResponse(status: number, body: unknown): Response {
   return {
     ok: false,
     status,
     statusText: 'Error',
-    text: vi.fn().mockResolvedValue(body),
+    json: vi.fn().mockResolvedValue(body),
   } as unknown as Response
 }
 
@@ -33,37 +31,45 @@ afterEach(() => {
 })
 
 describe('callCreateTable', () => {
-  it('returns the id of the created table', async () => {
-    vi.mocked(fetch).mockResolvedValue(makeFetchResponse([{ id: 'new-table-id' }]))
+  it('returns the table_id from the response data', async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      makeFetchResponse({ success: true, data: { table_id: 'new-table-id' } }),
+    )
     const id = await callCreateTable(BASE_URL, API_KEY, 'rest-1', 'Table 9', 4)
     expect(id).toBe('new-table-id')
   })
 
-  it('sends a POST to /rest/v1/tables with the correct body and Prefer header', async () => {
-    vi.mocked(fetch).mockResolvedValue(makeFetchResponse([{ id: 'tbl-1' }]))
+  it('sends a POST to /functions/v1/create_table with the correct body and headers', async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      makeFetchResponse({ success: true, data: { table_id: 'tbl-1' } }),
+    )
     await callCreateTable(BASE_URL, API_KEY, 'rest-1', 'Table 9', 4)
     expect(fetch).toHaveBeenCalledWith(
-      `${BASE_URL}/rest/v1/tables`,
+      `${BASE_URL}/functions/v1/create_table`,
       expect.objectContaining({
         method: 'POST',
         headers: expect.objectContaining({
-          Prefer: 'return=representation',
           apikey: API_KEY,
+          Authorization: `Bearer ${API_KEY}`,
         }),
         body: JSON.stringify({ restaurant_id: 'rest-1', label: 'Table 9', seat_count: 4 }),
       }),
     )
   })
 
-  it('throws when the server returns an error status', async () => {
-    vi.mocked(fetch).mockResolvedValue(makeErrorResponse(400, 'duplicate key'))
+  it('throws with the server error message when status is not ok', async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      makeErrorResponse(400, { success: false, error: 'label is required' }),
+    )
     await expect(callCreateTable(BASE_URL, API_KEY, 'rest-1', 'Table 9', 4)).rejects.toThrow(
-      /failed: 400/,
+      'label is required',
     )
   })
 
-  it('throws when the server returns an empty array', async () => {
-    vi.mocked(fetch).mockResolvedValue(makeFetchResponse([]))
+  it('throws when success is false but status is ok', async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      makeFetchResponse({ success: false, error: 'Table creation returned no data' }),
+    )
     await expect(callCreateTable(BASE_URL, API_KEY, 'rest-1', 'Table 9', 4)).rejects.toThrow(
       'Table creation returned no data',
     )
@@ -71,52 +77,70 @@ describe('callCreateTable', () => {
 })
 
 describe('callUpdateTable', () => {
-  it('sends a PATCH to the correct URL with the updated fields', async () => {
-    vi.mocked(fetch).mockResolvedValue(makeFetchResponse(''))
+  it('sends a POST to /functions/v1/update_table with the correct body', async () => {
+    vi.mocked(fetch).mockResolvedValue(makeFetchResponse({ success: true }))
     await callUpdateTable(BASE_URL, API_KEY, 'tbl-1', 'Table One', 6)
     expect(fetch).toHaveBeenCalledWith(
-      `${BASE_URL}/rest/v1/tables?id=eq.tbl-1`,
+      `${BASE_URL}/functions/v1/update_table`,
       expect.objectContaining({
-        method: 'PATCH',
+        method: 'POST',
         headers: expect.objectContaining({ apikey: API_KEY }),
-        body: JSON.stringify({ label: 'Table One', seat_count: 6 }),
+        body: JSON.stringify({ table_id: 'tbl-1', label: 'Table One', seat_count: 6 }),
       }),
     )
   })
 
   it('resolves without error on success', async () => {
-    vi.mocked(fetch).mockResolvedValue(makeFetchResponse(''))
-    await expect(callUpdateTable(BASE_URL, API_KEY, 'tbl-1', 'Table One', 6)).resolves.toBeUndefined()
+    vi.mocked(fetch).mockResolvedValue(makeFetchResponse({ success: true }))
+    await expect(
+      callUpdateTable(BASE_URL, API_KEY, 'tbl-1', 'Table One', 6),
+    ).resolves.toBeUndefined()
   })
 
-  it('throws when the server returns an error status', async () => {
-    vi.mocked(fetch).mockResolvedValue(makeErrorResponse(404, 'not found'))
+  it('throws with the server error message when status is not ok', async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      makeErrorResponse(404, { success: false, error: 'Table not found' }),
+    )
     await expect(callUpdateTable(BASE_URL, API_KEY, 'tbl-1', 'Table One', 6)).rejects.toThrow(
-      /failed: 404/,
+      'Table not found',
     )
   })
 })
 
 describe('callDeleteTable', () => {
-  it('sends a DELETE to the correct URL', async () => {
-    vi.mocked(fetch).mockResolvedValue(makeFetchResponse(''))
+  it('sends a POST to /functions/v1/delete_table with the correct body', async () => {
+    vi.mocked(fetch).mockResolvedValue(makeFetchResponse({ success: true }))
     await callDeleteTable(BASE_URL, API_KEY, 'tbl-1')
     expect(fetch).toHaveBeenCalledWith(
-      `${BASE_URL}/rest/v1/tables?id=eq.tbl-1`,
+      `${BASE_URL}/functions/v1/delete_table`,
       expect.objectContaining({
-        method: 'DELETE',
+        method: 'POST',
         headers: expect.objectContaining({ apikey: API_KEY }),
+        body: JSON.stringify({ table_id: 'tbl-1' }),
       }),
     )
   })
 
   it('resolves without error on success', async () => {
-    vi.mocked(fetch).mockResolvedValue(makeFetchResponse(''))
+    vi.mocked(fetch).mockResolvedValue(makeFetchResponse({ success: true }))
     await expect(callDeleteTable(BASE_URL, API_KEY, 'tbl-1')).resolves.toBeUndefined()
   })
 
-  it('throws when the server returns an error status', async () => {
-    vi.mocked(fetch).mockResolvedValue(makeErrorResponse(500, 'server error'))
-    await expect(callDeleteTable(BASE_URL, API_KEY, 'tbl-1')).rejects.toThrow(/failed: 500/)
+  it('throws with the server error message when status is not ok', async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      makeErrorResponse(409, { success: false, error: 'Cannot delete a table with an open order' }),
+    )
+    await expect(callDeleteTable(BASE_URL, API_KEY, 'tbl-1')).rejects.toThrow(
+      'Cannot delete a table with an open order',
+    )
+  })
+
+  it('throws when success is false on server error', async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      makeErrorResponse(500, { success: false, error: 'Internal server error' }),
+    )
+    await expect(callDeleteTable(BASE_URL, API_KEY, 'tbl-1')).rejects.toThrow(
+      'Internal server error',
+    )
   })
 })

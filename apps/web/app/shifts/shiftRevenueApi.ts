@@ -16,10 +16,10 @@ export async function fetchShiftRevenue(openedAt: string, closedAt: string): Pro
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   const url =
     `${baseUrl}/rest/v1/payments` +
-    `?select=order_id,method,amount_cents,orders!inner(status,updated_at)` +
-    `&orders.status=eq.closed` +
-    `&orders.updated_at=gte.${encodeURIComponent(openedAt)}` +
-    `&orders.updated_at=lte.${encodeURIComponent(closedAt)}`
+    `?select=order_id,method,amount_cents,orders!inner(status)` +
+    `&orders.status=eq.paid` +
+    `&created_at=gte.${encodeURIComponent(openedAt)}` +
+    `&created_at=lte.${encodeURIComponent(closedAt)}`
 
   const headers: Record<string, string> = {}
   if (anonKey) {

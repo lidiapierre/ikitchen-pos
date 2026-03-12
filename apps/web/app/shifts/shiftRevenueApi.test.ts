@@ -86,6 +86,22 @@ describe('fetchShiftRevenue', () => {
       }),
     )
   })
+
+  it('queries payments with status eq.paid and filters on payments.created_at', async (): Promise<void> => {
+    vi.mocked(fetch).mockResolvedValue({
+      ok: true,
+      json: (): Promise<never[]> => Promise.resolve([]),
+    } as Response)
+
+    await fetchShiftRevenue(OPENED_AT, CLOSED_AT)
+
+    const calledUrl = vi.mocked(fetch).mock.calls[0]?.[0] as string
+    expect(calledUrl).toContain('orders.status=eq.paid')
+    expect(calledUrl).toContain(`created_at=gte.${encodeURIComponent(OPENED_AT)}`)
+    expect(calledUrl).toContain(`created_at=lte.${encodeURIComponent(CLOSED_AT)}`)
+    expect(calledUrl).not.toContain('eq.closed')
+    expect(calledUrl).not.toContain('orders.updated_at')
+  })
 })
 
 describe('formatDollars', () => {

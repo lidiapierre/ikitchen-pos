@@ -395,6 +395,15 @@ verify_jwt = false
 [functions.update_menu_item]
 verify_jwt = false
 
+[functions.create_table]
+verify_jwt = false
+
+[functions.update_table]
+verify_jwt = false
+
+[functions.delete_table]
+verify_jwt = false
+
 [edge_runtime]
 enabled = true
 # Supported request policies: `oneshot`, `per_worker`.

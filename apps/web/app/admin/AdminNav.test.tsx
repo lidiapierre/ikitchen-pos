@@ -14,12 +14,7 @@ describe('AdminNav', () => {
     render(<AdminNav />)
     expect(screen.getByText('Dashboard')).toBeInTheDocument()
     expect(screen.getByText('Menu')).toBeInTheDocument()
-  })
-
-  it('does not render a Tables link', () => {
-    vi.mocked(usePathname).mockReturnValue('/admin')
-    render(<AdminNav />)
-    expect(screen.queryByText('Tables')).not.toBeInTheDocument()
+    expect(screen.getByText('Tables')).toBeInTheDocument()
   })
 
   it('highlights the active Dashboard link when on /admin', () => {
@@ -34,6 +29,13 @@ describe('AdminNav', () => {
     render(<AdminNav />)
     const menuLink = screen.getByText('Menu').closest('a')
     expect(menuLink?.className).toMatch(/bg-indigo-600/)
+  })
+
+  it('highlights the active Tables link when on /admin/tables', () => {
+    vi.mocked(usePathname).mockReturnValue('/admin/tables')
+    render(<AdminNav />)
+    const tablesLink = screen.getByText('Tables').closest('a')
+    expect(tablesLink?.className).toMatch(/bg-indigo-600/)
   })
 
   it('does not highlight Dashboard when on /admin/menu', () => {

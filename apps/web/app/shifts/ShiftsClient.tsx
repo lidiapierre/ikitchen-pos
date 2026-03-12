@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react'
 import type { JSX } from 'react'
 import Link from 'next/link'
+import { fetchShiftRevenue, formatDollars } from './shiftRevenueApi'
+import type { ShiftRevenue } from './shiftRevenueApi'
 
 interface ActiveShift {
   shift_id: string
@@ -13,12 +15,13 @@ interface ShiftSummary {
   shift_id: string
   started_at: string
   ended_at: string
+  revenue: ShiftRevenue
 }
 
 const STORAGE_KEY = 'ikitchen_active_shift'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
-const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
 
 function loadShiftFromStorage(): ActiveShift | null {
   if (typeof window === 'undefined') return null
@@ -106,7 +109,7 @@ export default function ShiftsClient(): JSX.Element {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-demo-staff-id': '00000000-0000-0000-0000-000000000010',
+          'x-demo-staff-id': '00000000-0000-0000-0000-000000000401',
         },
         body: JSON.stringify({ opening_float: 0 }),
       })
@@ -152,13 +155,21 @@ export default function ShiftsClient(): JSX.Element {
       if (!json.success || !json.data) {
         throw new Error(json.error ?? 'Failed to close shift')
       }
-      setClosedSummary({
-        shift_id: activeShift.shift_id,
-        started_at: activeShift.started_at,
-        ended_at: json.data.ended_at,
-      })
+      const endedAt = json.data.ended_at
+      const startedAt = activeShift.started_at
+      const shiftId = activeShift.shift_id
+
       setActiveShift(null)
       saveShiftToStorage(null)
+
+      let revenue: ShiftRevenue = { orderCount: 0, totalCents: 0, cashCents: 0, cardCents: 0 }
+      try {
+        revenue = await fetchShiftRevenue(startedAt, endedAt)
+      } catch (err: unknown) {
+        setError(`Revenue fetch failed: ${err instanceof Error ? err.message : 'unknown error'}`)
+      }
+
+      setClosedSummary({ shift_id: shiftId, started_at: startedAt, ended_at: endedAt, revenue })
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to close shift')
     } finally {
@@ -198,6 +209,34 @@ export default function ShiftsClient(): JSX.Element {
               <dt className="text-zinc-400">Duration</dt>
               <dd className="text-white">{getDuration(closedSummary.started_at, closedSummary.ended_at)}</dd>
             </div>
+            <div className="border-t border-zinc-700 pt-3" />
+            {closedSummary.revenue.orderCount === 0 ? (
+              <div className="flex justify-between">
+                <dt className="text-zinc-400">Orders</dt>
+                <dd className="text-white">0 orders — $0.00</dd>
+              </div>
+            ) : (
+              <>
+                <div className="flex justify-between">
+                  <dt className="text-zinc-400">Orders</dt>
+                  <dd className="text-white">
+                    {closedSummary.revenue.orderCount} order{closedSummary.revenue.orderCount !== 1 ? 's' : ''}
+                  </dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-zinc-400">Total Revenue</dt>
+                  <dd className="text-white font-semibold">{formatDollars(closedSummary.revenue.totalCents)}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-zinc-400">Cash</dt>
+                  <dd className="text-white">{formatDollars(closedSummary.revenue.cashCents)}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-zinc-400">Card</dt>
+                  <dd className="text-white">{formatDollars(closedSummary.revenue.cardCents)}</dd>
+                </div>
+              </>
+            )}
           </dl>
           <button
             type="button"

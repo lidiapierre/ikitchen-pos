@@ -92,6 +92,8 @@ export async function handler(
   const name = (payload['name'] as string).trim()
   const priceCents = payload['price_cents'] as number
   const modifiers: ModifierInput[] = isModifierInputArray(payload['modifiers']) ? payload['modifiers'] : []
+  const description = typeof payload['description'] === 'string' ? payload['description'].trim() : undefined
+  const imageUrl = typeof payload['image_url'] === 'string' ? payload['image_url'].trim() : undefined
 
   if (!env) {
     return new Response(
@@ -132,7 +134,13 @@ export async function handler(
       {
         method: 'POST',
         headers: dbHeaders,
-        body: JSON.stringify({ menu_id: menuId, name, price_cents: priceCents }),
+        body: JSON.stringify({
+          menu_id: menuId,
+          name,
+          price_cents: priceCents,
+          ...(description !== undefined ? { description } : {}),
+          ...(imageUrl !== undefined ? { image_url: imageUrl } : {}),
+        }),
       },
     )
     if (!itemInsertRes.ok) {

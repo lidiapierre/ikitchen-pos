@@ -8,10 +8,20 @@ import {
   callCreateMenu,
   callUpdateMenu,
   callDeleteMenu,
-  callCreateMenuItem,
-  callUpdateMenuItem,
   callDeleteMenuItem,
 } from './menuAdminApi'
+
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: vi.fn() }),
+}))
+
+vi.mock('next/link', () => ({
+  default: ({ href, children, ...props }: { href: string; children: React.ReactNode; [key: string]: unknown }) => (
+    <a href={href} {...props}>
+      {children}
+    </a>
+  ),
+}))
 
 vi.mock('./menuAdminData', () => ({
   fetchMenuAdminData: vi.fn(),
@@ -21,8 +31,6 @@ vi.mock('./menuAdminApi', () => ({
   callCreateMenu: vi.fn(),
   callUpdateMenu: vi.fn(),
   callDeleteMenu: vi.fn(),
-  callCreateMenuItem: vi.fn(),
-  callUpdateMenuItem: vi.fn(),
   callDeleteMenuItem: vi.fn(),
 }))
 
@@ -89,8 +97,6 @@ beforeEach(() => {
   vi.mocked(callCreateMenu).mockResolvedValue('new-menu-id')
   vi.mocked(callUpdateMenu).mockResolvedValue(undefined)
   vi.mocked(callDeleteMenu).mockResolvedValue(undefined)
-  vi.mocked(callCreateMenuItem).mockResolvedValue('new-item-id')
-  vi.mocked(callUpdateMenuItem).mockResolvedValue(undefined)
   vi.mocked(callDeleteMenuItem).mockResolvedValue(undefined)
 })
 
@@ -152,10 +158,16 @@ describe('MenuManager', () => {
     expect(screen.getByRole('heading', { name: 'Menu' })).toBeInTheDocument()
   })
 
-  it('renders Add Item and Add Category buttons', () => {
+  it('renders New Item link and Add Category button', () => {
     render(<MenuManager />)
-    expect(screen.getByText('+ Add Item')).toBeInTheDocument()
+    expect(screen.getByText('+ New Item')).toBeInTheDocument()
     expect(screen.getByText('+ Add Category')).toBeInTheDocument()
+  })
+
+  it('New Item link points to /admin/menu/new', () => {
+    render(<MenuManager />)
+    const link = screen.getByText('+ New Item').closest('a')
+    expect(link?.getAttribute('href')).toBe('/admin/menu/new')
   })
 
   it('shows initial menu categories after load', async () => {
@@ -180,32 +192,11 @@ describe('MenuManager', () => {
     expect(screen.getByText('£14.50')).toBeInTheDocument()
   })
 
-  it('shows Add Item form when Add Item button is clicked', async () => {
+  it('item Edit link points to correct edit route', async () => {
     render(<MenuManager />)
     await screen.findByRole('heading', { name: 'Starters' })
-    fireEvent.click(screen.getByText('+ Add Item'))
-    expect(screen.getByRole('heading', { name: 'New Item' })).toBeInTheDocument()
-    expect(screen.getByLabelText(/^Name/)).toBeInTheDocument()
-    expect(screen.getByLabelText(/^Price/)).toBeInTheDocument()
-    expect(screen.getByLabelText(/^Category/)).toBeInTheDocument()
-  })
-
-  it('shows Modifiers section in item form', async () => {
-    render(<MenuManager />)
-    await screen.findByRole('heading', { name: 'Starters' })
-    fireEvent.click(screen.getByText('+ Add Item'))
-    expect(screen.getByRole('heading', { name: /Modifiers/ })).toBeInTheDocument()
-    expect(screen.getByLabelText('Modifier name')).toBeInTheDocument()
-    expect(screen.getByLabelText('Add-on price (£)')).toBeInTheDocument()
-    expect(screen.getByText('+ Add')).toBeInTheDocument()
-  })
-
-  it('hides Add Item form when Cancel is clicked', async () => {
-    render(<MenuManager />)
-    await screen.findByRole('heading', { name: 'Starters' })
-    fireEvent.click(screen.getByText('+ Add Item'))
-    fireEvent.click(screen.getByText('Cancel'))
-    expect(screen.queryByRole('heading', { name: 'New Item' })).not.toBeInTheDocument()
+    const editLink = screen.getByRole('link', { name: 'Edit Soup of the Day' })
+    expect(editLink.getAttribute('href')).toBe('/admin/menu/item-1/edit')
   })
 
   it('shows Add Category form when Add Category button is clicked', async () => {
@@ -216,48 +207,12 @@ describe('MenuManager', () => {
     expect(screen.getByLabelText(/Category Name/)).toBeInTheDocument()
   })
 
-  it('validates required name field on Add Item submit', async () => {
-    render(<MenuManager />)
-    await screen.findByRole('heading', { name: 'Starters' })
-    fireEvent.click(screen.getByText('+ Add Item'))
-    fireEvent.click(screen.getByText('Add Item'))
-    expect(screen.getByText('Name is required')).toBeInTheDocument()
-  })
-
-  it('validates required price field on Add Item submit', async () => {
-    render(<MenuManager />)
-    await screen.findByRole('heading', { name: 'Starters' })
-    fireEvent.click(screen.getByText('+ Add Item'))
-    fireEvent.click(screen.getByText('Add Item'))
-    expect(screen.getByText('Price is required')).toBeInTheDocument()
-  })
-
-  it('validates required category field on Add Item submit', async () => {
-    render(<MenuManager />)
-    await screen.findByRole('heading', { name: 'Starters' })
-    fireEvent.click(screen.getByText('+ Add Item'))
-    fireEvent.click(screen.getByText('Add Item'))
-    expect(screen.getByText('Category is required')).toBeInTheDocument()
-  })
-
   it('validates required category name on Add Category submit', async () => {
     render(<MenuManager />)
     await screen.findByRole('heading', { name: 'Starters' })
     fireEvent.click(screen.getByText('+ Add Category'))
     fireEvent.click(screen.getByText('Save Category'))
     expect(screen.getByText('Category name is required')).toBeInTheDocument()
-  })
-
-  it('adds a new item and shows success feedback', async () => {
-    render(<MenuManager />)
-    await screen.findByRole('heading', { name: 'Starters' })
-    fireEvent.click(screen.getByText('+ Add Item'))
-    fireEvent.change(screen.getByLabelText(/^Name/), { target: { value: 'Caesar Salad' } })
-    fireEvent.change(screen.getByLabelText(/^Price/), { target: { value: '8.50' } })
-    fireEvent.change(screen.getByLabelText(/^Category/), { target: { value: 'menu-1' } })
-    await userEvent.click(screen.getByText('Add Item'))
-    expect(await screen.findByText('Caesar Salad')).toBeInTheDocument()
-    expect(screen.getByRole('status')).toHaveTextContent('"Caesar Salad" added successfully.')
   })
 
   it('adds a new category and shows success feedback', async () => {
@@ -268,112 +223,6 @@ describe('MenuManager', () => {
     await userEvent.click(screen.getByText('Save Category'))
     expect(await screen.findByRole('heading', { name: 'Specials' })).toBeInTheDocument()
     expect(screen.getByRole('status')).toHaveTextContent('Category "Specials" added.')
-  })
-
-  it('opens edit form pre-filled when Edit button is clicked on an item', async () => {
-    render(<MenuManager />)
-    await screen.findByRole('heading', { name: 'Starters' })
-    fireEvent.click(screen.getByRole('button', { name: 'Edit Soup of the Day' }))
-    expect(screen.getByRole('heading', { name: 'Edit Item' })).toBeInTheDocument()
-    const nameInput = screen.getByLabelText(/^Name/) as HTMLInputElement
-    expect(nameInput.value).toBe('Soup of the Day')
-  })
-
-  it('saves edited item and shows success feedback', async () => {
-    render(<MenuManager />)
-    await screen.findByRole('heading', { name: 'Starters' })
-    fireEvent.click(screen.getByRole('button', { name: 'Edit Soup of the Day' }))
-    fireEvent.change(screen.getByLabelText(/^Name/), { target: { value: 'Updated Soup' } })
-    await userEvent.click(screen.getByText('Save Changes'))
-    expect(await screen.findByText('Updated Soup')).toBeInTheDocument()
-    expect(screen.getByRole('status')).toHaveTextContent('"Updated Soup" updated successfully.')
-  })
-
-  it('edit form loads existing modifiers for an item', async () => {
-    render(<MenuManager />)
-    await screen.findByRole('heading', { name: 'Mains' })
-    fireEvent.click(screen.getByRole('button', { name: 'Edit Grilled Chicken' }))
-    expect(screen.getByText('Extra sauce')).toBeInTheDocument()
-  })
-
-  it('shows delete confirmation when Delete button is clicked on an item', async () => {
-    render(<MenuManager />)
-    await screen.findByRole('heading', { name: 'Starters' })
-    fireEvent.click(screen.getByRole('button', { name: 'Delete Soup of the Day' }))
-    expect(screen.getByText('Delete?')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Confirm delete Soup of the Day' })).toBeInTheDocument()
-  })
-
-  it('cancels item delete when No is clicked', async () => {
-    render(<MenuManager />)
-    await screen.findByRole('heading', { name: 'Starters' })
-    fireEvent.click(screen.getByRole('button', { name: 'Delete Soup of the Day' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel delete' }))
-    expect(screen.queryByText('Delete?')).not.toBeInTheDocument()
-  })
-
-  it('deletes item and shows success feedback when Yes is clicked', async () => {
-    render(<MenuManager />)
-    await screen.findByRole('heading', { name: 'Starters' })
-    expect(screen.getByText('Soup of the Day')).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Delete Soup of the Day' }))
-    await userEvent.click(screen.getByRole('button', { name: 'Confirm delete Soup of the Day' }))
-    expect(await screen.findByRole('status')).toHaveTextContent('"Soup of the Day" deleted.')
-    expect(screen.queryByText('Soup of the Day')).not.toBeInTheDocument()
-  })
-
-  it('validates modifier name before adding', async () => {
-    render(<MenuManager />)
-    await screen.findByRole('heading', { name: 'Starters' })
-    fireEvent.click(screen.getByText('+ Add Item'))
-    fireEvent.click(screen.getByText('+ Add'))
-    expect(screen.getByText('Modifier name is required')).toBeInTheDocument()
-  })
-
-  it('adds a modifier to the item form', async () => {
-    render(<MenuManager />)
-    await screen.findByRole('heading', { name: 'Starters' })
-    fireEvent.click(screen.getByText('+ Add Item'))
-    fireEvent.change(screen.getByLabelText('Modifier name'), { target: { value: 'Extra cheese' } })
-    fireEvent.change(screen.getByLabelText('Add-on price (£)'), { target: { value: '1.00' } })
-    fireEvent.click(screen.getByText('+ Add'))
-    expect(screen.getByText('Extra cheese')).toBeInTheDocument()
-    expect(screen.getByText('+£1.00')).toBeInTheDocument()
-  })
-
-  it('shows Free label for a zero-price modifier', async () => {
-    render(<MenuManager />)
-    await screen.findByRole('heading', { name: 'Starters' })
-    fireEvent.click(screen.getByText('+ Add Item'))
-    fireEvent.change(screen.getByLabelText('Modifier name'), { target: { value: 'No onion' } })
-    fireEvent.click(screen.getByText('+ Add'))
-    expect(screen.getByText('Free')).toBeInTheDocument()
-  })
-
-  it('removes a modifier from the item form', async () => {
-    render(<MenuManager />)
-    await screen.findByRole('heading', { name: 'Starters' })
-    fireEvent.click(screen.getByText('+ Add Item'))
-    fireEvent.change(screen.getByLabelText('Modifier name'), { target: { value: 'Extra cheese' } })
-    fireEvent.click(screen.getByText('+ Add'))
-    fireEvent.click(screen.getByRole('button', { name: 'Remove modifier Extra cheese' }))
-    expect(screen.queryByText('Extra cheese')).not.toBeInTheDocument()
-  })
-
-  it('saves modifiers when adding a new item', async () => {
-    render(<MenuManager />)
-    await screen.findByRole('heading', { name: 'Starters' })
-    fireEvent.click(screen.getByText('+ Add Item'))
-    fireEvent.change(screen.getByLabelText(/^Name/), { target: { value: 'Test Dish' } })
-    fireEvent.change(screen.getByLabelText(/^Price/), { target: { value: '10.00' } })
-    fireEvent.change(screen.getByLabelText(/^Category/), { target: { value: 'menu-1' } })
-    fireEvent.change(screen.getByLabelText('Modifier name'), { target: { value: 'Spicy' } })
-    fireEvent.click(screen.getByText('+ Add'))
-    await userEvent.click(screen.getByText('Add Item'))
-    // Open edit form for newly added item (uses returned id 'new-item-id')
-    expect(await screen.findByText('Test Dish')).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Edit Test Dish' }))
-    expect(screen.getByText('Spicy')).toBeInTheDocument()
   })
 
   it('shows category Edit and Delete buttons', async () => {
@@ -438,7 +287,6 @@ describe('MenuManager', () => {
   })
 
   it('deletes an empty category and shows success feedback', async () => {
-    // Remove all items from Desserts first in mock data
     vi.mocked(fetchMenuAdminData).mockResolvedValue({
       ...MOCK_DATA,
       menus: MOCK_DATA.menus.map((m) =>
@@ -464,17 +312,43 @@ describe('MenuManager', () => {
     expect(screen.getByRole('heading', { name: 'Starters' })).toBeInTheDocument()
   })
 
-  it('Add Item button touch targets meet 48px minimum', () => {
-    render(<MenuManager />)
-    const addItemBtn = screen.getByText('+ Add Item')
-    expect(addItemBtn.className).toContain('min-h-[48px]')
-  })
-
-  it('item Edit buttons meet 48px touch target minimum', async () => {
+  it('shows delete confirmation when Delete button is clicked on an item', async () => {
     render(<MenuManager />)
     await screen.findByRole('heading', { name: 'Starters' })
-    const editBtn = screen.getByRole('button', { name: 'Edit Soup of the Day' })
-    expect(editBtn.className).toContain('min-h-[48px]')
+    fireEvent.click(screen.getByRole('button', { name: 'Delete Soup of the Day' }))
+    expect(screen.getByText('Delete?')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Confirm delete Soup of the Day' })).toBeInTheDocument()
+  })
+
+  it('cancels item delete when No is clicked', async () => {
+    render(<MenuManager />)
+    await screen.findByRole('heading', { name: 'Starters' })
+    fireEvent.click(screen.getByRole('button', { name: 'Delete Soup of the Day' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel delete' }))
+    expect(screen.queryByText('Delete?')).not.toBeInTheDocument()
+  })
+
+  it('deletes item and shows success feedback when Yes is clicked', async () => {
+    render(<MenuManager />)
+    await screen.findByRole('heading', { name: 'Starters' })
+    expect(screen.getByText('Soup of the Day')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Delete Soup of the Day' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Confirm delete Soup of the Day' }))
+    expect(await screen.findByRole('status')).toHaveTextContent('"Soup of the Day" deleted.')
+    expect(screen.queryByText('Soup of the Day')).not.toBeInTheDocument()
+  })
+
+  it('New Item link meets 48px touch target minimum', () => {
+    render(<MenuManager />)
+    const link = screen.getByText('+ New Item')
+    expect(link.className).toContain('min-h-[48px]')
+  })
+
+  it('item Edit links meet 48px touch target minimum', async () => {
+    render(<MenuManager />)
+    await screen.findByRole('heading', { name: 'Starters' })
+    const editLink = screen.getByRole('link', { name: 'Edit Soup of the Day' })
+    expect(editLink.className).toContain('min-h-[48px]')
   })
 
   it('item Delete buttons meet 48px touch target minimum', async () => {

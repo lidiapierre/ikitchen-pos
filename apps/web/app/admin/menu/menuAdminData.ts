@@ -7,7 +7,9 @@ export interface AdminModifier {
 export interface AdminMenuItem {
   id: string
   name: string
+  description?: string
   price_cents: number
+  image_url?: string
   modifiers: AdminModifier[]
 }
 
@@ -32,7 +34,9 @@ interface ModifierRow {
 interface MenuItemRow {
   id: string
   name: string
+  description?: string
   price_cents: number
+  image_url?: string
   modifiers: ModifierRow[]
 }
 
@@ -67,7 +71,7 @@ async function fetchMenus(supabaseUrl: string, apiKey: string): Promise<AdminMen
   const url = new URL(`${supabaseUrl}/rest/v1/menus`)
   url.searchParams.set(
     'select',
-    'id,name,restaurant_id,menu_items(id,name,price_cents,modifiers(id,name,price_delta_cents))',
+    'id,name,restaurant_id,menu_items(id,name,description,price_cents,image_url,modifiers(id,name,price_delta_cents))',
   )
   const res = await fetch(url.toString(), { headers })
   if (!res.ok) {
@@ -83,7 +87,9 @@ async function fetchMenus(supabaseUrl: string, apiKey: string): Promise<AdminMen
     items: (menu.menu_items ?? []).map((item) => ({
       id: item.id,
       name: item.name,
+      ...(item.description !== undefined ? { description: item.description } : {}),
       price_cents: item.price_cents,
+      ...(item.image_url !== undefined ? { image_url: item.image_url } : {}),
       modifiers: (item.modifiers ?? []).map((mod) => ({
         id: mod.id,
         name: mod.name,

@@ -79,12 +79,20 @@ export async function callCreateMenuItem(
   name: string,
   priceCents: number,
   modifiers: ModifierInput[],
+  description?: string,
+  imageUrl?: string,
 ): Promise<string> {
   const rows = (await postgrestRequest(
     `${supabaseUrl}/rest/v1/menu_items`,
     'POST',
     apiKey,
-    { menu_id: menuId, name, price_cents: priceCents },
+    {
+      menu_id: menuId,
+      name,
+      price_cents: priceCents,
+      ...(description !== undefined ? { description } : {}),
+      ...(imageUrl !== undefined ? { image_url: imageUrl } : {}),
+    },
     true,
   )) as Array<{ id: string }>
   if (!rows || rows.length === 0) throw new Error('Menu item creation returned no data')
@@ -113,12 +121,19 @@ export async function callUpdateMenuItem(
   name: string,
   priceCents: number,
   modifiers: ModifierInput[],
+  description?: string,
+  imageUrl?: string,
 ): Promise<void> {
   await postgrestRequest(
     `${supabaseUrl}/rest/v1/menu_items?id=eq.${menuItemId}`,
     'PATCH',
     apiKey,
-    { name, price_cents: priceCents },
+    {
+      name,
+      price_cents: priceCents,
+      ...(description !== undefined ? { description } : {}),
+      ...(imageUrl !== undefined ? { image_url: imageUrl } : {}),
+    },
   )
 
   // Replace modifiers: delete existing then insert updated set

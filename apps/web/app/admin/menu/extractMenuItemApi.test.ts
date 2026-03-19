@@ -22,7 +22,10 @@ describe('callExtractMenuItem', () => {
       `${SUPABASE_URL}/functions/v1/extract_menu_item`,
       expect.objectContaining({
         method: 'POST',
-        headers: expect.objectContaining({ apikey: API_KEY }),
+        headers: expect.objectContaining({
+          apikey: API_KEY,
+          'x-demo-staff-id': '00000000-0000-0000-0000-000000000001',
+        }),
         body: JSON.stringify({ file_data: 'base64data', media_type: 'image/jpeg' }),
       }),
     )

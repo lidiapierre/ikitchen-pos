@@ -18,6 +18,7 @@ export async function callExtractMenuItem(
       'Content-Type': 'application/json',
       apikey: apiKey,
       Authorization: `Bearer ${apiKey}`,
+      'x-demo-staff-id': '00000000-0000-0000-0000-000000000001',
     },
     body: JSON.stringify({ file_data: fileData, media_type: mediaType }),
   })

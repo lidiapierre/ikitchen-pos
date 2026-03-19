@@ -22,6 +22,7 @@ type SupportedMediaType = 'image/jpeg' | 'image/png' | 'image/webp' | 'applicati
 const SUPPORTED_IMAGE_TYPES: string[] = ['image/jpeg', 'image/png', 'image/webp']
 const SUPPORTED_TYPES: string[] = [...SUPPORTED_IMAGE_TYPES, 'application/pdf']
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024 // 10 MB
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 function readEnv(): HandlerEnv | null {
   const g = globalThis as { Deno?: { env: { get: (key: string) => string | undefined } } }
@@ -85,6 +86,12 @@ export async function handler(
 
   if (req.method !== 'POST') {
     return jsonResponse({ success: false, error: 'Method not allowed' }, 405)
+  }
+
+  // Auth: require a valid demo staff UUID (dev-stub auth per architecture.md §13)
+  const staffId = req.headers.get('x-demo-staff-id') ?? ''
+  if (!UUID_RE.test(staffId)) {
+    return jsonResponse({ success: false, error: 'Unauthorized' }, 401)
   }
 
   let body: unknown

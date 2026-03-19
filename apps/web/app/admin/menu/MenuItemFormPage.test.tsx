@@ -86,6 +86,51 @@ describe('MenuItemFormPage – new mode', () => {
   })
 })
 
+describe('MenuItemFormPage – modifier management', () => {
+  it('adds a modifier to the form', async () => {
+    render(<MenuItemFormPage mode="new" />)
+    await waitFor(() => screen.getByText('New Item'))
+
+    fireEvent.change(screen.getByLabelText('Modifier name'), { target: { value: 'Extra sauce' } })
+    fireEvent.change(screen.getByLabelText('Add-on (£)'), { target: { value: '1.50' } })
+    fireEvent.click(screen.getByText('+ Add'))
+
+    expect(screen.getByText('Extra sauce')).toBeDefined()
+    expect(screen.getByText('+£1.50')).toBeDefined()
+  })
+
+  it('shows Free label for zero-price modifier', async () => {
+    render(<MenuItemFormPage mode="new" />)
+    await waitFor(() => screen.getByText('New Item'))
+
+    fireEvent.change(screen.getByLabelText('Modifier name'), { target: { value: 'No onion' } })
+    fireEvent.click(screen.getByText('+ Add'))
+
+    expect(screen.getByText('Free')).toBeDefined()
+  })
+
+  it('shows validation error when adding modifier without a name', async () => {
+    render(<MenuItemFormPage mode="new" />)
+    await waitFor(() => screen.getByText('New Item'))
+
+    fireEvent.click(screen.getByText('+ Add'))
+
+    expect(screen.getByText('Modifier name is required')).toBeDefined()
+  })
+
+  it('removes a modifier from the form', async () => {
+    render(<MenuItemFormPage mode="new" />)
+    await waitFor(() => screen.getByText('New Item'))
+
+    fireEvent.change(screen.getByLabelText('Modifier name'), { target: { value: 'Extra cheese' } })
+    fireEvent.click(screen.getByText('+ Add'))
+    expect(screen.getByText('Extra cheese')).toBeDefined()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove modifier Extra cheese' }))
+    expect(screen.queryByText('Extra cheese')).toBeNull()
+  })
+})
+
 describe('MenuItemFormPage – edit mode', () => {
   beforeEach(() => {
     // Mock fetch for item data

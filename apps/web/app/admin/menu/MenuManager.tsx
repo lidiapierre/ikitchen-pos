@@ -12,12 +12,6 @@ import {
   callDeleteMenuItem,
 } from './menuAdminApi'
 
-interface ItemFormErrors {
-  name?: string
-  price?: string
-  menuId?: string
-}
-
 type FeedbackType = 'success' | 'error'
 
 interface Feedback {
@@ -35,8 +29,6 @@ export function generateId(): string {
   return `id-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
 }
 
-// Kept for backwards compatibility with imports in tests
-export type { ItemFormErrors }
 
 export default function MenuManager(): JSX.Element {
   const [menus, setMenus] = useState<AdminMenu[]>([])

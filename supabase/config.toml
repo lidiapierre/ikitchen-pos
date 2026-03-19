@@ -404,6 +404,9 @@ verify_jwt = false
 [functions.delete_table]
 verify_jwt = false
 
+[functions.extract_menu_item]
+verify_jwt = false
+
 [edge_runtime]
 enabled = true
 # Supported request policies: `oneshot`, `per_worker`.

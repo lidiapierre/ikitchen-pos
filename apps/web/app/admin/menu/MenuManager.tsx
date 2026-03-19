@@ -2,53 +2,21 @@
 
 import { useState, useEffect, useRef } from 'react'
 import type { JSX } from 'react'
+import Link from 'next/link'
 import { fetchMenuAdminData } from './menuAdminData'
-import type { AdminMenu, AdminMenuItem, AdminModifier } from './menuAdminData'
+import type { AdminMenu, AdminMenuItem } from './menuAdminData'
 import {
   callCreateMenu,
   callUpdateMenu,
   callDeleteMenu,
-  callCreateMenuItem,
-  callUpdateMenuItem,
   callDeleteMenuItem,
 } from './menuAdminApi'
-import type { ModifierInput } from './menuAdminApi'
-
-interface ItemFormValues {
-  name: string
-  price: string
-  menuId: string
-  modifiers: AdminModifier[]
-}
-
-interface ItemFormErrors {
-  name?: string
-  price?: string
-  menuId?: string
-}
-
-interface ModifierFormValues {
-  name: string
-  price: string
-}
 
 type FeedbackType = 'success' | 'error'
 
 interface Feedback {
   type: FeedbackType
   message: string
-}
-
-const EMPTY_ITEM_FORM: ItemFormValues = {
-  name: '',
-  price: '',
-  menuId: '',
-  modifiers: [],
-}
-
-const EMPTY_MODIFIER_FORM: ModifierFormValues = {
-  name: '',
-  price: '',
 }
 
 export function formatCurrency(priceCents: number): string {
@@ -61,21 +29,6 @@ export function generateId(): string {
   return `id-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
 }
 
-function validateItemForm(form: ItemFormValues): ItemFormErrors {
-  const errors: ItemFormErrors = {}
-  if (!form.name.trim()) errors.name = 'Name is required'
-  if (!form.price.trim()) {
-    errors.price = 'Price is required'
-  } else if (isNaN(parseFloat(form.price)) || parseFloat(form.price) < 0) {
-    errors.price = 'Enter a valid price'
-  }
-  if (!form.menuId) errors.menuId = 'Category is required'
-  return errors
-}
-
-function parsePriceToCents(priceStr: string): number {
-  return Math.round(parseFloat(priceStr) * 100)
-}
 
 export default function MenuManager(): JSX.Element {
   const [menus, setMenus] = useState<AdminMenu[]>([])
@@ -86,24 +39,16 @@ export default function MenuManager(): JSX.Element {
 
   const supabaseConfig = useRef<{ url: string; key: string } | null>(null)
 
-  const [showAddItem, setShowAddItem] = useState(false)
-  const [itemForm, setItemForm] = useState<ItemFormValues>(EMPTY_ITEM_FORM)
-  const [itemFormErrors, setItemFormErrors] = useState<ItemFormErrors>({})
-
   const [showAddCategory, setShowAddCategory] = useState(false)
   const [categoryName, setCategoryName] = useState('')
   const [categoryNameError, setCategoryNameError] = useState('')
-
-  const [editingItemId, setEditingItemId] = useState<string | null>(null)
-  const [deletingItemId, setDeletingItemId] = useState<string | null>(null)
 
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null)
   const [editingCategoryName, setEditingCategoryName] = useState('')
   const [editingCategoryNameError, setEditingCategoryNameError] = useState('')
   const [deletingCategoryId, setDeletingCategoryId] = useState<string | null>(null)
 
-  const [modifierForm, setModifierForm] = useState<ModifierFormValues>(EMPTY_MODIFIER_FORM)
-  const [modifierFormError, setModifierFormError] = useState('')
+  const [deletingItemId, setDeletingItemId] = useState<string | null>(null)
 
   const [feedback, setFeedback] = useState<Feedback | null>(null)
   const feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -143,154 +88,6 @@ export default function MenuManager(): JSX.Element {
     feedbackTimerRef.current = setTimeout(() => setFeedback(null), 3000)
   }
 
-  function handleAddModifier(): void {
-    if (!modifierForm.name.trim()) {
-      setModifierFormError('Modifier name is required')
-      return
-    }
-    const rawPrice = modifierForm.price.trim()
-    const price = rawPrice === '' ? 0 : parseFloat(rawPrice)
-    if (isNaN(price) || price < 0) {
-      setModifierFormError('Enter a valid price')
-      return
-    }
-    const newModifier: AdminModifier = {
-      id: generateId(),
-      name: modifierForm.name.trim(),
-      price_delta_cents: Math.round(price * 100),
-    }
-    setItemForm((f) => ({ ...f, modifiers: [...f.modifiers, newModifier] }))
-    setModifierForm(EMPTY_MODIFIER_FORM)
-    setModifierFormError('')
-  }
-
-  function handleRemoveModifier(modifierId: string): void {
-    setItemForm((f) => ({ ...f, modifiers: f.modifiers.filter((m) => m.id !== modifierId) }))
-  }
-
-  async function handleAddItem(): Promise<void> {
-    const errors = validateItemForm(itemForm)
-    if (Object.keys(errors).length > 0) {
-      setItemFormErrors(errors)
-      return
-    }
-    const config = supabaseConfig.current
-    if (!config) return
-    setSubmitting(true)
-    try {
-      const priceCents = parsePriceToCents(itemForm.price)
-      const modifierInputs: ModifierInput[] = itemForm.modifiers.map((m) => ({
-        name: m.name,
-        price_delta_cents: m.price_delta_cents,
-      }))
-      const menuItemId = await callCreateMenuItem(
-        config.url,
-        config.key,
-        itemForm.menuId,
-        itemForm.name.trim(),
-        priceCents,
-        modifierInputs,
-      )
-      const newItem: AdminMenuItem = {
-        id: menuItemId,
-        name: itemForm.name.trim(),
-        price_cents: priceCents,
-        modifiers: itemForm.modifiers,
-      }
-      setMenus((prev) =>
-        prev.map((m) =>
-          m.id === itemForm.menuId ? { ...m, items: [...m.items, newItem] } : m,
-        ),
-      )
-      const addedName = itemForm.name.trim()
-      setItemForm(EMPTY_ITEM_FORM)
-      setItemFormErrors({})
-      setModifierForm(EMPTY_MODIFIER_FORM)
-      setModifierFormError('')
-      setShowAddItem(false)
-      showFeedback('success', `"${addedName}" added successfully.`)
-    } catch (err) {
-      showFeedback('error', err instanceof Error ? err.message : 'Failed to add item.')
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  function handleStartEdit(item: AdminMenuItem, menuId: string): void {
-    setEditingItemId(item.id)
-    setItemForm({
-      name: item.name,
-      price: (item.price_cents / 100).toFixed(2),
-      menuId,
-      modifiers: item.modifiers.map((m) => ({ ...m })),
-    })
-    setItemFormErrors({})
-    setModifierForm(EMPTY_MODIFIER_FORM)
-    setModifierFormError('')
-    setShowAddItem(false)
-    setShowAddCategory(false)
-  }
-
-  async function handleSaveEdit(): Promise<void> {
-    if (!editingItemId) return
-    const errors = validateItemForm(itemForm)
-    if (Object.keys(errors).length > 0) {
-      setItemFormErrors(errors)
-      return
-    }
-    const config = supabaseConfig.current
-    if (!config) return
-    setSubmitting(true)
-    try {
-      const priceCents = parsePriceToCents(itemForm.price)
-      const modifierInputs: ModifierInput[] = itemForm.modifiers.map((m) => ({
-        name: m.name,
-        price_delta_cents: m.price_delta_cents,
-      }))
-      await callUpdateMenuItem(
-        config.url,
-        config.key,
-        editingItemId,
-        itemForm.name.trim(),
-        priceCents,
-        modifierInputs,
-      )
-      const updatedName = itemForm.name.trim()
-      const updatedItem: Partial<AdminMenuItem> = {
-        name: updatedName,
-        price_cents: priceCents,
-        modifiers: itemForm.modifiers,
-      }
-      setMenus((prev) =>
-        prev.map((menu) => ({
-          ...menu,
-          items: menu.items.map((item) =>
-            item.id === editingItemId ? { ...item, ...updatedItem } : item,
-          ),
-        })),
-      )
-      setEditingItemId(null)
-      setItemForm(EMPTY_ITEM_FORM)
-      setItemFormErrors({})
-      setModifierForm(EMPTY_MODIFIER_FORM)
-      setModifierFormError('')
-      showFeedback('success', `"${updatedName}" updated successfully.`)
-    } catch (err) {
-      showFeedback('error', err instanceof Error ? err.message : 'Failed to update item.')
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  function handleCancelItemForm(): void {
-    setShowAddItem(false)
-    setEditingItemId(null)
-    setItemForm(EMPTY_ITEM_FORM)
-    setItemFormErrors({})
-    setModifierForm(EMPTY_MODIFIER_FORM)
-    setModifierFormError('')
-  }
-
   async function handleDeleteConfirm(): Promise<void> {
     if (!deletingItemId) return
     const config = supabaseConfig.current
@@ -305,10 +102,6 @@ export default function MenuManager(): JSX.Element {
           items: menu.items.filter((item) => item.id !== deletingItemId),
         })),
       )
-      if (editingItemId === deletingItemId) {
-        setEditingItemId(null)
-        setItemForm(EMPTY_ITEM_FORM)
-      }
       setDeletingItemId(null)
       showFeedback('success', itemName ? `"${itemName}" deleted.` : 'Item deleted.')
     } catch (err) {
@@ -410,8 +203,6 @@ export default function MenuManager(): JSX.Element {
     }
   }
 
-  const isItemFormActive = showAddItem || editingItemId !== null
-
   if (loading) {
     return (
       <div className="flex flex-col gap-6">
@@ -440,31 +231,18 @@ export default function MenuManager(): JSX.Element {
           <button
             onClick={() => {
               setShowAddCategory((v) => !v)
-              setShowAddItem(false)
-              setEditingItemId(null)
-              setItemForm(EMPTY_ITEM_FORM)
-              setItemFormErrors({})
             }}
             disabled={submitting}
             className="min-h-[48px] px-5 py-2 rounded-xl text-base font-medium bg-zinc-700 text-white hover:bg-zinc-600 transition-colors disabled:opacity-50"
           >
             + Add Category
           </button>
-          <button
-            onClick={() => {
-              setShowAddItem((v) => !v)
-              setEditingItemId(null)
-              setItemForm(EMPTY_ITEM_FORM)
-              setItemFormErrors({})
-              setModifierForm(EMPTY_MODIFIER_FORM)
-              setModifierFormError('')
-              setShowAddCategory(false)
-            }}
-            disabled={submitting}
-            className="min-h-[48px] px-5 py-2 rounded-xl text-base font-medium bg-indigo-600 text-white hover:bg-indigo-500 transition-colors disabled:opacity-50"
+          <Link
+            href="/admin/menu/new"
+            className="min-h-[48px] px-5 py-2 rounded-xl text-base font-medium bg-indigo-600 text-white hover:bg-indigo-500 transition-colors flex items-center"
           >
-            + Add Item
-          </button>
+            + New Item
+          </Link>
         </div>
       </div>
 
@@ -518,170 +296,6 @@ export default function MenuManager(): JSX.Element {
                 setCategoryName('')
                 setCategoryNameError('')
               }}
-              className="min-h-[48px] px-5 py-2 rounded-xl bg-zinc-700 text-white text-base font-medium hover:bg-zinc-600 transition-colors"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Add / Edit Item inline form */}
-      {isItemFormActive && (
-        <div className="bg-zinc-800 border border-zinc-700 rounded-2xl p-5 flex flex-col gap-4">
-          <h2 className="text-lg font-semibold text-white">
-            {editingItemId ? 'Edit Item' : 'New Item'}
-          </h2>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="flex flex-col gap-1">
-              <label htmlFor="item-name" className="text-sm font-medium text-zinc-300">
-                Name <span className="text-red-400">*</span>
-              </label>
-              <input
-                id="item-name"
-                type="text"
-                value={itemForm.name}
-                onChange={(e) => setItemForm((f) => ({ ...f, name: e.target.value }))}
-                className="min-h-[48px] px-4 py-2 rounded-xl bg-zinc-900 text-white border border-zinc-600 focus:border-indigo-500 focus:outline-none text-base"
-                placeholder="e.g. Grilled Chicken"
-              />
-              {itemFormErrors.name && (
-                <span className="text-sm text-red-400">{itemFormErrors.name}</span>
-              )}
-            </div>
-
-            <div className="flex flex-col gap-1">
-              <label htmlFor="item-price" className="text-sm font-medium text-zinc-300">
-                Price (£) <span className="text-red-400">*</span>
-              </label>
-              <input
-                id="item-price"
-                type="number"
-                inputMode="decimal"
-                step="0.01"
-                min="0"
-                value={itemForm.price}
-                onChange={(e) => setItemForm((f) => ({ ...f, price: e.target.value }))}
-                className="min-h-[48px] px-4 py-2 rounded-xl bg-zinc-900 text-white border border-zinc-600 focus:border-indigo-500 focus:outline-none text-base"
-                placeholder="0.00"
-              />
-              {itemFormErrors.price && (
-                <span className="text-sm text-red-400">{itemFormErrors.price}</span>
-              )}
-            </div>
-
-            <div className="flex flex-col gap-1">
-              <label htmlFor="item-category" className="text-sm font-medium text-zinc-300">
-                Category <span className="text-red-400">*</span>
-              </label>
-              <select
-                id="item-category"
-                value={itemForm.menuId}
-                onChange={(e) => setItemForm((f) => ({ ...f, menuId: e.target.value }))}
-                className="min-h-[48px] px-4 py-2 rounded-xl bg-zinc-900 text-white border border-zinc-600 focus:border-indigo-500 focus:outline-none text-base"
-              >
-                <option value="">Select category…</option>
-                {menus.map((menu) => (
-                  <option key={menu.id} value={menu.id}>
-                    {menu.name}
-                  </option>
-                ))}
-              </select>
-              {itemFormErrors.menuId && (
-                <span className="text-sm text-red-400">{itemFormErrors.menuId}</span>
-              )}
-            </div>
-          </div>
-
-          {/* Modifiers section */}
-          <div className="flex flex-col gap-3 border-t border-zinc-700 pt-4">
-            <h3 className="text-base font-semibold text-zinc-200">
-              Modifiers <span className="text-zinc-500 font-normal">(optional)</span>
-            </h3>
-
-            {itemForm.modifiers.length > 0 && (
-              <ul className="flex flex-col gap-2">
-                {itemForm.modifiers.map((mod) => (
-                  <li key={mod.id} className="flex items-center gap-3 bg-zinc-900 rounded-xl px-4 py-2">
-                    <span className="flex-1 text-base text-white">{mod.name}</span>
-                    <span className="text-base text-indigo-300 shrink-0">
-                      {mod.price_delta_cents > 0
-                        ? `+${formatCurrency(mod.price_delta_cents)}`
-                        : 'Free'}
-                    </span>
-                    <button
-                      onClick={() => handleRemoveModifier(mod.id)}
-                      aria-label={`Remove modifier ${mod.name}`}
-                      className="min-h-[48px] min-w-[48px] px-3 py-1 rounded-xl bg-red-900 text-red-200 text-sm font-medium hover:bg-red-800 transition-colors shrink-0"
-                    >
-                      Remove
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-
-            <div className="flex gap-3 items-start">
-              <div className="flex flex-col gap-1 flex-1">
-                <label htmlFor="modifier-name" className="text-sm font-medium text-zinc-400">
-                  Modifier name
-                </label>
-                <input
-                  id="modifier-name"
-                  type="text"
-                  value={modifierForm.name}
-                  onChange={(e) => {
-                    setModifierForm((f) => ({ ...f, name: e.target.value }))
-                    setModifierFormError('')
-                  }}
-                  className="min-h-[48px] px-4 py-2 rounded-xl bg-zinc-900 text-white border border-zinc-600 focus:border-indigo-500 focus:outline-none text-base"
-                  placeholder="e.g. Extra sauce"
-                />
-                {modifierFormError && (
-                  <span className="text-sm text-red-400">{modifierFormError}</span>
-                )}
-              </div>
-              <div className="flex flex-col gap-1 w-32">
-                <label htmlFor="modifier-price" className="text-sm font-medium text-zinc-400">
-                  Add-on price (£)
-                </label>
-                <input
-                  id="modifier-price"
-                  type="number"
-                  inputMode="decimal"
-                  step="0.01"
-                  min="0"
-                  value={modifierForm.price}
-                  onChange={(e) => setModifierForm((f) => ({ ...f, price: e.target.value }))}
-                  className="min-h-[48px] px-4 py-2 rounded-xl bg-zinc-900 text-white border border-zinc-600 focus:border-indigo-500 focus:outline-none text-base"
-                  placeholder="0.00"
-                />
-              </div>
-              <div className="flex flex-col gap-1 justify-end">
-                <span className="text-sm font-medium text-zinc-400 invisible" aria-hidden="true">
-                  x
-                </span>
-                <button
-                  onClick={handleAddModifier}
-                  aria-label="Add modifier"
-                  className="min-h-[48px] px-4 py-2 rounded-xl bg-zinc-600 text-white text-base font-medium hover:bg-zinc-500 transition-colors shrink-0"
-                >
-                  + Add
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex gap-3">
-            <button
-              onClick={() => { void (editingItemId ? handleSaveEdit() : handleAddItem()) }}
-              disabled={submitting}
-              className="min-h-[48px] px-5 py-2 rounded-xl bg-indigo-600 text-white text-base font-medium hover:bg-indigo-500 transition-colors disabled:opacity-50"
-            >
-              {editingItemId ? 'Save Changes' : 'Add Item'}
-            </button>
-            <button
-              onClick={handleCancelItemForm}
               className="min-h-[48px] px-5 py-2 rounded-xl bg-zinc-700 text-white text-base font-medium hover:bg-zinc-600 transition-colors"
             >
               Cancel
@@ -775,13 +389,23 @@ export default function MenuManager(): JSX.Element {
               <p className="text-zinc-500 text-base px-2">No items in this category.</p>
             ) : (
               <div className="flex flex-col gap-2">
-                {menu.items.map((item) => (
+                {menu.items.map((item: AdminMenuItem) => (
                   <div
                     key={item.id}
                     className="bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-4 flex items-center gap-4"
                   >
+                    {item.image_url && (
+                      <img
+                        src={item.image_url}
+                        alt={item.name}
+                        className="h-12 w-12 rounded-xl object-cover shrink-0"
+                      />
+                    )}
                     <div className="flex-1 min-w-0">
                       <div className="text-base font-semibold text-white truncate">{item.name}</div>
+                      {item.description && (
+                        <div className="text-sm text-zinc-400 truncate">{item.description}</div>
+                      )}
                       {item.modifiers.length > 0 && (
                         <div className="text-sm text-zinc-500 truncate">
                           {item.modifiers.length} modifier{item.modifiers.length !== 1 ? 's' : ''}
@@ -791,13 +415,13 @@ export default function MenuManager(): JSX.Element {
                     <div className="text-lg font-bold text-indigo-300 shrink-0">
                       {formatCurrency(item.price_cents)}
                     </div>
-                    <button
-                      onClick={() => handleStartEdit(item, menu.id)}
+                    <Link
+                      href={`/admin/menu/${item.id}/edit`}
                       aria-label={`Edit ${item.name}`}
-                      className="min-h-[48px] min-w-[48px] px-4 py-2 rounded-xl bg-zinc-700 text-white text-base font-medium hover:bg-zinc-600 transition-colors shrink-0"
+                      className="min-h-[48px] min-w-[48px] px-4 py-2 rounded-xl bg-zinc-700 text-white text-base font-medium hover:bg-zinc-600 transition-colors shrink-0 flex items-center justify-center"
                     >
                       Edit
-                    </button>
+                    </Link>
                     {deletingItemId === item.id ? (
                       <div className="flex items-center gap-2 shrink-0">
                         <span className="text-sm text-red-400">Delete?</span>

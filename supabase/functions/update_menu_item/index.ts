@@ -4,6 +4,8 @@ export const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 export type FetchFn = (input: string, init?: RequestInit) => Promise<Response>
 
 export interface HandlerEnv {
@@ -42,7 +44,15 @@ export async function handler(
   env: HandlerEnv | null = readEnv(),
 ): Promise<Response> {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { status: 200, headers: corsHeaders })
+    return new Response(null, { status: 204, headers: corsHeaders })
+  }
+
+  const staffId = req.headers.get('x-demo-staff-id') ?? ''
+  if (!UUID_RE.test(staffId)) {
+    return new Response(
+      JSON.stringify({ success: false, error: 'Unauthorized' }),
+      { status: 401, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    )
   }
 
   let body: unknown
@@ -92,6 +102,8 @@ export async function handler(
   const name = (payload['name'] as string).trim()
   const priceCents = payload['price_cents'] as number
   const modifiers = payload['modifiers'] as ModifierInput[]
+  const description = typeof payload['description'] === 'string' ? payload['description'].trim() : undefined
+  const imageUrl = typeof payload['image_url'] === 'string' ? payload['image_url'].trim() : undefined
 
   if (!env) {
     return new Response(
@@ -132,7 +144,12 @@ export async function handler(
       {
         method: 'PATCH',
         headers: { ...dbHeaders, Prefer: 'return=minimal' },
-        body: JSON.stringify({ name, price_cents: priceCents }),
+        body: JSON.stringify({
+          name,
+          price_cents: priceCents,
+          ...(description !== undefined ? { description } : {}),
+          ...(imageUrl !== undefined ? { image_url: imageUrl } : {}),
+        }),
       },
     )
     if (!patchRes.ok) {

@@ -37,7 +37,9 @@ export interface MenuItem {
   id: string
   menu_id: string
   name: string
+  description?: string
   price_cents: number
+  image_url?: string
   created_at: string
   updated_at: string
 }

@@ -141,10 +141,16 @@ export async function callDeleteMenuItem(
   apiKey: string,
   menuItemId: string,
 ): Promise<void> {
-  // Modifiers cascade-delete via ON DELETE CASCADE in the schema
-  await postgrestRequest(
-    `${supabaseUrl}/rest/v1/menu_items?id=eq.${menuItemId}`,
-    'DELETE',
-    apiKey,
-  )
+  const res = await fetch(`${supabaseUrl}/functions/v1/delete_menu_item`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      apikey: apiKey,
+      Authorization: `Bearer ${apiKey}`,
+      'x-demo-staff-id': '00000000-0000-0000-0000-000000000001',
+    },
+    body: JSON.stringify({ menu_item_id: menuItemId }),
+  })
+  const json = (await res.json()) as { success: boolean; error?: string }
+  if (!json.success) throw new Error(json.error ?? 'Failed to delete menu item')
 }

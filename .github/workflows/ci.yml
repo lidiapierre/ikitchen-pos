@@ -83,6 +83,10 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: https://dmaogdwtgohrhbytxjqu.supabase.co
           NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_IzsBL3KELStvo6bioFKWhA_dMj81UxH
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          E2E_ADMIN_EMAIL: admin@lahore.ikitchen.com.bd
+          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
+          E2E_STAFF_EMAIL: staff@lahore.ikitchen.com.bd
+          E2E_STAFF_PASSWORD: ${{ secrets.E2E_STAFF_PASSWORD }}
       - name: Run E2E tests
         working-directory: apps/web
         run: npm run test:e2e
@@ -90,6 +94,10 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: https://dmaogdwtgohrhbytxjqu.supabase.co
           NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_IzsBL3KELStvo6bioFKWhA_dMj81UxH
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          E2E_ADMIN_EMAIL: admin@lahore.ikitchen.com.bd
+          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
+          E2E_STAFF_EMAIL: staff@lahore.ikitchen.com.bd
+          E2E_STAFF_PASSWORD: ${{ secrets.E2E_STAFF_PASSWORD }}
 
   migration-validation:
     name: Migration Validation

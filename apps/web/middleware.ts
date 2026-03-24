@@ -71,9 +71,9 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
       .eq('id', user.id)
       .single()
 
-    const role = (error === null && data !== null)
-      ? (data as { role: UserRole }).role
-      : null
+    const VALID_ROLES: UserRole[] = ['owner', 'manager', 'server', 'kitchen']
+    const raw = (error === null && data !== null) ? (data as { role: string }).role : null
+    const role = (raw !== null && VALID_ROLES.includes(raw as UserRole)) ? (raw as UserRole) : null
 
     if (!isAdminRole(role)) {
       const url = request.nextUrl.clone()

@@ -27,7 +27,9 @@ export async function getUserRole(
     return null
   }
 
-  return (data as { role: UserRole }).role ?? null
+  const VALID_ROLES: UserRole[] = ['owner', 'manager', 'server', 'kitchen']
+  const raw = (data as { role: string }).role
+  return VALID_ROLES.includes(raw as UserRole) ? (raw as UserRole) : null
 }
 
 export const ADMIN_ROLES: UserRole[] = ['owner', 'manager']

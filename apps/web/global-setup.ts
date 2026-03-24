@@ -83,18 +83,29 @@ async function globalSetup(_config: FullConfig): Promise<void> {
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??
     'sb_publishable_IzsBL3KELStvo6bioFKWhA_dMj81UxH'
 
+  const adminEmail = process.env.E2E_ADMIN_EMAIL
+  const adminPassword = process.env.E2E_ADMIN_PASSWORD
+  const staffEmail = process.env.E2E_STAFF_EMAIL
+  const staffPassword = process.env.E2E_STAFF_PASSWORD
+
+  if (!adminEmail || !adminPassword || !staffEmail || !staffPassword) {
+    throw new Error(
+      'E2E auth env vars missing: E2E_ADMIN_EMAIL, E2E_ADMIN_PASSWORD, E2E_STAFF_EMAIL, E2E_STAFF_PASSWORD'
+    )
+  }
+
   const [adminCookies, staffCookies] = await Promise.all([
     buildStorageState(
       supabaseUrl,
       anonKey,
-      'admin@lahore.ikitchen.com.bd',
-      'Admin@iKitchen2026'
+      adminEmail,
+      adminPassword
     ),
     buildStorageState(
       supabaseUrl,
       anonKey,
-      'staff@lahore.ikitchen.com.bd',
-      'Staff@iKitchen2026'
+      staffEmail,
+      staffPassword
     ),
   ])
 

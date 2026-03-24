@@ -5,6 +5,7 @@ export interface OrderItem {
   price_cents: number
   modifier_ids: string[]
   modifier_names: string[]
+  sent_to_kitchen: boolean
 }
 
 export interface OrderSummary {
@@ -17,6 +18,7 @@ interface OrderItemRow {
   quantity: number
   unit_price_cents: number
   modifier_ids: string[]
+  sent_to_kitchen: boolean
   menu_items: { name: string }
 }
 
@@ -31,7 +33,7 @@ export async function fetchOrderItems(
   orderId: string,
 ): Promise<OrderItem[]> {
   const url = new URL(`${supabaseUrl}/rest/v1/order_items`)
-  url.searchParams.set('select', 'id,quantity,unit_price_cents,modifier_ids,menu_items(name)')
+  url.searchParams.set('select', 'id,quantity,unit_price_cents,modifier_ids,sent_to_kitchen,menu_items(name)')
   url.searchParams.set('order_id', `eq.${orderId}`)
   url.searchParams.set('voided', 'eq.false')
 
@@ -87,6 +89,7 @@ export async function fetchOrderItems(
       price_cents: row.unit_price_cents,
       modifier_ids: ids,
       modifier_names: ids.map((id) => modifierNameMap.get(id) ?? id),
+      sent_to_kitchen: row.sent_to_kitchen,
     }
   })
 }

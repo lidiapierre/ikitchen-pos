@@ -35,10 +35,18 @@ vi.mock('./cancelOrderApi', () => ({
   callCancelOrder: vi.fn(),
 }))
 
+vi.mock('./kotApi', () => ({
+  markItemsSentToKitchen: vi.fn(),
+}))
+
+vi.mock('@/components/KotPrintView', () => ({
+  default: (): JSX.Element => <div data-testid="kot-print-view" />,
+}))
+
 const mockItems = [
-  { id: '1', name: 'Bruschetta', quantity: 2, price_cents: 850, modifier_ids: [], modifier_names: [] },
-  { id: '2', name: 'Grilled Salmon', quantity: 1, price_cents: 1850, modifier_ids: [], modifier_names: [] },
-  { id: '3', name: 'House Wine', quantity: 2, price_cents: 950, modifier_ids: [], modifier_names: [] },
+  { id: '1', name: 'Bruschetta', quantity: 2, price_cents: 850, modifier_ids: [], modifier_names: [], sent_to_kitchen: false },
+  { id: '2', name: 'Grilled Salmon', quantity: 1, price_cents: 1850, modifier_ids: [], modifier_names: [], sent_to_kitchen: false },
+  { id: '3', name: 'House Wine', quantity: 2, price_cents: 950, modifier_ids: [], modifier_names: [], sent_to_kitchen: false },
 ]
 
 describe('OrderDetailClient', () => {
@@ -848,6 +856,7 @@ describe('OrderDetailClient', () => {
           price_cents: 1200,
           modifier_ids: ['mod-001', 'mod-002'],
           modifier_names: ['Extra cheese', 'No onions'],
+          sent_to_kitchen: false,
         },
       ])
 
@@ -882,6 +891,7 @@ describe('OrderDetailClient', () => {
           price_cents: 1200,
           modifier_ids: ['mod-001'],
           modifier_names: ['Extra cheese'],
+          sent_to_kitchen: false,
         },
       ])
 

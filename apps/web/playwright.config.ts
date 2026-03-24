@@ -5,7 +5,7 @@ export const STORAGE_STATE = path.join(__dirname, 'e2e/.auth/admin.json');
 
 export default defineConfig({
   testDir: './e2e',
-  globalSetup: './e2e/global-setup.ts',
+  globalSetup: './global-setup.ts',
   webServer: {
     command: 'npm run dev',
     url: 'http://localhost:3000',
@@ -24,13 +24,8 @@ export default defineConfig({
   },
   projects: [
     {
-      name: 'setup',
-      testMatch: /global-setup\.ts/,
-    },
-    {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
-      dependencies: ['setup'],
     },
   ],
 });

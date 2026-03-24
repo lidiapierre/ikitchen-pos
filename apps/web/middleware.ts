@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { isAdminRole, type UserRole } from '@/lib/user-role'
 
 export async function middleware(request: NextRequest): Promise<NextResponse> {
   let supabaseResponse = NextResponse.next({ request })
@@ -43,6 +44,42 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     return NextResponse.redirect(url)
+  }
+
+  // Role-based access control: /admin/* requires owner or manager role
+  if (user !== null && pathname.startsWith('/admin')) {
+    // Use service role key for authoritative server-side role lookup
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+    const adminClient = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      serviceRoleKey,
+      {
+        cookies: {
+          getAll() {
+            return request.cookies.getAll()
+          },
+          setAll() {
+            // Service role client — no cookie mutations needed
+          },
+        },
+      }
+    )
+
+    const { data, error } = await adminClient
+      .from('users')
+      .select('role')
+      .eq('id', user.id)
+      .single()
+
+    const role = (error === null && data !== null)
+      ? (data as { role: UserRole }).role
+      : null
+
+    if (!isAdminRole(role)) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/tables'
+      return NextResponse.redirect(url)
+    }
   }
 
   return supabaseResponse

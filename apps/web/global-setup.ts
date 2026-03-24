@@ -1,42 +1,53 @@
 import { chromium, type FullConfig } from '@playwright/test'
 
 /**
- * Global setup: authenticate once with the test admin account and save the
- * Supabase SSR session cookies to `e2e/.auth/admin.json`.
+ * Global setup: authenticate once with the test admin and staff accounts and
+ * save the Supabase SSR session cookies to:
+ *   - `e2e/.auth/admin.json`  (admin@lahore.ikitchen.com.bd — role: owner)
+ *   - `e2e/.auth/staff.json`  (staff@lahore.ikitchen.com.bd — role: server)
  *
  * All tests that need an authenticated session use storageState pointing at
- * this file, so the login flow runs once per test suite rather than per test.
+ * one of these files, so the login flow runs once per test suite rather than
+ * per test.
  */
-async function globalSetup(_config: FullConfig): Promise<void> {
-  const supabaseUrl =
-    process.env.NEXT_PUBLIC_SUPABASE_URL ?? 'https://dmaogdwtgohrhbytxjqu.supabase.co'
-  const anonKey =
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??
-    'sb_publishable_IzsBL3KELStvo6bioFKWhA_dMj81UxH'
 
-  // Sign in via Supabase REST API to get the session tokens
+interface AuthSession {
+  access_token: string
+  refresh_token: string
+  expires_at?: number
+}
+
+interface CookieEntry {
+  name: string
+  value: string
+  domain: string
+  path: string
+  httpOnly: boolean
+  secure: boolean
+  sameSite: 'Lax' | 'Strict' | 'None'
+}
+
+async function buildStorageState(
+  supabaseUrl: string,
+  anonKey: string,
+  email: string,
+  password: string
+): Promise<CookieEntry[]> {
   const res = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=password`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       apikey: anonKey,
     },
-    body: JSON.stringify({
-      email: 'admin@lahore.ikitchen.com.bd',
-      password: 'Admin@iKitchen2026',
-    }),
+    body: JSON.stringify({ email, password }),
   })
 
   if (!res.ok) {
     const text = await res.text()
-    throw new Error(`Global setup auth failed (${res.status}): ${text}`)
+    throw new Error(`Auth failed for ${email} (${res.status}): ${text}`)
   }
 
-  const session = (await res.json()) as {
-    access_token: string
-    refresh_token: string
-    expires_at?: number
-  }
+  const session = (await res.json()) as AuthSession
 
   // Build the Supabase SSR session cookie value (matches @supabase/ssr format)
   const projectRef = new URL(supabaseUrl).hostname.split('.')[0]
@@ -54,21 +65,53 @@ async function globalSetup(_config: FullConfig): Promise<void> {
     chunks.push(cookieValue.slice(i, i + chunkSize))
   }
 
-  const cookies = chunks.map((chunk, i) => ({
+  return chunks.map((chunk, i): CookieEntry => ({
     name: chunks.length === 1 ? cookieName : `${cookieName}.${i}`,
     value: chunk,
     domain: 'localhost',
     path: '/',
     httpOnly: true,
     secure: false,
-    sameSite: 'Lax' as const,
+    sameSite: 'Lax',
   }))
+}
 
-  // Save storage state with auth cookies
+async function globalSetup(_config: FullConfig): Promise<void> {
+  const supabaseUrl =
+    process.env.NEXT_PUBLIC_SUPABASE_URL ?? 'https://dmaogdwtgohrhbytxjqu.supabase.co'
+  const anonKey =
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??
+    'sb_publishable_IzsBL3KELStvo6bioFKWhA_dMj81UxH'
+
+  const [adminCookies, staffCookies] = await Promise.all([
+    buildStorageState(
+      supabaseUrl,
+      anonKey,
+      'admin@lahore.ikitchen.com.bd',
+      'Admin@iKitchen2026'
+    ),
+    buildStorageState(
+      supabaseUrl,
+      anonKey,
+      'staff@lahore.ikitchen.com.bd',
+      'Staff@iKitchen2026'
+    ),
+  ])
+
   const browser = await chromium.launch()
-  const context = await browser.newContext()
-  await context.addCookies(cookies)
-  await context.storageState({ path: 'e2e/.auth/admin.json' })
+
+  // Save admin storage state
+  const adminContext = await browser.newContext()
+  await adminContext.addCookies(adminCookies)
+  await adminContext.storageState({ path: 'e2e/.auth/admin.json' })
+  await adminContext.close()
+
+  // Save staff storage state
+  const staffContext = await browser.newContext()
+  await staffContext.addCookies(staffCookies)
+  await staffContext.storageState({ path: 'e2e/.auth/staff.json' })
+  await staffContext.close()
+
   await browser.close()
 }
 

@@ -213,7 +213,7 @@ export default function ShiftsClient(): JSX.Element {
             {closedSummary.revenue.orderCount === 0 ? (
               <div className="flex justify-between">
                 <dt className="text-zinc-400">Orders</dt>
-                <dd className="text-white">0 orders — $0.00</dd>
+                <dd className="text-white">0 orders — {formatDollars(0)}</dd>
               </div>
             ) : (
               <>

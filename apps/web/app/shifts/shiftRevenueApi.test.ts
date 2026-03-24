@@ -105,19 +105,19 @@ describe('fetchShiftRevenue', () => {
 })
 
 describe('formatDollars', () => {
-  it('formats cents as a dollar string with two decimal places', (): void => {
-    expect(formatDollars(1050)).toBe('$10.50')
+  it('formats cents as a taka string with two decimal places', (): void => {
+    expect(formatDollars(1050)).toBe('৳ 10.50')
   })
 
-  it('formats zero as $0.00', (): void => {
-    expect(formatDollars(0)).toBe('$0.00')
+  it('formats zero as ৳ 0.00', (): void => {
+    expect(formatDollars(0)).toBe('৳ 0.00')
   })
 
-  it('formats whole dollar amounts', (): void => {
-    expect(formatDollars(2500)).toBe('$25.00')
+  it('formats whole amounts', (): void => {
+    expect(formatDollars(2500)).toBe('৳ 25.00')
   })
 
   it('pads single-digit cents correctly', (): void => {
-    expect(formatDollars(101)).toBe('$1.01')
+    expect(formatDollars(101)).toBe('৳ 1.01')
   })
 })

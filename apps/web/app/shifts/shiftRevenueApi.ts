@@ -53,5 +53,9 @@ export async function fetchShiftRevenue(openedAt: string, closedAt: string): Pro
 }
 
 export function formatDollars(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`
+  const formatted = new Intl.NumberFormat('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(cents / 100)
+  return `৳ ${formatted}`
 }

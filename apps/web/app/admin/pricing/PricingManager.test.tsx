@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-import PricingManager, { formatCurrency, computePreviewCents } from './PricingManager'
+import PricingManager, { formatPrice, computePreviewCents } from './PricingManager'
 import { fetchPricingAdminData } from './pricingAdminData'
 import type { PricingAdminData } from './pricingAdminData'
 import {
@@ -26,6 +26,8 @@ vi.mock('./pricingAdminApi', () => ({
 const MOCK_DATA: PricingAdminData = {
   restaurantId: 'rest-1',
   taxInclusive: false,
+  currencyCode: 'BDT',
+  currencySymbol: '৳',
   vatRates: [
     { id: 'vat-1', restaurant_id: 'rest-1', label: 'Standard 20%', percentage: 20, menu_id: 'menu-1' },
     { id: 'vat-2', restaurant_id: 'rest-1', label: 'Reduced 5%', percentage: 5, menu_id: null },
@@ -70,11 +72,11 @@ afterEach(() => {
   vi.clearAllMocks()
 })
 
-describe('formatCurrency', () => {
-  it('formats pence to GBP currency string', () => {
-    expect(formatCurrency(650)).toBe('£6.50')
-    expect(formatCurrency(0)).toBe('£0.00')
-    expect(formatCurrency(1000)).toBe('£10.00')
+describe('formatPrice', () => {
+  it('formats cents with the given currency symbol', () => {
+    expect(formatPrice(650, '৳')).toBe('৳ 6.50')
+    expect(formatPrice(0, '৳')).toBe('৳ 0.00')
+    expect(formatPrice(1000, '৳')).toBe('৳ 10.00')
   })
 })
 
@@ -122,8 +124,8 @@ describe('PricingManager', () => {
   it('shows tax-exclusive price preview for items', async () => {
     render(<PricingManager />)
     await waitFor(() => {
-      // Soup: £6.50 base, 20% VAT → £7.80 final
-      expect(screen.getByText('£7.80')).toBeInTheDocument()
+      // Soup: ৳ 6.50 base, 20% VAT → ৳ 7.80 final
+      expect(screen.getByText('৳ 7.80')).toBeInTheDocument()
     })
   })
 

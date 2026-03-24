@@ -1,3 +1,15 @@
+/**
+ * Format a price from cents to a human-readable string with the given currency symbol.
+ * e.g. formatPrice(165000, '৳') → '৳ 1,650.00'
+ */
+export function formatPrice(cents: number, symbol: string): string {
+  const formatted = new Intl.NumberFormat('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(cents / 100)
+  return `${symbol} ${formatted}`
+}
+
 export type Role = 'owner' | 'manager' | 'server' | 'kitchen'
 
 export interface Restaurant {

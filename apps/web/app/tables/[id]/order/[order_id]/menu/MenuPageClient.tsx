@@ -6,6 +6,7 @@ import type { JSX } from 'react'
 import { fetchMenuCategories } from './menuData'
 import type { MenuCategory } from './menuData'
 import MenuItemCard from './MenuItemCard'
+import { formatPrice, DEFAULT_CURRENCY_SYMBOL } from '@/lib/formatPrice'
 
 interface MenuPageClientProps {
   tableId: string
@@ -43,7 +44,7 @@ export default function MenuPageClient({ tableId, orderId }: MenuPageClientProps
     setOrderTotalCents((prev) => prev + priceCents)
   }
 
-  const totalFormatted = `$${(orderTotalCents / 100).toFixed(2)}`
+  const totalFormatted = formatPrice(orderTotalCents, DEFAULT_CURRENCY_SYMBOL)
 
   function renderMenu(): JSX.Element {
     if (loading) {

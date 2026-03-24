@@ -12,6 +12,7 @@ import {
   callUpdateItemPrice,
   callUpsertConfig,
 } from './pricingAdminApi'
+import { formatPrice } from '@/lib/formatPrice'
 
 interface VatRateForm {
   label: string
@@ -42,11 +43,7 @@ interface Feedback {
 
 const EMPTY_VAT_RATE_FORM: VatRateForm = { label: '', percentage: '', menuId: '' }
 
-export function formatCurrency(priceCents: number): string {
-  return new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(
-    priceCents / 100,
-  )
-}
+export { formatPrice }
 
 export function computePreviewCents(
   baseCents: number,
@@ -76,6 +73,10 @@ export default function PricingManager(): JSX.Element {
   const [vatRates, setVatRates] = useState<VatRate[]>([])
   const [categories, setCategories] = useState<PricingCategory[]>([])
   const [taxInclusive, setTaxInclusive] = useState<boolean>(false)
+  const [currencyCode, setCurrencyCode] = useState<string>('BDT')
+  const [currencySymbol, setCurrencySymbol] = useState<string>('৳')
+  const [currencyCodeInput, setCurrencyCodeInput] = useState<string>('BDT')
+  const [currencySymbolInput, setCurrencySymbolInput] = useState<string>('৳')
   const [loading, setLoading] = useState<boolean>(true)
   const [fetchError, setFetchError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState<boolean>(false)
@@ -116,6 +117,10 @@ export default function PricingManager(): JSX.Element {
         setVatRates(data.vatRates)
         setCategories(data.categories)
         setTaxInclusive(data.taxInclusive)
+        setCurrencyCode(data.currencyCode)
+        setCurrencySymbol(data.currencySymbol)
+        setCurrencyCodeInput(data.currencyCode)
+        setCurrencySymbolInput(data.currencySymbol)
       })
       .catch((err: unknown) => {
         setFetchError(err instanceof Error ? err.message : 'Failed to load pricing data')
@@ -162,6 +167,37 @@ export default function PricingManager(): JSX.Element {
       )
     } catch (err) {
       showFeedback('error', err instanceof Error ? err.message : 'Failed to update tax mode.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  async function handleSaveCurrency(): Promise<void> {
+    const config = supabaseConfig.current
+    if (!config || !restaurantId) return
+    const trimmedCode = currencyCodeInput.trim().toUpperCase()
+    const trimmedSymbol = currencySymbolInput.trim()
+    if (!trimmedCode) {
+      showFeedback('error', 'Currency code is required.')
+      return
+    }
+    if (!trimmedSymbol) {
+      showFeedback('error', 'Currency symbol is required.')
+      return
+    }
+    setSubmitting(true)
+    try {
+      await Promise.all([
+        callUpsertConfig(config.url, config.key, restaurantId, 'currency_code', trimmedCode),
+        callUpsertConfig(config.url, config.key, restaurantId, 'currency_symbol', trimmedSymbol),
+      ])
+      setCurrencyCode(trimmedCode)
+      setCurrencySymbol(trimmedSymbol)
+      setCurrencyCodeInput(trimmedCode)
+      setCurrencySymbolInput(trimmedSymbol)
+      showFeedback('success', `Currency updated to ${trimmedSymbol} (${trimmedCode}).`)
+    } catch (err) {
+      showFeedback('error', err instanceof Error ? err.message : 'Failed to update currency.')
     } finally {
       setSubmitting(false)
     }
@@ -470,6 +506,60 @@ export default function PricingManager(): JSX.Element {
         >
           {taxInclusive ? 'Tax-inclusive' : 'Tax-exclusive'}
         </button>
+      </div>
+
+      {/* Currency section */}
+      <div className="bg-zinc-800 border border-zinc-700 rounded-2xl p-5 flex flex-col gap-4">
+        <div>
+          <p className="text-base font-semibold text-white">Currency</p>
+          <p className="text-sm text-zinc-400 mt-1">
+            Set the currency code and symbol shown on all prices.
+          </p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="flex flex-col gap-1">
+            <label htmlFor="currency-code" className="text-sm font-medium text-zinc-300">
+              Currency Code <span className="text-zinc-500">(max 3 chars, e.g. BDT)</span>
+            </label>
+            <input
+              id="currency-code"
+              type="text"
+              maxLength={3}
+              value={currencyCodeInput}
+              onChange={(e) => setCurrencyCodeInput(e.target.value.toUpperCase())}
+              disabled={submitting || !restaurantId}
+              className="min-h-[48px] px-4 py-2 rounded-xl bg-zinc-900 text-white border border-zinc-600 focus:border-indigo-500 focus:outline-none text-base disabled:opacity-50 uppercase"
+              placeholder="BDT"
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label htmlFor="currency-symbol" className="text-sm font-medium text-zinc-300">
+              Currency Symbol <span className="text-zinc-500">(max 4 chars, e.g. ৳)</span>
+            </label>
+            <input
+              id="currency-symbol"
+              type="text"
+              maxLength={4}
+              value={currencySymbolInput}
+              onChange={(e) => setCurrencySymbolInput(e.target.value)}
+              disabled={submitting || !restaurantId}
+              className="min-h-[48px] px-4 py-2 rounded-xl bg-zinc-900 text-white border border-zinc-600 focus:border-indigo-500 focus:outline-none text-base disabled:opacity-50"
+              placeholder="৳"
+            />
+          </div>
+        </div>
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => { void handleSaveCurrency() }}
+            disabled={submitting || !restaurantId}
+            className="min-h-[48px] px-5 py-2 rounded-xl bg-indigo-600 text-white text-base font-medium hover:bg-indigo-500 transition-colors disabled:opacity-50"
+          >
+            Save Currency
+          </button>
+          <span className="text-sm text-zinc-500">
+            Preview: <span className="text-zinc-300 font-mono">{formatPrice(1000, currencySymbol)}</span>
+          </span>
+        </div>
       </div>
 
       {/* Add VAT Rate inline form */}
@@ -806,7 +896,7 @@ export default function PricingManager(): JSX.Element {
                                     htmlFor={`edit-item-price-${item.id}`}
                                     className="text-sm font-medium text-zinc-300"
                                   >
-                                    Base Price (£) <span className="text-red-400">*</span>
+                                    Base Price ({currencySymbol}) <span className="text-red-400">*</span>
                                   </label>
                                   <input
                                     id={`edit-item-price-${item.id}`}
@@ -871,7 +961,7 @@ export default function PricingManager(): JSX.Element {
                                             taxInclusive,
                                           )
                                         : baseCents
-                                      return formatCurrency(cents)
+                                      return formatPrice(cents, currencySymbol)
                                     })()}
                                   </span>
                                 </div>
@@ -904,7 +994,7 @@ export default function PricingManager(): JSX.Element {
                               {item.name}
                             </div>
                             <div className="text-base text-zinc-300 tabular-nums shrink-0">
-                              {formatCurrency(item.price_cents)}
+                              {formatPrice(item.price_cents, currencySymbol)}
                             </div>
                             <div className="text-sm text-zinc-400 shrink-0">
                               {categoryVatRate
@@ -912,7 +1002,7 @@ export default function PricingManager(): JSX.Element {
                                 : <span className="text-zinc-600">—</span>}
                             </div>
                             <div className="text-base font-bold text-indigo-300 tabular-nums shrink-0">
-                              {formatCurrency(previewCents)}
+                              {formatPrice(previewCents, currencySymbol)}
                             </div>
                             <button
                               onClick={() => handleStartEditItem(item, category.id)}

@@ -48,9 +48,9 @@ describe('MenuItemCard', () => {
       expect(screen.getByText('Bruschetta')).toBeInTheDocument()
     })
 
-    it('renders the item price formatted as dollars', () => {
+    it('renders the item price formatted with the default currency symbol', () => {
       render(<MenuItemCard item={mockItem} orderId={ORDER_ID} onItemAdded={vi.fn()} />)
-      expect(screen.getByText('$8.50')).toBeInTheDocument()
+      expect(screen.getByText('৳ 8.50')).toBeInTheDocument()
     })
 
     it('renders the Add button', () => {

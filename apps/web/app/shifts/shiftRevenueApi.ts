@@ -52,6 +52,4 @@ export async function fetchShiftRevenue(openedAt: string, closedAt: string): Pro
   return { orderCount: orderIds.size, totalCents, cashCents, cardCents }
 }
 
-export function formatDollars(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`
-}
+export { formatPrice as formatDollars } from '@/lib/formatPrice'

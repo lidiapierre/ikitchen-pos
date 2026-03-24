@@ -10,13 +10,15 @@ import { callCloseOrder } from './closeOrderApi'
 import { callRecordPayment } from './recordPaymentApi'
 import { callVoidItem } from './voidItemApi'
 import { callCancelOrder } from './cancelOrderApi'
+import { formatPrice, DEFAULT_CURRENCY_SYMBOL } from '@/lib/formatPrice'
 
 interface OrderDetailClientProps {
   tableId: string
   orderId: string
+  currencySymbol?: string
 }
 
-export default function OrderDetailClient({ tableId, orderId }: OrderDetailClientProps): JSX.Element {
+export default function OrderDetailClient({ tableId, orderId, currencySymbol = DEFAULT_CURRENCY_SYMBOL }: OrderDetailClientProps): JSX.Element {
   const router = useRouter()
   const [closing, setClosing] = useState(false)
   const [closeError, setCloseError] = useState<string | null>(null)
@@ -110,7 +112,7 @@ export default function OrderDetailClient({ tableId, orderId }: OrderDetailClien
   }, [step, router])
 
   const totalCents = items.reduce((sum, item) => sum + item.quantity * item.price_cents, 0)
-  const totalFormatted = `$${(totalCents / 100).toFixed(2)}`
+  const totalFormatted = formatPrice(totalCents, currencySymbol)
 
   async function handleCloseOrder(): Promise<void> {
     setCloseError(null)
@@ -215,8 +217,7 @@ export default function OrderDetailClient({ tableId, orderId }: OrderDetailClien
     return (
       <ul className="space-y-2 mb-6">
         {items.map((item) => {
-          const lineTotal = (item.quantity * item.price_cents) / 100
-          const priceEach = item.price_cents / 100
+          const lineTotalCents = item.quantity * item.price_cents
           return (
             <li
               key={item.id}
@@ -225,8 +226,8 @@ export default function OrderDetailClient({ tableId, orderId }: OrderDetailClien
               <div className="flex items-center justify-between gap-4">
                 <span className="font-semibold text-white flex-1">{item.name}</span>
                 <span className="text-zinc-400">×{item.quantity}</span>
-                <span className="text-zinc-400">${priceEach.toFixed(2)} each</span>
-                <span className="font-bold text-amber-400">${lineTotal.toFixed(2)}</span>
+                <span className="text-zinc-400">{formatPrice(item.price_cents, currencySymbol)} each</span>
+                <span className="font-bold text-amber-400">{formatPrice(lineTotalCents, currencySymbol)}</span>
                 {step === 'order' && (
                   <button
                     type="button"
@@ -271,8 +272,7 @@ export default function OrderDetailClient({ tableId, orderId }: OrderDetailClien
     return (
       <ul className="space-y-2 mb-6">
         {items.map((item) => {
-          const lineTotal = (item.quantity * item.price_cents) / 100
-          const priceEach = item.price_cents / 100
+          const lineTotalCents = item.quantity * item.price_cents
           return (
             <li
               key={item.id}
@@ -281,8 +281,8 @@ export default function OrderDetailClient({ tableId, orderId }: OrderDetailClien
               <div className="flex items-center justify-between gap-4">
                 <span className="font-semibold text-white flex-1">{item.name}</span>
                 <span className="text-zinc-400">×{item.quantity}</span>
-                <span className="text-zinc-400">${priceEach.toFixed(2)} each</span>
-                <span className="font-bold text-amber-400">${lineTotal.toFixed(2)}</span>
+                <span className="text-zinc-400">{formatPrice(item.price_cents, currencySymbol)} each</span>
+                <span className="font-bold text-amber-400">{formatPrice(lineTotalCents, currencySymbol)}</span>
               </div>
               {item.modifier_names.length > 0 && (
                 <ul className="mt-1 space-y-0.5 pl-2">
@@ -616,7 +616,7 @@ export default function OrderDetailClient({ tableId, orderId }: OrderDetailClien
           <div className="space-y-5">
             <h2 className="text-xl font-semibold text-white">Change Due</h2>
             <p className="text-4xl font-bold text-amber-400">
-              ${(changeDueCents / 100).toFixed(2)}
+              {formatPrice(changeDueCents, currencySymbol)}
             </p>
             <button
               type="button"

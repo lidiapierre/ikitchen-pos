@@ -84,28 +84,28 @@ describe('OrderDetailClient', () => {
   it('renders per-item prices', async (): Promise<void> => {
     render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
 
-    expect(await screen.findByText('$8.50 each')).toBeInTheDocument()
-    expect(screen.getByText('$18.50 each')).toBeInTheDocument()
-    expect(screen.getByText('$9.50 each')).toBeInTheDocument()
+    expect(await screen.findByText('৳ 8.50 each')).toBeInTheDocument()
+    expect(screen.getByText('৳ 18.50 each')).toBeInTheDocument()
+    expect(screen.getByText('৳ 9.50 each')).toBeInTheDocument()
   })
 
   it('renders line totals for each item', async (): Promise<void> => {
     render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
 
     await screen.findByText('Bruschetta')
-    // Bruschetta: 2 × $8.50 = $17.00
-    expect(screen.getByText('$17.00')).toBeInTheDocument()
-    // Grilled Salmon: 1 × $18.50 = $18.50
-    expect(screen.getByText('$18.50')).toBeInTheDocument()
-    // House Wine: 2 × $9.50 = $19.00
-    expect(screen.getByText('$19.00')).toBeInTheDocument()
+    // Bruschetta: 2 × ৳ 8.50 = ৳ 17.00
+    expect(screen.getByText('৳ 17.00')).toBeInTheDocument()
+    // Grilled Salmon: 1 × ৳ 18.50 = ৳ 18.50
+    expect(screen.getByText('৳ 18.50')).toBeInTheDocument()
+    // House Wine: 2 × ৳ 9.50 = ৳ 19.00
+    expect(screen.getByText('৳ 19.00')).toBeInTheDocument()
   })
 
   it('renders the running order total', async (): Promise<void> => {
     render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
 
-    // 2×850 + 1×1850 + 2×950 = 5450 cents = $54.50
-    expect(await screen.findByText('$54.50')).toBeInTheDocument()
+    // 2×850 + 1×1850 + 2×950 = 5450 cents = ৳ 54.50
+    expect(await screen.findByText('৳ 54.50')).toBeInTheDocument()
   })
 
   it('shows an error state if the fetch fails', async (): Promise<void> => {
@@ -542,7 +542,7 @@ describe('OrderDetailClient', () => {
       await openPaymentStep()
 
       expect(screen.getByRole('button', { name: /Confirm Payment/ })).toBeInTheDocument()
-      expect(screen.getByRole('button', { name: /\$54\.50/ })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /৳ 54\.50/ })).toBeInTheDocument()
     })
 
     it('confirm payment button has minimum 48px touch target', async (): Promise<void> => {
@@ -727,7 +727,7 @@ describe('OrderDetailClient', () => {
 
       await waitFor((): void => {
         expect(screen.getByText('Change Due')).toBeInTheDocument()
-        expect(screen.getByText('$2.50')).toBeInTheDocument()
+        expect(screen.getByText('৳ 2.50')).toBeInTheDocument()
       })
       expect(mockPush).not.toHaveBeenCalled()
     })
@@ -942,8 +942,8 @@ describe('OrderDetailClient', () => {
       await waitFor((): void => {
         expect(screen.getByText('Paid')).toBeInTheDocument()
       })
-      // 2×850 + 1×1850 + 2×950 = $54.50
-      expect(screen.getByText('$54.50')).toBeInTheDocument()
+      // 2×850 + 1×1850 + 2×950 = ৳ 54.50
+      expect(screen.getByText('৳ 54.50')).toBeInTheDocument()
     })
 
     it('Back to tables link has minimum 48px touch target in paid view', async (): Promise<void> => {

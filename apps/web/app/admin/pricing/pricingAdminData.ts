@@ -23,6 +23,8 @@ export interface PricingAdminData {
   vatRates: VatRate[]
   categories: PricingCategory[]
   taxInclusive: boolean
+  currencyCode: string
+  currencySymbol: string
 }
 
 interface VatRateRow {
@@ -137,15 +139,37 @@ async function fetchTaxInclusive(
   return rows[0].value === 'true'
 }
 
+async function fetchConfigValue(
+  supabaseUrl: string,
+  apiKey: string,
+  restaurantId: string,
+  key: string,
+  fallback: string,
+): Promise<string> {
+  const headers = { apikey: apiKey, Authorization: `Bearer ${apiKey}` }
+  const url = new URL(`${supabaseUrl}/rest/v1/config`)
+  url.searchParams.set('select', 'key,value')
+  url.searchParams.set('restaurant_id', `eq.${restaurantId}`)
+  url.searchParams.set('key', `eq.${key}`)
+  url.searchParams.set('limit', '1')
+  const res = await fetch(url.toString(), { headers })
+  if (!res.ok) return fallback
+  const rows = (await res.json()) as ConfigRow[]
+  if (rows.length === 0) return fallback
+  return rows[0].value
+}
+
 export async function fetchPricingAdminData(
   supabaseUrl: string,
   apiKey: string,
 ): Promise<PricingAdminData> {
   const restaurantId = await fetchRestaurantId(supabaseUrl, apiKey)
-  const [vatRates, categories, taxInclusive] = await Promise.all([
+  const [vatRates, categories, taxInclusive, currencyCode, currencySymbol] = await Promise.all([
     fetchVatRates(supabaseUrl, apiKey, restaurantId),
     fetchCategories(supabaseUrl, apiKey),
     fetchTaxInclusive(supabaseUrl, apiKey, restaurantId),
+    fetchConfigValue(supabaseUrl, apiKey, restaurantId, 'currency_code', 'BDT'),
+    fetchConfigValue(supabaseUrl, apiKey, restaurantId, 'currency_symbol', '৳'),
   ])
-  return { restaurantId, vatRates, categories, taxInclusive }
+  return { restaurantId, vatRates, categories, taxInclusive, currencyCode, currencySymbol }
 }

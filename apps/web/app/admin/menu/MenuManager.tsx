@@ -11,6 +11,7 @@ import {
   callDeleteMenu,
   callDeleteMenuItem,
 } from './menuAdminApi'
+import { formatPrice, DEFAULT_CURRENCY_SYMBOL } from '@/lib/formatPrice'
 
 type FeedbackType = 'success' | 'error'
 
@@ -19,11 +20,7 @@ interface Feedback {
   message: string
 }
 
-export function formatCurrency(priceCents: number): string {
-  return new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(
-    priceCents / 100,
-  )
-}
+export const formatCurrency = (cents: number): string => formatPrice(cents, DEFAULT_CURRENCY_SYMBOL)
 
 export function generateId(): string {
   return `id-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
@@ -413,7 +410,7 @@ export default function MenuManager(): JSX.Element {
                       )}
                     </div>
                     <div className="text-lg font-bold text-indigo-300 shrink-0">
-                      {formatCurrency(item.price_cents)}
+                      {formatPrice(item.price_cents, DEFAULT_CURRENCY_SYMBOL)}
                     </div>
                     <Link
                       href={`/admin/menu/${item.id}/edit`}

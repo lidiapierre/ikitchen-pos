@@ -106,12 +106,12 @@ afterEach(() => {
 })
 
 describe('formatCurrency', () => {
-  it('formats 650 pence as £6.50', () => {
-    expect(formatCurrency(650)).toBe('£6.50')
+  it('formats 650 cents with default symbol', () => {
+    expect(formatCurrency(650)).toBe('৳ 6.50')
   })
 
-  it('formats 1200 pence as £12.00', () => {
-    expect(formatCurrency(1200)).toBe('£12.00')
+  it('formats 1200 cents with default symbol', () => {
+    expect(formatCurrency(1200)).toBe('৳ 12.00')
   })
 })
 

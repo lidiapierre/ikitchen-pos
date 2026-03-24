@@ -12,6 +12,7 @@ import {
   callUpdateItemPrice,
   callUpsertConfig,
 } from './pricingAdminApi'
+import { formatPrice } from '@/lib/formatPrice'
 
 interface VatRateForm {
   label: string
@@ -42,12 +43,6 @@ interface Feedback {
 
 const EMPTY_VAT_RATE_FORM: VatRateForm = { label: '', percentage: '', menuId: '' }
 
-export function formatCurrency(priceCents: number): string {
-  return new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(
-    priceCents / 100,
-  )
-}
-
 export function computePreviewCents(
   baseCents: number,
   percentage: number,
@@ -76,6 +71,9 @@ export default function PricingManager(): JSX.Element {
   const [vatRates, setVatRates] = useState<VatRate[]>([])
   const [categories, setCategories] = useState<PricingCategory[]>([])
   const [taxInclusive, setTaxInclusive] = useState<boolean>(false)
+  const [currencyCode, setCurrencyCode] = useState<string>('BDT')
+  const [currencySymbol, setCurrencySymbol] = useState<string>('৳')
+  const [currencyCodeInput, setCurrencyCodeInput] = useState<string>('BDT')
   const [loading, setLoading] = useState<boolean>(true)
   const [fetchError, setFetchError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState<boolean>(false)
@@ -116,6 +114,9 @@ export default function PricingManager(): JSX.Element {
         setVatRates(data.vatRates)
         setCategories(data.categories)
         setTaxInclusive(data.taxInclusive)
+        setCurrencyCode(data.currencyCode)
+        setCurrencySymbol(data.currencySymbol)
+        setCurrencyCodeInput(data.currencyCode)
       })
       .catch((err: unknown) => {
         setFetchError(err instanceof Error ? err.message : 'Failed to load pricing data')
@@ -162,6 +163,63 @@ export default function PricingManager(): JSX.Element {
       )
     } catch (err) {
       showFeedback('error', err instanceof Error ? err.message : 'Failed to update tax mode.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const CURRENCY_OPTIONS: { code: string; symbol: string; label: string }[] = [
+    { code: 'BDT', symbol: '৳',   label: 'BDT — Bangladeshi Taka (৳)' },
+    { code: 'USD', symbol: '$',   label: 'USD — US Dollar ($)' },
+    { code: 'EUR', symbol: '€',   label: 'EUR — Euro (€)' },
+    { code: 'GBP', symbol: '£',   label: 'GBP — British Pound (£)' },
+    { code: 'INR', symbol: '₹',   label: 'INR — Indian Rupee (₹)' },
+    { code: 'AED', symbol: 'د.إ', label: 'AED — UAE Dirham (د.إ)' },
+    { code: 'SAR', symbol: '﷼',   label: 'SAR — Saudi Riyal (﷼)' },
+    { code: 'SGD', symbol: 'S$',  label: 'SGD — Singapore Dollar (S$)' },
+    { code: 'MYR', symbol: 'RM',  label: 'MYR — Malaysian Ringgit (RM)' },
+    { code: 'PKR', symbol: '₨',   label: 'PKR — Pakistani Rupee (₨)' },
+    { code: 'LKR', symbol: 'Rs',  label: 'LKR — Sri Lankan Rupee (Rs)' },
+    { code: 'NPR', symbol: 'रू',  label: 'NPR — Nepalese Rupee (रू)' },
+    { code: 'CAD', symbol: 'CA$', label: 'CAD — Canadian Dollar (CA$)' },
+    { code: 'AUD', symbol: 'A$',  label: 'AUD — Australian Dollar (A$)' },
+    { code: 'JPY', symbol: '¥',   label: 'JPY — Japanese Yen (¥)' },
+    { code: 'CNY', symbol: '¥',   label: 'CNY — Chinese Yuan (¥)' },
+    { code: 'CHF', symbol: 'Fr',  label: 'CHF — Swiss Franc (Fr)' },
+    { code: 'TRY', symbol: '₺',   label: 'TRY — Turkish Lira (₺)' },
+    { code: 'IDR', symbol: 'Rp',  label: 'IDR — Indonesian Rupiah (Rp)' },
+    { code: 'THB', symbol: '฿',   label: 'THB — Thai Baht (฿)' },
+  ]
+
+  function handleCurrencySelect(code: string): void {
+    const match = CURRENCY_OPTIONS.find((c) => c.code === code)
+    if (!match) return
+    setCurrencyCodeInput(code)
+    setCurrencySymbol(match.symbol)
+  }
+
+  async function handleSaveCurrency(): Promise<void> {
+    const config = supabaseConfig.current
+    if (!config || !restaurantId) return
+    const trimmedCode = currencyCodeInput.trim().toUpperCase()
+    const match = CURRENCY_OPTIONS.find((c) => c.code === trimmedCode)
+    const trimmedSymbol = match?.symbol ?? currencySymbol
+    if (!trimmedCode) {
+      showFeedback('error', 'Please select a currency.')
+      return
+    }
+    setSubmitting(true)
+    try {
+      await Promise.all([
+        callUpsertConfig(config.url, config.key, restaurantId, 'currency_code', trimmedCode),
+        callUpsertConfig(config.url, config.key, restaurantId, 'currency_symbol', trimmedSymbol),
+      ])
+      setCurrencyCode(trimmedCode)
+      setCurrencySymbol(trimmedSymbol)
+      setCurrencyCodeInput(trimmedCode)
+      showFeedback('success', `Currency updated to ${trimmedSymbol} (${trimmedCode}).`)
+    } catch (err) {
+      showFeedback('error', err instanceof Error ? err.message : 'Failed to update currency. Settings may be partially saved — please retry.')
     } finally {
       setSubmitting(false)
     }
@@ -470,6 +528,44 @@ export default function PricingManager(): JSX.Element {
         >
           {taxInclusive ? 'Tax-inclusive' : 'Tax-exclusive'}
         </button>
+      </div>
+
+      {/* Currency section */}
+      <div className="bg-zinc-800 border border-zinc-700 rounded-2xl p-5 flex flex-col gap-4">
+        <div>
+          <p className="text-base font-semibold text-white">Currency</p>
+          <p className="text-sm text-zinc-400 mt-1">
+            Set the currency code and symbol shown on all prices.
+          </p>
+        </div>
+        <div className="flex flex-col gap-1">
+          <label htmlFor="currency-select" className="text-sm font-medium text-zinc-300">
+            Currency
+          </label>
+          <select
+            id="currency-select"
+            value={currencyCodeInput}
+            onChange={(e) => { handleCurrencySelect(e.target.value) }}
+            disabled={submitting || !restaurantId}
+            className="min-h-[48px] px-4 py-2 rounded-xl bg-zinc-900 text-white border border-zinc-600 focus:border-indigo-500 focus:outline-none text-base disabled:opacity-50 appearance-none cursor-pointer"
+          >
+            {CURRENCY_OPTIONS.map((c) => (
+              <option key={c.code} value={c.code}>{c.label}</option>
+            ))}
+          </select>
+        </div>
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => { void handleSaveCurrency() }}
+            disabled={submitting || !restaurantId}
+            className="min-h-[48px] px-5 py-2 rounded-xl bg-indigo-600 text-white text-base font-medium hover:bg-indigo-500 transition-colors disabled:opacity-50"
+          >
+            Save Currency
+          </button>
+          <span className="text-sm text-zinc-500">
+            Preview: <span className="text-zinc-300 font-mono">{formatPrice(1000, currencySymbol)}</span>
+          </span>
+        </div>
       </div>
 
       {/* Add VAT Rate inline form */}
@@ -806,7 +902,7 @@ export default function PricingManager(): JSX.Element {
                                     htmlFor={`edit-item-price-${item.id}`}
                                     className="text-sm font-medium text-zinc-300"
                                   >
-                                    Base Price (£) <span className="text-red-400">*</span>
+                                    Base Price ({currencySymbol}) <span className="text-red-400">*</span>
                                   </label>
                                   <input
                                     id={`edit-item-price-${item.id}`}
@@ -871,7 +967,7 @@ export default function PricingManager(): JSX.Element {
                                             taxInclusive,
                                           )
                                         : baseCents
-                                      return formatCurrency(cents)
+                                      return formatPrice(cents, currencySymbol)
                                     })()}
                                   </span>
                                 </div>
@@ -904,7 +1000,7 @@ export default function PricingManager(): JSX.Element {
                               {item.name}
                             </div>
                             <div className="text-base text-zinc-300 tabular-nums shrink-0">
-                              {formatCurrency(item.price_cents)}
+                              {formatPrice(item.price_cents, currencySymbol)}
                             </div>
                             <div className="text-sm text-zinc-400 shrink-0">
                               {categoryVatRate
@@ -912,7 +1008,7 @@ export default function PricingManager(): JSX.Element {
                                 : <span className="text-zinc-600">—</span>}
                             </div>
                             <div className="text-base font-bold text-indigo-300 tabular-nums shrink-0">
-                              {formatCurrency(previewCents)}
+                              {formatPrice(previewCents, currencySymbol)}
                             </div>
                             <button
                               onClick={() => handleStartEditItem(item, category.id)}

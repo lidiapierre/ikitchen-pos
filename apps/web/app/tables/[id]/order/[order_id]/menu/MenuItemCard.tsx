@@ -5,14 +5,16 @@ import type { JSX } from 'react'
 import type { MenuItem } from './menuData'
 import { callAddItemToOrder } from './addItemApi'
 import ModifierSelectionModal from './ModifierSelectionModal'
+import { formatPrice, DEFAULT_CURRENCY_SYMBOL } from '@/lib/formatPrice'
 
 interface MenuItemCardProps {
   item: MenuItem
   orderId: string
   onItemAdded: (priceCents: number) => void
+  currencySymbol?: string
 }
 
-export default function MenuItemCard({ item, orderId, onItemAdded }: MenuItemCardProps): JSX.Element {
+export default function MenuItemCard({ item, orderId, onItemAdded, currencySymbol = DEFAULT_CURRENCY_SYMBOL }: MenuItemCardProps): JSX.Element {
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -70,7 +72,7 @@ export default function MenuItemCard({ item, orderId, onItemAdded }: MenuItemCar
     setSelectedModifierIds([])
   }
 
-  const priceFormatted = `$${(item.price_cents / 100).toFixed(2)}`
+  const priceFormatted = formatPrice(item.price_cents, currencySymbol)
 
   return (
     <>

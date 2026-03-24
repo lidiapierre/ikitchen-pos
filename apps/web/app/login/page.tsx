@@ -27,6 +27,7 @@ export default function LoginPage(): JSX.Element {
       return
     }
 
+    router.refresh()
     router.push('/tables')
   }
 

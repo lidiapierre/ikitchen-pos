@@ -13,7 +13,11 @@ export default function AppHeader(): JSX.Element | null {
   }
 
   async function handleLogout(): Promise<void> {
-    await supabase.auth.signOut()
+    const { error } = await supabase.auth.signOut()
+    if (error !== null) {
+      console.error('Sign-out error:', error.message)
+    }
+    router.refresh()
     router.push('/login')
   }
 

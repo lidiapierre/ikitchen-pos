@@ -130,9 +130,13 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
     if (step === 'order' && unsentItems.length > 0 && supabaseUrl && supabaseKey) {
       setKotTimestamp(new Date().toLocaleString())
       setKotStatus('Sending to kitchen…')
-      window.print()
+      // Wait for print dialog to close before marking items as sent
+      await new Promise<void>((resolve) => {
+        window.addEventListener('afterprint', () => resolve(), { once: true })
+        window.print()
+      })
       try {
-        await markItemsSentToKitchen(supabaseUrl, supabaseKey, unsentItems.map((i) => i.id))
+        await markItemsSentToKitchen(supabaseUrl, supabaseKey, orderId, unsentItems.map((i) => i.id))
       } catch {
         // Non-fatal: navigate anyway so staff are not blocked
       }
@@ -503,7 +507,8 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
       <button
         type="button"
         onClick={() => { void handleBackToTables() }}
-        className="inline-flex items-center gap-2 text-zinc-400 hover:text-white text-base mb-8 min-h-[48px] min-w-[48px]"
+        disabled={kotStatus !== null}
+        className="inline-flex items-center gap-2 text-zinc-400 hover:text-white text-base mb-8 min-h-[48px] min-w-[48px] disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {kotStatus !== null ? kotStatus : '← Back to tables'}
       </button>

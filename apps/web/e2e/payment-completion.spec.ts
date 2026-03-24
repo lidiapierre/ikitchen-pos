@@ -109,7 +109,7 @@ test.describe('post-payment completion flow', () => {
   test('navigates directly to order detail — shows items and order controls', async ({ page }) => {
     await page.goto(`/tables/${TABLE_ID}/order/${ORDER_ID}`);
 
-    await expect(page.getByText('Margherita Pizza')).toBeVisible();
+    await expect(page.getByText('Margherita Pizza', { exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Close Order' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Add Items' })).toBeVisible();
   });
@@ -118,7 +118,7 @@ test.describe('post-payment completion flow', () => {
     await page.goto(`/tables/${TABLE_ID}/order/${ORDER_ID}`);
 
     // Wait for items to load
-    await expect(page.getByText('Margherita Pizza')).toBeVisible();
+    await expect(page.getByText('Margherita Pizza', { exact: true })).toBeVisible();
 
     // Close the order
     await page.getByRole('button', { name: 'Close Order' }).click();
@@ -146,7 +146,7 @@ test.describe('post-payment completion flow', () => {
   test('full flow: close order → cash payment → change due → Done → success state → /tables', async ({ page }) => {
     await page.goto(`/tables/${TABLE_ID}/order/${ORDER_ID}`);
 
-    await expect(page.getByText('Margherita Pizza')).toBeVisible();
+    await expect(page.getByText('Margherita Pizza', { exact: true })).toBeVisible();
 
     // Close order
     await page.getByRole('button', { name: 'Close Order' }).click();
@@ -211,7 +211,7 @@ test.describe('post-payment completion flow', () => {
 
   test('all touch targets on order detail are at least 48px', async ({ page }) => {
     await page.goto(`/tables/${TABLE_ID}/order/${ORDER_ID}`);
-    await expect(page.getByText('Margherita Pizza')).toBeVisible();
+    await expect(page.getByText('Margherita Pizza', { exact: true })).toBeVisible();
 
     const closeBtn = page.getByRole('button', { name: 'Close Order' });
     const addLink = page.getByRole('link', { name: 'Add Items' });

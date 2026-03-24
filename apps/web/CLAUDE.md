@@ -25,6 +25,10 @@ This is a tablet-first PWA for restaurant staff. Functional clarity over visual 
 - All writes go through the Action API — never write directly to the DB from the frontend
 - Handle loading, error, and empty states for every data fetch
 
+## Supabase client
+
+- The Supabase client must always be imported from `@/lib/supabase`. Never initialize a new client.
+
 ## Testing
 
 - Playwright for E2E — cover the critical path of every feature

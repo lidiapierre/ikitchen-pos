@@ -24,9 +24,15 @@ async function fetchStats(): Promise<StatCard[]> {
     ]
   }
 
+  // menu_items belong to menus, not directly to a restaurant — join via menus
+  const menuIdsRes = await supabase.from('menus').select('id').eq('restaurant_id', restaurantId)
+  const menuIds = (menuIdsRes.data ?? []).map((m: { id: string }) => m.id)
+
   const [tablesRes, menuItemsRes, ordersRes] = await Promise.all([
     supabase.from('tables').select('*', { count: 'exact', head: true }).eq('restaurant_id', restaurantId),
-    supabase.from('menu_items').select('*', { count: 'exact', head: true }).eq('restaurant_id', restaurantId).eq('available', true),
+    menuIds.length > 0
+      ? supabase.from('menu_items').select('*', { count: 'exact', head: true }).in('menu_id', menuIds)
+      : Promise.resolve({ count: 0, error: null }),
     supabase.from('orders').select('*', { count: 'exact', head: true }).eq('restaurant_id', restaurantId).eq('status', 'open'),
   ])
 

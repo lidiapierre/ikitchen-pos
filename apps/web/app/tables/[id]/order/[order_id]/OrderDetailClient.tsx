@@ -10,7 +10,9 @@ import { callCloseOrder } from './closeOrderApi'
 import { callRecordPayment } from './recordPaymentApi'
 import { callVoidItem } from './voidItemApi'
 import { callCancelOrder } from './cancelOrderApi'
+import { markItemsSentToKitchen } from './kotApi'
 import { formatPrice, DEFAULT_CURRENCY_SYMBOL } from '@/lib/formatPrice'
+import KotPrintView from '@/components/KotPrintView'
 
 interface OrderDetailClientProps {
   tableId: string
@@ -49,6 +51,10 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
   const [cancelReason, setCancelReason] = useState('')
   const [cancelling, setCancelling] = useState(false)
   const [cancelError, setCancelError] = useState<string | null>(null)
+
+  // KOT state
+  const [kotStatus, setKotStatus] = useState<string | null>(null)
+  const [kotTimestamp, setKotTimestamp] = useState('')
 
   function loadItems(): void {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -113,6 +119,27 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
 
   const totalCents = items.reduce((sum, item) => sum + item.quantity * item.price_cents, 0)
   const totalFormatted = formatPrice(totalCents, currencySymbol)
+
+  // KOT: send kitchen ticket for unsent items, then navigate back to tables
+  async function handleBackToTables(): Promise<void> {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+
+    const unsentItems = items.filter((item) => !item.sent_to_kitchen)
+
+    if (step === 'order' && unsentItems.length > 0 && supabaseUrl && supabaseKey) {
+      setKotTimestamp(new Date().toLocaleString())
+      setKotStatus('Sending to kitchen…')
+      window.print()
+      try {
+        await markItemsSentToKitchen(supabaseUrl, supabaseKey, unsentItems.map((i) => i.id))
+      } catch {
+        // Non-fatal: navigate anyway so staff are not blocked
+      }
+    }
+
+    router.push(`/tables/${tableId}`)
+  }
 
   async function handleCloseOrder(): Promise<void> {
     setCloseError(null)
@@ -357,6 +384,14 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
 
   return (
     <main className="min-h-screen bg-zinc-900 p-6 flex flex-col">
+      {/* KOT print component — hidden on screen, visible only when printing */}
+      <KotPrintView
+        tableId={tableId}
+        orderId={orderId}
+        items={items}
+        timestamp={kotTimestamp}
+      />
+
       {/* Void item dialog */}
       {voidingItem !== null && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70">
@@ -465,12 +500,13 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
         </div>
       )}
 
-      <Link
-        href="/tables"
+      <button
+        type="button"
+        onClick={() => { void handleBackToTables() }}
         className="inline-flex items-center gap-2 text-zinc-400 hover:text-white text-base mb-8 min-h-[48px] min-w-[48px]"
       >
-        ← Back to tables
-      </Link>
+        {kotStatus !== null ? kotStatus : '← Back to tables'}
+      </button>
 
       <header className="mb-6">
         <h1 className="text-2xl font-bold text-white mb-4">Order</h1>

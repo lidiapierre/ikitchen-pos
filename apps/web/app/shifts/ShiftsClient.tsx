@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react'
 import type { JSX } from 'react'
 import Link from 'next/link'
-import { fetchShiftRevenue, formatDollars } from './shiftRevenueApi'
+import { fetchShiftRevenue } from './shiftRevenueApi'
+import { formatPrice, DEFAULT_CURRENCY_SYMBOL } from '@/lib/formatPrice'
 import type { ShiftRevenue } from './shiftRevenueApi'
 
 interface ActiveShift {
@@ -213,7 +214,7 @@ export default function ShiftsClient(): JSX.Element {
             {closedSummary.revenue.orderCount === 0 ? (
               <div className="flex justify-between">
                 <dt className="text-zinc-400">Orders</dt>
-                <dd className="text-white">0 orders — {formatDollars(0)}</dd>
+                <dd className="text-white">0 orders — {formatPrice(0, DEFAULT_CURRENCY_SYMBOL)}</dd>
               </div>
             ) : (
               <>
@@ -225,15 +226,15 @@ export default function ShiftsClient(): JSX.Element {
                 </div>
                 <div className="flex justify-between">
                   <dt className="text-zinc-400">Total Revenue</dt>
-                  <dd className="text-white font-semibold">{formatDollars(closedSummary.revenue.totalCents)}</dd>
+                  <dd className="text-white font-semibold">{formatPrice(closedSummary.revenue.totalCents, DEFAULT_CURRENCY_SYMBOL)}</dd>
                 </div>
                 <div className="flex justify-between">
                   <dt className="text-zinc-400">Cash</dt>
-                  <dd className="text-white">{formatDollars(closedSummary.revenue.cashCents)}</dd>
+                  <dd className="text-white">{formatPrice(closedSummary.revenue.cashCents, DEFAULT_CURRENCY_SYMBOL)}</dd>
                 </div>
                 <div className="flex justify-between">
                   <dt className="text-zinc-400">Card</dt>
-                  <dd className="text-white">{formatDollars(closedSummary.revenue.cardCents)}</dd>
+                  <dd className="text-white">{formatPrice(closedSummary.revenue.cardCents, DEFAULT_CURRENCY_SYMBOL)}</dd>
                 </div>
               </>
             )}

@@ -52,10 +52,4 @@ export async function fetchShiftRevenue(openedAt: string, closedAt: string): Pro
   return { orderCount: orderIds.size, totalCents, cashCents, cardCents }
 }
 
-export function formatDollars(cents: number): string {
-  const formatted = new Intl.NumberFormat('en-US', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(cents / 100)
-  return `৳ ${formatted}`
-}
+export { formatPrice as formatDollars } from '@/lib/formatPrice'

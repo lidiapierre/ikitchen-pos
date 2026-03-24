@@ -43,8 +43,6 @@ interface Feedback {
 
 const EMPTY_VAT_RATE_FORM: VatRateForm = { label: '', percentage: '', menuId: '' }
 
-export { formatPrice }
-
 export function computePreviewCents(
   baseCents: number,
   percentage: number,
@@ -221,7 +219,7 @@ export default function PricingManager(): JSX.Element {
       setCurrencyCodeInput(trimmedCode)
       showFeedback('success', `Currency updated to ${trimmedSymbol} (${trimmedCode}).`)
     } catch (err) {
-      showFeedback('error', err instanceof Error ? err.message : 'Failed to update currency.')
+      showFeedback('error', err instanceof Error ? err.message : 'Failed to update currency. Settings may be partially saved — please retry.')
     } finally {
       setSubmitting(false)
     }

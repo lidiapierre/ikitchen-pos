@@ -76,7 +76,6 @@ export default function PricingManager(): JSX.Element {
   const [currencyCode, setCurrencyCode] = useState<string>('BDT')
   const [currencySymbol, setCurrencySymbol] = useState<string>('৳')
   const [currencyCodeInput, setCurrencyCodeInput] = useState<string>('BDT')
-  const [currencySymbolInput, setCurrencySymbolInput] = useState<string>('৳')
   const [loading, setLoading] = useState<boolean>(true)
   const [fetchError, setFetchError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState<boolean>(false)
@@ -120,7 +119,6 @@ export default function PricingManager(): JSX.Element {
         setCurrencyCode(data.currencyCode)
         setCurrencySymbol(data.currencySymbol)
         setCurrencyCodeInput(data.currencyCode)
-        setCurrencySymbolInput(data.currencySymbol)
       })
       .catch((err: unknown) => {
         setFetchError(err instanceof Error ? err.message : 'Failed to load pricing data')
@@ -172,17 +170,44 @@ export default function PricingManager(): JSX.Element {
     }
   }
 
+  const CURRENCY_OPTIONS: { code: string; symbol: string; label: string }[] = [
+    { code: 'BDT', symbol: '৳',   label: 'BDT — Bangladeshi Taka (৳)' },
+    { code: 'USD', symbol: '$',   label: 'USD — US Dollar ($)' },
+    { code: 'EUR', symbol: '€',   label: 'EUR — Euro (€)' },
+    { code: 'GBP', symbol: '£',   label: 'GBP — British Pound (£)' },
+    { code: 'INR', symbol: '₹',   label: 'INR — Indian Rupee (₹)' },
+    { code: 'AED', symbol: 'د.إ', label: 'AED — UAE Dirham (د.إ)' },
+    { code: 'SAR', symbol: '﷼',   label: 'SAR — Saudi Riyal (﷼)' },
+    { code: 'SGD', symbol: 'S$',  label: 'SGD — Singapore Dollar (S$)' },
+    { code: 'MYR', symbol: 'RM',  label: 'MYR — Malaysian Ringgit (RM)' },
+    { code: 'PKR', symbol: '₨',   label: 'PKR — Pakistani Rupee (₨)' },
+    { code: 'LKR', symbol: 'Rs',  label: 'LKR — Sri Lankan Rupee (Rs)' },
+    { code: 'NPR', symbol: 'रू',  label: 'NPR — Nepalese Rupee (रू)' },
+    { code: 'CAD', symbol: 'CA$', label: 'CAD — Canadian Dollar (CA$)' },
+    { code: 'AUD', symbol: 'A$',  label: 'AUD — Australian Dollar (A$)' },
+    { code: 'JPY', symbol: '¥',   label: 'JPY — Japanese Yen (¥)' },
+    { code: 'CNY', symbol: '¥',   label: 'CNY — Chinese Yuan (¥)' },
+    { code: 'CHF', symbol: 'Fr',  label: 'CHF — Swiss Franc (Fr)' },
+    { code: 'TRY', symbol: '₺',   label: 'TRY — Turkish Lira (₺)' },
+    { code: 'IDR', symbol: 'Rp',  label: 'IDR — Indonesian Rupiah (Rp)' },
+    { code: 'THB', symbol: '฿',   label: 'THB — Thai Baht (฿)' },
+  ]
+
+  function handleCurrencySelect(code: string): void {
+    const match = CURRENCY_OPTIONS.find((c) => c.code === code)
+    if (!match) return
+    setCurrencyCodeInput(code)
+    setCurrencySymbol(match.symbol)
+  }
+
   async function handleSaveCurrency(): Promise<void> {
     const config = supabaseConfig.current
     if (!config || !restaurantId) return
     const trimmedCode = currencyCodeInput.trim().toUpperCase()
-    const trimmedSymbol = currencySymbolInput.trim()
+    const match = CURRENCY_OPTIONS.find((c) => c.code === trimmedCode)
+    const trimmedSymbol = match?.symbol ?? currencySymbol
     if (!trimmedCode) {
-      showFeedback('error', 'Currency code is required.')
-      return
-    }
-    if (!trimmedSymbol) {
-      showFeedback('error', 'Currency symbol is required.')
+      showFeedback('error', 'Please select a currency.')
       return
     }
     setSubmitting(true)
@@ -194,7 +219,6 @@ export default function PricingManager(): JSX.Element {
       setCurrencyCode(trimmedCode)
       setCurrencySymbol(trimmedSymbol)
       setCurrencyCodeInput(trimmedCode)
-      setCurrencySymbolInput(trimmedSymbol)
       showFeedback('success', `Currency updated to ${trimmedSymbol} (${trimmedCode}).`)
     } catch (err) {
       showFeedback('error', err instanceof Error ? err.message : 'Failed to update currency.')
@@ -516,37 +540,21 @@ export default function PricingManager(): JSX.Element {
             Set the currency code and symbol shown on all prices.
           </p>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="flex flex-col gap-1">
-            <label htmlFor="currency-code" className="text-sm font-medium text-zinc-300">
-              Currency Code <span className="text-zinc-500">(max 3 chars, e.g. BDT)</span>
-            </label>
-            <input
-              id="currency-code"
-              type="text"
-              maxLength={3}
-              value={currencyCodeInput}
-              onChange={(e) => setCurrencyCodeInput(e.target.value.toUpperCase())}
-              disabled={submitting || !restaurantId}
-              className="min-h-[48px] px-4 py-2 rounded-xl bg-zinc-900 text-white border border-zinc-600 focus:border-indigo-500 focus:outline-none text-base disabled:opacity-50 uppercase"
-              placeholder="BDT"
-            />
-          </div>
-          <div className="flex flex-col gap-1">
-            <label htmlFor="currency-symbol" className="text-sm font-medium text-zinc-300">
-              Currency Symbol <span className="text-zinc-500">(max 4 chars, e.g. ৳)</span>
-            </label>
-            <input
-              id="currency-symbol"
-              type="text"
-              maxLength={4}
-              value={currencySymbolInput}
-              onChange={(e) => setCurrencySymbolInput(e.target.value)}
-              disabled={submitting || !restaurantId}
-              className="min-h-[48px] px-4 py-2 rounded-xl bg-zinc-900 text-white border border-zinc-600 focus:border-indigo-500 focus:outline-none text-base disabled:opacity-50"
-              placeholder="৳"
-            />
-          </div>
+        <div className="flex flex-col gap-1">
+          <label htmlFor="currency-select" className="text-sm font-medium text-zinc-300">
+            Currency
+          </label>
+          <select
+            id="currency-select"
+            value={currencyCodeInput}
+            onChange={(e) => { handleCurrencySelect(e.target.value) }}
+            disabled={submitting || !restaurantId}
+            className="min-h-[48px] px-4 py-2 rounded-xl bg-zinc-900 text-white border border-zinc-600 focus:border-indigo-500 focus:outline-none text-base disabled:opacity-50 appearance-none cursor-pointer"
+          >
+            {CURRENCY_OPTIONS.map((c) => (
+              <option key={c.code} value={c.code}>{c.label}</option>
+            ))}
+          </select>
         </div>
         <div className="flex items-center gap-4">
           <button

@@ -48,24 +48,10 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
 
   // Role-based access control: /admin/* requires owner or manager role
   if (user !== null && pathname.startsWith('/admin')) {
-    // Use service role key for authoritative server-side role lookup
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
-    const adminClient = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      serviceRoleKey,
-      {
-        cookies: {
-          getAll() {
-            return request.cookies.getAll()
-          },
-          setAll() {
-            // Service role client — no cookie mutations needed
-          },
-        },
-      }
-    )
-
-    const { data, error } = await adminClient
+    // Use the user's own session client — RLS on the users table ensures
+    // each authenticated user can only read their own row, so no service
+    // role key is needed and Vercel does not require SUPABASE_SERVICE_ROLE_KEY.
+    const { data, error } = await supabase
       .from('users')
       .select('role')
       .eq('id', user.id)

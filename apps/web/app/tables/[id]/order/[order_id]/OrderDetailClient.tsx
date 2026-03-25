@@ -13,6 +13,7 @@ import { callCancelOrder } from './cancelOrderApi'
 import { markItemsSentToKitchen } from './kotApi'
 import { formatPrice, DEFAULT_CURRENCY_SYMBOL } from '@/lib/formatPrice'
 import KotPrintView from '@/components/KotPrintView'
+import BillPrintView from '@/components/BillPrintView'
 
 interface OrderDetailClientProps {
   tableId: string
@@ -57,6 +58,10 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
   const [kotTimestamp, setKotTimestamp] = useState('')
   const [kotShowAll, setKotShowAll] = useState(false)
   const [reprintingKot, setReprintingKot] = useState(false)
+
+  // Bill print state
+  const [billTimestamp, setBillTimestamp] = useState('')
+  const [printingBill, setPrintingBill] = useState(false)
 
   function loadItems(): void {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -111,16 +116,28 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
   }, [orderId])
 
   // Auto-navigate to /tables after success state is shown for 1.5s
+  // Paused while bill is printing (printingBill) to avoid tearing down page during print dialog
   useEffect(() => {
     if (step !== 'success') return
+    if (printingBill) return
     const timer = setTimeout(() => {
       router.push('/tables')
     }, 1500)
     return () => { clearTimeout(timer) }
-  }, [step, router])
+  }, [step, router, printingBill])
 
   const totalCents = items.reduce((sum, item) => sum + item.quantity * item.price_cents, 0)
   const totalFormatted = formatPrice(totalCents, currencySymbol)
+
+  // Bill totals (subtotal = items sum; VAT hardcoded at 15% pending issue #146)
+  const VAT_PERCENT = 15
+  const billSubtotalCents = totalCents
+  const billVatCents = Math.round(billSubtotalCents * VAT_PERCENT / 100)
+  const billTotalCents = billSubtotalCents + billVatCents
+  const billPaymentMethod = (confirmedPaymentMethod ?? paymentMethod) as 'cash' | 'card'
+  const billAmountTenderedCents = paymentMethod === 'cash'
+    ? Math.round(parseFloat(amountTenderedDollars || '0') * 100)
+    : undefined
 
   // KOT: send kitchen ticket for unsent items, then navigate back to tables
   async function handleBackToTables(): Promise<void> {
@@ -157,6 +174,18 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
       window.addEventListener('afterprint', () => {
         setKotShowAll(false)
         setReprintingKot(false)
+      }, { once: true })
+    }, 200)
+  }
+
+  // Print Bill: capture timestamp and trigger print dialog
+  function handlePrintBill(): void {
+    setBillTimestamp(new Date().toLocaleString())
+    setPrintingBill(true)
+    setTimeout(() => {
+      window.print()
+      window.addEventListener('afterprint', () => {
+        setPrintingBill(false)
       }, { once: true })
     }, 200)
   }
@@ -413,6 +442,20 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
         showAll={kotShowAll}
       />
 
+      {/* Bill print component — hidden on screen, visible only when printing */}
+      <BillPrintView
+        tableId={tableId}
+        orderId={orderId}
+        items={items}
+        subtotalCents={billSubtotalCents}
+        vatPercent={VAT_PERCENT}
+        totalCents={billTotalCents}
+        paymentMethod={billPaymentMethod}
+        amountTenderedCents={billAmountTenderedCents}
+        changeDueCents={billPaymentMethod === 'cash' ? changeDueCents : undefined}
+        timestamp={billTimestamp}
+      />
+
       {/* Void item dialog */}
       {voidingItem !== null && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70">
@@ -614,6 +657,14 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
         ) : step === 'payment' ? (
           <div className="space-y-5">
             <h2 className="text-xl font-semibold text-white">Record Payment</h2>
+            <div className="bg-zinc-800 rounded-xl px-4 py-3 flex justify-between items-center text-sm">
+              <div className="text-zinc-400">
+                <span>Subtotal {totalFormatted}</span>
+                <span className="mx-2 text-zinc-600">·</span>
+                <span>VAT {VAT_PERCENT}% {formatPrice(billVatCents, currencySymbol)}</span>
+              </div>
+              <span className="text-white font-bold text-base">{formatPrice(billTotalCents, currencySymbol)}</span>
+            </div>
 
             <div>
               <p className="text-zinc-400 text-base mb-3">Payment method</p>
@@ -676,6 +727,20 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
 
             <button
               type="button"
+              onClick={handlePrintBill}
+              disabled={printingBill}
+              className={[
+                'w-full min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold transition-colors border-2 border-zinc-600',
+                printingBill
+                  ? 'bg-zinc-700 text-zinc-400 cursor-wait'
+                  : 'bg-zinc-700 hover:bg-zinc-600 text-white',
+              ].join(' ')}
+            >
+              {printingBill ? 'Printing…' : '🖨 Print Bill'}
+            </button>
+
+            <button
+              type="button"
               onClick={() => { router.push(`/tables/${tableId}`) }}
               className="w-full min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold text-zinc-400 hover:text-white transition-colors"
             >
@@ -707,6 +772,19 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
             {confirmedPaymentMethod !== null && (
               <p className="text-zinc-400 text-base capitalize">Paid by {confirmedPaymentMethod}</p>
             )}
+            <button
+              type="button"
+              onClick={handlePrintBill}
+              disabled={printingBill}
+              className={[
+                'w-full min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold transition-colors border-2 border-zinc-600',
+                printingBill
+                  ? 'bg-zinc-700 text-zinc-400 cursor-wait'
+                  : 'bg-zinc-700 hover:bg-zinc-600 text-white',
+              ].join(' ')}
+            >
+              {printingBill ? 'Printing…' : '🖨 Print Bill'}
+            </button>
             <p className="text-zinc-400 text-base">Returning to tables…</p>
           </div>
         )}

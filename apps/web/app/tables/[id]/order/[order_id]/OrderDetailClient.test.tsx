@@ -1107,7 +1107,15 @@ describe('OrderDetailClient', () => {
 
       expect(printSpy).toHaveBeenCalledTimes(1)
 
-      // After the timeout, the loading state resets
+      // Button stays disabled until afterprint fires (print dialog still open)
+      expect(screen.getByRole('button', { name: 'Reprinting…' })).toBeDisabled()
+
+      // Simulate print dialog closing
+      await act(async (): Promise<void> => {
+        window.dispatchEvent(new Event('afterprint'))
+      })
+
+      // After afterprint, loading state resets
       expect(screen.getByRole('button', { name: /Reprint KOT/i })).not.toBeDisabled()
 
       printSpy.mockRestore()

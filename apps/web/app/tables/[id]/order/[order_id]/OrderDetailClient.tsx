@@ -154,8 +154,10 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
     setReprintingKot(true)
     setTimeout(() => {
       window.print()
-      setReprintingKot(false)
-      window.addEventListener('afterprint', () => { setKotShowAll(false) }, { once: true })
+      window.addEventListener('afterprint', () => {
+        setKotShowAll(false)
+        setReprintingKot(false)
+      }, { once: true })
     }, 200)
   }
 

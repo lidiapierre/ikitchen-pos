@@ -28,14 +28,14 @@ export default function BillPrintView({
   changeDueCents,
   timestamp,
 }: BillPrintViewProps): JSX.Element {
-  const vatCents = totalCents - subtotalCents
+  const vatCents = Math.round(subtotalCents * vatPercent / 100)
 
   return (
     <div aria-hidden="true" className="hidden print:block font-mono text-black bg-white p-2 w-full max-w-xs">
       {/* Header */}
       <div className="text-center mb-2">
         <p className="text-base font-bold">Lahore by iKitchen</p>
-        <p className="text-xs">123 Restaurant Street, Dhaka</p>
+        <p className="text-xs">Lahore by iKitchen, Dhaka</p>
         <p className="text-xs">{timestamp}</p>
       </div>
 

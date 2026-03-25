@@ -116,13 +116,15 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
   }, [orderId])
 
   // Auto-navigate to /tables after success state is shown for 1.5s
+  // Paused while bill is printing (printingBill) to avoid tearing down page during print dialog
   useEffect(() => {
     if (step !== 'success') return
+    if (printingBill) return
     const timer = setTimeout(() => {
       router.push('/tables')
     }, 1500)
     return () => { clearTimeout(timer) }
-  }, [step, router])
+  }, [step, router, printingBill])
 
   const totalCents = items.reduce((sum, item) => sum + item.quantity * item.price_cents, 0)
   const totalFormatted = formatPrice(totalCents, currencySymbol)
@@ -655,6 +657,14 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
         ) : step === 'payment' ? (
           <div className="space-y-5">
             <h2 className="text-xl font-semibold text-white">Record Payment</h2>
+            <div className="bg-zinc-800 rounded-xl px-4 py-3 flex justify-between items-center text-sm">
+              <div className="text-zinc-400">
+                <span>Subtotal {totalFormatted}</span>
+                <span className="mx-2 text-zinc-600">·</span>
+                <span>VAT {VAT_PERCENT}% {formatPrice(billVatCents, currencySymbol)}</span>
+              </div>
+              <span className="text-white font-bold text-base">{formatPrice(billTotalCents, currencySymbol)}</span>
+            </div>
 
             <div>
               <p className="text-zinc-400 text-base mb-3">Payment method</p>

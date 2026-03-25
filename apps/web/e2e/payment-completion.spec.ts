@@ -157,7 +157,7 @@ test.describe('post-payment completion flow', () => {
     await page.getByRole('button', { name: /Confirm Payment/ }).click();
 
     // Change due screen
-    await expect(page.getByText('Change Due')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Change Due' })).toBeVisible();
     await expect(page.getByText(/3\.00/)).toBeVisible();
 
     // Click Done

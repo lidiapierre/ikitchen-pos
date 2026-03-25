@@ -11,7 +11,7 @@ export interface AddItemResult {
 
 export async function callAddItemToOrder(
   supabaseUrl: string,
-  apiKey: string,
+  accessToken: string,
   orderId: string,
   menuItemId: string,
   modifierIds?: string[],
@@ -24,8 +24,7 @@ export async function callAddItemToOrder(
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      apikey: apiKey,
-      Authorization: `Bearer ${apiKey}`,
+      Authorization: `Bearer ${accessToken}`,
     },
     body: JSON.stringify(body),
   })

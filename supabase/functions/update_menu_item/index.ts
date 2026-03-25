@@ -104,6 +104,7 @@ export async function handler(
   const modifiers = payload['modifiers'] as ModifierInput[]
   const description = typeof payload['description'] === 'string' ? payload['description'].trim() : undefined
   const imageUrl = typeof payload['image_url'] === 'string' ? payload['image_url'].trim() : undefined
+  const available = typeof payload['available'] === 'boolean' ? payload['available'] : true
 
   if (!env) {
     return new Response(
@@ -147,6 +148,7 @@ export async function handler(
         body: JSON.stringify({
           name,
           price_cents: priceCents,
+          available,
           ...(description !== undefined ? { description } : {}),
           ...(imageUrl !== undefined ? { image_url: imageUrl } : {}),
         }),

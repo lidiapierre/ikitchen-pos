@@ -48,6 +48,7 @@ export default function MenuItemCard({ item, orderId, onItemAdded, currencySymbo
   }
 
   function handleTap(): void {
+    if (!item.available) return
     if (item.modifiers.length > 0) {
       setSelectedModifierIds([])
       setShowModal(true)
@@ -74,6 +75,8 @@ export default function MenuItemCard({ item, orderId, onItemAdded, currencySymbo
 
   const priceFormatted = formatPrice(item.price_cents, currencySymbol)
 
+  const isUnavailable = !item.available
+
   return (
     <>
       {showModal && (
@@ -89,9 +92,21 @@ export default function MenuItemCard({ item, orderId, onItemAdded, currencySymbo
         />
       )}
 
-      <div className="flex flex-col gap-3 bg-zinc-800 rounded-2xl p-4 border-2 border-zinc-600">
+      <div
+        className={[
+          'flex flex-col gap-3 bg-zinc-800 rounded-2xl p-4 border-2 border-zinc-600',
+          isUnavailable ? 'opacity-40' : '',
+        ].join(' ')}
+      >
         <div className="flex flex-col gap-1">
-          <span className="text-base font-semibold text-white">{item.name}</span>
+          <div className="flex items-center gap-2">
+            <span className="text-base font-semibold text-white">{item.name}</span>
+            {isUnavailable && (
+              <span className="text-xs font-medium bg-zinc-700 text-zinc-400 px-2 py-0.5 rounded-full">
+                Unavailable
+              </span>
+            )}
+          </div>
           <span className="text-lg font-bold text-amber-400">{priceFormatted}</span>
           {item.modifiers.length > 0 && (
             <span className="text-sm text-zinc-400">{item.modifiers.length} option{item.modifiers.length !== 1 ? 's' : ''}</span>
@@ -100,18 +115,21 @@ export default function MenuItemCard({ item, orderId, onItemAdded, currencySymbo
         <button
           type="button"
           onClick={handleTap}
-          disabled={loading}
+          disabled={loading || isUnavailable}
+          aria-disabled={isUnavailable}
           className={[
             'min-h-[48px] min-w-[48px] rounded-xl text-base font-semibold',
             'transition-colors',
-            success
-              ? 'bg-green-600 text-white'
-              : loading
-                ? 'bg-zinc-700 text-zinc-400 cursor-wait'
-                : 'bg-amber-600 hover:bg-amber-500 text-white',
+            isUnavailable
+              ? 'bg-zinc-700 text-zinc-500 cursor-not-allowed'
+              : success
+                ? 'bg-green-600 text-white'
+                : loading
+                  ? 'bg-zinc-700 text-zinc-400 cursor-wait'
+                  : 'bg-amber-600 hover:bg-amber-500 text-white',
           ].join(' ')}
         >
-          {loading ? 'Adding…' : success ? '✓ Added' : 'Add'}
+          {isUnavailable ? '86\'d' : loading ? 'Adding…' : success ? '✓ Added' : 'Add'}
         </button>
         {error !== null && (
           <span className="text-base text-red-400">{error}</span>

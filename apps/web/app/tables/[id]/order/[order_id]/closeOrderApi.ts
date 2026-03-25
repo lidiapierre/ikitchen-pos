@@ -6,16 +6,14 @@ export interface CloseOrderResponse {
 
 export async function callCloseOrder(
   supabaseUrl: string,
-  apiKey: string,
+  accessToken: string,
   orderId: string,
 ): Promise<void> {
   const res = await fetch(`${supabaseUrl}/functions/v1/close_order`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-      apikey: apiKey,
-      'x-demo-staff-id': '00000000-0000-0000-0000-000000000010',
+      Authorization: `Bearer ${accessToken}`,
     },
     body: JSON.stringify({ order_id: orderId }),
   })

@@ -1,6 +1,8 @@
+import { verifyAndGetCaller } from '../_shared/auth.ts'
+
 export const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-demo-staff-id',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
@@ -29,6 +31,22 @@ export async function handler(
     return new Response('ok', { status: 200, headers: corsHeaders })
   }
 
+  if (!env) {
+    return new Response(
+      JSON.stringify({ success: false, error: 'Server configuration error' }),
+      { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    )
+  }
+
+  // Verify JWT and check minimum role
+  const caller = await verifyAndGetCaller(req, env.supabaseUrl, env.serviceKey, 'server', fetchFn)
+  if ('error' in caller) {
+    return new Response(
+      JSON.stringify({ success: false, error: caller.error }),
+      { status: caller.status, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    )
+  }
+
   let body: unknown
   try {
     body = await req.json()
@@ -53,21 +71,8 @@ export async function handler(
       { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
     )
   }
-  if (typeof payload['staff_id'] !== 'string' || payload['staff_id'] === '') {
-    return new Response(
-      JSON.stringify({ success: false, error: 'staff_id is required and must be a non-empty string' }),
-      { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
-    )
-  }
 
   const tableId = payload['table_id'] as string
-
-  if (!env) {
-    return new Response(
-      JSON.stringify({ success: false, error: 'Server configuration error' }),
-      { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
-    )
-  }
 
   const { supabaseUrl, serviceKey } = env
   const dbHeaders = {

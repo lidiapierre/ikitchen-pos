@@ -10,18 +10,16 @@ export interface CreateOrderResult {
 
 export async function callCreateOrder(
   supabaseUrl: string,
-  apiKey: string,
+  accessToken: string,
   tableId: string,
 ): Promise<CreateOrderResult> {
   const res = await fetch(`${supabaseUrl}/functions/v1/create_order`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-      apikey: apiKey,
+      Authorization: `Bearer ${accessToken}`,
     },
-    // TODO(auth): replace placeholder-staff with authenticated staff_id once Supabase Auth is wired up
-    body: JSON.stringify({ table_id: tableId, staff_id: 'placeholder-staff' }),
+    body: JSON.stringify({ table_id: tableId }),
   })
   if (!res.ok) {
     const body = await res.text()

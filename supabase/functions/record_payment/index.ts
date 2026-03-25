@@ -1,6 +1,8 @@
+import { verifyAndGetCaller } from '../_shared/auth.ts'
+
 export const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-demo-staff-id',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
@@ -31,6 +33,22 @@ export async function handler(
 ): Promise<Response> {
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 204, headers: corsHeaders })
+  }
+
+  if (!env) {
+    return new Response(
+      JSON.stringify({ success: false, error: 'Server configuration error' }),
+      { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    )
+  }
+
+  // Verify JWT and check minimum role (manager required to record payments)
+  const caller = await verifyAndGetCaller(req, env.supabaseUrl, env.serviceKey, 'manager', fetchFn)
+  if ('error' in caller) {
+    return new Response(
+      JSON.stringify({ success: false, error: caller.error }),
+      { status: caller.status, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    )
   }
 
   let body: unknown
@@ -91,16 +109,6 @@ export async function handler(
   }
   const amountCents = payload['amount'] as number
   const method = payload['method'] as string
-
-  if (!env) {
-    return new Response(
-      JSON.stringify({ success: false, error: 'Server configuration error' }),
-      { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
-    )
-  }
-
-  const staffIdHeader = req.headers.get('x-demo-staff-id') ?? ''
-  const userId = isValidUuid(staffIdHeader) ? staffIdHeader : '00000000-0000-0000-0000-000000000001'
 
   const { supabaseUrl, serviceKey } = env
   const dbHeaders = {
@@ -179,7 +187,7 @@ export async function handler(
     const inserted = (await paymentRes.json()) as Array<{ id: string }>
     const paymentId = inserted[0].id
 
-    // 4. Emit audit log entry
+    // 4. Emit audit log entry — actor_id comes from verified JWT
     const auditRes = await fetchFn(
       `${supabaseUrl}/rest/v1/audit_log`,
       {
@@ -187,7 +195,7 @@ export async function handler(
         headers: { ...dbHeaders, Prefer: 'return=minimal' },
         body: JSON.stringify({
           restaurant_id: restaurantId,
-          user_id: userId,
+          user_id: caller.actorId,
           action: 'record_payment',
           entity_type: 'payments',
           entity_id: paymentId,

@@ -8,6 +8,7 @@ const mockItem: MenuItem = {
   id: '00000000-0000-0000-0000-000000000301',
   name: 'Bruschetta',
   price_cents: 850,
+  available: true,
   modifiers: [],
 }
 
@@ -15,6 +16,7 @@ const mockItemWithModifiers: MenuItem = {
   id: '00000000-0000-0000-0000-000000000302',
   name: 'Burger',
   price_cents: 1200,
+  available: true,
   modifiers: [
     { id: 'mod-001', name: 'Extra cheese', price_delta_cents: 50 },
     { id: 'mod-002', name: 'No onions', price_delta_cents: 0 },

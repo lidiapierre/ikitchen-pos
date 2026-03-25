@@ -17,6 +17,7 @@ interface ItemFormValues {
   description: string
   price: string
   menuId: string
+  available: boolean
   modifiers: AdminModifier[]
 }
 
@@ -43,6 +44,7 @@ interface MenuItemRow {
   price_cents: number
   image_url?: string
   menu_id: string
+  available: boolean
   modifiers: Array<{ id: string; name: string; price_delta_cents: number }>
 }
 
@@ -51,6 +53,7 @@ const EMPTY_FORM: ItemFormValues = {
   description: '',
   price: '',
   menuId: '',
+  available: true,
   modifiers: [],
 }
 
@@ -75,7 +78,7 @@ async function fetchMenuItemById(
 ): Promise<MenuItemRow | null> {
   const headers = { apikey: apiKey, Authorization: `Bearer ${apiKey}` }
   const url = new URL(`${supabaseUrl}/rest/v1/menu_items`)
-  url.searchParams.set('select', 'id,name,description,price_cents,image_url,menu_id,modifiers(id,name,price_delta_cents)')
+  url.searchParams.set('select', 'id,name,description,price_cents,image_url,menu_id,available,modifiers(id,name,price_delta_cents)')
   url.searchParams.set('id', `eq.${itemId}`)
   const res = await fetch(url.toString(), { headers })
   if (!res.ok) throw new Error(`Failed to fetch menu item: ${res.status}`)
@@ -130,6 +133,7 @@ export default function MenuItemFormPage({ mode, itemId }: MenuItemFormPageProps
             description: item.description ?? '',
             price: (item.price_cents / 100).toFixed(2),
             menuId: item.menu_id,
+            available: item.available ?? true,
             modifiers: (item.modifiers ?? []).map((m) => ({ ...m })),
           })
           if (item.image_url) {
@@ -261,6 +265,7 @@ export default function MenuItemFormPage({ mode, itemId }: MenuItemFormPageProps
           modifierInputs,
           description,
           imageUrl,
+          form.available,
         )
       } else if (mode === 'edit' && itemId) {
         await callUpdateMenuItem(
@@ -272,6 +277,7 @@ export default function MenuItemFormPage({ mode, itemId }: MenuItemFormPageProps
           modifierInputs,
           description,
           imageUrl,
+          form.available,
         )
       }
 
@@ -425,6 +431,39 @@ export default function MenuItemFormPage({ mode, itemId }: MenuItemFormPageProps
             </select>
             {formErrors.menuId && <span className="text-sm text-red-400">{formErrors.menuId}</span>}
           </div>
+        </div>
+
+        {/* Available toggle */}
+        <div className="col-span-2 flex items-center justify-between bg-zinc-900 rounded-xl px-4 py-3 border border-zinc-600">
+          <div className="flex flex-col gap-0.5">
+            <span className="text-sm font-medium text-zinc-300">Available</span>
+            <span className="text-xs text-zinc-500">
+              {form.available ? 'Item is on the menu' : 'Item is 86\'d (hidden from order menu)'}
+            </span>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={form.available}
+            aria-label="Toggle item availability"
+            onClick={() => setForm((f) => ({ ...f, available: !f.available }))}
+            disabled={submitting}
+            className={[
+              'relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent',
+              'transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-zinc-900',
+              'disabled:opacity-50',
+              form.available ? 'bg-indigo-600' : 'bg-zinc-600',
+            ].join(' ')}
+          >
+            <span
+              aria-hidden="true"
+              className={[
+                'pointer-events-none inline-block h-6 w-6 rounded-full bg-white shadow transform ring-0',
+                'transition duration-200 ease-in-out',
+                form.available ? 'translate-x-5' : 'translate-x-0',
+              ].join(' ')}
+            />
+          </button>
         </div>
 
         {/* Modifiers */}

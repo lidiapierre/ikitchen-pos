@@ -90,9 +90,10 @@ test.describe('User management — /admin/users', () => {
       page.getByRole('status').filter({ hasText: testEmail }),
     ).toBeVisible({ timeout: 10000 })
 
-    // New user should appear in the list (added optimistically from mock response)
-    await expect(page.getByText(testEmail)).toBeVisible()
-    await expect(page.getByText('E2E Test Staff')).toBeVisible()
+    // New user should appear in the list (added optimistically from mock response).
+    // Use exact: true so the locator targets the list span, not the feedback banner.
+    await expect(page.getByText(testEmail, { exact: true })).toBeVisible()
+    await expect(page.getByText('E2E Test Staff', { exact: true })).toBeVisible()
   })
 
   test('deactivate button is present for non-owner users in the list', async ({ page }) => {

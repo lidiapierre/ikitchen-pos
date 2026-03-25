@@ -1055,4 +1055,104 @@ describe('OrderDetailClient', () => {
       expect(screen.getByText('No items on this order.')).toBeInTheDocument()
     })
   })
+
+  describe('reprint KOT', () => {
+    it('renders the Reprint KOT button when the order has items', async (): Promise<void> => {
+      render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
+
+      await screen.findByText('Bruschetta')
+
+      expect(screen.getByRole('button', { name: /Reprint KOT/i })).toBeInTheDocument()
+    })
+
+    it('Reprint KOT button has minimum 48px touch target', async (): Promise<void> => {
+      render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
+
+      await screen.findByText('Bruschetta')
+
+      const btn = screen.getByRole('button', { name: /Reprint KOT/i })
+      expect(btn.className).toContain('min-h-[48px]')
+    })
+
+    it('does not render the Reprint KOT button when order has no items', async (): Promise<void> => {
+      const { fetchOrderItems } = await import('./orderData')
+      vi.mocked(fetchOrderItems).mockResolvedValue([])
+
+      render(<OrderDetailClient tableId="5" orderId="order-empty" />)
+
+      await waitFor((): void => {
+        expect(screen.getByText('No items yet — tap Add Items to start')).toBeInTheDocument()
+      })
+
+      expect(screen.queryByRole('button', { name: /Reprint KOT/i })).not.toBeInTheDocument()
+    })
+
+    it('shows "Reprinting…" and disables the button while the print dialog opens', async (): Promise<void> => {
+      const printSpy = vi.spyOn(window, 'print').mockImplementation(() => {})
+
+      render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
+
+      await screen.findByText('Bruschetta')
+
+      const btn = screen.getByRole('button', { name: /Reprint KOT/i })
+      fireEvent.click(btn)
+
+      // Reprinting state is set synchronously before the setTimeout fires
+      expect(screen.getByRole('button', { name: 'Reprinting…' })).toBeDisabled()
+
+      // Advance timers so the print() call fires
+      await act(async (): Promise<void> => {
+        vi.advanceTimersByTime(200)
+      })
+
+      expect(printSpy).toHaveBeenCalledTimes(1)
+
+      // Button stays disabled until afterprint fires (print dialog still open)
+      expect(screen.getByRole('button', { name: 'Reprinting…' })).toBeDisabled()
+
+      // Simulate print dialog closing
+      await act(async (): Promise<void> => {
+        window.dispatchEvent(new Event('afterprint'))
+      })
+
+      // After afterprint, loading state resets
+      expect(screen.getByRole('button', { name: /Reprint KOT/i })).not.toBeDisabled()
+
+      printSpy.mockRestore()
+    })
+
+    it('calls window.print() when Reprint KOT is clicked', async (): Promise<void> => {
+      const printSpy = vi.spyOn(window, 'print').mockImplementation(() => {})
+
+      render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
+
+      await screen.findByText('Bruschetta')
+
+      fireEvent.click(screen.getByRole('button', { name: /Reprint KOT/i }))
+
+      await act(async (): Promise<void> => {
+        vi.advanceTimersByTime(200)
+      })
+
+      expect(printSpy).toHaveBeenCalledTimes(1)
+      printSpy.mockRestore()
+    })
+
+    it('does NOT call markItemsSentToKitchen when Reprint KOT is clicked', async (): Promise<void> => {
+      const { markItemsSentToKitchen } = await import('./kotApi')
+      vi.spyOn(window, 'print').mockImplementation(() => {})
+
+      render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
+
+      await screen.findByText('Bruschetta')
+
+      fireEvent.click(screen.getByRole('button', { name: /Reprint KOT/i }))
+
+      await act(async (): Promise<void> => {
+        vi.advanceTimersByTime(200)
+      })
+
+      expect(markItemsSentToKitchen).not.toHaveBeenCalled()
+    })
+  })
 })

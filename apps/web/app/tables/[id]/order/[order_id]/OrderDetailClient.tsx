@@ -55,6 +55,8 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
   // KOT state
   const [kotStatus, setKotStatus] = useState<string | null>(null)
   const [kotTimestamp, setKotTimestamp] = useState('')
+  const [kotShowAll, setKotShowAll] = useState(false)
+  const [reprintingKot, setReprintingKot] = useState(false)
 
   function loadItems(): void {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -143,6 +145,20 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
     }
 
     router.push(`/tables/${tableId}`)
+  }
+
+  // Reprint KOT: show all items (no side effects — does NOT call markItemsSentToKitchen)
+  function handleReprintKot(): void {
+    setKotTimestamp(new Date().toLocaleString())
+    setKotShowAll(true)
+    setReprintingKot(true)
+    setTimeout(() => {
+      window.print()
+      window.addEventListener('afterprint', () => {
+        setKotShowAll(false)
+        setReprintingKot(false)
+      }, { once: true })
+    }, 200)
   }
 
   async function handleCloseOrder(): Promise<void> {
@@ -394,6 +410,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
         orderId={orderId}
         items={items}
         timestamp={kotTimestamp}
+        showAll={kotShowAll}
       />
 
       {/* Void item dialog */}
@@ -561,6 +578,22 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
                 {closing ? 'Closing…' : 'Close Order'}
               </button>
             </div>
+
+            {items.length >= 1 && (
+              <button
+                type="button"
+                onClick={handleReprintKot}
+                disabled={reprintingKot}
+                className={[
+                  'w-full min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold transition-colors mb-3',
+                  reprintingKot
+                    ? 'bg-zinc-700 text-zinc-400 cursor-wait'
+                    : 'bg-zinc-700 hover:bg-zinc-600 text-white border-2 border-zinc-600',
+                ].join(' ')}
+              >
+                {reprintingKot ? 'Reprinting…' : '🖨 Reprint KOT'}
+              </button>
+            )}
 
             <button
               type="button"

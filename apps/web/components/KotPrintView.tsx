@@ -7,16 +7,19 @@ interface KotPrintViewProps {
   orderId: string
   items: OrderItem[]
   timestamp: string
+  /** When true, prints all items instead of only unsent items (used for reprint). */
+  showAll?: boolean
 }
 
-export default function KotPrintView({ tableId, orderId, items, timestamp }: KotPrintViewProps): JSX.Element {
-  const unsentItems = items.filter((item) => !item.sent_to_kitchen)
+export default function KotPrintView({ tableId, orderId, items, timestamp, showAll = false }: KotPrintViewProps): JSX.Element {
+  const displayItems = showAll ? items : items.filter((item) => !item.sent_to_kitchen)
 
   return (
     <div aria-hidden="true" className="hidden print:block font-mono text-black bg-white p-2 w-full max-w-xs">
       <div className="text-center mb-2">
         <p className="text-base font-bold">Lahore by iKitchen</p>
         <p className="text-sm">KITCHEN ORDER TICKET</p>
+        {showAll && <p className="text-xs">(REPRINT)</p>}
       </div>
       <div className="border-t border-b border-black py-1 mb-2 text-sm">
         <p>Table: {tableId}</p>
@@ -24,7 +27,7 @@ export default function KotPrintView({ tableId, orderId, items, timestamp }: Kot
         <p>Time: {timestamp}</p>
       </div>
       <ul className="space-y-2">
-        {unsentItems.map((item) => (
+        {displayItems.map((item) => (
           <li key={item.id}>
             <p className="font-bold text-base">
               {item.quantity}x {item.name}
@@ -42,7 +45,7 @@ export default function KotPrintView({ tableId, orderId, items, timestamp }: Kot
         ))}
       </ul>
       <div className="border-t border-black mt-2 pt-1 text-center text-xs">
-        {unsentItems.length} item{unsentItems.length !== 1 ? 's' : ''} to prepare
+        {displayItems.length} item{displayItems.length !== 1 ? 's' : ''} to prepare
       </div>
     </div>
   )

@@ -50,6 +50,28 @@ test.describe('User management — /admin/users', () => {
     const ts = Date.now()
     const testEmail = `e2e-staff-${ts}@test.ikitchen.com`
 
+    // Mock the create_user edge function so the test doesn't depend on
+    // real Supabase invite latency or external email delivery in CI.
+    await page.route('**/functions/v1/create_user', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: true,
+          data: {
+            user: {
+              id: `e2e-test-id-${ts}`,
+              email: testEmail,
+              name: 'E2E Test Staff',
+              role: 'server',
+              is_active: true,
+              created_at: new Date().toISOString(),
+            },
+          },
+        }),
+      })
+    })
+
     await page.goto('/admin/users')
 
     // Open form
@@ -63,12 +85,12 @@ test.describe('User management — /admin/users', () => {
     // Submit
     await page.getByRole('button', { name: 'Create Account' }).click()
 
-    // Should show success feedback
+    // Should show success feedback containing the new user's email
     await expect(
       page.getByRole('status').filter({ hasText: testEmail }),
     ).toBeVisible({ timeout: 10000 })
 
-    // New user should appear in the list
+    // New user should appear in the list (added optimistically from mock response)
     await expect(page.getByText(testEmail)).toBeVisible()
     await expect(page.getByText('E2E Test Staff')).toBeVisible()
   })

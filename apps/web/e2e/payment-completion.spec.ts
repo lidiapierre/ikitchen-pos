@@ -158,7 +158,7 @@ test.describe('post-payment completion flow', () => {
 
     // Change due screen
     await expect(page.getByRole('heading', { name: 'Change Due' })).toBeVisible();
-    await expect(page.getByText(/3\.00/)).toBeVisible();
+    await expect(page.getByRole('paragraph').filter({ hasText: /3\.00/ })).toBeVisible();
 
     // Click Done
     await page.getByRole('button', { name: 'Done' }).click();

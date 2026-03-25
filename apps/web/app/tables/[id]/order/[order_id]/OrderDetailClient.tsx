@@ -12,6 +12,8 @@ import { callVoidItem } from './voidItemApi'
 import { callCancelOrder } from './cancelOrderApi'
 import { markItemsSentToKitchen } from './kotApi'
 import { formatPrice, DEFAULT_CURRENCY_SYMBOL } from '@/lib/formatPrice'
+import { calcVat } from '@/lib/vatCalc'
+import { fetchVatConfig, fetchOrderVatContext } from '@/lib/fetchVatConfig'
 import KotPrintView from '@/components/KotPrintView'
 import BillPrintView from '@/components/BillPrintView'
 
@@ -63,6 +65,11 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
   const [billTimestamp, setBillTimestamp] = useState('')
   const [printingBill, setPrintingBill] = useState(false)
 
+  // VAT config state (fetched once on load)
+  const [vatPercent, setVatPercent] = useState(0)
+  const [taxInclusive, setTaxInclusive] = useState(false)
+  const [vatConfigLoading, setVatConfigLoading] = useState(true)
+
   function loadItems(): void {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
     const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
@@ -109,9 +116,37 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
       })
   }
 
+  function loadVatConfig(): void {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+    if (!supabaseUrl || !supabaseKey) {
+      setVatConfigLoading(false)
+      return
+    }
+
+    setVatConfigLoading(true)
+    fetchOrderVatContext(supabaseUrl, supabaseKey, orderId)
+      .then(({ restaurantId, menuId }) =>
+        fetchVatConfig(supabaseUrl, supabaseKey, restaurantId, menuId),
+      )
+      .then((config) => {
+        setVatPercent(config.vatPercent)
+        setTaxInclusive(config.taxInclusive)
+      })
+      .catch(() => {
+        // Non-fatal: fall back to 0% VAT (safe — no overcharging)
+        setVatPercent(0)
+        setTaxInclusive(false)
+      })
+      .finally(() => {
+        setVatConfigLoading(false)
+      })
+  }
+
   useEffect(() => {
     loadItems()
     loadOrderStatus()
+    loadVatConfig()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderId])
 
@@ -126,14 +161,16 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
     return () => { clearTimeout(timer) }
   }, [step, router, printingBill])
 
-  const totalCents = items.reduce((sum, item) => sum + item.quantity * item.price_cents, 0)
+  const rawItemsTotalCents = items.reduce((sum, item) => sum + item.quantity * item.price_cents, 0)
+
+  // VAT breakdown (uses fetched config; calcVat is a pure function)
+  const vatBreakdown = calcVat(rawItemsTotalCents, vatPercent, taxInclusive)
+  const { subtotalCents: billSubtotalCents, vatCents: billVatCents, totalCents: billTotalCents } = vatBreakdown
+
+  // Displayed "total" in the order footer is the VAT-inclusive grand total
+  const totalCents = billTotalCents
   const totalFormatted = formatPrice(totalCents, currencySymbol)
 
-  // Bill totals (subtotal = items sum; VAT hardcoded at 15% pending issue #146)
-  const VAT_PERCENT = 15
-  const billSubtotalCents = totalCents
-  const billVatCents = Math.round(billSubtotalCents * VAT_PERCENT / 100)
-  const billTotalCents = billSubtotalCents + billVatCents
   const billPaymentMethod = (confirmedPaymentMethod ?? paymentMethod) as 'cash' | 'card'
   const billAmountTenderedCents = paymentMethod === 'cash'
     ? Math.round(parseFloat(amountTenderedDollars || '0') * 100)
@@ -211,10 +248,11 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
   async function handleRecordPayment(): Promise<void> {
     setPaymentError(null)
 
+    // For cash: amount tendered must cover the VAT-inclusive total
     const amountCentsToTender = paymentMethod === 'cash'
       ? Math.round(parseFloat(amountTenderedDollars || '0') * 100)
-      : totalCents
-    if (paymentMethod === 'cash' && amountCentsToTender < totalCents) {
+      : billTotalCents
+    if (paymentMethod === 'cash' && amountCentsToTender < billTotalCents) {
       setPaymentError('Amount tendered must be at least the order total')
       return
     }
@@ -226,7 +264,8 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
       if (!supabaseUrl || !supabaseKey) {
         throw new Error('API not configured')
       }
-      const result = await callRecordPayment(supabaseUrl, supabaseKey, orderId, amountCentsToTender, paymentMethod, totalCents)
+      // Pass the VAT-inclusive total as the final amount to record_payment
+      const result = await callRecordPayment(supabaseUrl, supabaseKey, orderId, amountCentsToTender, paymentMethod, billTotalCents)
       setConfirmedPaymentMethod(paymentMethod)
       if (paymentMethod === 'cash') {
         setChangeDueCents(result.change_due)
@@ -448,7 +487,8 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
         orderId={orderId}
         items={items}
         subtotalCents={billSubtotalCents}
-        vatPercent={VAT_PERCENT}
+        vatPercent={vatPercent}
+        taxInclusive={taxInclusive}
         totalCents={billTotalCents}
         paymentMethod={billPaymentMethod}
         amountTenderedCents={billAmountTenderedCents}
@@ -657,13 +697,22 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
         ) : step === 'payment' ? (
           <div className="space-y-5">
             <h2 className="text-xl font-semibold text-white">Record Payment</h2>
-            <div className="bg-zinc-800 rounded-xl px-4 py-3 flex justify-between items-center text-sm">
-              <div className="text-zinc-400">
-                <span>Subtotal {totalFormatted}</span>
-                <span className="mx-2 text-zinc-600">·</span>
-                <span>VAT {VAT_PERCENT}% {formatPrice(billVatCents, currencySymbol)}</span>
+            {/* Order total breakdown */}
+            <div className="bg-zinc-800 rounded-xl px-4 py-3 text-sm space-y-1.5">
+              <div className="flex justify-between text-zinc-400">
+                <span>Subtotal</span>
+                <span>{formatPrice(billSubtotalCents, currencySymbol)}</span>
               </div>
-              <span className="text-white font-bold text-base">{formatPrice(billTotalCents, currencySymbol)}</span>
+              {billVatCents > 0 && (
+                <div className="flex justify-between text-zinc-400">
+                  <span>VAT {vatPercent}%{taxInclusive ? ' (incl.)' : ''}</span>
+                  <span>{formatPrice(billVatCents, currencySymbol)}</span>
+                </div>
+              )}
+              <div className="flex justify-between font-bold text-white border-t border-zinc-700 pt-1.5 mt-1">
+                <span>Total</span>
+                <span>{formatPrice(billTotalCents, currencySymbol)}</span>
+              </div>
             </div>
 
             <div>
@@ -701,9 +750,9 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
                 <p className="text-zinc-400 text-base mb-2">Amount tendered</p>
                 <input
                   type="number"
-                  min={(totalCents / 100).toFixed(2)}
+                  min={(billTotalCents / 100).toFixed(2)}
                   step="0.01"
-                  placeholder={(totalCents / 100).toFixed(2)}
+                  placeholder={(billTotalCents / 100).toFixed(2)}
                   value={amountTenderedDollars}
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setAmountTenderedDollars(e.target.value) }}
                   className="w-full min-h-[48px] px-4 rounded-xl text-base bg-zinc-800 text-white border-2 border-zinc-600 focus:border-amber-400 focus:outline-none"

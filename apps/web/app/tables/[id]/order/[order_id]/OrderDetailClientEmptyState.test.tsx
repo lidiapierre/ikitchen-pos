@@ -19,6 +19,12 @@ vi.mock('./closeOrderApi', () => ({
 
 vi.mock('./orderData', () => ({
   fetchOrderItems: vi.fn(),
+  fetchOrderSummary: vi.fn().mockResolvedValue({ status: 'open', payment_method: null }),
+}))
+
+vi.mock('@/lib/fetchVatConfig', () => ({
+  fetchOrderVatContext: vi.fn().mockResolvedValue({ restaurantId: 'rest-1', menuId: null }),
+  fetchVatConfig: vi.fn().mockResolvedValue({ vatPercent: 15, taxInclusive: false }),
 }))
 
 describe('OrderDetailClient — empty state', () => {
@@ -40,9 +46,9 @@ describe('OrderDetailClient — empty state', () => {
     expect(await screen.findByText('No items yet — tap Add Items to start')).toBeInTheDocument()
   })
 
-  it('still renders the Add Items link in the empty state', (): void => {
+  it('still renders the Add Items link in the empty state', async (): Promise<void> => {
     render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
 
-    expect(screen.getByRole('link', { name: 'Add Items' })).toBeInTheDocument()
+    expect(await screen.findByRole('link', { name: 'Add Items' })).toBeInTheDocument()
   })
 })

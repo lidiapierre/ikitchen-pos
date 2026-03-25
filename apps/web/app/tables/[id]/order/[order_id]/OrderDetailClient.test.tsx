@@ -43,6 +43,11 @@ vi.mock('@/components/KotPrintView', () => ({
   default: (): JSX.Element => <div data-testid="kot-print-view" />,
 }))
 
+vi.mock('@/lib/fetchVatConfig', () => ({
+  fetchOrderVatContext: vi.fn().mockResolvedValue({ restaurantId: 'rest-1', menuId: null }),
+  fetchVatConfig: vi.fn().mockResolvedValue({ vatPercent: 15, taxInclusive: false }),
+}))
+
 const mockItems = [
   { id: '1', name: 'Bruschetta', quantity: 2, price_cents: 850, modifier_ids: [], modifier_names: [], sent_to_kitchen: false },
   { id: '2', name: 'Grilled Salmon', quantity: 1, price_cents: 1850, modifier_ids: [], modifier_names: [], sent_to_kitchen: false },

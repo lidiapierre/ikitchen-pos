@@ -9,6 +9,8 @@ export interface BillPrintViewProps {
   items: OrderItem[]
   subtotalCents: number
   vatPercent: number
+  /** Whether prices already include VAT (affects label on receipt) */
+  taxInclusive?: boolean
   totalCents: number
   paymentMethod: 'cash' | 'card'
   amountTenderedCents?: number
@@ -22,13 +24,16 @@ export default function BillPrintView({
   items,
   subtotalCents,
   vatPercent,
+  taxInclusive = false,
   totalCents,
   paymentMethod,
   amountTenderedCents,
   changeDueCents,
   timestamp,
 }: BillPrintViewProps): JSX.Element {
-  const vatCents = Math.round(subtotalCents * vatPercent / 100)
+  // vatCents is already pre-calculated by the caller (calcVat utility).
+  // Derive it here for display only; totalCents is the authoritative value.
+  const vatCents = totalCents - subtotalCents
 
   return (
     <div aria-hidden="true" className="hidden print:block font-mono text-black bg-white p-2 w-full max-w-xs">
@@ -66,10 +71,12 @@ export default function BillPrintView({
           <span>Subtotal</span>
           <span>{formatPrice(subtotalCents, DEFAULT_CURRENCY_SYMBOL)}</span>
         </div>
-        <div className="flex justify-between">
-          <span>VAT ({vatPercent}%)</span>
-          <span>{formatPrice(vatCents, DEFAULT_CURRENCY_SYMBOL)}</span>
-        </div>
+        {vatPercent > 0 && (
+          <div className="flex justify-between">
+            <span>VAT {vatPercent}%{taxInclusive ? ' (incl.)' : ''}</span>
+            <span>{formatPrice(vatCents, DEFAULT_CURRENCY_SYMBOL)}</span>
+          </div>
+        )}
         <div className="flex justify-between font-bold">
           <span>Total</span>
           <span>{formatPrice(totalCents, DEFAULT_CURRENCY_SYMBOL)}</span>

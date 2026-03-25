@@ -140,8 +140,8 @@ describe('BillPrintView', () => {
       />,
     )
 
-    // VAT (15%): 570 cents = ৳ 5.70
-    expect(screen.getByText('VAT (15%)')).toBeInTheDocument()
+    // VAT 15%: 570 cents = ৳ 5.70
+    expect(screen.getByText('VAT 15%')).toBeInTheDocument()
     expect(screen.getByText('৳ 5.70')).toBeInTheDocument()
   })
 

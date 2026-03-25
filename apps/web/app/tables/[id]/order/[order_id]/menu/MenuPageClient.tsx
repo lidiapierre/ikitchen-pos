@@ -131,7 +131,7 @@ export default function MenuPageClient({ tableId, orderId }: MenuPageClientProps
         <div className="relative">
           <input
             ref={searchInputRef}
-            type="search"
+            type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search items…"
@@ -143,7 +143,7 @@ export default function MenuPageClient({ tableId, orderId }: MenuPageClientProps
               type="button"
               onClick={handleClearSearch}
               aria-label="Clear search"
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white text-lg leading-none min-h-[44px] min-w-[44px] flex items-center justify-center transition-colors"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white text-lg leading-none min-h-[48px] min-w-[48px] flex items-center justify-center transition-colors"
             >
               ×
             </button>

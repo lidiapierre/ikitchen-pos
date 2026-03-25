@@ -1,11 +1,12 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import type { JSX } from 'react'
 import { fetchMenuCategories } from './menuData'
 import type { MenuCategory } from './menuData'
 import MenuItemCard from './MenuItemCard'
+import { filterMenuItems } from './menuSearch'
 import { formatPrice, DEFAULT_CURRENCY_SYMBOL } from '@/lib/formatPrice'
 
 interface MenuPageClientProps {
@@ -18,6 +19,8 @@ export default function MenuPageClient({ tableId, orderId }: MenuPageClientProps
   const [categories, setCategories] = useState<MenuCategory[]>([])
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const searchInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -40,8 +43,19 @@ export default function MenuPageClient({ tableId, orderId }: MenuPageClientProps
       })
   }, [orderId])
 
+  useEffect(() => {
+    if (!loading) {
+      searchInputRef.current?.focus()
+    }
+  }, [loading])
+
   function handleItemAdded(priceCents: number): void {
     setOrderTotalCents((prev) => prev + priceCents)
+  }
+
+  function handleClearSearch(): void {
+    setSearchQuery('')
+    searchInputRef.current?.focus()
   }
 
   const totalFormatted = formatPrice(orderTotalCents, DEFAULT_CURRENCY_SYMBOL)
@@ -56,6 +70,30 @@ export default function MenuPageClient({ tableId, orderId }: MenuPageClientProps
     if (categories.length === 0) {
       return <p className="text-zinc-500 text-base">No menu items available</p>
     }
+
+    if (searchQuery.trim() !== '') {
+      const results = filterMenuItems(categories, searchQuery)
+      if (results.length === 0) {
+        return (
+          <p className="text-zinc-500 text-base">
+            No items found for &ldquo;{searchQuery}&rdquo;
+          </p>
+        )
+      }
+      return (
+        <div className="grid grid-cols-3 gap-4">
+          {results.map(({ item }) => (
+            <MenuItemCard
+              key={item.id}
+              item={item}
+              orderId={orderId}
+              onItemAdded={handleItemAdded}
+            />
+          ))}
+        </div>
+      )
+    }
+
     return (
       <div className="space-y-8">
         {categories.map((category) => (
@@ -88,6 +126,30 @@ export default function MenuPageClient({ tableId, orderId }: MenuPageClientProps
         </Link>
         <h1 className="text-2xl font-bold text-white">Menu</h1>
       </header>
+
+      <div className="mb-6">
+        <div className="relative">
+          <input
+            ref={searchInputRef}
+            type="search"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search items…"
+            aria-label="Search menu items"
+            className="w-full bg-zinc-800 text-white placeholder-zinc-500 rounded-xl px-4 py-3 pr-10 text-base border border-zinc-700 focus:outline-none focus:border-amber-500 transition-colors"
+          />
+          {searchQuery !== '' && (
+            <button
+              type="button"
+              onClick={handleClearSearch}
+              aria-label="Clear search"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white text-lg leading-none min-h-[44px] min-w-[44px] flex items-center justify-center transition-colors"
+            >
+              ×
+            </button>
+          )}
+        </div>
+      </div>
 
       <div className="flex-1 overflow-y-auto">
         {renderMenu()}

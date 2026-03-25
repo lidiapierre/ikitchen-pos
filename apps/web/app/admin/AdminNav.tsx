@@ -14,6 +14,7 @@ const NAV_LINKS: NavLink[] = [
   { href: '/admin/menu', label: 'Menu' },
   { href: '/admin/tables', label: 'Tables' },
   { href: '/admin/pricing', label: 'Pricing' },
+  { href: '/admin/users', label: 'Users' },
 ]
 
 export default function AdminNav(): JSX.Element {

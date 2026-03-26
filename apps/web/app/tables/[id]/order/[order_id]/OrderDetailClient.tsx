@@ -796,22 +796,206 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
       />
 
       {/* Bill print component — hidden on screen, visible only when printing */}
-      <BillPrintView
-        tableId={tableId}
-        orderId={orderId}
-        items={items}
-        subtotalCents={billSubtotalCents}
-        vatPercent={vatPercent}
-        taxInclusive={taxInclusive}
-        totalCents={billTotalCents}
-        paymentMethod={billPaymentMethod}
-        amountTenderedCents={billAmountTenderedCents}
-        changeDueCents={billPaymentMethod === 'cash' ? changeDueCents : undefined}
-        timestamp={billTimestamp}
-        discountAmountCents={appliedDiscountCents}
-        discountLabel={appliedDiscountLabel}
-        orderComp={orderIsComp}
-      />
+      {!splitBillPrinting && (
+        <BillPrintView
+          tableId={tableId}
+          orderId={orderId}
+          items={items}
+          subtotalCents={billSubtotalCents}
+          vatPercent={vatPercent}
+          taxInclusive={taxInclusive}
+          totalCents={billTotalCents}
+          paymentMethod={billPaymentMethod}
+          amountTenderedCents={billAmountTenderedCents}
+          changeDueCents={billPaymentMethod === 'cash' ? changeDueCents : undefined}
+          timestamp={billTimestamp}
+          discountAmountCents={appliedDiscountCents}
+          discountLabel={appliedDiscountLabel}
+          orderComp={orderIsComp}
+        />
+      )}
+
+      {/* Split bill print component — hidden on screen, visible only when split bill printing */}
+      {splitBillPrinting && (
+        <SplitBillPrintView
+          tableId={tableId}
+          orderId={orderId}
+          items={items}
+          covers={covers}
+          vatPercent={vatPercent}
+          taxInclusive={taxInclusive}
+          timestamp={splitBillTimestamp}
+          evenSplit={splitBillPrintMode === 'even'}
+        />
+      )}
+
+      {/* Split bill modal */}
+      {showSplitBill && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70">
+          <div className="w-full max-w-lg bg-zinc-900 rounded-t-2xl p-6 space-y-4 max-h-[85vh] overflow-y-auto">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold text-white">Split Bill</h2>
+              <button
+                type="button"
+                onClick={() => { setShowSplitBill(false) }}
+                className="min-h-[48px] min-w-[48px] text-zinc-400 hover:text-white text-2xl"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Tab toggle */}
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => { setSplitBillTab('even') }}
+                className={[
+                  'flex-1 min-h-[48px] rounded-xl text-base font-semibold transition-colors border-2',
+                  splitBillTab === 'even'
+                    ? 'border-amber-400 bg-amber-400/10 text-amber-400'
+                    : 'border-zinc-600 text-zinc-300 hover:border-zinc-400',
+                ].join(' ')}
+              >
+                Even Split
+              </button>
+              <button
+                type="button"
+                onClick={() => { setSplitBillTab('seat') }}
+                className={[
+                  'flex-1 min-h-[48px] rounded-xl text-base font-semibold transition-colors border-2',
+                  splitBillTab === 'seat'
+                    ? 'border-amber-400 bg-amber-400/10 text-amber-400'
+                    : 'border-zinc-600 text-zinc-300 hover:border-zinc-400',
+                ].join(' ')}
+              >
+                By Seat
+              </button>
+            </div>
+
+            {splitBillTab === 'even' ? (
+              <div className="space-y-4">
+                <p className="text-zinc-400 text-base">
+                  Split <span className="text-white font-bold">{totalFormatted}</span> between{' '}
+                  <span className="text-white font-bold">{covers}</span> {covers === 1 ? 'person' : 'people'}
+                </p>
+                <div className="bg-zinc-800 rounded-xl px-4 py-4 text-center">
+                  <p className="text-zinc-400 text-sm mb-1">Each person pays</p>
+                  <p className="text-3xl font-bold text-amber-400">
+                    {formatPrice(Math.ceil(totalCents / Math.max(1, covers)), currencySymbol)}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowSplitBill(false)
+                    handlePrintSplitBill('even')
+                  }}
+                  className="w-full min-h-[48px] px-6 rounded-xl text-base font-semibold bg-amber-500 hover:bg-amber-400 text-zinc-900 transition-colors"
+                >
+                  🖨 Print {covers} separate bills
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <p className="text-zinc-400 text-sm">Assign each item to a seat (1–{covers}). Tap a seat number to assign.</p>
+                <ul className="space-y-2">
+                  {items.map((item) => {
+                    const lineCents = item.quantity * item.price_cents
+                    return (
+                      <li key={item.id} className="bg-zinc-800 rounded-xl px-4 py-3">
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                          <span className="font-semibold text-white text-sm flex-1">{item.name}</span>
+                          <span className="text-zinc-400 text-sm">×{item.quantity}</span>
+                          <span className="text-amber-400 text-sm font-bold">{formatPrice(lineCents, currencySymbol)}</span>
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+                              if (!supabaseUrl || !accessToken) return
+                              setItems((prev) => prev.map((i) => i.id === item.id ? { ...i, seat: null } : i))
+                              void callSetItemSeat(supabaseUrl, accessToken, item.id, null).catch(() => { /* non-fatal */ })
+                            }}
+                            className={[
+                              'min-h-[40px] px-3 rounded-lg text-xs font-semibold transition-colors border',
+                              item.seat === null
+                                ? 'border-zinc-400 bg-zinc-600 text-white'
+                                : 'border-zinc-600 text-zinc-400 hover:border-zinc-400',
+                            ].join(' ')}
+                          >
+                            Unassigned
+                          </button>
+                          {Array.from({ length: covers }, (_, i) => i + 1).map((seatNum) => (
+                            <button
+                              key={seatNum}
+                              type="button"
+                              onClick={() => {
+                                const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+                                if (!supabaseUrl || !accessToken) return
+                                setItems((prev) => prev.map((i) => i.id === item.id ? { ...i, seat: seatNum } : i))
+                                void callSetItemSeat(supabaseUrl, accessToken, item.id, seatNum).catch(() => { /* non-fatal */ })
+                              }}
+                              className={[
+                                'min-h-[40px] min-w-[40px] rounded-lg text-xs font-semibold transition-colors border',
+                                item.seat === seatNum
+                                  ? 'border-amber-400 bg-amber-400/20 text-amber-400'
+                                  : 'border-zinc-600 text-zinc-400 hover:border-zinc-400',
+                              ].join(' ')}
+                            >
+                              {seatNum}
+                            </button>
+                          ))}
+                        </div>
+                      </li>
+                    )
+                  })}
+                </ul>
+
+                {/* Per-seat totals */}
+                {covers > 0 && (
+                  <div className="bg-zinc-800 rounded-xl px-4 py-3 space-y-1">
+                    <p className="text-zinc-400 text-sm font-semibold mb-2">Per-seat totals</p>
+                    {Array.from({ length: covers }, (_, i) => i + 1).map((seatNum) => {
+                      const seatTotal = items
+                        .filter((i) => i.seat === seatNum && !i.comp)
+                        .reduce((sum, i) => sum + i.quantity * i.price_cents, 0)
+                      return (
+                        <div key={seatNum} className="flex justify-between text-sm">
+                          <span className="text-zinc-400">Seat {seatNum}</span>
+                          <span className="text-white font-semibold">{formatPrice(seatTotal, currencySymbol)}</span>
+                        </div>
+                      )
+                    })}
+                    {items.some((i) => i.seat === null) && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-zinc-500">Unassigned</span>
+                        <span className="text-zinc-400">
+                          {formatPrice(
+                            items.filter((i) => i.seat === null && !i.comp).reduce((sum, i) => sum + i.quantity * i.price_cents, 0),
+                            currencySymbol,
+                          )}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowSplitBill(false)
+                    handlePrintSplitBill('seat')
+                  }}
+                  className="w-full min-h-[48px] px-6 rounded-xl text-base font-semibold bg-amber-500 hover:bg-amber-400 text-zinc-900 transition-colors"
+                >
+                  🖨 Print by seat
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Void item dialog */}
       {voidingItem !== null && (
@@ -1447,6 +1631,17 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
               ].join(' ')}
             >
               {printingBill ? 'Printing…' : '🖨 Print Bill'}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setSplitBillTab('even')
+                setShowSplitBill(true)
+              }}
+              className="w-full min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold transition-colors border-2 border-zinc-600 text-zinc-300 hover:border-amber-400 hover:text-amber-400"
+            >
+              ✂ Split Bill
             </button>
 
             <button

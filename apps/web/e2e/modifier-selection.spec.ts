@@ -39,6 +39,10 @@ test.describe('modifier selection — menu page loads', () => {
 })
 
 test.describe('modifier selection — direct add (no modifiers)', () => {
+  // Requires a valid session so UserContext can populate accessToken (needed for
+  // add_item_to_order edge function call after the RBAC auth fix).
+  test.use({ storageState: 'e2e/.auth/admin.json' })
+
   test('clicking Add on an item without modifiers does not show a modal', async ({ page }) => {
     // Intercept the Supabase REST calls to inject a menu item without modifiers
     await page.route('**/rest/v1/orders**', async (route) => {
@@ -87,6 +91,8 @@ test.describe('modifier selection — direct add (no modifiers)', () => {
 })
 
 test.describe('modifier selection — modal flow (item with modifiers)', () => {
+  test.use({ storageState: 'e2e/.auth/admin.json' })
+
   test('clicking Add on an item with modifiers shows the selection modal', async ({ page }) => {
     await page.route('**/rest/v1/orders**', async (route) => {
       await route.fulfill({

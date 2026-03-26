@@ -1,6 +1,27 @@
 import { test, expect } from '@playwright/test'
 
+// Requires a valid session so UserContext can populate accessToken
+// (needed for open_shift / close_shift edge function calls after RBAC auth fix).
+test.use({ storageState: 'e2e/.auth/admin.json' })
+
 test.beforeEach(async ({ page }) => {
+  // Mock Supabase auth so UserContext.accessToken + role are populated.
+  await page.route('**/auth/v1/user**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ id: '25842b19-b4c9-493c-ac46-724088180929', email: 'admin@lahore.ikitchen.com.bd', role: 'authenticated' }),
+    })
+  })
+  await page.route('**/rest/v1/users?**', async (route) => {
+    const url = route.request().url()
+    if (url.includes('select=role')) {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([{ role: 'owner' }]) })
+    } else {
+      await route.continue()
+    }
+  })
+
   // Mock shifts REST endpoint — default: no active shift
   await page.route('**/rest/v1/shifts**', (route) => {
     void route.fulfill({

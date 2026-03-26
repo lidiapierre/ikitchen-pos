@@ -151,7 +151,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
   }
 
   function loadPrinterConfig(): void {
-    supabase
+    void supabase
       .from('printer_configs')
       .select('mode, ip, port')
       .single()
@@ -163,8 +163,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
             port: (data as { mode: string; ip: string | null; port: number | null }).port,
           })
         }
-      })
-      .catch(() => {
+      }, () => {
         // Non-fatal: fall back to browser mode
       })
   }

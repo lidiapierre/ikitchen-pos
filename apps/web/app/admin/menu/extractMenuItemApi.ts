@@ -7,18 +7,18 @@ export interface ExtractedMenuItem {
 
 export async function callExtractMenuItem(
   supabaseUrl: string,
-  apiKey: string,
+  accessToken: string,
   fileData: string,
   mediaType: string,
 ): Promise<ExtractedMenuItem> {
+  const apiKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ''
   const url = `${supabaseUrl}/functions/v1/extract_menu_item`
   const res = await fetch(url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
       apikey: apiKey,
-      Authorization: `Bearer ${apiKey}`,
-      'x-demo-staff-id': '00000000-0000-0000-0000-000000000001',
     },
     body: JSON.stringify({ file_data: fileData, media_type: mediaType }),
   })

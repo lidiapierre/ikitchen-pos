@@ -10,6 +10,7 @@ import { DEFAULT_CURRENCY_SYMBOL } from '@/lib/formatPrice'
 import { callCreateMenuItem, callUpdateMenuItem } from './menuAdminApi'
 import type { ModifierInput } from './menuAdminApi'
 import { callExtractMenuItem, uploadMenuFile, fileToBase64 } from './extractMenuItemApi'
+import { useUser } from '@/lib/user-context'
 import FileUploadZone from './FileUploadZone'
 import type { UploadState } from './FileUploadZone'
 import { generateId, formatCurrency } from './MenuManager'
@@ -90,6 +91,7 @@ async function fetchMenuItemById(
 
 export default function MenuItemFormPage({ mode, itemId }: MenuItemFormPageProps): JSX.Element {
   const router = useRouter()
+  const { accessToken } = useUser()
   const supabaseConfig = useRef<{ url: string; key: string } | null>(null)
 
   const [menus, setMenus] = useState<AdminMenu[]>([])
@@ -188,7 +190,7 @@ export default function MenuItemFormPage({ mode, itemId }: MenuItemFormPageProps
       setUploadState('extracting')
 
       try {
-        const extracted = await callExtractMenuItem(config.url, config.key, base64, file.type)
+        const extracted = await callExtractMenuItem(config.url, accessToken ?? '', base64, file.type)
         setForm((prev) => ({
           ...prev,
           ...(extracted.name ? { name: extracted.name } : {}),
@@ -265,7 +267,7 @@ export default function MenuItemFormPage({ mode, itemId }: MenuItemFormPageProps
       if (mode === 'new') {
         await callCreateMenuItem(
           config.url,
-          config.key,
+          accessToken ?? '',
           form.menuId,
           form.name.trim(),
           priceCents,
@@ -277,7 +279,7 @@ export default function MenuItemFormPage({ mode, itemId }: MenuItemFormPageProps
       } else if (mode === 'edit' && itemId) {
         await callUpdateMenuItem(
           config.url,
-          config.key,
+          accessToken ?? '',
           itemId,
           form.name.trim(),
           priceCents,

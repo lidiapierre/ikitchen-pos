@@ -1,10 +1,10 @@
+import { verifyAndGetCaller } from '../_shared/auth.ts'
+
 export const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-demo-staff-id',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export type FetchFn = (input: string, init?: RequestInit) => Promise<Response>
 
@@ -47,11 +47,19 @@ export async function handler(
     return new Response(null, { status: 204, headers: corsHeaders })
   }
 
-  const staffId = req.headers.get('x-demo-staff-id') ?? ''
-  if (!UUID_RE.test(staffId)) {
+  if (!env) {
     return new Response(
-      JSON.stringify({ success: false, error: 'Unauthorized' }),
-      { status: 401, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+      JSON.stringify({ success: false, error: 'Server configuration error' }),
+      { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    )
+  }
+
+  // Verify JWT and check minimum role (owner required for menu management)
+  const caller = await verifyAndGetCaller(req, env.supabaseUrl, env.serviceKey, 'owner', fetchFn)
+  if ('error' in caller) {
+    return new Response(
+      JSON.stringify({ success: false, error: caller.error }),
+      { status: caller.status, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
     )
   }
 
@@ -105,13 +113,6 @@ export async function handler(
   const description = typeof payload['description'] === 'string' ? payload['description'].trim() : undefined
   const imageUrl = typeof payload['image_url'] === 'string' ? payload['image_url'].trim() : undefined
   const available = typeof payload['available'] === 'boolean' ? payload['available'] : true
-
-  if (!env) {
-    return new Response(
-      JSON.stringify({ success: false, error: 'Server configuration error' }),
-      { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
-    )
-  }
 
   const { supabaseUrl, serviceKey } = env
   const dbHeaders = {

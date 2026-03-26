@@ -47,6 +47,7 @@ export type ReportPeriod = 'today' | 'week' | 'month' | 'custom'
 export async function callGetReports(
   supabaseUrl: string,
   accessToken: string,
+  anonKey: string,
   period: ReportPeriod,
   from?: string,
   to?: string,
@@ -62,6 +63,7 @@ export async function callGetReports(
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${accessToken}`,
+      apikey: anonKey,
     },
     body: JSON.stringify(body),
   })

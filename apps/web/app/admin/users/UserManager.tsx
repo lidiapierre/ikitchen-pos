@@ -8,6 +8,7 @@ import { callCreateUser, callToggleUserActive } from './userAdminApi'
 import { getUserRole } from '@/lib/user-role'
 import type { UserRole } from '@/lib/user-role'
 import { createBrowserClient } from '@supabase/ssr'
+import { useUser } from '@/lib/user-context'
 
 interface CreateFormValues {
   email: string
@@ -70,12 +71,13 @@ function roleBadgeClass(role: string): string {
 }
 
 export default function UserManager(): JSX.Element {
+  const { accessToken } = useUser()
   const [users, setUsers] = useState<AdminUser[]>([])
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState<string | null>(null) // tracks which action is in-flight
 
-  const supabaseConfig = useRef<{ url: string; key: string } | null>(null)
+  const supabaseConfig = useRef<{ url: string } | null>(null)
   const restaurantIdRef = useRef<string>('')
   const [callerRole, setCallerRole] = useState<UserRole | null>(null)
 
@@ -94,7 +96,7 @@ export default function UserManager(): JSX.Element {
       setLoading(false)
       return
     }
-    supabaseConfig.current = { url: supabaseUrl, key: supabaseKey }
+    supabaseConfig.current = { url: supabaseUrl }
 
     // Identify caller's role for role-hierarchy enforcement in the UI
     const supabaseClient = createBrowserClient(supabaseUrl, supabaseKey)
@@ -139,7 +141,7 @@ export default function UserManager(): JSX.Element {
     if (!config || !callerRole) return
     setSubmitting('create')
     try {
-      const newUser = await callCreateUser(config.url, config.key, {
+      const newUser = await callCreateUser(config.url, accessToken ?? '', {
         email: createForm.email.trim().toLowerCase(),
         name: createForm.name.trim() || undefined,
         role: createForm.role,
@@ -164,7 +166,7 @@ export default function UserManager(): JSX.Element {
     const newActive = !user.is_active
     setSubmitting(`toggle-${user.id}`)
     try {
-      await callToggleUserActive(config.url, config.key, user.id, newActive)
+      await callToggleUserActive(config.url, accessToken ?? '', user.id, newActive)
       setUsers((prev) =>
         prev.map((u) => (u.id === user.id ? { ...u, is_active: newActive } : u)),
       )

@@ -4,22 +4,22 @@ interface ActionResponse {
   error?: string
 }
 
-function buildHeaders(apiKey: string): Record<string, string> {
+function buildHeaders(accessToken: string): Record<string, string> {
   return {
     'Content-Type': 'application/json',
-    Authorization: `Bearer ${apiKey}`,
+    Authorization: `Bearer ${accessToken}`,
   }
 }
 
 async function callFunction(
   supabaseUrl: string,
-  apiKey: string,
+  accessToken: string,
   functionName: string,
   body: unknown,
 ): Promise<ActionResponse> {
   const res = await fetch(`${supabaseUrl}/functions/v1/${functionName}`, {
     method: 'POST',
-    headers: buildHeaders(apiKey),
+    headers: buildHeaders(accessToken),
     body: JSON.stringify(body),
   })
   const json = (await res.json().catch(() => ({ success: false, error: 'Request failed' }))) as ActionResponse
@@ -48,10 +48,10 @@ export interface CreatedUser {
 
 export async function callCreateUser(
   supabaseUrl: string,
-  apiKey: string,
+  accessToken: string,
   params: CreateUserParams,
 ): Promise<CreatedUser> {
-  const result = await callFunction(supabaseUrl, apiKey, 'create_user', {
+  const result = await callFunction(supabaseUrl, accessToken, 'create_user', {
     email: params.email,
     name: params.name ?? null,
     role: params.role,
@@ -66,11 +66,11 @@ export async function callCreateUser(
 
 export async function callToggleUserActive(
   supabaseUrl: string,
-  apiKey: string,
+  accessToken: string,
   userId: string,
   isActive: boolean,
 ): Promise<void> {
-  const result = await callFunction(supabaseUrl, apiKey, 'toggle_user_active', {
+  const result = await callFunction(supabaseUrl, accessToken, 'toggle_user_active', {
     user_id: userId,
     is_active: isActive,
   })

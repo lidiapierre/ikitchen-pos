@@ -70,7 +70,10 @@ async function buildStorageState(
     value: chunk,
     domain: 'localhost',
     path: '/',
-    httpOnly: true,
+    // Must be false: Supabase createBrowserClient reads session via document.cookie.
+    // httpOnly cookies are invisible to JavaScript and would prevent getSession()
+    // from finding the token in E2E tests.
+    httpOnly: false,
     secure: false,
     sameSite: 'Lax',
   }))

@@ -15,7 +15,6 @@ export async function callVoidItem(
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${apiKey}`,
-      apikey: apiKey,
       'x-demo-staff-id': '00000000-0000-0000-0000-000000000010',
     },
     body: JSON.stringify({ order_item_id: orderItemId, reason }),

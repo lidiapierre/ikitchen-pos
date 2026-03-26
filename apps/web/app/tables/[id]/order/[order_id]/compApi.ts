@@ -22,7 +22,6 @@ export async function callCompItem(
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${accessToken}`,
-      apikey: anonKey,
     },
     body: JSON.stringify(body),
   })

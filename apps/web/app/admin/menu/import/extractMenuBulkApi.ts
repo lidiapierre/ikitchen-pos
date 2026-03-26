@@ -19,7 +19,6 @@ export async function callExtractMenuBulk(
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${accessToken}`,
-      apikey: apiKey,
     },
     body: JSON.stringify({ files }),
   })

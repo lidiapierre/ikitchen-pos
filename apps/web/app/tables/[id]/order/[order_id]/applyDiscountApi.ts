@@ -17,7 +17,6 @@ export async function callApplyDiscount(
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${accessToken}`,
-      apikey: anonKey,
     },
     body: JSON.stringify({
       order_id: orderId,

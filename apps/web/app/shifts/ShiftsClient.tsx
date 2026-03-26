@@ -7,6 +7,7 @@ import { fetchShiftRevenue } from './shiftRevenueApi'
 import { formatPrice, DEFAULT_CURRENCY_SYMBOL } from '@/lib/formatPrice'
 import type { ShiftRevenue } from './shiftRevenueApi'
 import { useUser } from '@/lib/user-context'
+import { supabase } from '@/lib/supabase'
 
 interface ActiveShift {
   shift_id: string
@@ -108,12 +109,13 @@ export default function ShiftsClient(): JSX.Element {
       const url = SUPABASE_URL
         ? `${SUPABASE_URL}/functions/v1/open_shift`
         : '/functions/v1/open_shift'
-      if (!accessToken) throw new Error('Not authenticated — please log in and try again.')
+      const token = accessToken ?? (await supabase.auth.getSession()).data.session?.access_token
+      if (!token) throw new Error('Not authenticated — please log in and try again.')
       const res = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${accessToken}`,
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ opening_float: 0 }),
       })
@@ -146,12 +148,13 @@ export default function ShiftsClient(): JSX.Element {
       const url = SUPABASE_URL
         ? `${SUPABASE_URL}/functions/v1/close_shift`
         : '/functions/v1/close_shift'
-      if (!accessToken) throw new Error('Not authenticated — please log in and try again.')
+      const token = accessToken ?? (await supabase.auth.getSession()).data.session?.access_token
+      if (!token) throw new Error('Not authenticated — please log in and try again.')
       const res = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${accessToken}`,
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ shift_id: activeShift.shift_id, closing_float: 0 }),
       })

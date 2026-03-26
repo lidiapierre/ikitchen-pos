@@ -7,7 +7,6 @@ interface ActionResponse {
 function buildHeaders(apiKey: string): Record<string, string> {
   return {
     'Content-Type': 'application/json',
-    apikey: apiKey,
     Authorization: `Bearer ${apiKey}`,
   }
 }

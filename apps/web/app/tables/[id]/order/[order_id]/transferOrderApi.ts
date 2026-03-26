@@ -10,7 +10,6 @@ export async function callTransferOrder(
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${accessToken}`,
-      apikey: anonKey,
     },
     body: JSON.stringify({ order_id: orderId, target_table_id: targetTableId }),
   })

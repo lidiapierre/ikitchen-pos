@@ -16,7 +16,6 @@ export async function callRecordPayment(
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      apikey: apiKey,
       'x-demo-staff-id': '00000000-0000-0000-0000-000000000010',
     },
     body: JSON.stringify({ order_id: orderId, amount: amountCents, method, order_total_cents: orderTotalCents }),

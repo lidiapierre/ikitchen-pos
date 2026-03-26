@@ -9,7 +9,6 @@ export async function callSetCovers(
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${accessToken}`,
-      apikey: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? '',
     },
     body: JSON.stringify({ order_id: orderId, covers }),
   })
@@ -30,7 +29,6 @@ export async function callSetItemSeat(
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${accessToken}`,
-      apikey: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? '',
     },
     body: JSON.stringify({ order_item_id: orderItemId, seat }),
   })

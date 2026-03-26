@@ -6,7 +6,6 @@ export interface ModifierInput {
 function buildHeaders(apiKey: string, withPreferRepresentation = false): Record<string, string> {
   const h: Record<string, string> = {
     'Content-Type': 'application/json',
-    apikey: apiKey,
     Authorization: `Bearer ${apiKey}`,
   }
   if (withPreferRepresentation) h['Prefer'] = 'return=representation'
@@ -90,7 +89,6 @@ export async function callCreateMenuItem(
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${accessToken}`,
-      apikey: apiKey,
     },
     body: JSON.stringify({
       menu_id: menuId,
@@ -125,7 +123,6 @@ export async function callUpdateMenuItem(
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${accessToken}`,
-      apikey: apiKey,
     },
     body: JSON.stringify({
       menu_item_id: menuItemId,
@@ -152,7 +149,6 @@ export async function callDeleteMenuItem(
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${accessToken}`,
-      apikey: apiKey,
     },
     body: JSON.stringify({ menu_item_id: menuItemId }),
   })

@@ -18,7 +18,6 @@ export async function callExtractMenuItem(
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${accessToken}`,
-      apikey: apiKey,
     },
     body: JSON.stringify({ file_data: fileData, media_type: mediaType }),
   })
@@ -43,7 +42,6 @@ export async function uploadMenuFile(
     method: 'POST',
     headers: {
       Authorization: `Bearer ${apiKey}`,
-      apikey: apiKey,
       'Content-Type': file.type,
     },
     body: file,

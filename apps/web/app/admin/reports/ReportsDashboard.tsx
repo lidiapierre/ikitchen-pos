@@ -90,7 +90,6 @@ export default function ReportsDashboard(): JSX.Element {
   const [error, setError] = useState<string | null>(null)
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ''
 
   const fetchReports = useCallback(async (
     p: ReportPeriod,
@@ -101,7 +100,7 @@ export default function ReportsDashboard(): JSX.Element {
     setLoading(true)
     setError(null)
     try {
-      const result = await callGetReports(supabaseUrl, accessToken, anonKey, p, from, to)
+      const result = await callGetReports(supabaseUrl, accessToken, p, from, to)
       setData(result)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load reports')

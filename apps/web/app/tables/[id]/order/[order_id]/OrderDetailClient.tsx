@@ -336,7 +336,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
       }
     }
 
-    router.push(`/tables/${tableId}`)
+    router.push('/tables')
   }
 
   // Reprint KOT: show all items (no side effects — does NOT call markItemsSentToKitchen)
@@ -467,7 +467,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
         throw new Error('Not authenticated')
       }
       await callCancelOrder(supabaseUrl, accessToken, orderId, cancelReason)
-      router.push(`/tables/${tableId}`)
+      router.push('/tables')
     } catch (err) {
       setCancelError(err instanceof Error ? err.message : 'Failed to cancel order')
     } finally {
@@ -1646,7 +1646,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
 
             <button
               type="button"
-              onClick={() => { router.push(`/tables/${tableId}`) }}
+              onClick={() => { router.push('/tables') }}
               className="w-full min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold text-zinc-400 hover:text-white transition-colors"
             >
               Cancel

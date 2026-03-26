@@ -304,6 +304,17 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
     const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
 
+    // Empty order — auto-cancel and go straight back, no KOT needed
+    if (items.length === 0 && supabaseUrl && accessToken) {
+      try {
+        await callCancelOrder(supabaseUrl, accessToken, orderId, 'Empty order — no items added')
+      } catch {
+        // Non-fatal: navigate anyway
+      }
+      router.push('/tables')
+      return
+    }
+
     const unsentItems = items.filter((item) => !item.sent_to_kitchen)
 
     if (step === 'order' && unsentItems.length > 0 && supabaseUrl && supabaseKey) {
@@ -391,6 +402,12 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
       if (!supabaseUrl || !accessToken) {
         throw new Error('Not authenticated')
+      }
+      // Empty order — cancel directly, no payment needed
+      if (items.length === 0) {
+        await callCancelOrder(supabaseUrl, accessToken, orderId, 'Empty order — no items added')
+        router.push('/tables')
+        return
       }
       await callCloseOrder(supabaseUrl, accessToken, orderId)
       setStep('payment')

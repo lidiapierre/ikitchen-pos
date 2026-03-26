@@ -71,12 +71,18 @@ function getDateRange(period: Period, from?: string, to?: string): { start: stri
 }
 
 interface OrderRow {
+  id: string
   final_total_cents: number | null
   covers: number | null
   discount_amount_cents: number | null
   order_comp: boolean | null
-  payment_method: string | null
   created_at: string
+}
+
+interface PaymentRow {
+  order_id: string
+  method: string
+  amount_cents: number
 }
 
 interface OrderItemRow {
@@ -149,7 +155,7 @@ export async function handler(
   try {
     // Fetch all paid orders in range
     const ordersRes = await fetchFn(
-      `${supabaseUrl}/rest/v1/orders?select=final_total_cents,covers,discount_amount_cents,order_comp,payment_method,created_at&status=eq.paid&created_at=gte.${encodeURIComponent(start)}&created_at=lte.${encodeURIComponent(end)}&limit=10000`,
+      `${supabaseUrl}/rest/v1/orders?select=id,final_total_cents,covers,discount_amount_cents,order_comp,created_at&status=eq.paid&created_at=gte.${encodeURIComponent(start)}&created_at=lte.${encodeURIComponent(end)}&limit=10000`,
       { headers: dbHeaders },
     )
     if (!ordersRes.ok) {
@@ -160,6 +166,7 @@ export async function handler(
       )
     }
     const orders = (await ordersRes.json()) as OrderRow[]
+    const orderIds = orders.map(o => o.id)
 
     // 1. Sales summary
     let totalRevenueCents = 0
@@ -181,19 +188,29 @@ export async function handler(
       .map(([date, revenue_cents]) => ({ date, revenue_cents }))
       .sort((a, b) => a.date.localeCompare(b.date))
 
-    // 3. Payment method breakdown
-    const paymentMap: Record<string, { count: number; revenue_cents: number }> = {}
-    for (const o of orders) {
-      const method = o.payment_method ?? 'unknown'
-      if (!paymentMap[method]) paymentMap[method] = { count: 0, revenue_cents: 0 }
-      paymentMap[method].count += 1
-      paymentMap[method].revenue_cents += o.final_total_cents ?? 0
+    // 3. Payment method breakdown — from the payments table (method stored there, not on orders)
+    let paymentBreakdown: Array<{ method: string; count: number; revenue_cents: number }> = []
+    if (orderIds.length > 0) {
+      const paymentsRes = await fetchFn(
+        `${supabaseUrl}/rest/v1/payments?select=order_id,method,amount_cents&order_id=in.(${orderIds.join(',')})&limit=50000`,
+        { headers: dbHeaders },
+      )
+      if (paymentsRes.ok) {
+        const payments = (await paymentsRes.json()) as PaymentRow[]
+        const paymentMap: Record<string, { count: number; revenue_cents: number }> = {}
+        for (const p of payments) {
+          const method = p.method ?? 'unknown'
+          if (!paymentMap[method]) paymentMap[method] = { count: 0, revenue_cents: 0 }
+          paymentMap[method].count += 1
+          paymentMap[method].revenue_cents += p.amount_cents ?? 0
+        }
+        paymentBreakdown = Object.entries(paymentMap).map(([method, v]) => ({
+          method,
+          count: v.count,
+          revenue_cents: v.revenue_cents,
+        }))
+      }
     }
-    const paymentBreakdown = Object.entries(paymentMap).map(([method, v]) => ({
-      method,
-      count: v.count,
-      revenue_cents: v.revenue_cents,
-    }))
 
     // 4. Discount/comp summary
     let discountOrderCount = 0

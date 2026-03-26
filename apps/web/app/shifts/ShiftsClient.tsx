@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { fetchShiftRevenue } from './shiftRevenueApi'
 import { formatPrice, DEFAULT_CURRENCY_SYMBOL } from '@/lib/formatPrice'
 import type { ShiftRevenue } from './shiftRevenueApi'
+import { useUser } from '@/lib/user-context'
 
 interface ActiveShift {
   shift_id: string
@@ -59,6 +60,7 @@ function getDuration(start: string, end: string): string {
 }
 
 export default function ShiftsClient(): JSX.Element {
+  const { accessToken } = useUser()
   const [activeShift, setActiveShift] = useState<ActiveShift | null>(null)
   const [closedSummary, setClosedSummary] = useState<ShiftSummary | null>(null)
   const [loading, setLoading] = useState(false)
@@ -106,11 +108,12 @@ export default function ShiftsClient(): JSX.Element {
       const url = SUPABASE_URL
         ? `${SUPABASE_URL}/functions/v1/open_shift`
         : '/functions/v1/open_shift'
+      if (!accessToken) throw new Error('Not authenticated — please log in and try again.')
       const res = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-demo-staff-id': '00000000-0000-0000-0000-000000000401',
+          Authorization: `Bearer ${accessToken}`,
         },
         body: JSON.stringify({ opening_float: 0 }),
       })
@@ -143,9 +146,13 @@ export default function ShiftsClient(): JSX.Element {
       const url = SUPABASE_URL
         ? `${SUPABASE_URL}/functions/v1/close_shift`
         : '/functions/v1/close_shift'
+      if (!accessToken) throw new Error('Not authenticated — please log in and try again.')
       const res = await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
         body: JSON.stringify({ shift_id: activeShift.shift_id, closing_float: 0 }),
       })
       const json = (await res.json()) as {

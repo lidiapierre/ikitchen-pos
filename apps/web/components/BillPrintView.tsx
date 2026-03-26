@@ -4,7 +4,7 @@ import type { OrderItem } from '@/app/tables/[id]/order/[order_id]/orderData'
 import { formatPrice, DEFAULT_CURRENCY_SYMBOL } from '@/lib/formatPrice'
 
 export interface BillPrintViewProps {
-  tableId: string
+  tableLabel: string
   orderId: string
   items: OrderItem[]
   subtotalCents: number
@@ -25,7 +25,7 @@ export interface BillPrintViewProps {
 }
 
 export default function BillPrintView({
-  tableId,
+  tableLabel,
   orderId,
   items,
   subtotalCents,
@@ -55,7 +55,7 @@ export default function BillPrintView({
 
       {/* Order info */}
       <div className="border-t border-b border-black py-1 mb-2 text-sm">
-        <p>Table: {tableId}</p>
+        <p>Table: {tableLabel}</p>
         <p>Order: {orderId.slice(0, 8)}</p>
       </div>
 

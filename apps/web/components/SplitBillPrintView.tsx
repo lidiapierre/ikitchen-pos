@@ -4,7 +4,7 @@ import type { OrderItem } from '@/app/tables/[id]/order/[order_id]/orderData'
 import { formatPrice, DEFAULT_CURRENCY_SYMBOL } from '@/lib/formatPrice'
 
 export interface SplitBillPrintViewProps {
-  tableId: string
+  tableLabel: string
   orderId: string
   items: OrderItem[]
   covers: number
@@ -20,7 +20,7 @@ export interface SplitBillPrintViewProps {
  * Renders one section per seat (or per cover for even split).
  */
 export default function SplitBillPrintView({
-  tableId,
+  tableLabel,
   orderId,
   items,
   covers,
@@ -113,7 +113,7 @@ export default function SplitBillPrintView({
 
             {/* Order info */}
             <div className="border-t border-b border-black py-1 mb-2 text-sm">
-              <p>Table: {tableId}</p>
+              <p>Table: {tableLabel}</p>
               <p>Order: {orderId.slice(0, 8)}</p>
               <p className="font-bold">{section.label}</p>
             </div>

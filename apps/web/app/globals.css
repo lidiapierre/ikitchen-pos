@@ -46,5 +46,6 @@ body {
     top: 0;
     left: 0;
     width: 80mm;
+    font-family: var(--font-noto-sans), 'Noto Sans Bengali', Arial, sans-serif;
   }
 }

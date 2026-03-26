@@ -91,6 +91,9 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
   const [billTimestamp, setBillTimestamp] = useState('')
   const [printingBill, setPrintingBill] = useState(false)
 
+  // Table label state
+  const [tableLabel, setTableLabel] = useState<string>('')
+
   // Covers / split bill state
   const [covers, setCovers] = useState(1)
   const [showSplitBill, setShowSplitBill] = useState(false)
@@ -231,12 +234,32 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
       .catch(() => { /* non-fatal */ })
   }
 
+  function loadTableLabel(): void {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+    if (!supabaseUrl || !supabaseKey) return
+    const url = new URL(`${supabaseUrl}/rest/v1/tables`)
+    url.searchParams.set('id', `eq.${tableId}`)
+    url.searchParams.set('select', 'label')
+    void fetch(url.toString(), {
+      headers: { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` },
+    })
+      .then((r) => r.json())
+      .then((rows: Array<{ label: string }>) => {
+        if (rows.length > 0 && rows[0].label) {
+          setTableLabel(rows[0].label)
+        }
+      })
+      .catch(() => { /* non-fatal */ })
+  }
+
   useEffect(() => {
     loadItems()
     loadOrderStatus()
     loadVatConfig()
     loadPrinterConfig()
     loadCovers()
+    loadTableLabel()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderId])
 
@@ -806,7 +829,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
       {/* KOT print component — only marked as print-area when KOT is actively printing */}
       <div className={kotStatus !== null || reprintingKot ? 'print-area' : ''}>
         <KotPrintView
-          tableId={tableId}
+          tableLabel={tableLabel || tableId.slice(0, 8)}
           orderId={orderId}
           items={items}
           timestamp={kotTimestamp}
@@ -818,7 +841,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
       {!splitBillPrinting && (
         <div className={printingBill ? 'print-area' : ''}>
           <BillPrintView
-            tableId={tableId}
+            tableLabel={tableLabel || tableId.slice(0, 8)}
             orderId={orderId}
             items={items}
             subtotalCents={billSubtotalCents}
@@ -840,7 +863,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
       {splitBillPrinting && (
         <div className="print-area">
           <SplitBillPrintView
-            tableId={tableId}
+            tableLabel={tableLabel || tableId.slice(0, 8)}
             orderId={orderId}
             items={items}
             covers={covers}

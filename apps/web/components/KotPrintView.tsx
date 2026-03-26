@@ -3,7 +3,7 @@ import type { JSX } from 'react'
 import type { OrderItem } from '@/app/tables/[id]/order/[order_id]/orderData'
 
 interface KotPrintViewProps {
-  tableId: string
+  tableLabel: string
   orderId: string
   items: OrderItem[]
   timestamp: string
@@ -11,7 +11,7 @@ interface KotPrintViewProps {
   showAll?: boolean
 }
 
-export default function KotPrintView({ tableId, orderId, items, timestamp, showAll = false }: KotPrintViewProps): JSX.Element {
+export default function KotPrintView({ tableLabel, orderId, items, timestamp, showAll = false }: KotPrintViewProps): JSX.Element {
   const displayItems = showAll ? items : items.filter((item) => !item.sent_to_kitchen)
 
   return (
@@ -22,7 +22,7 @@ export default function KotPrintView({ tableId, orderId, items, timestamp, showA
         {showAll && <p className="text-xs">(REPRINT)</p>}
       </div>
       <div className="border-t border-b border-black py-1 mb-2 text-sm">
-        <p>Table: {tableId}</p>
+        <p>Table: {tableLabel}</p>
         <p>Order: {orderId.slice(0, 8)}</p>
         <p>Time: {timestamp}</p>
       </div>

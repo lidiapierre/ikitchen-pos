@@ -13,8 +13,11 @@ import { chromium, type FullConfig } from '@playwright/test'
 
 interface AuthSession {
   access_token: string
-  refresh_token: string
+  token_type: string
+  expires_in: number
   expires_at?: number
+  refresh_token: string
+  user: Record<string, unknown>
 }
 
 interface CookieEntry {
@@ -49,14 +52,26 @@ async function buildStorageState(
 
   const session = (await res.json()) as AuthSession
 
-  // Build the Supabase SSR session cookie value (matches @supabase/ssr format)
+  // Build the Supabase SSR session cookie value.
+  // @supabase/ssr v0.9+ encodes session cookies as "base64-" + base64url(sessionJSON).
+  // Storing raw JSON (as was done before) causes getSession() to silently return null.
   const projectRef = new URL(supabaseUrl).hostname.split('.')[0]
   const cookieName = `sb-${projectRef}-auth-token`
-  const cookieValue = JSON.stringify({
+  const sessionJson = JSON.stringify({
     access_token: session.access_token,
-    refresh_token: session.refresh_token,
+    token_type: session.token_type ?? 'bearer',
+    expires_in: session.expires_in ?? 3600,
     expires_at: session.expires_at ?? Math.floor(Date.now() / 1000) + 3600,
+    refresh_token: session.refresh_token,
+    user: session.user ?? {},
   })
+  // base64url encode (no padding, URL-safe chars) and prefix with "base64-"
+  const base64url = Buffer.from(sessionJson, 'utf8')
+    .toString('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '')
+  const cookieValue = `base64-${base64url}`
 
   // Supabase SSR chunks cookies >3180 chars across .0, .1 etc.
   const chunkSize = 3180

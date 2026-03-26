@@ -16,6 +16,23 @@ test.describe('Print Bill button', () => {
   test.use({ storageState: 'e2e/.auth/admin.json' })
 
   test.beforeEach(async ({ page }) => {
+    // Mock Supabase auth session so UserContext.accessToken is always populated.
+    // Without this, getSession() returns null in CI and edge function calls throw
+    // 'Not authenticated' before reaching the mocked routes below.
+    await page.route('**/auth/v1/token**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          access_token: 'e2e-test-token',
+          token_type: 'bearer',
+          expires_in: 3600,
+          refresh_token: 'e2e-refresh-token',
+          user: { id: '00000000-0000-0000-0000-000000000001', role: 'authenticated' },
+        }),
+      });
+    });
+
     // Mock tables list
     await page.route('**/rest/v1/tables**', async (route) => {
       await route.fulfill({

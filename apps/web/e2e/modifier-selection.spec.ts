@@ -44,6 +44,10 @@ test.describe('modifier selection — direct add (no modifiers)', () => {
   test.use({ storageState: 'e2e/.auth/admin.json' })
 
   test('clicking Add on an item without modifiers does not show a modal', async ({ page }) => {
+    // Mock auth session so UserContext.accessToken is populated
+    await page.route('**/auth/v1/token**', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ access_token: 'e2e-test-token', token_type: 'bearer', expires_in: 3600, refresh_token: 'e2e-refresh', user: { id: '00000000-0000-0000-0000-000000000001', role: 'authenticated' } }) })
+    })
     // Intercept the Supabase REST calls to inject a menu item without modifiers
     await page.route('**/rest/v1/orders**', async (route) => {
       await route.fulfill({
@@ -94,6 +98,9 @@ test.describe('modifier selection — modal flow (item with modifiers)', () => {
   test.use({ storageState: 'e2e/.auth/admin.json' })
 
   test('clicking Add on an item with modifiers shows the selection modal', async ({ page }) => {
+    await page.route('**/auth/v1/token**', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ access_token: 'e2e-test-token', token_type: 'bearer', expires_in: 3600, refresh_token: 'e2e-refresh', user: { id: '00000000-0000-0000-0000-000000000001', role: 'authenticated' } }) })
+    })
     await page.route('**/rest/v1/orders**', async (route) => {
       await route.fulfill({
         status: 200,

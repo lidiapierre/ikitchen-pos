@@ -1,6 +1,8 @@
+import { verifyAndGetCaller } from '../_shared/auth.ts'
+
 export const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-demo-staff-id',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
@@ -11,8 +13,6 @@ export interface HandlerEnv {
   serviceKey: string
 }
 
-const SYSTEM_USER_ID = '00000000-0000-0000-0000-000000000001'
-
 function readEnv(): HandlerEnv | null {
   const g = globalThis as { Deno?: { env: { get: (key: string) => string | undefined } } }
   if (!g.Deno) return null
@@ -22,10 +22,6 @@ function readEnv(): HandlerEnv | null {
   return { supabaseUrl, serviceKey }
 }
 
-function isValidUuid(value: string): boolean {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)
-}
-
 export async function handler(
   req: Request,
   fetchFn: FetchFn = fetch,
@@ -33,6 +29,22 @@ export async function handler(
 ): Promise<Response> {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { status: 200, headers: corsHeaders })
+  }
+
+  if (!env) {
+    return new Response(
+      JSON.stringify({ success: false, error: 'Server configuration error' }),
+      { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    )
+  }
+
+  // Verify JWT and check minimum role (owner required for menu management)
+  const caller = await verifyAndGetCaller(req, env.supabaseUrl, env.serviceKey, 'owner', fetchFn)
+  if ('error' in caller) {
+    return new Response(
+      JSON.stringify({ success: false, error: caller.error }),
+      { status: caller.status, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    )
   }
 
   let body: unknown
@@ -61,15 +73,8 @@ export async function handler(
   }
 
   const menuId = payload['menu_id'] as string
-  const staffIdHeader = req.headers.get('x-demo-staff-id') ?? ''
-  const userId = isValidUuid(staffIdHeader) ? staffIdHeader : SYSTEM_USER_ID
-
-  if (!env) {
-    return new Response(
-      JSON.stringify({ success: false, error: 'Server configuration error' }),
-      { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
-    )
-  }
+  // actor_id comes from the verified JWT — no more x-demo-staff-id header
+  const userId = caller.actorId
 
   const { supabaseUrl, serviceKey } = env
   const dbHeaders = {

@@ -1,6 +1,8 @@
+import { verifyAndGetCaller } from '../_shared/auth.ts'
+
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-demo-staff-id',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
@@ -8,6 +10,8 @@ export type FetchFn = (input: string, init?: RequestInit) => Promise<Response>
 
 export interface HandlerEnv {
   anthropicApiKey: string
+  supabaseUrl: string
+  serviceKey: string
 }
 
 export interface ExtractedMenuItem {
@@ -22,14 +26,15 @@ type SupportedMediaType = 'image/jpeg' | 'image/png' | 'image/webp' | 'applicati
 const SUPPORTED_IMAGE_TYPES: string[] = ['image/jpeg', 'image/png', 'image/webp']
 const SUPPORTED_TYPES: string[] = [...SUPPORTED_IMAGE_TYPES, 'application/pdf']
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024 // 10 MB
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 function readEnv(): HandlerEnv | null {
   const g = globalThis as { Deno?: { env: { get: (key: string) => string | undefined } } }
   if (!g.Deno) return null
   const anthropicApiKey = g.Deno.env.get('ANTHROPIC_API_KEY') ?? ''
-  if (!anthropicApiKey) return null
-  return { anthropicApiKey }
+  const supabaseUrl = g.Deno.env.get('SUPABASE_URL') ?? ''
+  const serviceKey = g.Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+  if (!anthropicApiKey || !supabaseUrl || !serviceKey) return null
+  return { anthropicApiKey, supabaseUrl, serviceKey }
 }
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -88,10 +93,14 @@ export async function handler(
     return jsonResponse({ success: false, error: 'Method not allowed' }, 405)
   }
 
-  // Auth: require a valid demo staff UUID (dev-stub auth per architecture.md §13)
-  const staffId = req.headers.get('x-demo-staff-id') ?? ''
-  if (!UUID_RE.test(staffId)) {
-    return jsonResponse({ success: false, error: 'Unauthorized' }, 401)
+  if (!env) {
+    return jsonResponse({ success: false, error: 'Server configuration error' }, 500)
+  }
+
+  // Verify JWT and check minimum role (owner required for menu item extraction)
+  const caller = await verifyAndGetCaller(req, env.supabaseUrl, env.serviceKey, 'owner', fetchFn)
+  if ('error' in caller) {
+    return jsonResponse({ success: false, error: caller.error }, caller.status)
   }
 
   let body: unknown
@@ -120,10 +129,6 @@ export async function handler(
   const approxBytes = Math.ceil((fileData.length * 3) / 4)
   if (approxBytes > MAX_FILE_SIZE_BYTES) {
     return jsonResponse({ success: false, error: 'File exceeds 10 MB limit' }, 400)
-  }
-
-  if (!env) {
-    return jsonResponse({ success: false, error: 'Server configuration error' }, 500)
   }
 
   const contentBlock = buildContentBlock(fileData, mediaType)

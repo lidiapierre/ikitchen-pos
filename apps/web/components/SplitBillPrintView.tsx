@@ -8,89 +8,182 @@ export interface SplitBillPrintViewProps {
   orderId: string
   items: OrderItem[]
   covers: number
-  totalCents: number
-  mode: 'even' | 'seat'
+  vatPercent: number
+  taxInclusive?: boolean
   timestamp: string
-  currencySymbol?: string
+  /** Whether this is an even split (true) or by-seat split (false) */
+  evenSplit?: boolean
 }
 
 /**
- * Print-only component for split bill.
- * Hidden on screen; visible only when the browser print dialog is open.
+ * Hidden on screen, visible only when printing (split bill).
+ * Renders one section per seat (or per cover for even split).
  */
 export default function SplitBillPrintView({
   tableId,
+  orderId,
   items,
   covers,
-  totalCents,
-  mode,
+  vatPercent,
+  taxInclusive = false,
   timestamp,
-  currencySymbol = DEFAULT_CURRENCY_SYMBOL,
+  evenSplit = false,
 }: SplitBillPrintViewProps): JSX.Element {
-  if (mode === 'even') {
-    const perPersonCents = covers > 0 ? Math.ceil(totalCents / covers) : totalCents
-    return (
-      <div className="print-only hidden print:block font-mono text-sm p-4">
-        <h2 className="text-center font-bold text-base mb-2">SPLIT BILL — EVEN</h2>
-        <p className="text-center mb-1">Table: {tableId}</p>
-        <p className="text-center mb-4 text-xs text-gray-500">{timestamp}</p>
-        <hr className="mb-3" />
-        <div className="mb-3">
-          {Array.from({ length: covers }, (_, i) => (
-            <div key={i} className="flex justify-between mb-1">
-              <span>Cover {i + 1}</span>
-              <span>{formatPrice(perPersonCents, currencySymbol)}</span>
-            </div>
-          ))}
-        </div>
-        <hr className="mb-2" />
-        <div className="flex justify-between font-bold">
-          <span>Total ({covers} covers)</span>
-          <span>{formatPrice(totalCents, currencySymbol)}</span>
-        </div>
-      </div>
-    )
-  }
+  // For even split: calculate total then divide
+  const totalRawCents = items
+    .filter((item) => !item.comp)
+    .reduce((sum, item) => sum + item.quantity * item.price_cents, 0)
 
-  // By seat — group items by seat
-  const seatMap = new Map<number | null, OrderItem[]>()
-  for (const item of items) {
-    const seat = (item as OrderItem & { seat?: number | null }).seat ?? null
-    const existing = seatMap.get(seat) ?? []
-    existing.push(item)
-    seatMap.set(seat, existing)
-  }
+  // Build sections
+  const sections: Array<{ label: string; items: OrderItem[]; subtotalCents: number }> = []
 
-  const seats = Array.from(seatMap.entries()).sort(([a], [b]) => {
-    if (a === null) return 1
-    if (b === null) return -1
-    return a - b
-  })
+  if (evenSplit) {
+    // Each cover gets an equal share
+    const perCoverCents = Math.ceil(totalRawCents / Math.max(1, covers))
+    for (let i = 1; i <= covers; i++) {
+      sections.push({
+        label: `Cover ${i} of ${covers}`,
+        items: [], // no per-item breakdown for even split
+        subtotalCents: perCoverCents,
+      })
+    }
+  } else {
+    // Group by seat
+    const seatMap = new Map<number | null, OrderItem[]>()
+    for (const item of items) {
+      const key = item.seat
+      const group = seatMap.get(key) ?? []
+      group.push(item)
+      seatMap.set(key, group)
+    }
+
+    // Assigned seats first, sorted
+    const assignedSeats = [...seatMap.keys()]
+      .filter((k): k is number => k !== null)
+      .sort((a, b) => a - b)
+
+    for (const seat of assignedSeats) {
+      const seatItems = seatMap.get(seat) ?? []
+      const subtotal = seatItems
+        .filter((i) => !i.comp)
+        .reduce((sum, i) => sum + i.quantity * i.price_cents, 0)
+      sections.push({ label: `Seat ${seat}`, items: seatItems, subtotalCents: subtotal })
+    }
+
+    // Unassigned items
+    const unassigned = seatMap.get(null) ?? []
+    if (unassigned.length > 0) {
+      const subtotal = unassigned
+        .filter((i) => !i.comp)
+        .reduce((sum, i) => sum + i.quantity * i.price_cents, 0)
+      sections.push({ label: 'Unassigned', items: unassigned, subtotalCents: subtotal })
+    }
+  }
 
   return (
-    <div className="print-only hidden print:block font-mono text-sm p-4">
-      <h2 className="text-center font-bold text-base mb-2">SPLIT BILL — BY SEAT</h2>
-      <p className="text-center mb-1">Table: {tableId}</p>
-      <p className="text-center mb-4 text-xs text-gray-500">{timestamp}</p>
-      {seats.map(([seat, seatItems]) => {
-        const seatTotal = seatItems.reduce((s, i) => s + i.quantity * i.price_cents, 0)
-        return (
-          <div key={seat ?? 'unassigned'} className="mb-4">
-            <hr className="mb-2" />
-            <p className="font-bold mb-1">{seat !== null ? `Seat ${seat}` : 'Unassigned'}</p>
-            {seatItems.map((item) => (
-              <div key={item.id} className="flex justify-between">
-                <span>{item.name} ×{item.quantity}</span>
-                <span>{formatPrice(item.quantity * item.price_cents, currencySymbol)}</span>
-              </div>
-            ))}
-            <div className="flex justify-between font-semibold mt-1">
-              <span>Subtotal</span>
-              <span>{formatPrice(seatTotal, currencySymbol)}</span>
+    <>
+      {/*
+       * Global print styles injected as a style tag.
+       * When split bill is active, hide the main page and show only this component.
+       */}
+      <style>{`
+        @media print {
+          body > * { display: none !important; }
+          #split-bill-print-root { display: block !important; }
+        }
+      `}</style>
+
+      <div
+        id="split-bill-print-root"
+        aria-hidden="true"
+        className="hidden print:block font-mono text-black bg-white w-full"
+      >
+        {sections.map((section, idx) => (
+          <div
+            key={section.label}
+            className="p-2 w-full max-w-xs mx-auto"
+            style={{ pageBreakAfter: idx < sections.length - 1 ? 'always' : 'auto' }}
+          >
+            {/* Header */}
+            <div className="text-center mb-2">
+              <p className="text-base font-bold">Lahore by iKitchen</p>
+              <p className="text-xs">Lahore by iKitchen, Dhaka</p>
+              <p className="text-xs">{timestamp}</p>
+            </div>
+
+            {/* Order info */}
+            <div className="border-t border-b border-black py-1 mb-2 text-sm">
+              <p>Table: {tableId}</p>
+              <p>Order: {orderId.slice(0, 8)}</p>
+              <p className="font-bold">{section.label}</p>
+            </div>
+
+            {/* Items (only for by-seat split) */}
+            {!evenSplit && section.items.length > 0 && (
+              <ul className="mb-2">
+                {section.items.map((item) => {
+                  const lineCents = item.quantity * item.price_cents
+                  const isComp = item.comp
+                  return (
+                    <li key={item.id} className="flex justify-between text-sm">
+                      <span>
+                        {item.quantity}× {item.name}
+                        {isComp && <span className="ml-1 text-xs">[COMP]</span>}
+                      </span>
+                      {isComp ? (
+                        <span className="italic text-xs">Complimentary</span>
+                      ) : (
+                        <span>{formatPrice(lineCents, DEFAULT_CURRENCY_SYMBOL)}</span>
+                      )}
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+
+            {/* Totals */}
+            <div className="border-t border-black pt-1 mb-2 text-sm space-y-0.5">
+              {vatPercent > 0 && !taxInclusive && (
+                <>
+                  <div className="flex justify-between">
+                    <span>Subtotal</span>
+                    <span>{formatPrice(section.subtotalCents, DEFAULT_CURRENCY_SYMBOL)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>VAT {vatPercent}%</span>
+                    <span>
+                      {formatPrice(
+                        Math.round(section.subtotalCents * vatPercent / 100),
+                        DEFAULT_CURRENCY_SYMBOL,
+                      )}
+                    </span>
+                  </div>
+                  <div className="flex justify-between font-bold">
+                    <span>Total</span>
+                    <span>
+                      {formatPrice(
+                        Math.round(section.subtotalCents * (1 + vatPercent / 100)),
+                        DEFAULT_CURRENCY_SYMBOL,
+                      )}
+                    </span>
+                  </div>
+                </>
+              )}
+              {(vatPercent === 0 || taxInclusive) && (
+                <div className="flex justify-between font-bold">
+                  <span>Total{taxInclusive && vatPercent > 0 ? ` (incl. VAT ${vatPercent}%)` : ''}</span>
+                  <span>{formatPrice(section.subtotalCents, DEFAULT_CURRENCY_SYMBOL)}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="border-t border-black mt-2 pt-1 text-center text-xs">
+              Thank you for dining with us!
             </div>
           </div>
-        )
-      })}
-    </div>
+        ))}
+      </div>
+    </>
   )
 }

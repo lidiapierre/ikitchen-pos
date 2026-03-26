@@ -8,6 +8,7 @@ export interface OrderItem {
   sent_to_kitchen: boolean
   comp: boolean
   comp_reason: string | null
+  seat: number | null
 }
 
 export interface OrderSummary {
@@ -23,6 +24,7 @@ interface OrderItemRow {
   sent_to_kitchen: boolean
   comp: boolean
   comp_reason: string | null
+  seat: number | null
   menu_items: { name: string }
 }
 
@@ -37,7 +39,7 @@ export async function fetchOrderItems(
   orderId: string,
 ): Promise<OrderItem[]> {
   const url = new URL(`${supabaseUrl}/rest/v1/order_items`)
-  url.searchParams.set('select', 'id,quantity,unit_price_cents,modifier_ids,sent_to_kitchen,comp,comp_reason,menu_items(name)')
+  url.searchParams.set('select', 'id,quantity,unit_price_cents,modifier_ids,sent_to_kitchen,comp,comp_reason,seat,menu_items(name)')
   url.searchParams.set('order_id', `eq.${orderId}`)
   url.searchParams.set('voided', 'eq.false')
 
@@ -96,6 +98,7 @@ export async function fetchOrderItems(
       sent_to_kitchen: row.sent_to_kitchen,
       comp: row.comp ?? false,
       comp_reason: row.comp_reason ?? null,
+      seat: row.seat ?? null,
     }
   })
 }

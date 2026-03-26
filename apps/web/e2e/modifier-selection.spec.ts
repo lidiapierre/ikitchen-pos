@@ -102,7 +102,9 @@ test.describe('modifier selection — direct add (no modifiers)', () => {
 test.describe('modifier selection — modal flow (item with modifiers)', () => {
   test.use({ storageState: 'e2e/.auth/admin.json' })
 
-  test('clicking Add on an item with modifiers shows the selection modal', async ({ page }) => {
+  // Shared auth mocks for all tests in this block — required so UserContext.accessToken
+  // is populated (needed for add_item_to_order after the RBAC auth fix).
+  test.beforeEach(async ({ page }) => {
     await page.route('**/auth/v1/user**', async (route) => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ id: '00000000-0000-0000-0000-000000000001', email: 'admin@lahore.ikitchen.com.bd', role: 'authenticated' }) })
     })
@@ -111,6 +113,9 @@ test.describe('modifier selection — modal flow (item with modifiers)', () => {
         await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([{ role: 'owner' }]) })
       } else { await route.continue() }
     })
+  })
+
+  test('clicking Add on an item with modifiers shows the selection modal', async ({ page }) => {
     await page.route('**/rest/v1/orders**', async (route) => {
       await route.fulfill({
         status: 200,

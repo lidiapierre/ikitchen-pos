@@ -111,7 +111,7 @@ export default function ImportMenuClient(): JSX.Element {
           media_type: file.type,
         }))
       )
-      const items = await callExtractMenuBulk(supabaseUrl, accessToken ?? '', filePayloads)
+      const items = await callExtractMenuBulk(supabaseUrl, accessToken ?? null, filePayloads)
       const draftRows: DraftRow[] = items.map((item, i) => ({
         ...item,
         rowId: `row-${i}-${Date.now()}`,
@@ -190,7 +190,7 @@ export default function ImportMenuClient(): JSX.Element {
 
         await callCreateMenuItem(
           supabaseUrl,
-          accessToken ?? '',
+          accessToken ?? null,
           menuId,
           item.name,
           priceCents,

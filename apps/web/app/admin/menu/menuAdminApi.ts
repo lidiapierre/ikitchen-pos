@@ -74,7 +74,7 @@ export async function callDeleteMenu(
 
 export async function callCreateMenuItem(
   supabaseUrl: string,
-  accessToken: string,
+  accessToken: string | null,
   menuId: string,
   name: string,
   priceCents: number,
@@ -83,6 +83,7 @@ export async function callCreateMenuItem(
   imageUrl?: string,
   available = true,
 ): Promise<string> {
+  if (!accessToken) throw new Error('Not authenticated')
   const apiKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ''
   const res = await fetch(`${supabaseUrl}/functions/v1/create_menu_item`, {
     method: 'POST',

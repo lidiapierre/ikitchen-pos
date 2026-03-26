@@ -12,6 +12,7 @@ import { callVoidItem } from './voidItemApi'
 import { callCancelOrder } from './cancelOrderApi'
 import { callApplyDiscount } from './applyDiscountApi'
 import { callCompItem } from './compApi'
+import { callTransferOrder } from './transferOrderApi'
 import { markItemsSentToKitchen } from './kotApi'
 import { formatPrice, DEFAULT_CURRENCY_SYMBOL } from '@/lib/formatPrice'
 import { calcVat } from '@/lib/vatCalc'
@@ -65,6 +66,16 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
   const [cancelReason, setCancelReason] = useState('')
   const [cancelling, setCancelling] = useState(false)
   const [cancelError, setCancelError] = useState<string | null>(null)
+
+  // Transfer table state
+  interface AvailableTable { id: string; label: string }
+  const [showTransferModal, setShowTransferModal] = useState(false)
+  const [availableTables, setAvailableTables] = useState<AvailableTable[]>([])
+  const [transferTablesLoading, setTransferTablesLoading] = useState(false)
+  const [transferTablesError, setTransferTablesError] = useState<string | null>(null)
+  const [transferTarget, setTransferTarget] = useState<AvailableTable | null>(null)
+  const [transferring, setTransferring] = useState(false)
+  const [transferError, setTransferError] = useState<string | null>(null)
 
   // Printer config state
   const [printerConfig, setPrinterConfig] = useState<PrinterConfig | null>(null)
@@ -528,6 +539,68 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
     }
   }
 
+  async function openTransferModal(): Promise<void> {
+    setTransferTarget(null)
+    setTransferError(null)
+    setTransferTablesError(null)
+    setShowTransferModal(true)
+    setTransferTablesLoading(true)
+
+    try {
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+      if (!supabaseUrl || !supabaseKey) throw new Error('API not configured')
+
+      // Fetch all tables
+      const tablesUrl = new URL(`${supabaseUrl}/rest/v1/tables`)
+      tablesUrl.searchParams.set('select', 'id,label')
+      tablesUrl.searchParams.set('order', 'label')
+      const tablesRes = await fetch(tablesUrl.toString(), {
+        headers: { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` },
+      })
+      if (!tablesRes.ok) throw new Error('Failed to fetch tables')
+      const allTables = (await tablesRes.json()) as AvailableTable[]
+
+      // Fetch open orders to determine occupied tables
+      const ordersUrl = new URL(`${supabaseUrl}/rest/v1/orders`)
+      ordersUrl.searchParams.set('select', 'table_id')
+      ordersUrl.searchParams.set('status', 'eq.open')
+      const ordersRes = await fetch(ordersUrl.toString(), {
+        headers: { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` },
+      })
+      if (!ordersRes.ok) throw new Error('Failed to fetch orders')
+      const openOrders = (await ordersRes.json()) as Array<{ table_id: string | null }>
+      const occupiedTableIds = new Set(openOrders.map((o) => o.table_id).filter(Boolean))
+
+      // Filter: exclude current table and occupied tables
+      const available = allTables.filter(
+        (t) => t.id !== tableId && !occupiedTableIds.has(t.id),
+      )
+      setAvailableTables(available)
+    } catch (err) {
+      setTransferTablesError(err instanceof Error ? err.message : 'Failed to load tables')
+    } finally {
+      setTransferTablesLoading(false)
+    }
+  }
+
+  async function handleTransfer(): Promise<void> {
+    if (!transferTarget) return
+    setTransferError(null)
+    setTransferring(true)
+    try {
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+      if (!supabaseUrl || !accessToken) throw new Error('Not authenticated')
+      await callTransferOrder(supabaseUrl, accessToken, orderId, transferTarget.id)
+      setShowTransferModal(false)
+      router.push(`/tables/${transferTarget.id}/order/${orderId}`)
+    } catch (err) {
+      setTransferError(err instanceof Error ? err.message : 'Failed to transfer order')
+    } finally {
+      setTransferring(false)
+    }
+  }
+
   function renderItems(): JSX.Element {
     if (loading) {
       return <p className="text-zinc-400 text-base">Loading items…</p>
@@ -791,6 +864,87 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
                 {voidingInProgress ? 'Voiding…' : 'Confirm Void'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Transfer table modal */}
+      {showTransferModal && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70">
+          <div className="w-full max-w-lg bg-zinc-800 rounded-t-2xl p-6 space-y-4 max-h-[80vh] overflow-y-auto">
+            {transferTarget === null ? (
+              <>
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xl font-semibold text-white">Move Table</h2>
+                  <button
+                    type="button"
+                    onClick={() => { setShowTransferModal(false) }}
+                    className="text-zinc-400 hover:text-white text-base px-3 py-2 min-h-[48px] min-w-[48px]"
+                  >
+                    ✕
+                  </button>
+                </div>
+                <p className="text-zinc-400 text-base">Select a table to move this order to:</p>
+                {transferTablesLoading && (
+                  <p className="text-zinc-400 text-base">Loading tables…</p>
+                )}
+                {transferTablesError !== null && (
+                  <p className="text-red-400 text-base">{transferTablesError}</p>
+                )}
+                {!transferTablesLoading && transferTablesError === null && availableTables.length === 0 && (
+                  <p className="text-zinc-500 text-base">No available tables to move to.</p>
+                )}
+                {!transferTablesLoading && availableTables.length > 0 && (
+                  <div className="grid grid-cols-2 gap-3">
+                    {availableTables.map((t) => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => { setTransferTarget(t); setTransferError(null) }}
+                        className="min-h-[80px] rounded-xl bg-zinc-700 hover:bg-zinc-600 border-2 border-zinc-600 hover:border-amber-400 flex flex-col items-center justify-center gap-1 transition-colors"
+                      >
+                        <span className="text-white font-bold text-lg">{t.label}</span>
+                        <span className="text-xs font-semibold text-green-400 bg-green-900/40 px-2 py-0.5 rounded-full">Empty</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                <h2 className="text-xl font-semibold text-white">Confirm Move</h2>
+                <p className="text-zinc-300 text-base">
+                  Move order to{' '}
+                  <span className="font-semibold text-white">{transferTarget.label}</span>?
+                </p>
+                {transferError !== null && (
+                  <p className="text-red-400 text-base">{transferError}</p>
+                )}
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => { setTransferTarget(null); setTransferError(null) }}
+                    disabled={transferring}
+                    className="flex-1 min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold border-2 border-zinc-600 text-zinc-300 hover:border-zinc-400 transition-colors disabled:opacity-50"
+                  >
+                    Back
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { void handleTransfer() }}
+                    disabled={transferring}
+                    className={[
+                      'flex-1 min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold transition-colors',
+                      transferring
+                        ? 'bg-zinc-700 text-zinc-400 cursor-wait'
+                        : 'bg-amber-500 hover:bg-amber-400 text-zinc-900',
+                    ].join(' ')}
+                  >
+                    {transferring ? 'Moving…' : 'Confirm'}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
@@ -1079,6 +1233,14 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
                 {reprintingKot ? 'Reprinting…' : '🖨 Reprint KOT'}
               </button>
             )}
+
+            <button
+              type="button"
+              onClick={() => { void openTransferModal() }}
+              className="w-full min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold text-zinc-400 hover:text-amber-400 border-2 border-zinc-700 hover:border-amber-600 transition-colors mb-3"
+            >
+              ↔ Move Table
+            </button>
 
             <button
               type="button"

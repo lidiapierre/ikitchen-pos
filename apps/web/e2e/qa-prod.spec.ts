@@ -29,8 +29,10 @@ async function loginAs(page: Page, email: string, password: string) {
     // might already be logged in or on login page
   }
   const emailInput = page.locator('input[type="email"], input[name="email"]').first();
-  const passInput = page.locator('input[type="password"]').first();
+  await emailInput.waitFor({ state: 'visible', timeout: 30000 });
   await emailInput.fill(email);
+  const passInput = page.locator('input[type="password"]').first();
+  await passInput.waitFor({ state: 'visible', timeout: 30000 });
   await passInput.fill(password);
   await page.locator('button[type="submit"]').click();
   await page.waitForTimeout(3000);
@@ -76,9 +78,13 @@ test('Flow 1: Login - redirect to /login and land on tables', async ({ page }) =
   await expect(page).toHaveURL(/\/login/, { timeout: 10000 });
   await ss(page, '01a-login-page');
 
-  // Fill credentials
-  await page.locator('input[type="email"], input[name="email"]').first().fill(ADMIN.email);
-  await page.locator('input[type="password"]').first().fill(ADMIN.password);
+  // Fill credentials — wait explicitly for each field before filling
+  const emailInput1 = page.locator('input[type="email"], input[name="email"]').first();
+  await emailInput1.waitFor({ state: 'visible', timeout: 30000 });
+  await emailInput1.fill(ADMIN.email);
+  const passInput1 = page.locator('input[type="password"]').first();
+  await passInput1.waitFor({ state: 'visible', timeout: 30000 });
+  await passInput1.fill(ADMIN.password);
   await ss(page, '01b-credentials-filled');
   await page.locator('button[type="submit"]').click();
 

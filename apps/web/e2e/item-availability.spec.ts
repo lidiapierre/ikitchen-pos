@@ -119,8 +119,9 @@ test.describe('item availability — order menu page', () => {
     // Unavailable item should show the badge
     await expect(page.getByText('Unavailable')).toBeVisible()
 
-    // Unavailable item's card should have opacity class
-    const unavailableCard = page.getByText('Lamb Chops').locator('..').locator('..')
+    // Unavailable item's card should have opacity class.
+    // DOM path: span("Lamb Chops") → div.flex.items-center (name row) → div.flex-col.gap-1 → card outer div
+    const unavailableCard = page.getByText('Lamb Chops').locator('..').locator('..').locator('..')
     await expect(unavailableCard).toHaveClass(/opacity-40/)
   })
 

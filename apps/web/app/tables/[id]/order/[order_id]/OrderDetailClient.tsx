@@ -327,13 +327,9 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
     const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
 
-    // Empty order — auto-cancel and go straight back, no KOT needed
-    if (items.length === 0 && supabaseUrl && accessToken) {
-      try {
-        await callCancelOrder(supabaseUrl, accessToken, orderId, 'Empty order — no items added')
-      } catch {
-        // Non-fatal: navigate anyway
-      }
+    // Empty order — just navigate back, keep the order open so the table stays occupied.
+    // (Auto-cancel only happens on explicit "Close Order" — see handleCloseOrder)
+    if (items.length === 0) {
       router.push('/tables')
       return
     }

@@ -124,6 +124,54 @@ async function globalSetup(_config: FullConfig): Promise<void> {
   await staffContext.close()
 
   await browser.close()
+
+  // Ensure a shift is open so E2E tests that create orders can proceed.
+  // The E2E tests hit the real Vercel deployment; without an open shift,
+  // clicking a table redirects to /shifts and all order-flow tests fail.
+  await ensureShiftOpen(supabaseUrl, anonKey, adminEmail, adminPassword)
+}
+
+async function ensureShiftOpen(
+  supabaseUrl: string,
+  anonKey: string,
+  adminEmail: string,
+  adminPassword: string,
+): Promise<void> {
+  // Get admin JWT
+  const authRes = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', apikey: anonKey },
+    body: JSON.stringify({ email: adminEmail, password: adminPassword }),
+  })
+  if (!authRes.ok) return
+  const session = (await authRes.json()) as { access_token: string }
+  const jwt = session.access_token
+
+  // Check if a shift is already open via REST
+  const shiftRes = await fetch(
+    `${supabaseUrl}/rest/v1/shifts?select=id,status&status=eq.open&limit=1`,
+    { headers: { apikey: anonKey, Authorization: `Bearer ${jwt}` } },
+  )
+  if (!shiftRes.ok) return
+  const openShifts = (await shiftRes.json()) as Array<{ id: string }>
+  if (openShifts.length > 0) return // shift already open
+
+  // Open a shift
+  const openRes = await fetch(`${supabaseUrl}/functions/v1/open_shift`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${jwt}`,
+      apikey: anonKey,
+    },
+    body: JSON.stringify({ opening_float: 0 }),
+  })
+  if (!openRes.ok) {
+    const t = await openRes.text()
+    console.warn('[global-setup] Could not open shift:', openRes.status, t)
+  } else {
+    console.log('[global-setup] Opened a shift for E2E tests')
+  }
 }
 
 export default globalSetup

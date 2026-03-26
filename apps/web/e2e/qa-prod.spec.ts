@@ -7,7 +7,7 @@ import { test, expect, Page } from '@playwright/test';
 import * as fs from 'fs';
 import * as path from 'path';
 
-const BASE_URL = 'https://ikitchen-pos-jsrbjkknw-lidiapierres-projects.vercel.app';
+const BASE_URL = process.env.QA_BASE_URL ?? 'https://ikitchen-pos-web.vercel.app';
 const ADMIN = { email: 'admin@lahore.ikitchen.com.bd', password: 'Admin@iKitchen2026' };
 const STAFF = { email: 'staff@lahore.ikitchen.com.bd', password: 'Staff@iKitchen2026' };
 const SS_DIR = '/tmp/qa-screenshots';

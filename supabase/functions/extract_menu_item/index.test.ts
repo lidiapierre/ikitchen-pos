@@ -2,69 +2,124 @@ import { describe, it, expect, vi } from 'vitest'
 import { handler } from './index'
 import type { HandlerEnv } from './index'
 
-const TEST_ENV: HandlerEnv = { anthropicApiKey: 'test-key' }
-const VALID_STAFF_ID = '00000000-0000-0000-0000-000000000001'
+const TEST_ENV: HandlerEnv = {
+  anthropicApiKey: 'test-key',
+  supabaseUrl: 'https://test.supabase.co',
+  serviceKey: 'test-service-key',
+}
 
-function makeRequest(body: unknown, method = 'POST', staffId?: string): Request {
+const OWNER_USER_ID = '11111111-1111-1111-1111-111111111111'
+
+/**
+ * Build a mock fetchFn that handles auth verification (Supabase) and Claude API calls.
+ * Matches on URL patterns: /auth/v1/user, /rest/v1/users, api.anthropic.com
+ */
+function makeAuthFetch(options: {
+  role?: string
+  authFail?: boolean
+  claudeResponse?: string | null
+  claudeStatus?: number
+} = {}): ReturnType<typeof vi.fn> {
+  const { role = 'owner', authFail = false, claudeResponse = null, claudeStatus = 200 } = options
+
+  return vi.fn().mockImplementation(async (url: string) => {
+    // JWT verification
+    if (url.includes('/auth/v1/user')) {
+      if (authFail) {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
+      }
+      return new Response(JSON.stringify({ id: OWNER_USER_ID }), { status: 200 })
+    }
+
+    // Role lookup
+    if (url.includes('/rest/v1/users') && url.includes('select=role')) {
+      return new Response(JSON.stringify([{ role }]), { status: 200 })
+    }
+
+    // Claude API
+    if (url.includes('api.anthropic.com')) {
+      if (claudeStatus !== 200) {
+        return new Response('error', { status: claudeStatus })
+      }
+      if (claudeResponse !== null) {
+        return new Response(
+          JSON.stringify({ content: [{ type: 'text', text: claudeResponse }] }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        )
+      }
+    }
+
+    return new Response('Not found', { status: 404 })
+  })
+}
+
+function makeRequest(body: unknown, method = 'POST', token?: string): Request {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-  if (staffId !== undefined) headers['x-demo-staff-id'] = staffId
+  if (token !== undefined) {
+    headers['Authorization'] = `Bearer ${token}`
+  }
   return new Request('https://example.com/extract_menu_item', {
     method,
     headers,
-    body: JSON.stringify(body),
+    body: method !== 'GET' && method !== 'HEAD' ? JSON.stringify(body) : undefined,
   })
 }
 
 function makeAuthRequest(body: unknown, method = 'POST'): Request {
-  return makeRequest(body, method, VALID_STAFF_ID)
+  return makeRequest(body, method, 'valid-token')
 }
 
-function mockClaudeSuccess(text: string): typeof fetch {
-  return vi.fn().mockResolvedValue(
-    new Response(
-      JSON.stringify({
-        content: [{ type: 'text', text }],
-      }),
-      { status: 200, headers: { 'Content-Type': 'application/json' } },
-    ),
-  )
+function mockClaudeSuccess(text: string): ReturnType<typeof vi.fn> {
+  return makeAuthFetch({ claudeResponse: text })
 }
 
 describe('extract_menu_item handler', () => {
   it('handles OPTIONS preflight', async () => {
     const req = new Request('https://example.com', { method: 'OPTIONS' })
-    const res = await handler(req, fetch, TEST_ENV)
+    const res = await handler(req, makeAuthFetch() as typeof fetch, TEST_ENV)
     expect(res.status).toBe(204)
   })
 
   it('returns 405 for non-POST methods', async () => {
     const req = new Request('https://example.com', { method: 'GET' })
-    const res = await handler(req, fetch, TEST_ENV)
+    const res = await handler(req, makeAuthFetch() as typeof fetch, TEST_ENV)
     expect(res.status).toBe(405)
     const json = await res.json()
     expect(json.success).toBe(false)
   })
 
-  it('returns 401 when x-demo-staff-id is missing', async () => {
-    const req = makeRequest({ file_data: 'aGVsbG8=', media_type: 'image/jpeg' })
-    const res = await handler(req, fetch, TEST_ENV)
-    expect(res.status).toBe(401)
-    const json = await res.json()
-    expect(json.success).toBe(false)
-    expect(json.error).toBe('Unauthorized')
-  })
+  describe('auth enforcement', () => {
+    it('returns 401 when Authorization header is missing', async () => {
+      const req = makeRequest({ file_data: 'aGVsbG8=', media_type: 'image/jpeg' })
+      const res = await handler(req, makeAuthFetch() as typeof fetch, TEST_ENV)
+      expect(res.status).toBe(401)
+      const json = await res.json()
+      expect(json.success).toBe(false)
+      expect(json.error).toBe('Unauthorized')
+    })
 
-  it('returns 401 when x-demo-staff-id is not a valid UUID', async () => {
-    const req = makeRequest({ file_data: 'aGVsbG8=', media_type: 'image/jpeg' }, 'POST', 'not-a-uuid')
-    const res = await handler(req, fetch, TEST_ENV)
-    expect(res.status).toBe(401)
-    const json = await res.json()
-    expect(json.success).toBe(false)
+    it('returns 401 when JWT is rejected by Supabase', async () => {
+      const req = makeRequest({ file_data: 'aGVsbG8=', media_type: 'image/jpeg' }, 'POST', 'bad-token')
+      const res = await handler(req, makeAuthFetch({ authFail: true }) as typeof fetch, TEST_ENV)
+      expect(res.status).toBe(401)
+      const json = await res.json()
+      expect(json.success).toBe(false)
+      expect(json.error).toBe('Unauthorized')
+    })
+
+    it('returns 403 when caller role is too low (server role not allowed)', async () => {
+      const req = makeAuthRequest({ file_data: 'aGVsbG8=', media_type: 'image/jpeg' })
+      const res = await handler(req, makeAuthFetch({ role: 'server' }) as typeof fetch, TEST_ENV)
+      expect(res.status).toBe(403)
+      const json = await res.json()
+      expect(json.success).toBe(false)
+      expect(json.error).toBe('Forbidden')
+    })
   })
 
   it('returns 400 when file_data is missing', async () => {
     const req = makeAuthRequest({ media_type: 'image/jpeg' })
-    const res = await handler(req, fetch, TEST_ENV)
+    const res = await handler(req, makeAuthFetch() as typeof fetch, TEST_ENV)
     expect(res.status).toBe(400)
     const json = await res.json()
     expect(json.success).toBe(false)
@@ -73,7 +128,7 @@ describe('extract_menu_item handler', () => {
 
   it('returns 400 when media_type is missing', async () => {
     const req = makeAuthRequest({ file_data: 'base64data' })
-    const res = await handler(req, fetch, TEST_ENV)
+    const res = await handler(req, makeAuthFetch() as typeof fetch, TEST_ENV)
     expect(res.status).toBe(400)
     const json = await res.json()
     expect(json.success).toBe(false)
@@ -82,7 +137,7 @@ describe('extract_menu_item handler', () => {
 
   it('returns 400 for unsupported media type', async () => {
     const req = makeAuthRequest({ file_data: 'base64data', media_type: 'text/plain' })
-    const res = await handler(req, fetch, TEST_ENV)
+    const res = await handler(req, makeAuthFetch() as typeof fetch, TEST_ENV)
     expect(res.status).toBe(400)
     const json = await res.json()
     expect(json.success).toBe(false)
@@ -90,7 +145,7 @@ describe('extract_menu_item handler', () => {
 
   it('returns 500 when env is null', async () => {
     const req = makeAuthRequest({ file_data: 'base64data', media_type: 'image/jpeg' })
-    const res = await handler(req, fetch, null)
+    const res = await handler(req, makeAuthFetch() as typeof fetch, null)
     expect(res.status).toBe(500)
     const json = await res.json()
     expect(json.success).toBe(false)
@@ -147,7 +202,7 @@ describe('extract_menu_item handler', () => {
   })
 
   it('returns 502 when Claude API returns non-OK status', async () => {
-    const mockFetch = vi.fn().mockResolvedValue(new Response('error', { status: 500 }))
+    const mockFetch = makeAuthFetch({ claudeStatus: 500 })
     const req = makeAuthRequest({ file_data: 'aGVsbG8=', media_type: 'image/jpeg' })
     const res = await handler(req, mockFetch as typeof fetch, TEST_ENV)
     expect(res.status).toBe(502)

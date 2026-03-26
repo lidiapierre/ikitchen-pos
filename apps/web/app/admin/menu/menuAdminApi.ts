@@ -74,7 +74,7 @@ export async function callDeleteMenu(
 
 export async function callCreateMenuItem(
   supabaseUrl: string,
-  apiKey: string,
+  accessToken: string,
   menuId: string,
   name: string,
   priceCents: number,
@@ -83,13 +83,13 @@ export async function callCreateMenuItem(
   imageUrl?: string,
   available = true,
 ): Promise<string> {
+  const apiKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ''
   const res = await fetch(`${supabaseUrl}/functions/v1/create_menu_item`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
       apikey: apiKey,
-      Authorization: `Bearer ${apiKey}`,
-      'x-demo-staff-id': '00000000-0000-0000-0000-000000000001',
     },
     body: JSON.stringify({
       menu_id: menuId,
@@ -109,7 +109,7 @@ export async function callCreateMenuItem(
 
 export async function callUpdateMenuItem(
   supabaseUrl: string,
-  apiKey: string,
+  accessToken: string,
   menuItemId: string,
   name: string,
   priceCents: number,
@@ -118,13 +118,13 @@ export async function callUpdateMenuItem(
   imageUrl?: string,
   available = true,
 ): Promise<void> {
+  const apiKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ''
   const res = await fetch(`${supabaseUrl}/functions/v1/update_menu_item`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
       apikey: apiKey,
-      Authorization: `Bearer ${apiKey}`,
-      'x-demo-staff-id': '00000000-0000-0000-0000-000000000001',
     },
     body: JSON.stringify({
       menu_item_id: menuItemId,
@@ -142,16 +142,16 @@ export async function callUpdateMenuItem(
 
 export async function callDeleteMenuItem(
   supabaseUrl: string,
-  apiKey: string,
+  accessToken: string,
   menuItemId: string,
 ): Promise<void> {
+  const apiKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ''
   const res = await fetch(`${supabaseUrl}/functions/v1/delete_menu_item`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
       apikey: apiKey,
-      Authorization: `Bearer ${apiKey}`,
-      'x-demo-staff-id': '00000000-0000-0000-0000-000000000001',
     },
     body: JSON.stringify({ menu_item_id: menuItemId }),
   })

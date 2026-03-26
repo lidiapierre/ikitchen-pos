@@ -12,6 +12,7 @@ import {
   callDeleteMenuItem,
 } from './menuAdminApi'
 import { formatPrice, DEFAULT_CURRENCY_SYMBOL } from '@/lib/formatPrice'
+import { useUser } from '@/lib/user-context'
 
 type FeedbackType = 'success' | 'error'
 
@@ -28,6 +29,7 @@ export function generateId(): string {
 
 
 export default function MenuManager(): JSX.Element {
+  const { accessToken } = useUser()
   const [menus, setMenus] = useState<AdminMenu[]>([])
   const [restaurantId, setRestaurantId] = useState<string>('')
   const [loading, setLoading] = useState(true)
@@ -92,7 +94,7 @@ export default function MenuManager(): JSX.Element {
     const itemName = menus.flatMap((m) => m.items).find((i) => i.id === deletingItemId)?.name
     setSubmitting(true)
     try {
-      await callDeleteMenuItem(config.url, config.key, deletingItemId)
+      await callDeleteMenuItem(config.url, accessToken ?? '', deletingItemId)
       setMenus((prev) =>
         prev.map((menu) => ({
           ...menu,
@@ -234,6 +236,12 @@ export default function MenuManager(): JSX.Element {
           >
             + Add Category
           </button>
+          <Link
+            href="/admin/menu/import"
+            className="min-h-[48px] px-5 py-2 rounded-xl text-base font-medium bg-amber-600 text-white hover:bg-amber-500 transition-colors flex items-center"
+          >
+            ↑ Import Menu
+          </Link>
           <Link
             href="/admin/menu/new"
             className="min-h-[48px] px-5 py-2 rounded-xl text-base font-medium bg-indigo-600 text-white hover:bg-indigo-500 transition-colors flex items-center"

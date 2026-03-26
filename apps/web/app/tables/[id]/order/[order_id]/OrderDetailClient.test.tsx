@@ -49,9 +49,9 @@ vi.mock('@/lib/fetchVatConfig', () => ({
 }))
 
 const mockItems = [
-  { id: '1', name: 'Bruschetta', quantity: 2, price_cents: 850, modifier_ids: [], modifier_names: [], sent_to_kitchen: false },
-  { id: '2', name: 'Grilled Salmon', quantity: 1, price_cents: 1850, modifier_ids: [], modifier_names: [], sent_to_kitchen: false },
-  { id: '3', name: 'House Wine', quantity: 2, price_cents: 950, modifier_ids: [], modifier_names: [], sent_to_kitchen: false },
+  { id: '1', name: 'Bruschetta', quantity: 2, price_cents: 850, modifier_ids: [], modifier_names: [], sent_to_kitchen: false, comp: false, comp_reason: null },
+  { id: '2', name: 'Grilled Salmon', quantity: 1, price_cents: 1850, modifier_ids: [], modifier_names: [], sent_to_kitchen: false, comp: false, comp_reason: null },
+  { id: '3', name: 'House Wine', quantity: 2, price_cents: 950, modifier_ids: [], modifier_names: [], sent_to_kitchen: false, comp: false, comp_reason: null },
 ]
 
 describe('OrderDetailClient', () => {
@@ -862,6 +862,8 @@ describe('OrderDetailClient', () => {
           modifier_ids: ['mod-001', 'mod-002'],
           modifier_names: ['Extra cheese', 'No onions'],
           sent_to_kitchen: false,
+          comp: false,
+          comp_reason: null,
         },
       ])
 
@@ -897,6 +899,8 @@ describe('OrderDetailClient', () => {
           modifier_ids: ['mod-001'],
           modifier_names: ['Extra cheese'],
           sent_to_kitchen: false,
+          comp: false,
+          comp_reason: null,
         },
       ])
 

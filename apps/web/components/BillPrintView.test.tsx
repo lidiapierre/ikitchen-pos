@@ -11,7 +11,7 @@ const mockItems: OrderItem[] = [
     price_cents: 1500,
     modifier_ids: [],
     modifier_names: [],
-    sent_to_kitchen: true,
+    sent_to_kitchen: true, comp: false, comp_reason: null,
   },
   {
     id: '2',
@@ -20,7 +20,7 @@ const mockItems: OrderItem[] = [
     price_cents: 200,
     modifier_ids: [],
     modifier_names: [],
-    sent_to_kitchen: true,
+    sent_to_kitchen: true, comp: false, comp_reason: null,
   },
 ]
 

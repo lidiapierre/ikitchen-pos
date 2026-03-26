@@ -451,15 +451,20 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
       return
     }
 
+    // Fully comped order (total = ৳0) — skip payment recording, go straight to success
+    if (billTotalCents === 0) {
+      setConfirmedPaymentMethod(paymentMethod)
+      setStep('success')
+      return
+    }
+
     setPaying(true)
     try {
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
       if (!supabaseUrl || !accessToken) {
         throw new Error('Not authenticated')
       }
-      // Pass the effective total (after discount/comp) as the final amount
-      const effectiveAmount = orderIsComp ? 0 : amountCentsToTender
-      const result = await callRecordPayment(supabaseUrl, accessToken, orderId, effectiveAmount, paymentMethod, billTotalCents)
+      const result = await callRecordPayment(supabaseUrl, accessToken, orderId, amountCentsToTender, paymentMethod, billTotalCents)
       setConfirmedPaymentMethod(paymentMethod)
       if (paymentMethod === 'cash') {
         setChangeDueCents(result.change_due)
@@ -629,7 +634,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
       if (!supabaseUrl || !accessToken) throw new Error('Not authenticated')
       await callTransferOrder(supabaseUrl, accessToken, orderId, transferTarget.id)
       setShowTransferModal(false)
-      router.push(`/tables/${transferTarget.id}/order/${orderId}`)
+      router.push('/tables')
     } catch (err) {
       setTransferError(err instanceof Error ? err.message : 'Failed to transfer order')
     } finally {

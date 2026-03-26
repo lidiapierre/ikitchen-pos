@@ -42,8 +42,8 @@ export async function handler(
     )
   }
 
-  // Verify JWT and check minimum role
-  const caller = await verifyAndGetCaller(req, env.supabaseUrl, env.serviceKey, 'server', fetchFn)
+  // Only owners can apply discounts
+  const caller = await verifyAndGetCaller(req, env.supabaseUrl, env.serviceKey, 'owner', fetchFn)
   if ('error' in caller) {
     return new Response(
       JSON.stringify({ success: false, error: caller.error }),
@@ -69,9 +69,22 @@ export async function handler(
   }
 
   const payload = body as Record<string, unknown>
+
   if (typeof payload['order_id'] !== 'string' || payload['order_id'] === '') {
     return new Response(
       JSON.stringify({ success: false, error: 'order_id is required' }),
+      { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    )
+  }
+  if (payload['discount_type'] !== 'percent' && payload['discount_type'] !== 'flat') {
+    return new Response(
+      JSON.stringify({ success: false, error: 'discount_type must be percent or flat' }),
+      { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    )
+  }
+  if (typeof payload['discount_value'] !== 'number' || payload['discount_value'] < 0) {
+    return new Response(
+      JSON.stringify({ success: false, error: 'discount_value must be a non-negative number' }),
       { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
     )
   }
@@ -80,6 +93,16 @@ export async function handler(
   if (!isValidUuid(orderId)) {
     return new Response(
       JSON.stringify({ success: false, error: 'order_id must be a valid UUID' }),
+      { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    )
+  }
+
+  const discountType = payload['discount_type'] as 'percent' | 'flat'
+  const discountValue = payload['discount_value'] as number
+
+  if (discountType === 'percent' && discountValue > 100) {
+    return new Response(
+      JSON.stringify({ success: false, error: 'percent discount_value must be between 0 and 100' }),
       { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
     )
   }
@@ -93,9 +116,9 @@ export async function handler(
   }
 
   try {
-    // 1. Fetch the order to verify it exists and is open
+    // 1. Fetch order and its items to compute subtotal
     const orderRes = await fetchFn(
-      `${supabaseUrl}/rest/v1/orders?select=id,restaurant_id,status&id=eq.${orderId}`,
+      `${supabaseUrl}/rest/v1/orders?select=id,status&id=eq.${orderId}`,
       { headers: dbHeaders },
     )
     if (!orderRes.ok) {
@@ -104,22 +127,15 @@ export async function handler(
         { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
       )
     }
-    const orders = (await orderRes.json()) as Array<{ id: string; restaurant_id: string; status: string }>
+    const orders = (await orderRes.json()) as Array<{ id: string; status: string }>
     if (orders.length === 0) {
       return new Response(
         JSON.stringify({ success: false, error: 'Order not found' }),
         { status: 404, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
       )
     }
-    if (orders[0].status !== 'open') {
-      return new Response(
-        JSON.stringify({ success: false, error: 'Order is not open' }),
-        { status: 409, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
-      )
-    }
-    const restaurantId = orders[0].restaurant_id
 
-    // 2. Calculate final total from non-voided order items
+    // 2. Get non-voided, non-comp items to compute subtotal
     const itemsRes = await fetchFn(
       `${supabaseUrl}/rest/v1/order_items?select=unit_price_cents,quantity&order_id=eq.${orderId}&voided=eq.false&comp=eq.false`,
       { headers: { ...dbHeaders, Prefer: 'count=none' } },
@@ -131,49 +147,39 @@ export async function handler(
       )
     }
     const items = (await itemsRes.json()) as Array<{ unit_price_cents: number; quantity: number }>
-    const finalTotal = items.reduce((sum, item) => sum + item.unit_price_cents * item.quantity, 0)
+    const subtotalCents = items.reduce((sum, item) => sum + item.unit_price_cents * item.quantity, 0)
 
-    // 3. Update order status to pending_payment and persist final_total_cents
+    // 3. Compute discount amount
+    let discountAmountCents: number
+    if (discountType === 'flat') {
+      discountAmountCents = Math.min(Math.round(discountValue * 100), subtotalCents)
+    } else {
+      discountAmountCents = Math.round(subtotalCents * discountValue / 100)
+    }
+
+    // 4. Update order with discount info
     const updateRes = await fetchFn(
       `${supabaseUrl}/rest/v1/orders?id=eq.${orderId}`,
       {
         method: 'PATCH',
         headers: { ...dbHeaders, Prefer: 'return=minimal' },
-        body: JSON.stringify({ status: 'pending_payment', final_total_cents: finalTotal }),
+        body: JSON.stringify({
+          discount_type: discountType,
+          discount_value: discountValue,
+          discount_amount_cents: discountAmountCents,
+          discount_applied_by: caller.actorId,
+        }),
       },
     )
     if (!updateRes.ok) {
       return new Response(
-        JSON.stringify({ success: false, error: 'Failed to close order' }),
-        { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
-      )
-    }
-
-    // 4. Emit audit log entry — actor_id comes from verified JWT
-    const auditRes = await fetchFn(
-      `${supabaseUrl}/rest/v1/audit_log`,
-      {
-        method: 'POST',
-        headers: { ...dbHeaders, Prefer: 'return=minimal' },
-        body: JSON.stringify({
-          restaurant_id: restaurantId,
-          user_id: caller.actorId,
-          action: 'close_order',
-          entity_type: 'orders',
-          entity_id: orderId,
-          payload: { final_total_cents: finalTotal },
-        }),
-      },
-    )
-    if (!auditRes.ok) {
-      return new Response(
-        JSON.stringify({ success: false, error: 'Failed to write audit log' }),
+        JSON.stringify({ success: false, error: 'Failed to apply discount' }),
         { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
       )
     }
 
     return new Response(
-      JSON.stringify({ success: true, data: { final_total_cents: finalTotal } }),
+      JSON.stringify({ success: true, data: { discount_amount_cents: discountAmountCents } }),
       { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
     )
   } catch {

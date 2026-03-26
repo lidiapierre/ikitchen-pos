@@ -10,6 +10,8 @@ import { callCloseOrder } from './closeOrderApi'
 import { callRecordPayment } from './recordPaymentApi'
 import { callVoidItem } from './voidItemApi'
 import { callCancelOrder } from './cancelOrderApi'
+import { callApplyDiscount } from './applyDiscountApi'
+import { callCompItem } from './compApi'
 import { markItemsSentToKitchen } from './kotApi'
 import { formatPrice, DEFAULT_CURRENCY_SYMBOL } from '@/lib/formatPrice'
 import { calcVat } from '@/lib/vatCalc'
@@ -23,6 +25,8 @@ import { useUser } from '@/lib/user-context'
 import { callSetCovers, callSetItemSeat } from './splitBillApi'
 import SplitBillPrintView from '@/components/SplitBillPrintView'
 
+const COMP_REASONS = ['VIP', 'Complaint resolution', 'Staff meal', 'Event', 'Other'] as const
+
 interface OrderDetailClientProps {
   tableId: string
   orderId: string
@@ -31,7 +35,7 @@ interface OrderDetailClientProps {
 
 export default function OrderDetailClient({ tableId, orderId, currencySymbol = DEFAULT_CURRENCY_SYMBOL }: OrderDetailClientProps): JSX.Element {
   const router = useRouter()
-  const { accessToken } = useUser()
+  const { accessToken, isAdmin } = useUser()
   const [closing, setClosing] = useState(false)
   const [closeError, setCloseError] = useState<string | null>(null)
   const [items, setItems] = useState<OrderItem[]>([])
@@ -89,6 +93,22 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
   const [vatPercent, setVatPercent] = useState(0)
   const [taxInclusive, setTaxInclusive] = useState(false)
   const [vatConfigLoading, setVatConfigLoading] = useState(true)
+
+  // Discount state
+  const [discountType, setDiscountType] = useState<'percent' | 'flat'>('percent')
+  const [discountValueStr, setDiscountValueStr] = useState<string>('')
+  const [applyingDiscount, setApplyingDiscount] = useState(false)
+  const [discountError, setDiscountError] = useState<string | null>(null)
+  const [appliedDiscountCents, setAppliedDiscountCents] = useState(0)
+  const [appliedDiscountLabel, setAppliedDiscountLabel] = useState<string | undefined>(undefined)
+
+  // Comp state
+  const [compingItem, setCompingItem] = useState<OrderItem | null>(null)
+  const [showOrderCompDialog, setShowOrderCompDialog] = useState(false)
+  const [compReason, setCompReason] = useState<string>(COMP_REASONS[0])
+  const [compingInProgress, setCompingInProgress] = useState(false)
+  const [compError, setCompError] = useState<string | null>(null)
+  const [orderIsComp, setOrderIsComp] = useState(false)
 
   function loadItems(): void {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -220,11 +240,21 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
     return () => { clearTimeout(timer) }
   }, [step, router, printingBill])
 
-  const rawItemsTotalCents = items.reduce((sum, item) => sum + item.quantity * item.price_cents, 0)
+  // Exclude comp'd items from the subtotal
+  const rawItemsTotalCents = items
+    .filter((item) => !item.comp && !orderIsComp)
+    .reduce((sum, item) => sum + item.quantity * item.price_cents, 0)
 
   // VAT breakdown (uses fetched config; calcVat is a pure function)
   const vatBreakdown = calcVat(rawItemsTotalCents, vatPercent, taxInclusive)
-  const { subtotalCents: billSubtotalCents, vatCents: billVatCents, totalCents: billTotalCents } = vatBreakdown
+  const { subtotalCents: billSubtotalCents, vatCents: billVatCents, totalCents: billTotalCentsBeforeDiscount } = vatBreakdown
+
+  // Apply discount and order comp
+  const effectiveBillTotalCents = orderIsComp
+    ? 0
+    : Math.max(0, billTotalCentsBeforeDiscount - appliedDiscountCents)
+
+  const billTotalCents = effectiveBillTotalCents
 
   // Displayed "total" in the order footer is the VAT-inclusive grand total
   const totalCents = billTotalCents
@@ -363,11 +393,13 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
   async function handleRecordPayment(): Promise<void> {
     setPaymentError(null)
 
-    // For cash: amount tendered must cover the VAT-inclusive total
+    // For cash: amount tendered must cover the effective total (after discount/comp)
     const amountCentsToTender = paymentMethod === 'cash'
       ? Math.round(parseFloat(amountTenderedDollars || '0') * 100)
       : billTotalCents
-    if (paymentMethod === 'cash' && amountCentsToTender < billTotalCents) {
+
+    // If order is comp'd, allow 0 payment
+    if (!orderIsComp && paymentMethod === 'cash' && amountCentsToTender < billTotalCents) {
       setPaymentError('Amount tendered must be at least the order total')
       return
     }
@@ -378,8 +410,9 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
       if (!supabaseUrl || !accessToken) {
         throw new Error('Not authenticated')
       }
-      // Pass the VAT-inclusive total as the final amount to record_payment
-      const result = await callRecordPayment(supabaseUrl, accessToken, orderId, amountCentsToTender, paymentMethod, billTotalCents)
+      // Pass the effective total (after discount/comp) as the final amount
+      const effectiveAmount = orderIsComp ? 0 : amountCentsToTender
+      const result = await callRecordPayment(supabaseUrl, accessToken, orderId, effectiveAmount, paymentMethod, billTotalCents)
       setConfirmedPaymentMethod(paymentMethod)
       if (paymentMethod === 'cash') {
         setChangeDueCents(result.change_due)
@@ -431,6 +464,70 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
     }
   }
 
+  async function handleApplyDiscount(): Promise<void> {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    if (!supabaseUrl || !accessToken) {
+      setDiscountError('Not authenticated')
+      return
+    }
+    const val = parseFloat(discountValueStr)
+    if (isNaN(val) || val <= 0) {
+      setDiscountError('Please enter a valid discount value')
+      return
+    }
+    setDiscountError(null)
+    setApplyingDiscount(true)
+    try {
+      const result = await callApplyDiscount(supabaseUrl, accessToken, orderId, discountType, val)
+      setAppliedDiscountCents(result.discount_amount_cents)
+      const label = discountType === 'percent' ? `${val}%` : `flat ৳${val.toFixed(2)}`
+      setAppliedDiscountLabel(label)
+    } catch (err) {
+      setDiscountError(err instanceof Error ? err.message : 'Failed to apply discount')
+    } finally {
+      setApplyingDiscount(false)
+    }
+  }
+
+  async function handleCompItem(): Promise<void> {
+    if (!compingItem) return
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    if (!supabaseUrl || !accessToken) {
+      setCompError('Not authenticated')
+      return
+    }
+    setCompError(null)
+    setCompingInProgress(true)
+    try {
+      await callCompItem(supabaseUrl, accessToken, { orderItemId: compingItem.id, reason: compReason })
+      setCompingItem(null)
+      loadItems()
+    } catch (err) {
+      setCompError(err instanceof Error ? err.message : 'Failed to comp item')
+    } finally {
+      setCompingInProgress(false)
+    }
+  }
+
+  async function handleCompOrder(): Promise<void> {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    if (!supabaseUrl || !accessToken) {
+      setCompError('Not authenticated')
+      return
+    }
+    setCompError(null)
+    setCompingInProgress(true)
+    try {
+      await callCompItem(supabaseUrl, accessToken, { orderId, reason: compReason })
+      setOrderIsComp(true)
+      setShowOrderCompDialog(false)
+    } catch (err) {
+      setCompError(err instanceof Error ? err.message : 'Failed to comp order')
+    } finally {
+      setCompingInProgress(false)
+    }
+  }
+
   function renderItems(): JSX.Element {
     if (loading) {
       return <p className="text-zinc-400 text-base">Loading items…</p>
@@ -444,29 +541,61 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
     return (
       <ul className="space-y-2 mb-6">
         {items.map((item) => {
+          const isComp = item.comp || orderIsComp
           const lineTotalCents = item.quantity * item.price_cents
           return (
             <li
               key={item.id}
-              className="bg-zinc-800 rounded-xl px-4 py-3 text-base"
+              className={[
+                'bg-zinc-800 rounded-xl px-4 py-3 text-base',
+                isComp ? 'opacity-70' : '',
+              ].join(' ')}
             >
               <div className="flex items-center justify-between gap-4">
-                <span className="font-semibold text-white flex-1">{item.name}</span>
+                <span className={['font-semibold text-white flex-1', isComp ? 'line-through' : ''].join(' ')}>
+                  {item.name}
+                  {isComp && (
+                    <span className="ml-2 text-xs font-bold text-emerald-400 no-underline not-italic" style={{ textDecoration: 'none' }}>
+                      COMP
+                    </span>
+                  )}
+                </span>
                 <span className="text-zinc-400">×{item.quantity}</span>
-                <span className="text-zinc-400">{formatPrice(item.price_cents, currencySymbol)} each</span>
-                <span className="font-bold text-amber-400">{formatPrice(lineTotalCents, currencySymbol)}</span>
+                {isComp ? (
+                  <span className="text-emerald-400 text-sm italic">Complimentary</span>
+                ) : (
+                  <>
+                    <span className="text-zinc-400">{formatPrice(item.price_cents, currencySymbol)} each</span>
+                    <span className="font-bold text-amber-400">{formatPrice(lineTotalCents, currencySymbol)}</span>
+                  </>
+                )}
                 {step === 'order' && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setVoidingItem(item)
-                      setVoidReason('')
-                      setVoidError(null)
-                    }}
-                    className="min-h-[48px] min-w-[48px] px-3 rounded-lg text-sm font-semibold text-red-400 hover:text-white hover:bg-red-700 transition-colors"
-                  >
-                    Void
-                  </button>
+                  <div className="flex gap-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setVoidingItem(item)
+                        setVoidReason('')
+                        setVoidError(null)
+                      }}
+                      className="min-h-[48px] min-w-[48px] px-3 rounded-lg text-sm font-semibold text-red-400 hover:text-white hover:bg-red-700 transition-colors"
+                    >
+                      Void
+                    </button>
+                    {isAdmin && !item.comp && !orderIsComp && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCompingItem(item)
+                          setCompReason(COMP_REASONS[0])
+                          setCompError(null)
+                        }}
+                        className="min-h-[48px] min-w-[48px] px-3 rounded-lg text-sm font-semibold text-emerald-400 hover:text-white hover:bg-emerald-700 transition-colors"
+                      >
+                        Comp
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
               {item.modifier_names.length > 0 && (
@@ -606,6 +735,9 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
         amountTenderedCents={billAmountTenderedCents}
         changeDueCents={billPaymentMethod === 'cash' ? changeDueCents : undefined}
         timestamp={billTimestamp}
+        discountAmountCents={appliedDiscountCents}
+        discountLabel={appliedDiscountLabel}
+        orderComp={orderIsComp}
       />
 
       {/* Void item dialog */}
@@ -716,6 +848,116 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
         </div>
       )}
 
+      {/* Comp item dialog */}
+      {compingItem !== null && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70">
+          <div className="w-full max-w-lg bg-zinc-800 rounded-t-2xl p-6 space-y-4">
+            <h2 className="text-xl font-semibold text-white">Comp Item</h2>
+            <p className="text-zinc-300 text-base">
+              Mark <span className="font-semibold text-white">{compingItem.name}</span> as complimentary?
+            </p>
+            <div>
+              <label htmlFor="comp-reason" className="block text-zinc-400 text-base mb-2">
+                Reason
+              </label>
+              <select
+                id="comp-reason"
+                value={compReason}
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => { setCompReason(e.target.value) }}
+                className="w-full min-h-[48px] px-4 rounded-xl text-base bg-zinc-700 text-white border-2 border-zinc-600 focus:border-emerald-400 focus:outline-none"
+              >
+                {COMP_REASONS.map((r) => (
+                  <option key={r} value={r}>{r}</option>
+                ))}
+              </select>
+            </div>
+            {compError !== null && (
+              <p className="text-base text-red-400">{compError}</p>
+            )}
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setCompingItem(null)
+                  setCompError(null)
+                }}
+                disabled={compingInProgress}
+                className="flex-1 min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold border-2 border-zinc-600 text-zinc-300 hover:border-zinc-400 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => { void handleCompItem() }}
+                disabled={compingInProgress}
+                className={[
+                  'flex-1 min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold transition-colors',
+                  compingInProgress
+                    ? 'bg-zinc-700 text-zinc-400 cursor-wait'
+                    : 'bg-emerald-700 hover:bg-emerald-600 text-white',
+                ].join(' ')}
+              >
+                {compingInProgress ? 'Comping…' : 'Confirm Comp'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Comp entire order dialog */}
+      {showOrderCompDialog && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70">
+          <div className="w-full max-w-lg bg-zinc-800 rounded-t-2xl p-6 space-y-4">
+            <h2 className="text-xl font-semibold text-white">Comp Entire Order</h2>
+            <p className="text-zinc-300 text-base">This will mark the entire order as complimentary (no charge).</p>
+            <div>
+              <label htmlFor="order-comp-reason" className="block text-zinc-400 text-base mb-2">
+                Reason
+              </label>
+              <select
+                id="order-comp-reason"
+                value={compReason}
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => { setCompReason(e.target.value) }}
+                className="w-full min-h-[48px] px-4 rounded-xl text-base bg-zinc-700 text-white border-2 border-zinc-600 focus:border-emerald-400 focus:outline-none"
+              >
+                {COMP_REASONS.map((r) => (
+                  <option key={r} value={r}>{r}</option>
+                ))}
+              </select>
+            </div>
+            {compError !== null && (
+              <p className="text-base text-red-400">{compError}</p>
+            )}
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowOrderCompDialog(false)
+                  setCompError(null)
+                }}
+                disabled={compingInProgress}
+                className="flex-1 min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold border-2 border-zinc-600 text-zinc-300 hover:border-zinc-400 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => { void handleCompOrder() }}
+                disabled={compingInProgress}
+                className={[
+                  'flex-1 min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold transition-colors',
+                  compingInProgress
+                    ? 'bg-zinc-700 text-zinc-400 cursor-wait'
+                    : 'bg-emerald-700 hover:bg-emerald-600 text-white',
+                ].join(' ')}
+              >
+                {compingInProgress ? 'Comping…' : 'Confirm Comp Order'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <button
         type="button"
         onClick={() => { void handleBackToTables() }}
@@ -741,6 +983,11 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
 
       <header className="mb-6">
         <h1 className="text-2xl font-bold text-white mb-4">Order</h1>
+        {orderIsComp && (
+          <div className="inline-flex items-center gap-2 bg-emerald-900/40 border border-emerald-700 rounded-xl px-4 py-2 mb-4">
+            <span className="text-emerald-400 font-semibold text-base">★ Complimentary Order</span>
+          </div>
+        )}
         <dl className="space-y-2 text-base">
           <div className="flex gap-3">
             <dt className="text-zinc-500">Table</dt>
@@ -786,7 +1033,11 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
       <footer className="mt-6 pt-4 border-t border-zinc-700">
         <div className="flex items-center justify-between mb-6">
           <span className="text-lg text-zinc-400">Total</span>
-          <span className="text-2xl font-bold text-white">{totalFormatted}</span>
+          {orderIsComp ? (
+            <span className="text-2xl font-bold text-emerald-400">COMPLIMENTARY</span>
+          ) : (
+            <span className="text-2xl font-bold text-white">{totalFormatted}</span>
+          )}
         </div>
 
         {step === 'order' && !statusLoading ? (
@@ -836,10 +1087,25 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
                 setCancelError(null)
                 setShowCancelDialog(true)
               }}
-              className="w-full min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold text-zinc-400 hover:text-red-400 border-2 border-zinc-700 hover:border-red-700 transition-colors"
+              className="w-full min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold text-zinc-400 hover:text-red-400 border-2 border-zinc-700 hover:border-red-700 transition-colors mb-3"
             >
               Cancel order
             </button>
+
+            {/* Comp entire order (owner only) */}
+            {isAdmin && !orderIsComp && (
+              <button
+                type="button"
+                onClick={() => {
+                  setCompReason(COMP_REASONS[0])
+                  setCompError(null)
+                  setShowOrderCompDialog(true)
+                }}
+                className="w-full min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold text-emerald-400 hover:text-white border-2 border-emerald-800 hover:border-emerald-600 hover:bg-emerald-900/40 transition-colors"
+              >
+                Comp entire order
+              </button>
+            )}
 
             {closeError !== null && (
               <p className="mt-4 text-base text-red-400">{closeError}</p>
@@ -848,6 +1114,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
         ) : step === 'payment' ? (
           <div className="space-y-5">
             <h2 className="text-xl font-semibold text-white">Record Payment</h2>
+
             {/* Order total breakdown */}
             <div className="bg-zinc-800 rounded-xl px-4 py-3 text-sm space-y-1.5">
               <div className="flex justify-between text-zinc-400">
@@ -860,11 +1127,92 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
                   <span>{formatPrice(billVatCents, currencySymbol)}</span>
                 </div>
               )}
+              {appliedDiscountCents > 0 && (
+                <div className="flex justify-between text-emerald-400">
+                  <span>Discount{appliedDiscountLabel ? ` (${appliedDiscountLabel})` : ''}</span>
+                  <span>-{formatPrice(appliedDiscountCents, currencySymbol)}</span>
+                </div>
+              )}
+              {orderIsComp && (
+                <div className="flex justify-between text-emerald-400 font-semibold">
+                  <span>★ Complimentary</span>
+                  <span>-{formatPrice(billTotalCentsBeforeDiscount, currencySymbol)}</span>
+                </div>
+              )}
               <div className="flex justify-between font-bold text-white border-t border-zinc-700 pt-1.5 mt-1">
                 <span>Total</span>
-                <span>{formatPrice(billTotalCents, currencySymbol)}</span>
+                {orderIsComp ? (
+                  <span className="text-emerald-400">COMPLIMENTARY</span>
+                ) : (
+                  <span>{formatPrice(billTotalCents, currencySymbol)}</span>
+                )}
               </div>
             </div>
+
+            {/* Apply Discount section (owner only) */}
+            {isAdmin && !orderIsComp && (
+              <div className="bg-zinc-800/60 rounded-xl px-4 py-3 space-y-3">
+                <p className="text-zinc-300 text-sm font-semibold">Apply Discount</p>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => { setDiscountType('percent') }}
+                    className={[
+                      'flex-1 min-h-[44px] rounded-xl text-sm font-semibold transition-colors border-2',
+                      discountType === 'percent'
+                        ? 'border-amber-400 bg-amber-400/10 text-amber-400'
+                        : 'border-zinc-600 text-zinc-300 hover:border-zinc-400',
+                    ].join(' ')}
+                  >
+                    % Discount
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setDiscountType('flat') }}
+                    className={[
+                      'flex-1 min-h-[44px] rounded-xl text-sm font-semibold transition-colors border-2',
+                      discountType === 'flat'
+                        ? 'border-amber-400 bg-amber-400/10 text-amber-400'
+                        : 'border-zinc-600 text-zinc-300 hover:border-zinc-400',
+                    ].join(' ')}
+                  >
+                    Flat Amount
+                  </button>
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    type="number"
+                    min="0"
+                    step={discountType === 'percent' ? '1' : '0.01'}
+                    placeholder={discountType === 'percent' ? '10' : '50.00'}
+                    value={discountValueStr}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setDiscountValueStr(e.target.value) }}
+                    className="flex-1 min-h-[48px] px-4 rounded-xl text-base bg-zinc-700 text-white border-2 border-zinc-600 focus:border-amber-400 focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => { void handleApplyDiscount() }}
+                    disabled={applyingDiscount || discountValueStr === ''}
+                    className={[
+                      'min-h-[48px] px-5 rounded-xl text-sm font-semibold transition-colors',
+                      applyingDiscount || discountValueStr === ''
+                        ? 'bg-zinc-700 text-zinc-400 cursor-wait'
+                        : 'bg-amber-500 hover:bg-amber-400 text-zinc-900',
+                    ].join(' ')}
+                  >
+                    {applyingDiscount ? '…' : 'Apply'}
+                  </button>
+                </div>
+                {discountError !== null && (
+                  <p className="text-sm text-red-400">{discountError}</p>
+                )}
+                {appliedDiscountCents > 0 && (
+                  <p className="text-sm text-emerald-400">
+                    ✓ Discount applied: -{formatPrice(appliedDiscountCents, currencySymbol)}
+                  </p>
+                )}
+              </div>
+            )}
 
             <div>
               <p className="text-zinc-400 text-base mb-3">Payment method</p>
@@ -896,7 +1244,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
               </div>
             </div>
 
-            {paymentMethod === 'cash' && (
+            {paymentMethod === 'cash' && !orderIsComp && (
               <div>
                 <p className="text-zinc-400 text-base mb-2">Amount tendered</p>
                 <input
@@ -922,7 +1270,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
                   : 'bg-amber-500 hover:bg-amber-400 text-zinc-900',
               ].join(' ')}
             >
-              {paying ? 'Recording…' : `Confirm Payment · ${totalFormatted}`}
+              {paying ? 'Recording…' : orderIsComp ? 'Confirm (Complimentary)' : `Confirm Payment · ${totalFormatted}`}
             </button>
 
             <button

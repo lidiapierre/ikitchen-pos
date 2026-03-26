@@ -1,0 +1,9 @@
+-- #169 Complimentary items
+ALTER TABLE order_items
+  ADD COLUMN IF NOT EXISTS comp BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS comp_reason TEXT;
+
+ALTER TABLE orders
+  ADD COLUMN IF NOT EXISTS order_comp BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS order_comp_reason TEXT,
+  ADD COLUMN IF NOT EXISTS order_comp_by UUID REFERENCES auth.users(id);

@@ -121,7 +121,7 @@ export async function handler(
   try {
     // 1. Fetch the order to verify it exists, is pending_payment, and get final_total_cents
     const orderRes = await fetchFn(
-      `${supabaseUrl}/rest/v1/orders?select=id,restaurant_id,status,final_total_cents&id=eq.${orderId}`,
+      `${supabaseUrl}/rest/v1/orders?select=id,restaurant_id,status,final_total_cents,discount_amount_cents,order_comp&id=eq.${orderId}`,
       { headers: dbHeaders },
     )
     if (!orderRes.ok) {
@@ -130,7 +130,7 @@ export async function handler(
         { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
       )
     }
-    const orders = (await orderRes.json()) as Array<{ id: string; restaurant_id: string; status: string; final_total_cents: number | null }>
+    const orders = (await orderRes.json()) as Array<{ id: string; restaurant_id: string; status: string; final_total_cents: number | null; discount_amount_cents: number | null; order_comp: boolean | null }>
     if (orders.length === 0) {
       return new Response(
         JSON.stringify({ success: false, error: 'Order not found' }),
@@ -144,8 +144,17 @@ export async function handler(
       )
     }
     const restaurantId = orders[0].restaurant_id
-    const finalTotalCents = orders[0].final_total_cents
-    const changeDue = finalTotalCents !== null && method === 'cash'
+
+    // If order is fully comp'd, effective total is 0
+    const isOrderComp = orders[0].order_comp === true
+    const rawFinalTotalCents = orders[0].final_total_cents ?? 0
+    const discountAmountCents = orders[0].discount_amount_cents ?? 0
+    const effectiveTotalCents = isOrderComp
+      ? 0
+      : Math.max(0, rawFinalTotalCents - discountAmountCents)
+
+    const finalTotalCents = effectiveTotalCents
+    const changeDue = method === 'cash'
       ? Math.max(0, amountCents - finalTotalCents)
       : 0
 
@@ -175,6 +184,7 @@ export async function handler(
           order_id: orderId,
           method,
           amount_cents: amountCents,
+          discount_amount_cents: discountAmountCents > 0 ? discountAmountCents : undefined,
         }),
       },
     )

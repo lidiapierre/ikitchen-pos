@@ -5,6 +5,8 @@ import type { JSX } from 'react'
 import { useRouter } from 'next/navigation'
 import { fetchMenuAdminData } from './menuAdminData'
 import type { AdminMenu, AdminModifier } from './menuAdminData'
+import { fetchConfigValue } from '../pricing/pricingAdminData'
+import { DEFAULT_CURRENCY_SYMBOL } from '@/lib/formatPrice'
 import { callCreateMenuItem, callUpdateMenuItem } from './menuAdminApi'
 import type { ModifierInput } from './menuAdminApi'
 import { callExtractMenuItem, uploadMenuFile, fileToBase64 } from './extractMenuItemApi'
@@ -91,6 +93,7 @@ export default function MenuItemFormPage({ mode, itemId }: MenuItemFormPageProps
   const supabaseConfig = useRef<{ url: string; key: string } | null>(null)
 
   const [menus, setMenus] = useState<AdminMenu[]>([])
+  const [currencySymbol, setCurrencySymbol] = useState<string>(DEFAULT_CURRENCY_SYMBOL)
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState<string | null>(null)
 
@@ -118,7 +121,11 @@ export default function MenuItemFormPage({ mode, itemId }: MenuItemFormPageProps
     supabaseConfig.current = { url: supabaseUrl, key: supabaseKey }
 
     const fetches: Promise<void>[] = [
-      fetchMenuAdminData(supabaseUrl, supabaseKey).then((data) => setMenus(data.menus)),
+      fetchMenuAdminData(supabaseUrl, supabaseKey).then((data) => {
+        setMenus(data.menus)
+        void fetchConfigValue(supabaseUrl, supabaseKey, data.restaurantId, 'currency_symbol', DEFAULT_CURRENCY_SYMBOL)
+          .then((sym) => setCurrencySymbol(sym))
+      }),
     ]
 
     if (mode === 'edit' && itemId) {
@@ -387,7 +394,7 @@ export default function MenuItemFormPage({ mode, itemId }: MenuItemFormPageProps
           {/* Price */}
           <div className="flex flex-col gap-1">
             <label htmlFor="item-price" className="text-sm font-medium text-zinc-300">
-              Price (£) <span className="text-red-400">*</span>
+              Price ({currencySymbol}) <span className="text-red-400">*</span>
             </label>
             <input
               id="item-price"
@@ -514,7 +521,7 @@ export default function MenuItemFormPage({ mode, itemId }: MenuItemFormPageProps
             </div>
             <div className="flex flex-col gap-1 w-32">
               <label htmlFor="modifier-price" className="text-sm font-medium text-zinc-400">
-                Add-on (£)
+                Add-on ({currencySymbol})
               </label>
               <input
                 id="modifier-price"

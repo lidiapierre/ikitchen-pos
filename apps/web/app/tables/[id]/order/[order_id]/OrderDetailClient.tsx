@@ -14,8 +14,11 @@ import { markItemsSentToKitchen } from './kotApi'
 import { formatPrice, DEFAULT_CURRENCY_SYMBOL } from '@/lib/formatPrice'
 import { calcVat } from '@/lib/vatCalc'
 import { fetchVatConfig, fetchOrderVatContext } from '@/lib/fetchVatConfig'
+import { printKot } from '@/lib/kotPrint'
+import type { PrinterConfig } from '@/lib/kotPrint'
 import KotPrintView from '@/components/KotPrintView'
 import BillPrintView from '@/components/BillPrintView'
+import { supabase } from '@/lib/supabase'
 
 interface OrderDetailClientProps {
   tableId: string
@@ -55,11 +58,15 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
   const [cancelling, setCancelling] = useState(false)
   const [cancelError, setCancelError] = useState<string | null>(null)
 
+  // Printer config state
+  const [printerConfig, setPrinterConfig] = useState<PrinterConfig | null>(null)
+
   // KOT state
   const [kotStatus, setKotStatus] = useState<string | null>(null)
   const [kotTimestamp, setKotTimestamp] = useState('')
   const [kotShowAll, setKotShowAll] = useState(false)
   const [reprintingKot, setReprintingKot] = useState(false)
+  const [kotPrintError, setKotPrintError] = useState<string | null>(null)
 
   // Bill print state
   const [billTimestamp, setBillTimestamp] = useState('')
@@ -143,10 +150,29 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
       })
   }
 
+  function loadPrinterConfig(): void {
+    void supabase
+      .from('printer_configs')
+      .select('mode, ip, port')
+      .single()
+      .then(({ data }) => {
+        if (data) {
+          setPrinterConfig({
+            mode: (data as { mode: string; ip: string | null; port: number | null }).mode as 'browser' | 'network',
+            ip: (data as { mode: string; ip: string | null; port: number | null }).ip,
+            port: (data as { mode: string; ip: string | null; port: number | null }).port,
+          })
+        }
+      }, () => {
+        // Non-fatal: fall back to browser mode
+      })
+  }
+
   useEffect(() => {
     loadItems()
     loadOrderStatus()
     loadVatConfig()
+    loadPrinterConfig()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderId])
 
@@ -184,13 +210,28 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
     const unsentItems = items.filter((item) => !item.sent_to_kitchen)
 
     if (step === 'order' && unsentItems.length > 0 && supabaseUrl && supabaseKey) {
-      setKotTimestamp(new Date().toLocaleString())
+      const ts = new Date().toLocaleString()
+      setKotTimestamp(ts)
       setKotStatus('Sending to kitchen…')
-      // Wait for print dialog to close before marking items as sent
-      await new Promise<void>((resolve) => {
-        window.addEventListener('afterprint', () => resolve(), { once: true })
-        window.print()
+      setKotPrintError(null)
+
+      const result = await printKot({
+        items: unsentItems.map((i) => ({ name: i.name, qty: i.quantity })),
+        tableId,
+        orderId,
+        timestamp: ts,
+        printerConfig,
+        onBeforeBrowserPrint: () => {
+          // KotPrintView is already rendered — nothing extra needed
+        },
       })
+
+      if (!result.success && result.errorMessage) {
+        setKotPrintError(result.errorMessage)
+        setKotStatus(null)
+        return
+      }
+
       try {
         await markItemsSentToKitchen(supabaseUrl, supabaseKey, orderId, unsentItems.map((i) => i.id))
       } catch {
@@ -202,17 +243,36 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
   }
 
   // Reprint KOT: show all items (no side effects — does NOT call markItemsSentToKitchen)
-  function handleReprintKot(): void {
-    setKotTimestamp(new Date().toLocaleString())
+  async function handleReprintKot(): Promise<void> {
+    const ts = new Date().toLocaleString()
+    setKotTimestamp(ts)
     setKotShowAll(true)
     setReprintingKot(true)
-    setTimeout(() => {
-      window.print()
-      window.addEventListener('afterprint', () => {
+    setKotPrintError(null)
+
+    const result = await printKot({
+      items: items.map((i) => ({ name: i.name, qty: i.quantity })),
+      tableId,
+      orderId,
+      timestamp: ts,
+      printerConfig,
+      onBeforeBrowserPrint: () => {
+        // KotPrintView showAll is already set above
+      },
+      onAfterBrowserPrint: () => {
         setKotShowAll(false)
         setReprintingKot(false)
-      }, { once: true })
-    }, 200)
+      },
+    })
+
+    if (result.method === 'network') {
+      setKotShowAll(false)
+      setReprintingKot(false)
+    }
+
+    if (!result.success && result.errorMessage) {
+      setKotPrintError(result.errorMessage)
+    }
   }
 
   // Print Bill: capture timestamp and trigger print dialog
@@ -612,6 +672,20 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
       >
         {kotStatus !== null ? kotStatus : '← Back to tables'}
       </button>
+
+      {kotPrintError && (
+        <div className="mb-4 p-4 rounded-xl bg-red-900/60 border border-red-700 text-red-200 text-sm whitespace-pre-wrap">
+          <p className="font-semibold mb-1">⚠️ Printer error</p>
+          <p>{kotPrintError}</p>
+          <button
+            type="button"
+            onClick={() => setKotPrintError(null)}
+            className="mt-2 text-xs text-red-400 hover:text-red-200 underline"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       <header className="mb-6">
         <h1 className="text-2xl font-bold text-white mb-4">Order</h1>

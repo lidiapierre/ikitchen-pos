@@ -803,47 +803,53 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
 
   return (
     <main className="min-h-screen bg-zinc-900 p-6 flex flex-col">
-      {/* KOT print component — hidden on screen, visible only when printing */}
-      <KotPrintView
-        tableId={tableId}
-        orderId={orderId}
-        items={items}
-        timestamp={kotTimestamp}
-        showAll={kotShowAll}
-      />
-
-      {/* Bill print component — hidden on screen, visible only when printing */}
-      {!splitBillPrinting && (
-        <BillPrintView
+      {/* KOT print component — only marked as print-area when KOT is actively printing */}
+      <div className={kotStatus !== null || reprintingKot ? 'print-area' : ''}>
+        <KotPrintView
           tableId={tableId}
           orderId={orderId}
           items={items}
-          subtotalCents={billSubtotalCents}
-          vatPercent={vatPercent}
-          taxInclusive={taxInclusive}
-          totalCents={billTotalCents}
-          paymentMethod={billPaymentMethod}
-          amountTenderedCents={billAmountTenderedCents}
-          changeDueCents={billPaymentMethod === 'cash' ? changeDueCents : undefined}
-          timestamp={billTimestamp}
-          discountAmountCents={appliedDiscountCents}
-          discountLabel={appliedDiscountLabel}
-          orderComp={orderIsComp}
+          timestamp={kotTimestamp}
+          showAll={kotShowAll}
         />
+      </div>
+
+      {/* Bill print component — only marked as print-area when bill is actively printing */}
+      {!splitBillPrinting && (
+        <div className={printingBill ? 'print-area' : ''}>
+          <BillPrintView
+            tableId={tableId}
+            orderId={orderId}
+            items={items}
+            subtotalCents={billSubtotalCents}
+            vatPercent={vatPercent}
+            taxInclusive={taxInclusive}
+            totalCents={billTotalCents}
+            paymentMethod={billPaymentMethod}
+            amountTenderedCents={billAmountTenderedCents}
+            changeDueCents={billPaymentMethod === 'cash' ? changeDueCents : undefined}
+            timestamp={billTimestamp}
+            discountAmountCents={appliedDiscountCents}
+            discountLabel={appliedDiscountLabel}
+            orderComp={orderIsComp}
+          />
+        </div>
       )}
 
-      {/* Split bill print component — hidden on screen, visible only when split bill printing */}
+      {/* Split bill print component — only marked as print-area when split bill is printing */}
       {splitBillPrinting && (
-        <SplitBillPrintView
-          tableId={tableId}
-          orderId={orderId}
-          items={items}
-          covers={covers}
-          vatPercent={vatPercent}
-          taxInclusive={taxInclusive}
-          timestamp={splitBillTimestamp}
-          evenSplit={splitBillPrintMode === 'even'}
-        />
+        <div className="print-area">
+          <SplitBillPrintView
+            tableId={tableId}
+            orderId={orderId}
+            items={items}
+            covers={covers}
+            vatPercent={vatPercent}
+            taxInclusive={taxInclusive}
+            timestamp={splitBillTimestamp}
+            evenSplit={splitBillPrintMode === 'even'}
+          />
+        </div>
       )}
 
       {/* Split bill modal */}

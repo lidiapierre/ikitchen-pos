@@ -15,7 +15,7 @@ export default function KotPrintView({ tableId, orderId, items, timestamp, showA
   const displayItems = showAll ? items : items.filter((item) => !item.sent_to_kitchen)
 
   return (
-    <div aria-hidden="true" className="print-area hidden print:block font-mono text-black bg-white p-2 w-full max-w-xs">
+    <div aria-hidden="true" className="hidden print:block font-mono text-black bg-white p-2 w-full max-w-xs">
       <div className="text-center mb-2">
         <p className="text-base font-bold">Lahore by iKitchen</p>
         <p className="text-sm">KITCHEN ORDER TICKET</p>

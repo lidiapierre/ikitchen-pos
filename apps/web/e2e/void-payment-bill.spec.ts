@@ -288,8 +288,8 @@ test.describe('void item, payment, and bill print flows', () => {
 
     // Change due screen
     await expect(page.getByRole('heading', { name: 'Change Due' })).toBeVisible()
-    // change_due is 2000 cents = ৳20
-    await expect(page.getByText(/20/)).toBeVisible()
+    // change_due is 2000 cents = ৳20.00 — use paragraph role to avoid strict mode violation
+    await expect(page.getByRole('paragraph').filter({ hasText: /20\.00/ })).toBeVisible()
 
     // Click Done
     await page.getByRole('button', { name: 'Done' }).click()

@@ -45,7 +45,7 @@ export default function BillPrintView({
   const vatCents = totalCents - subtotalCents
 
   return (
-    <div aria-hidden="true" className="hidden print:block font-mono text-black bg-white p-2 w-full max-w-xs">
+    <div aria-hidden="true" className="print-area hidden print:block font-mono text-black bg-white p-2 w-full max-w-xs">
       {/* Header */}
       <div className="text-center mb-2">
         <p className="text-base font-bold">Lahore by iKitchen</p>

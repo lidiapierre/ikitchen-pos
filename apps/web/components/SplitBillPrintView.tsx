@@ -96,7 +96,7 @@ export default function SplitBillPrintView({
       <div
         id="split-bill-print-root"
         aria-hidden="true"
-        className="hidden print:block font-mono text-black bg-white w-full"
+        className="print-area hidden print:block font-mono text-black bg-white w-full"
       >
         {sections.map((section, idx) => (
           <div

@@ -11,7 +11,7 @@ const mockItems: OrderItem[] = [
     price_cents: 1500,
     modifier_ids: [],
     modifier_names: [],
-    sent_to_kitchen: true, comp: false, comp_reason: null,
+    sent_to_kitchen: true, comp: false, comp_reason: null, seat: null,
   },
   {
     id: '2',
@@ -20,7 +20,7 @@ const mockItems: OrderItem[] = [
     price_cents: 200,
     modifier_ids: [],
     modifier_names: [],
-    sent_to_kitchen: true, comp: false, comp_reason: null,
+    sent_to_kitchen: true, comp: false, comp_reason: null, seat: null,
   },
 ]
 
@@ -35,7 +35,7 @@ describe('BillPrintView', () => {
   it('renders the restaurant name', () => {
     render(
       <BillPrintView
-        tableId="3"
+        tableLabel="Table 3"
         orderId="order-abc-12345678"
         items={mockItems}
         subtotalCents={SUBTOTAL}
@@ -52,7 +52,7 @@ describe('BillPrintView', () => {
   it('renders the table and short order ID', () => {
     render(
       <BillPrintView
-        tableId="3"
+        tableLabel="Table 3"
         orderId="order-abc-12345678"
         items={mockItems}
         subtotalCents={SUBTOTAL}
@@ -63,14 +63,14 @@ describe('BillPrintView', () => {
       />,
     )
 
-    expect(screen.getByText('Table: 3')).toBeInTheDocument()
+    expect(screen.getByText('Table: Table 3')).toBeInTheDocument()
     expect(screen.getByText('Order: order-ab')).toBeInTheDocument()
   })
 
   it('renders the timestamp', () => {
     render(
       <BillPrintView
-        tableId="3"
+        tableLabel="Table 3"
         orderId="order-abc-12345678"
         items={mockItems}
         subtotalCents={SUBTOTAL}
@@ -87,7 +87,7 @@ describe('BillPrintView', () => {
   it('renders item names with quantity and line total', () => {
     render(
       <BillPrintView
-        tableId="3"
+        tableLabel="Table 3"
         orderId="order-abc-12345678"
         items={mockItems}
         subtotalCents={SUBTOTAL}
@@ -110,7 +110,7 @@ describe('BillPrintView', () => {
   it('renders the subtotal', () => {
     render(
       <BillPrintView
-        tableId="3"
+        tableLabel="Table 3"
         orderId="order-abc-12345678"
         items={mockItems}
         subtotalCents={SUBTOTAL}
@@ -129,7 +129,7 @@ describe('BillPrintView', () => {
   it('renders the VAT line with percent label and amount', () => {
     render(
       <BillPrintView
-        tableId="3"
+        tableLabel="Table 3"
         orderId="order-abc-12345678"
         items={mockItems}
         subtotalCents={SUBTOTAL}
@@ -148,7 +148,7 @@ describe('BillPrintView', () => {
   it('renders the total', () => {
     render(
       <BillPrintView
-        tableId="3"
+        tableLabel="Table 3"
         orderId="order-abc-12345678"
         items={mockItems}
         subtotalCents={SUBTOTAL}
@@ -167,7 +167,7 @@ describe('BillPrintView', () => {
   it('renders the payment method for card', () => {
     render(
       <BillPrintView
-        tableId="3"
+        tableLabel="Table 3"
         orderId="order-abc-12345678"
         items={mockItems}
         subtotalCents={SUBTOTAL}
@@ -185,7 +185,7 @@ describe('BillPrintView', () => {
   it('renders payment method for cash', () => {
     render(
       <BillPrintView
-        tableId="3"
+        tableLabel="Table 3"
         orderId="order-abc-12345678"
         items={mockItems}
         subtotalCents={SUBTOTAL}
@@ -204,7 +204,7 @@ describe('BillPrintView', () => {
   it('renders tendered amount and change due for cash payment', () => {
     render(
       <BillPrintView
-        tableId="3"
+        tableLabel="Table 3"
         orderId="order-abc-12345678"
         items={mockItems}
         subtotalCents={SUBTOTAL}
@@ -229,7 +229,7 @@ describe('BillPrintView', () => {
   it('does not render tendered/change rows for card payment', () => {
     render(
       <BillPrintView
-        tableId="3"
+        tableLabel="Table 3"
         orderId="order-abc-12345678"
         items={mockItems}
         subtotalCents={SUBTOTAL}
@@ -247,7 +247,7 @@ describe('BillPrintView', () => {
   it('does not render tendered/change rows when not provided for cash payment', () => {
     render(
       <BillPrintView
-        tableId="3"
+        tableLabel="Table 3"
         orderId="order-abc-12345678"
         items={mockItems}
         subtotalCents={SUBTOTAL}
@@ -265,7 +265,7 @@ describe('BillPrintView', () => {
   it('renders the thank-you footer', () => {
     render(
       <BillPrintView
-        tableId="3"
+        tableLabel="Table 3"
         orderId="order-abc-12345678"
         items={mockItems}
         subtotalCents={SUBTOTAL}
@@ -282,7 +282,7 @@ describe('BillPrintView', () => {
   it('is hidden on screen via aria-hidden', () => {
     const { container } = render(
       <BillPrintView
-        tableId="3"
+        tableLabel="Table 3"
         orderId="order-abc-12345678"
         items={mockItems}
         subtotalCents={SUBTOTAL}
@@ -302,7 +302,7 @@ describe('BillPrintView', () => {
   it('renders an empty items list gracefully', () => {
     render(
       <BillPrintView
-        tableId="3"
+        tableLabel="Table 3"
         orderId="order-abc-12345678"
         items={[]}
         subtotalCents={0}

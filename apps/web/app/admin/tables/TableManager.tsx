@@ -5,6 +5,7 @@ import type { JSX } from 'react'
 import { fetchAdminTables, fetchRestaurantId } from './tableAdminData'
 import type { AdminTable } from './tableAdminData'
 import { callCreateTable, callUpdateTable, callDeleteTable } from './tableAdminApi'
+import { useUser } from '@/lib/user-context'
 
 interface TableFormValues {
   label: string
@@ -40,12 +41,13 @@ function validateForm(form: TableFormValues): TableFormErrors {
 }
 
 export default function TableManager(): JSX.Element {
+  const { accessToken } = useUser()
   const [tables, setTables] = useState<AdminTable[]>([])
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
-  const supabaseConfig = useRef<{ url: string; key: string } | null>(null)
+  const supabaseConfig = useRef<{ url: string } | null>(null)
   const restaurantIdRef = useRef<string>('')
 
   const [showAddForm, setShowAddForm] = useState(false)
@@ -69,7 +71,7 @@ export default function TableManager(): JSX.Element {
       setLoading(false)
       return
     }
-    supabaseConfig.current = { url: supabaseUrl, key: supabaseKey }
+    supabaseConfig.current = { url: supabaseUrl }
 
     Promise.all([
       fetchRestaurantId(supabaseUrl, supabaseKey),
@@ -112,7 +114,7 @@ export default function TableManager(): JSX.Element {
       const seatCount = parseInt(addForm.seatCount, 10)
       const tableId = await callCreateTable(
         config.url,
-        config.key,
+        accessToken ?? '',
         restaurantIdRef.current,
         addForm.label.trim(),
         seatCount,
@@ -156,7 +158,7 @@ export default function TableManager(): JSX.Element {
     setSubmitting(true)
     try {
       const seatCount = parseInt(editForm.seatCount, 10)
-      await callUpdateTable(config.url, config.key, editingTableId, editForm.label.trim(), seatCount)
+      await callUpdateTable(config.url, accessToken ?? '', editingTableId, editForm.label.trim(), seatCount)
       const updatedLabel = editForm.label.trim()
       setTables((prev) =>
         prev.map((t) =>
@@ -187,7 +189,7 @@ export default function TableManager(): JSX.Element {
     const tableLabel = tables.find((t) => t.id === deletingTableId)?.label
     setSubmitting(true)
     try {
-      await callDeleteTable(config.url, config.key, deletingTableId)
+      await callDeleteTable(config.url, accessToken ?? '', deletingTableId)
       setTables((prev) => prev.filter((t) => t.id !== deletingTableId))
       setDeletingTableId(null)
       showFeedback('success', tableLabel ? `Table "${tableLabel}" deleted.` : 'Table deleted.')

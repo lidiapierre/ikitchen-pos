@@ -6,6 +6,7 @@ export const STORAGE_STATE = path.join(__dirname, 'e2e/.auth/admin.json');
 export default defineConfig({
   testDir: './e2e',
   globalSetup: './global-setup.ts',
+  globalTeardown: './global-teardown.ts',
   webServer: {
     command: 'npm run dev',
     url: 'http://localhost:3000',

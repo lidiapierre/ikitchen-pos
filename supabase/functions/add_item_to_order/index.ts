@@ -1,6 +1,8 @@
+import { verifyAndGetCaller } from '../_shared/auth.ts'
+
 export const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-demo-staff-id',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
@@ -27,6 +29,22 @@ export async function handler(
 ): Promise<Response> {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { status: 200, headers: corsHeaders })
+  }
+
+  if (!env) {
+    return new Response(
+      JSON.stringify({ success: false, error: 'Server configuration error' }),
+      { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    )
+  }
+
+  // Verify JWT and check minimum role
+  const caller = await verifyAndGetCaller(req, env.supabaseUrl, env.serviceKey, 'server', fetchFn)
+  if ('error' in caller) {
+    return new Response(
+      JSON.stringify({ success: false, error: caller.error }),
+      { status: caller.status, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    )
   }
 
   let body: unknown
@@ -74,13 +92,6 @@ export async function handler(
   const orderId = payload['order_id'] as string
   const menuItemId = payload['menu_item_id'] as string
   const modifierIds: string[] = Array.isArray(rawModifierIds) ? (rawModifierIds as string[]) : []
-
-  if (!env) {
-    return new Response(
-      JSON.stringify({ success: false, error: 'Server configuration error' }),
-      { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
-    )
-  }
 
   const { supabaseUrl, serviceKey } = env
   const dbHeaders = {

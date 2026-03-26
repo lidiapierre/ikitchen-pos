@@ -81,6 +81,7 @@ export async function callCreateMenuItem(
   modifiers: ModifierInput[],
   description?: string,
   imageUrl?: string,
+  available = true,
 ): Promise<string> {
   const res = await fetch(`${supabaseUrl}/functions/v1/create_menu_item`, {
     method: 'POST',
@@ -95,6 +96,7 @@ export async function callCreateMenuItem(
       name,
       price_cents: priceCents,
       modifiers,
+      available,
       ...(description !== undefined ? { description } : {}),
       ...(imageUrl !== undefined ? { image_url: imageUrl } : {}),
     }),
@@ -114,6 +116,7 @@ export async function callUpdateMenuItem(
   modifiers: ModifierInput[],
   description?: string,
   imageUrl?: string,
+  available = true,
 ): Promise<void> {
   const res = await fetch(`${supabaseUrl}/functions/v1/update_menu_item`, {
     method: 'POST',
@@ -128,6 +131,7 @@ export async function callUpdateMenuItem(
       name,
       price_cents: priceCents,
       modifiers,
+      available,
       ...(description !== undefined ? { description } : {}),
       ...(imageUrl !== undefined ? { image_url: imageUrl } : {}),
     }),

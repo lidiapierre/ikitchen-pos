@@ -42,20 +42,20 @@ const MOCK_CATEGORIES: MenuCategory[] = [
   {
     name: 'Starters',
     items: [
-      { id: '00000000-0000-0000-0000-000000000301', name: 'Bruschetta', price_cents: 850 },
-      { id: '00000000-0000-0000-0000-000000000302', name: 'Caesar Salad', price_cents: 1050 },
+      { id: '00000000-0000-0000-0000-000000000301', name: 'Bruschetta', price_cents: 850, available: true, modifiers: [] },
+      { id: '00000000-0000-0000-0000-000000000302', name: 'Caesar Salad', price_cents: 1050, available: true, modifiers: [] },
     ],
   },
   {
     name: 'Mains',
     items: [
-      { id: '00000000-0000-0000-0000-000000000305', name: 'Ribeye Steak', price_cents: 2650 },
+      { id: '00000000-0000-0000-0000-000000000305', name: 'Ribeye Steak', price_cents: 2650, available: true, modifiers: [] },
     ],
   },
   {
     name: 'Drinks',
     items: [
-      { id: '00000000-0000-0000-0000-000000000308', name: 'Craft Beer', price_cents: 750 },
+      { id: '00000000-0000-0000-0000-000000000308', name: 'Craft Beer', price_cents: 750, available: true, modifiers: [] },
     ],
   },
 ]

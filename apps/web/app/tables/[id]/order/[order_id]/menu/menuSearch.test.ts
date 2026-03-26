@@ -6,23 +6,23 @@ const categories: MenuCategory[] = [
   {
     name: 'Burgers',
     items: [
-      { id: '1', name: 'Classic Burger', price_cents: 1000, modifiers: [] },
-      { id: '2', name: 'Veggie Burger', price_cents: 900, modifiers: [] },
-      { id: '3', name: 'Chicken Sandwich', price_cents: 1100, modifiers: [] },
+      { id: '1', name: 'Classic Burger', price_cents: 1000, available: true, modifiers: [] },
+      { id: '2', name: 'Veggie Burger', price_cents: 900, available: true, modifiers: [] },
+      { id: '3', name: 'Chicken Sandwich', price_cents: 1100, available: true, modifiers: [] },
     ],
   },
   {
     name: 'Drinks',
     items: [
-      { id: '4', name: 'Cola', price_cents: 300, modifiers: [] },
-      { id: '5', name: 'Lemonade', price_cents: 400, modifiers: [] },
+      { id: '4', name: 'Cola', price_cents: 300, available: true, modifiers: [] },
+      { id: '5', name: 'Lemonade', price_cents: 400, available: true, modifiers: [] },
     ],
   },
   {
     name: 'Sides',
     items: [
-      { id: '6', name: 'French Fries', price_cents: 500, modifiers: [] },
-      { id: '7', name: 'Onion Rings', price_cents: 550, modifiers: [] },
+      { id: '6', name: 'French Fries', price_cents: 500, available: true, modifiers: [] },
+      { id: '7', name: 'Onion Rings', price_cents: 550, available: true, modifiers: [] },
     ],
   },
 ]
@@ -90,11 +90,11 @@ describe('filterMenuItems', () => {
     const crossCategories: MenuCategory[] = [
       {
         name: 'Mains',
-        items: [{ id: 'a', name: 'Spicy Chicken', price_cents: 1200, modifiers: [] }],
+        items: [{ id: 'a', name: 'Spicy Chicken', price_cents: 1200, available: true, modifiers: [] }],
       },
       {
         name: 'Starters',
-        items: [{ id: 'b', name: 'Chicken Wings', price_cents: 800, modifiers: [] }],
+        items: [{ id: 'b', name: 'Chicken Wings', price_cents: 800, available: true, modifiers: [] }],
       },
     ]
     const results = filterMenuItems(crossCategories, 'chicken')
@@ -116,7 +116,7 @@ describe('filterMenuItems', () => {
     const overlapping: MenuCategory[] = [
       {
         name: 'Burger Specials',
-        items: [{ id: 'x', name: 'Mega Burger', price_cents: 1500, modifiers: [] }],
+        items: [{ id: 'x', name: 'Mega Burger', price_cents: 1500, available: true, modifiers: [] }],
       },
     ]
     const results = filterMenuItems(overlapping, 'burger')

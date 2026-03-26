@@ -6,7 +6,7 @@ export interface CancelOrderResponse {
 
 export async function callCancelOrder(
   supabaseUrl: string,
-  apiKey: string,
+  accessToken: string,
   orderId: string,
   reason: string,
 ): Promise<void> {
@@ -14,9 +14,7 @@ export async function callCancelOrder(
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-      apikey: apiKey,
-      'x-demo-staff-id': '00000000-0000-0000-0000-000000000010',
+      Authorization: `Bearer ${accessToken}`,
     },
     body: JSON.stringify({ order_id: orderId, reason }),
   })

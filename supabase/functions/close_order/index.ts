@@ -1,6 +1,8 @@
+import { verifyAndGetCaller } from '../_shared/auth.ts'
+
 export const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-demo-staff-id',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
@@ -10,8 +12,6 @@ export interface HandlerEnv {
   supabaseUrl: string
   serviceKey: string
 }
-
-const SYSTEM_USER_ID = '00000000-0000-0000-0000-000000000001'
 
 function readEnv(): HandlerEnv | null {
   const g = globalThis as { Deno?: { env: { get: (key: string) => string | undefined } } }
@@ -33,6 +33,22 @@ export async function handler(
 ): Promise<Response> {
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 204, headers: corsHeaders })
+  }
+
+  if (!env) {
+    return new Response(
+      JSON.stringify({ success: false, error: 'Server configuration error' }),
+      { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    )
+  }
+
+  // Verify JWT and check minimum role
+  const caller = await verifyAndGetCaller(req, env.supabaseUrl, env.serviceKey, 'server', fetchFn)
+  if ('error' in caller) {
+    return new Response(
+      JSON.stringify({ success: false, error: caller.error }),
+      { status: caller.status, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    )
   }
 
   let body: unknown
@@ -65,16 +81,6 @@ export async function handler(
     return new Response(
       JSON.stringify({ success: false, error: 'order_id must be a valid UUID' }),
       { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
-    )
-  }
-
-  const staffIdHeader = req.headers.get('x-demo-staff-id') ?? ''
-  const userId = isValidUuid(staffIdHeader) ? staffIdHeader : SYSTEM_USER_ID
-
-  if (!env) {
-    return new Response(
-      JSON.stringify({ success: false, error: 'Server configuration error' }),
-      { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
     )
   }
 
@@ -143,7 +149,7 @@ export async function handler(
       )
     }
 
-    // 4. Emit audit log entry
+    // 4. Emit audit log entry — actor_id comes from verified JWT
     const auditRes = await fetchFn(
       `${supabaseUrl}/rest/v1/audit_log`,
       {
@@ -151,7 +157,7 @@ export async function handler(
         headers: { ...dbHeaders, Prefer: 'return=minimal' },
         body: JSON.stringify({
           restaurant_id: restaurantId,
-          user_id: userId,
+          user_id: caller.actorId,
           action: 'close_order',
           entity_type: 'orders',
           entity_id: orderId,

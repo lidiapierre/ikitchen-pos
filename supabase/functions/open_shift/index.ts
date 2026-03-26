@@ -1,6 +1,8 @@
+import { verifyAndGetCaller } from '../_shared/auth.ts'
+
 export const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-demo-staff-id',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
@@ -10,8 +12,6 @@ export interface HandlerEnv {
   supabaseUrl: string
   serviceKey: string
 }
-
-const SYSTEM_USER_ID = '00000000-0000-0000-0000-000000000001'
 
 function readEnv(): HandlerEnv | null {
   const g = globalThis as { Deno?: { env: { get: (key: string) => string | undefined } } }
@@ -33,6 +33,22 @@ export async function handler(
 ): Promise<Response> {
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 204, headers: corsHeaders })
+  }
+
+  if (!env) {
+    return new Response(
+      JSON.stringify({ success: false, error: 'Server configuration error' }),
+      { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    )
+  }
+
+  // Verify JWT and check minimum role (owner/admin required to open shifts)
+  const caller = await verifyAndGetCaller(req, env.supabaseUrl, env.serviceKey, 'owner', fetchFn)
+  if ('error' in caller) {
+    return new Response(
+      JSON.stringify({ success: false, error: caller.error }),
+      { status: caller.status, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    )
   }
 
   let body: unknown
@@ -61,15 +77,8 @@ export async function handler(
   }
   const openingFloat = payload['opening_float'] as number
 
-  const staffIdHeader = req.headers.get('x-demo-staff-id') ?? ''
-  const staffId = isValidUuid(staffIdHeader) ? staffIdHeader : SYSTEM_USER_ID
-
-  if (!env) {
-    return new Response(
-      JSON.stringify({ success: false, error: 'Server configuration error' }),
-      { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
-    )
-  }
+  // actor_id comes from the verified JWT — no more x-demo-staff-id header
+  const staffId = caller.actorId
 
   const { supabaseUrl, serviceKey } = env
   const dbHeaders = {
@@ -141,7 +150,7 @@ export async function handler(
     const inserted = (await insertRes.json()) as Array<{ id: string; opened_at: string }>
     const shift = inserted[0]
 
-    // 4. Emit audit log entry
+    // 4. Emit audit log entry — actor_id comes from verified JWT
     const auditRes = await fetchFn(
       `${supabaseUrl}/rest/v1/audit_log`,
       {

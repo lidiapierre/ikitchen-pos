@@ -6,22 +6,30 @@ export interface RecordPaymentResponse {
 
 export async function callRecordPayment(
   supabaseUrl: string,
-  apiKey: string,
+  accessToken: string,
   orderId: string,
   amountCents: number,
   method: 'cash' | 'card',
   orderTotalCents: number,
 ): Promise<{ change_due: number }> {
+  if (!accessToken) throw new Error('Not authenticated — please log in and try again.')
   const res = await fetch(`${supabaseUrl}/functions/v1/record_payment`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'x-demo-staff-id': '00000000-0000-0000-0000-000000000010',
+      Authorization: `Bearer ${accessToken}`,
     },
     body: JSON.stringify({ order_id: orderId, amount: amountCents, method, order_total_cents: orderTotalCents }),
   })
   if (!res.ok) {
-    throw new Error(`HTTP ${res.status}`)
+    let errMsg = `HTTP ${res.status}`
+    try {
+      const body = (await res.json()) as { error?: string; message?: string }
+      errMsg = body.error ?? body.message ?? errMsg
+    } catch {
+      // ignore parse error
+    }
+    throw new Error(errMsg)
   }
   const json = (await res.json()) as RecordPaymentResponse
   if (!json.success) {

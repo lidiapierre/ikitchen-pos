@@ -11,6 +11,10 @@ const ORDER_ITEM_ID = 'order-item-e2e-bill';
  * the success step of the order detail page.
  */
 test.describe('Print Bill button', () => {
+  // Requires a valid session so UserContext can populate accessToken (needed for
+  // close_order / record_payment edge function calls after the RBAC auth fix).
+  test.use({ storageState: 'e2e/.auth/admin.json' })
+
   test.beforeEach(async ({ page }) => {
     // Mock tables list
     await page.route('**/rest/v1/tables**', async (route) => {

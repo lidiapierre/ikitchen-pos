@@ -13,6 +13,10 @@ const ORDER_ITEM_ID = 'order-item-e2e-1';
  * without a real backend.
  */
 test.describe('post-payment completion flow', () => {
+  // Requires a valid session so UserContext can populate accessToken (needed for
+  // close_order / record_payment edge function calls after the RBAC auth fix).
+  test.use({ storageState: 'e2e/.auth/admin.json' })
+
   test.beforeEach(async ({ page }) => {
     // Mock tables list — table starts as occupied (has an open order)
     await page.route('**/rest/v1/tables**', async (route) => {

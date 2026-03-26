@@ -19,6 +19,9 @@ import type { PrinterConfig } from '@/lib/kotPrint'
 import KotPrintView from '@/components/KotPrintView'
 import BillPrintView from '@/components/BillPrintView'
 import { supabase } from '@/lib/supabase'
+import { useUser } from '@/lib/user-context'
+import { callSetCovers, callSetItemSeat } from './splitBillApi'
+import SplitBillPrintView from '@/components/SplitBillPrintView'
 
 interface OrderDetailClientProps {
   tableId: string
@@ -28,6 +31,7 @@ interface OrderDetailClientProps {
 
 export default function OrderDetailClient({ tableId, orderId, currencySymbol = DEFAULT_CURRENCY_SYMBOL }: OrderDetailClientProps): JSX.Element {
   const router = useRouter()
+  const { accessToken } = useUser()
   const [closing, setClosing] = useState(false)
   const [closeError, setCloseError] = useState<string | null>(null)
   const [items, setItems] = useState<OrderItem[]>([])
@@ -71,6 +75,15 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
   // Bill print state
   const [billTimestamp, setBillTimestamp] = useState('')
   const [printingBill, setPrintingBill] = useState(false)
+
+  // Covers / split bill state
+  const [covers, setCovers] = useState(1)
+  const [showSplitBill, setShowSplitBill] = useState(false)
+  const [splitBillTab, setSplitBillTab] = useState<'even' | 'seat'>('even')
+  const [splitBillPrinting, setSplitBillPrinting] = useState(false)
+  const [splitBillPrintMode, setSplitBillPrintMode] = useState<'even' | 'seat'>('even')
+  const [splitBillTimestamp, setSplitBillTimestamp] = useState('')
+  const coversDebounceRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // VAT config state (fetched once on load)
   const [vatPercent, setVatPercent] = useState(0)
@@ -168,11 +181,31 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
       })
   }
 
+  function loadCovers(): void {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+    if (!supabaseUrl || !supabaseKey) return
+    const url = new URL(`${supabaseUrl}/rest/v1/orders`)
+    url.searchParams.set('id', `eq.${orderId}`)
+    url.searchParams.set('select', 'covers')
+    void fetch(url.toString(), {
+      headers: { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` },
+    })
+      .then((r) => r.json())
+      .then((rows: Array<{ covers: number | null }>) => {
+        if (rows.length > 0 && rows[0].covers != null) {
+          setCovers(rows[0].covers)
+        }
+      })
+      .catch(() => { /* non-fatal */ })
+  }
+
   useEffect(() => {
     loadItems()
     loadOrderStatus()
     loadVatConfig()
     loadPrinterConfig()
+    loadCovers()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderId])
 
@@ -201,6 +234,29 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
   const billAmountTenderedCents = paymentMethod === 'cash'
     ? Math.round(parseFloat(amountTenderedDollars || '0') * 100)
     : undefined
+
+  function handleCoversChange(newCovers: number): void {
+    const clamped = Math.max(1, Math.min(20, newCovers))
+    setCovers(clamped)
+    if (coversDebounceRef.current) clearTimeout(coversDebounceRef.current)
+    coversDebounceRef.current = setTimeout(() => {
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+      if (!supabaseUrl || !accessToken) return
+      void callSetCovers(supabaseUrl, accessToken, orderId, clamped).catch(() => { /* non-fatal */ })
+    }, 500)
+  }
+
+  function handlePrintSplitBill(mode: 'even' | 'seat'): void {
+    setSplitBillPrintMode(mode)
+    setSplitBillTimestamp(new Date().toLocaleString())
+    setSplitBillPrinting(true)
+    setTimeout(() => {
+      window.print()
+      window.addEventListener('afterprint', () => {
+        setSplitBillPrinting(false)
+      }, { once: true })
+    }, 200)
+  }
 
   // KOT: send kitchen ticket for unsent items, then navigate back to tables
   async function handleBackToTables(): Promise<void> {
@@ -292,11 +348,10 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
     setClosing(true)
     try {
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
-      if (!supabaseUrl || !supabaseKey) {
-        throw new Error('API not configured')
+      if (!supabaseUrl || !accessToken) {
+        throw new Error('Not authenticated')
       }
-      await callCloseOrder(supabaseUrl, supabaseKey, orderId)
+      await callCloseOrder(supabaseUrl, accessToken, orderId)
       setStep('payment')
     } catch (err) {
       setCloseError(err instanceof Error ? err.message : 'Failed to close order')
@@ -320,12 +375,11 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
     setPaying(true)
     try {
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
-      if (!supabaseUrl || !supabaseKey) {
-        throw new Error('API not configured')
+      if (!supabaseUrl || !accessToken) {
+        throw new Error('Not authenticated')
       }
       // Pass the VAT-inclusive total as the final amount to record_payment
-      const result = await callRecordPayment(supabaseUrl, supabaseKey, orderId, amountCentsToTender, paymentMethod, billTotalCents)
+      const result = await callRecordPayment(supabaseUrl, accessToken, orderId, amountCentsToTender, paymentMethod, billTotalCents)
       setConfirmedPaymentMethod(paymentMethod)
       if (paymentMethod === 'cash') {
         setChangeDueCents(result.change_due)
@@ -346,11 +400,10 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
     setVoidingInProgress(true)
     try {
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
-      if (!supabaseUrl || !supabaseKey) {
-        throw new Error('API not configured')
+      if (!supabaseUrl || !accessToken) {
+        throw new Error('Not authenticated')
       }
-      await callVoidItem(supabaseUrl, supabaseKey, voidingItem.id, voidReason)
+      await callVoidItem(supabaseUrl, accessToken, voidingItem.id, voidReason)
       setVoidingItem(null)
       setVoidReason('')
       loadItems()
@@ -366,11 +419,10 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
     setCancelling(true)
     try {
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
-      if (!supabaseUrl || !supabaseKey) {
-        throw new Error('API not configured')
+      if (!supabaseUrl || !accessToken) {
+        throw new Error('Not authenticated')
       }
-      await callCancelOrder(supabaseUrl, supabaseKey, orderId, cancelReason)
+      await callCancelOrder(supabaseUrl, accessToken, orderId, cancelReason)
       router.push(`/tables/${tableId}`)
     } catch (err) {
       setCancelError(err instanceof Error ? err.message : 'Failed to cancel order')
@@ -699,6 +751,31 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
             <dd className="font-mono text-sm text-zinc-300">{orderId}</dd>
           </div>
         </dl>
+        {/* Covers field — always visible in order step */}
+        {step === 'order' && (
+          <div className="flex items-center gap-3 mt-4">
+            <span className="text-zinc-400 text-base">Covers:</span>
+            <button
+              type="button"
+              onClick={() => { handleCoversChange(covers - 1) }}
+              disabled={covers <= 1}
+              className="min-h-[48px] min-w-[48px] rounded-xl bg-zinc-800 text-white text-xl font-bold hover:bg-zinc-700 transition-colors disabled:opacity-40"
+              aria-label="Decrease covers"
+            >
+              −
+            </button>
+            <span className="text-white font-bold text-xl w-8 text-center">{covers}</span>
+            <button
+              type="button"
+              onClick={() => { handleCoversChange(covers + 1) }}
+              disabled={covers >= 20}
+              className="min-h-[48px] min-w-[48px] rounded-xl bg-zinc-800 text-white text-xl font-bold hover:bg-zinc-700 transition-colors disabled:opacity-40"
+              aria-label="Increase covers"
+            >
+              +
+            </button>
+          </div>
+        )}
       </header>
 
       <section className="flex-1">

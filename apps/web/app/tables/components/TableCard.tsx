@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { JSX } from 'react'
 import { callCreateOrder } from './createOrderApi'
+import { useUser } from '@/lib/user-context'
 import type { TableRow } from '../tablesData'
 
 interface TableCardProps {
@@ -12,6 +13,7 @@ interface TableCardProps {
 
 export default function TableCard({ table }: TableCardProps): JSX.Element {
   const router = useRouter()
+  const { accessToken } = useUser()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const isOccupied = table.open_order_id !== null
@@ -27,11 +29,10 @@ export default function TableCard({ table }: TableCardProps): JSX.Element {
     setLoading(true)
     try {
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-      const supabasePublishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
-      if (!supabaseUrl || !supabasePublishableKey) {
-        throw new Error('API not configured')
+      if (!supabaseUrl || !accessToken) {
+        throw new Error('Not authenticated')
       }
-      const result = await callCreateOrder(supabaseUrl, supabasePublishableKey, table.id)
+      const result = await callCreateOrder(supabaseUrl, accessToken, table.id)
       router.push(`/tables/${table.id}/order/${result.order_id}`)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create order')

@@ -139,7 +139,7 @@ async function fetchTaxInclusive(
   return rows[0].value === 'true'
 }
 
-async function fetchConfigValue(
+export async function fetchConfigValue(
   supabaseUrl: string,
   apiKey: string,
   restaurantId: string,

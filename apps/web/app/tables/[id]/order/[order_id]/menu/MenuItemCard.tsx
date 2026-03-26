@@ -6,6 +6,7 @@ import type { MenuItem } from './menuData'
 import { callAddItemToOrder } from './addItemApi'
 import ModifierSelectionModal from './ModifierSelectionModal'
 import { formatPrice, DEFAULT_CURRENCY_SYMBOL } from '@/lib/formatPrice'
+import { useUser } from '@/lib/user-context'
 
 interface MenuItemCardProps {
   item: MenuItem
@@ -15,6 +16,7 @@ interface MenuItemCardProps {
 }
 
 export default function MenuItemCard({ item, orderId, onItemAdded, currencySymbol = DEFAULT_CURRENCY_SYMBOL }: MenuItemCardProps): JSX.Element {
+  const { accessToken } = useUser()
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -29,11 +31,10 @@ export default function MenuItemCard({ item, orderId, onItemAdded, currencySymbo
     setLoading(true)
     try {
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
-      if (!supabaseUrl || !supabaseKey) {
-        throw new Error('API not configured')
+      if (!supabaseUrl || !accessToken) {
+        throw new Error('Not authenticated')
       }
-      await callAddItemToOrder(supabaseUrl, supabaseKey, orderId, item.id, modifierIds.length > 0 ? modifierIds : undefined)
+      await callAddItemToOrder(supabaseUrl, accessToken, orderId, item.id, modifierIds.length > 0 ? modifierIds : undefined)
       setSuccess(true)
       const modifierDeltaCents = item.modifiers
         .filter((mod) => modifierIds.includes(mod.id))

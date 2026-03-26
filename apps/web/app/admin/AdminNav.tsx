@@ -15,6 +15,7 @@ const NAV_LINKS: NavLink[] = [
   { href: '/admin/tables', label: 'Tables' },
   { href: '/admin/pricing', label: 'Pricing' },
   { href: '/admin/users', label: 'Users' },
+  { href: '/admin/reports', label: '📊 Reports' },
   { href: '/admin/settings/printer', label: '🖨 Printer' },
 ]
 

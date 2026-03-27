@@ -17,6 +17,7 @@ export interface AdminMenu {
   id: string
   name: string
   restaurant_id: string
+  printer_type: 'kitchen' | 'cashier' | 'bar'
   items: AdminMenuItem[]
 }
 
@@ -44,6 +45,7 @@ interface MenuRow {
   id: string
   name: string
   restaurant_id: string
+  printer_type: string | null
   menu_items: MenuItemRow[]
 }
 
@@ -71,7 +73,7 @@ async function fetchMenus(supabaseUrl: string, apiKey: string): Promise<AdminMen
   const url = new URL(`${supabaseUrl}/rest/v1/menus`)
   url.searchParams.set(
     'select',
-    'id,name,restaurant_id,menu_items(id,name,description,price_cents,image_url,modifiers(id,name,price_delta_cents))',
+    'id,name,restaurant_id,printer_type,menu_items(id,name,description,price_cents,image_url,modifiers(id,name,price_delta_cents))',
   )
   const res = await fetch(url.toString(), { headers })
   if (!res.ok) {
@@ -84,6 +86,7 @@ async function fetchMenus(supabaseUrl: string, apiKey: string): Promise<AdminMen
     id: menu.id,
     name: menu.name,
     restaurant_id: menu.restaurant_id,
+    printer_type: (menu.printer_type as 'kitchen' | 'cashier' | 'bar' | null) ?? 'kitchen',
     items: (menu.menu_items ?? []).map((item) => ({
       id: item.id,
       name: item.name,

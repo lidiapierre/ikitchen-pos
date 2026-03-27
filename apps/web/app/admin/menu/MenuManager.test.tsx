@@ -40,7 +40,7 @@ const MOCK_DATA: MenuAdminData = {
     {
       id: 'menu-1',
       name: 'Starters',
-      restaurant_id: 'rest-1',
+      restaurant_id: 'rest-1', printer_type: 'kitchen' as const,
       items: [
         { id: 'item-1', name: 'Soup of the Day', price_cents: 650, modifiers: [] },
         { id: 'item-2', name: 'Garlic Bread', price_cents: 400, modifiers: [] },
@@ -49,7 +49,7 @@ const MOCK_DATA: MenuAdminData = {
     {
       id: 'menu-2',
       name: 'Mains',
-      restaurant_id: 'rest-1',
+      restaurant_id: 'rest-1', printer_type: 'kitchen' as const,
       items: [
         {
           id: 'item-3',
@@ -63,7 +63,7 @@ const MOCK_DATA: MenuAdminData = {
     {
       id: 'menu-3',
       name: 'Desserts',
-      restaurant_id: 'rest-1',
+      restaurant_id: 'rest-1', printer_type: 'kitchen' as const,
       items: [
         { id: 'item-5', name: 'Chocolate Fondant', price_cents: 750, modifiers: [] },
       ],
@@ -71,7 +71,7 @@ const MOCK_DATA: MenuAdminData = {
     {
       id: 'menu-4',
       name: 'Drinks',
-      restaurant_id: 'rest-1',
+      restaurant_id: 'rest-1', printer_type: 'kitchen' as const,
       items: [
         {
           id: 'item-6',

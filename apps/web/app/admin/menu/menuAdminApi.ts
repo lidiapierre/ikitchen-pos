@@ -71,6 +71,20 @@ export async function callDeleteMenu(
   await postgrestRequest(`${supabaseUrl}/rest/v1/menus?id=eq.${menuId}`, 'DELETE', apiKey)
 }
 
+export async function callUpdateMenuPrinterType(
+  supabaseUrl: string,
+  apiKey: string,
+  menuId: string,
+  printerType: 'kitchen' | 'cashier' | 'bar',
+): Promise<void> {
+  await postgrestRequest(
+    `${supabaseUrl}/rest/v1/menus?id=eq.${menuId}`,
+    'PATCH',
+    apiKey,
+    { printer_type: printerType },
+  )
+}
+
 export async function callCreateMenuItem(
   supabaseUrl: string,
   accessToken: string | null,

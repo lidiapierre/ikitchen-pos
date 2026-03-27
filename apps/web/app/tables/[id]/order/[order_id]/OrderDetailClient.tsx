@@ -19,8 +19,8 @@ import { formatPrice, DEFAULT_CURRENCY_SYMBOL } from '@/lib/formatPrice'
 import { calcVat } from '@/lib/vatCalc'
 import { calcServiceCharge } from '@/lib/serviceChargeCalc'
 import { fetchVatConfig, fetchOrderVatContext, fetchServiceChargePercent } from '@/lib/fetchVatConfig'
-import { printKot } from '@/lib/kotPrint'
-import type { PrinterConfig } from '@/lib/kotPrint'
+import { printKot, printBill, findPrinter } from '@/lib/kotPrint'
+import type { PrinterConfig, PrinterProfile } from '@/lib/kotPrint'
 import KotPrintView from '@/components/KotPrintView'
 import BillPrintView from '@/components/BillPrintView'
 import { supabase } from '@/lib/supabase'
@@ -79,8 +79,10 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
   const [transferring, setTransferring] = useState(false)
   const [transferError, setTransferError] = useState<string | null>(null)
 
-  // Printer config state
+  // Printer config state (legacy single-printer — kept for backward compat)
   const [printerConfig, setPrinterConfig] = useState<PrinterConfig | null>(null)
+  // Multi-printer profiles (from `printers` table — issue #187)
+  const [printers, setPrinters] = useState<PrinterProfile[]>([])
 
   // KOT state
   const [kotStatus, setKotStatus] = useState<string | null>(null)
@@ -215,6 +217,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
   }
 
   function loadPrinterConfig(): void {
+    // Load legacy printer_configs (backward compat)
     void supabase
       .from('printer_configs')
       .select('mode, ip, port')
@@ -229,6 +232,29 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
         }
       }, () => {
         // Non-fatal: fall back to browser mode
+      })
+
+    // Load multi-printer profiles (issue #187)
+    void supabase
+      .from('printers')
+      .select('id, name, ip_address, port, type, enabled')
+      .eq('enabled', true)
+      .then(({ data }) => {
+        if (data && Array.isArray(data)) {
+          setPrinters(
+            (data as Array<{ id: string; name: string; ip_address: string; port: number; type: string; enabled: boolean }>)
+              .map((p) => ({
+                id: p.id,
+                name: p.name,
+                ip_address: p.ip_address,
+                port: p.port ?? 9100,
+                type: p.type as 'kitchen' | 'cashier' | 'bar',
+                enabled: p.enabled,
+              })),
+          )
+        }
+      }, () => {
+        // Non-fatal: table may not exist yet — fall back to legacy config
       })
   }
 
@@ -368,19 +394,42 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
       setKotStatus('Sending to kitchen…')
       setKotPrintError(null)
 
-      const result = await printKot({
-        items: unsentItems.map((i) => ({ name: i.name, qty: i.quantity })),
-        tableId,
-        orderId,
-        timestamp: ts,
-        printerConfig,
-        onBeforeBrowserPrint: () => {
-          // KotPrintView is already rendered — nothing extra needed
-        },
-      })
+      // Group unsent items by their printer type (kitchen vs bar)
+      const itemsByPrinterType = new Map<'kitchen' | 'bar', typeof unsentItems>()
+      for (const item of unsentItems) {
+        const pt: 'kitchen' | 'bar' = item.printerType === 'bar' ? 'bar' : 'kitchen'
+        const group = itemsByPrinterType.get(pt) ?? []
+        group.push(item)
+        itemsByPrinterType.set(pt, group)
+      }
 
-      if (!result.success && result.errorMessage) {
-        setKotPrintError(result.errorMessage)
+      // Send each group to the correct printer
+      let printErrors: string[] = []
+      for (const [printerType, groupItems] of itemsByPrinterType) {
+        const profile = printers.length > 0
+          ? findPrinter(printers, printerType)
+          : null
+        const legacyConfig = printers.length === 0 ? printerConfig : null
+
+        const result = await printKot({
+          items: groupItems.map((i) => ({ name: i.name, qty: i.quantity })),
+          tableId,
+          orderId,
+          timestamp: ts,
+          printerProfile: profile,
+          printerConfig: legacyConfig,
+          onBeforeBrowserPrint: () => {
+            // KotPrintView is already rendered — nothing extra needed
+          },
+        })
+
+        if (result.errorMessage) {
+          printErrors.push(`[${printerType}] ${result.errorMessage}`)
+        }
+      }
+
+      if (printErrors.length > 0) {
+        setKotPrintError(printErrors.join('\n\n'))
         setKotStatus(null)
         return
       }
@@ -403,28 +452,66 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
     setReprintingKot(true)
     setKotPrintError(null)
 
-    const result = await printKot({
-      items: items.map((i) => ({ name: i.name, qty: i.quantity })),
-      tableId,
-      orderId,
-      timestamp: ts,
-      printerConfig,
-      onBeforeBrowserPrint: () => {
-        // KotPrintView showAll is already set above
-      },
-      onAfterBrowserPrint: () => {
-        setKotShowAll(false)
-        setReprintingKot(false)
-      },
-    })
-
-    if (result.method === 'network') {
-      setKotShowAll(false)
-      setReprintingKot(false)
+    // For reprints, route each item group to the correct printer
+    const itemsByPrinterType = new Map<'kitchen' | 'bar', typeof items>()
+    for (const item of items) {
+      const pt: 'kitchen' | 'bar' = item.printerType === 'bar' ? 'bar' : 'kitchen'
+      const group = itemsByPrinterType.get(pt) ?? []
+      group.push(item)
+      itemsByPrinterType.set(pt, group)
     }
 
-    if (!result.success && result.errorMessage) {
-      setKotPrintError(result.errorMessage)
+    // If only one group and it's a browser print, use the standard flow with callbacks
+    if (printers.length === 0 && printerConfig?.mode !== 'network') {
+      const result = await printKot({
+        items: items.map((i) => ({ name: i.name, qty: i.quantity })),
+        tableId,
+        orderId,
+        timestamp: ts,
+        printerConfig,
+        onBeforeBrowserPrint: () => {
+          // KotPrintView showAll is already set above
+        },
+        onAfterBrowserPrint: () => {
+          setKotShowAll(false)
+          setReprintingKot(false)
+        },
+      })
+      if (result.method === 'network') {
+        setKotShowAll(false)
+        setReprintingKot(false)
+      }
+      if (result.errorMessage) {
+        setKotPrintError(result.errorMessage)
+      }
+      return
+    }
+
+    // Network or multi-printer: send to each group
+    let printErrors: string[] = []
+    for (const [printerType, groupItems] of itemsByPrinterType) {
+      const profile = printers.length > 0 ? findPrinter(printers, printerType) : null
+      const legacyConfig = printers.length === 0 ? printerConfig : null
+
+      const result = await printKot({
+        items: groupItems.map((i) => ({ name: i.name, qty: i.quantity })),
+        tableId,
+        orderId,
+        timestamp: ts,
+        printerProfile: profile,
+        printerConfig: legacyConfig,
+      })
+
+      if (result.errorMessage) {
+        printErrors.push(`[${printerType}] ${result.errorMessage}`)
+      }
+    }
+
+    setKotShowAll(false)
+    setReprintingKot(false)
+
+    if (printErrors.length > 0) {
+      setKotPrintError(printErrors.join('\n\n'))
     }
   }
 
@@ -445,17 +532,37 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
     setKotCourseFilter(course)
 
     try {
-      const result = await printKot({
-        items: courseItems.map((i) => ({ name: i.name, qty: i.quantity })),
-        tableId,
-        orderId,
-        timestamp: ts,
-        printerConfig,
-        onBeforeBrowserPrint: () => { /* KotPrintView already rendered with courseFilter */ },
-      })
+      // Group course items by printer type and send to correct printer
+      const courseItemsByPrinterType = new Map<'kitchen' | 'bar', typeof courseItems>()
+      for (const item of courseItems) {
+        const pt: 'kitchen' | 'bar' = item.printerType === 'bar' ? 'bar' : 'kitchen'
+        const group = courseItemsByPrinterType.get(pt) ?? []
+        group.push(item)
+        courseItemsByPrinterType.set(pt, group)
+      }
 
-      if (!result.success && result.errorMessage) {
-        setKotPrintError(result.errorMessage)
+      let firePrintErrors: string[] = []
+      for (const [printerType, groupItems] of courseItemsByPrinterType) {
+        const profile = printers.length > 0 ? findPrinter(printers, printerType) : null
+        const legacyConfig = printers.length === 0 ? printerConfig : null
+
+        const result = await printKot({
+          items: groupItems.map((i) => ({ name: i.name, qty: i.quantity })),
+          tableId,
+          orderId,
+          timestamp: ts,
+          printerProfile: profile,
+          printerConfig: legacyConfig,
+          onBeforeBrowserPrint: () => { /* KotPrintView already rendered with courseFilter */ },
+        })
+
+        if (result.errorMessage) {
+          firePrintErrors.push(`[${printerType}] ${result.errorMessage}`)
+        }
+      }
+
+      if (firePrintErrors.length > 0) {
+        setKotPrintError(firePrintErrors.join('\n\n'))
         setKotCourseFilter(null)
         setFiringCourse(null)
         return
@@ -503,10 +610,53 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
     }
   }
 
-  // Print Bill: capture timestamp and trigger print dialog
+  // Print Bill: route to cashier printer if available, otherwise browser print
   function handlePrintBill(): void {
-    setBillTimestamp(new Date().toLocaleString())
+    const ts = new Date().toLocaleString()
+    setBillTimestamp(ts)
     setPrintingBill(true)
+
+    const cashierProfile = printers.length > 0 ? findPrinter(printers, 'cashier') : null
+
+    if (cashierProfile) {
+      // Send ESC/POS bill to network cashier printer
+      void printBill({
+        items: items.map((i) => ({
+          name: i.name,
+          qty: i.quantity,
+          lineCents: i.quantity * i.price_cents,
+          comp: i.comp || orderIsComp,
+        })),
+        tableId,
+        orderId,
+        timestamp: ts,
+        billOpts: {
+          subtotalCents: billSubtotalCents,
+          discountCents: appliedDiscountCents,
+          discountLabel: appliedDiscountLabel,
+          serviceChargeCents: billServiceChargeCents,
+          serviceChargePercent,
+          vatCents: billVatCents,
+          vatPercent,
+          taxInclusive,
+          totalCents: billTotalCents,
+          paymentMethod: billPaymentMethod,
+          amountTenderedCents: billAmountTenderedCents,
+          changeDueCents: billPaymentMethod === 'cash' ? changeDueCents : undefined,
+          orderComp: orderIsComp,
+        },
+        printerProfile: cashierProfile,
+        onAfterBrowserPrint: () => { setPrintingBill(false) },
+      }).then((result) => {
+        setPrintingBill(false)
+        if (result.errorMessage) {
+          setKotPrintError(`Bill print error: ${result.errorMessage}`)
+        }
+      }).catch(() => { setPrintingBill(false) })
+      return
+    }
+
+    // Browser print fallback
     setTimeout(() => {
       window.print()
       window.addEventListener('afterprint', () => {

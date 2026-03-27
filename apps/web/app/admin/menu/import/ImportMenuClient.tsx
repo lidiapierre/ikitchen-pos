@@ -170,7 +170,7 @@ export default function ImportMenuClient(): JSX.Element {
             // Create a new menu/category
             const newMenuId = await callCreateMenu(supabaseUrl, supabaseKey, restaurantId, categoryName)
             createdMenuIds[categoryName.toLowerCase()] = newMenuId
-            menusCopy.push({ id: newMenuId, name: categoryName, restaurant_id: restaurantId, items: [] })
+            menusCopy.push({ id: newMenuId, name: categoryName, restaurant_id: restaurantId, printer_type: 'kitchen', items: [] })
             menuId = newMenuId
           }
         }
@@ -181,7 +181,7 @@ export default function ImportMenuClient(): JSX.Element {
             menuId = menusCopy[0].id
           } else {
             const newMenuId = await callCreateMenu(supabaseUrl, supabaseKey, restaurantId, 'Menu')
-            menusCopy.push({ id: newMenuId, name: 'Menu', restaurant_id: restaurantId, items: [] })
+            menusCopy.push({ id: newMenuId, name: 'Menu', restaurant_id: restaurantId, printer_type: 'kitchen', items: [] })
             menuId = newMenuId
           }
         }

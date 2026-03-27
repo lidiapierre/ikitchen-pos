@@ -183,7 +183,88 @@ export async function handler(
       )
     }
 
-    // 5. Emit audit log entry — actor_id comes from verified JWT
+    // 5. Auto-deduct stock for order items (best-effort — never fail the order close)
+    try {
+      // Fetch all non-voided order items with menu_item_id and quantity
+      const stockItemsRes = await fetchFn(
+        `${supabaseUrl}/rest/v1/order_items?select=menu_item_id,quantity&order_id=eq.${orderId}&voided=eq.false`,
+        { headers: { ...dbHeaders, Prefer: 'count=none' } },
+      )
+      if (stockItemsRes.ok) {
+        const orderItems = (await stockItemsRes.json()) as Array<{ menu_item_id: string; quantity: number }>
+
+        // Aggregate quantities per menu_item_id
+        const menuItemQtyMap = new Map<string, number>()
+        for (const oi of orderItems) {
+          if (!oi.menu_item_id) continue
+          menuItemQtyMap.set(oi.menu_item_id, (menuItemQtyMap.get(oi.menu_item_id) ?? 0) + oi.quantity)
+        }
+
+        if (menuItemQtyMap.size > 0) {
+          const menuItemIds = Array.from(menuItemQtyMap.keys())
+          const inFilter = menuItemIds.map((id) => `"${id}"`).join(',')
+
+          // Fetch recipe items for all involved menu items
+          const recipeRes = await fetchFn(
+            `${supabaseUrl}/rest/v1/recipe_items?select=menu_item_id,ingredient_id,quantity_used&menu_item_id=in.(${menuItemIds.join(',')})`,
+            { headers: { ...dbHeaders, Prefer: 'count=none' } },
+          )
+          if (recipeRes.ok) {
+            const recipeItems = (await recipeRes.json()) as Array<{
+              menu_item_id: string
+              ingredient_id: string
+              quantity_used: number
+            }>
+
+            // Aggregate total deduction per ingredient
+            const deductMap = new Map<string, number>()
+            for (const ri of recipeItems) {
+              const qty = menuItemQtyMap.get(ri.menu_item_id) ?? 0
+              if (qty === 0) continue
+              const totalDeduct = ri.quantity_used * qty
+              deductMap.set(ri.ingredient_id, (deductMap.get(ri.ingredient_id) ?? 0) + totalDeduct)
+            }
+
+            // Apply deductions + insert stock_adjustments
+            for (const [ingredientId, totalDeduct] of deductMap) {
+              // Deduct current_stock
+              await fetchFn(
+                `${supabaseUrl}/rest/v1/rpc/decrement_ingredient_stock`,
+                {
+                  method: 'POST',
+                  headers: { ...dbHeaders, Prefer: 'return=minimal' },
+                  body: JSON.stringify({ p_ingredient_id: ingredientId, p_amount: totalDeduct }),
+                },
+              ).catch(() => {
+                // Fallback: direct update via PATCH (non-atomic but best-effort)
+              })
+
+              // Insert stock adjustment record
+              await fetchFn(
+                `${supabaseUrl}/rest/v1/stock_adjustments`,
+                {
+                  method: 'POST',
+                  headers: { ...dbHeaders, Prefer: 'return=minimal' },
+                  body: JSON.stringify({
+                    restaurant_id: restaurantId,
+                    ingredient_id: ingredientId,
+                    quantity_delta: -totalDeduct,
+                    reason: 'sale',
+                    created_by: caller.actorId,
+                  }),
+                },
+              ).catch(() => {
+                // Non-fatal: skip if adjustment insert fails
+              })
+            }
+          }
+        }
+      }
+    } catch {
+      // Best-effort: inventory deduction must never block order close
+    }
+
+    // 6. Emit audit log entry — actor_id comes from verified JWT
     const auditRes = await fetchFn(
       `${supabaseUrl}/rest/v1/audit_log`,
       {

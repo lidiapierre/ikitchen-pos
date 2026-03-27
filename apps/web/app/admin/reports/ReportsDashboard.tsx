@@ -3,9 +3,16 @@
 import { useState, useEffect, useCallback } from 'react'
 import type { JSX } from 'react'
 import { useUser } from '@/lib/user-context'
-import { callGetReports } from './reportsApi'
+import { callGetReports, callExportOrders } from './reportsApi'
 import type { ReportData, ReportPeriod, CompDetailItem, CompByItem } from './reportsApi'
 import { formatPrice, DEFAULT_CURRENCY_SYMBOL } from '@/lib/formatPrice'
+import {
+  exportRevenueByDay,
+  exportTopItems,
+  exportPaymentBreakdown,
+  exportCompDetail,
+  exportOrderList,
+} from './csvExport'
 
 const PERIOD_LABELS: { value: ReportPeriod; label: string }[] = [
   { value: 'today', label: 'Today' },
@@ -13,6 +20,36 @@ const PERIOD_LABELS: { value: ReportPeriod; label: string }[] = [
   { value: 'month', label: 'This Month' },
   { value: 'custom', label: 'Custom' },
 ]
+
+interface ExportButtonProps {
+  onClick: () => void
+  loading?: boolean
+  label?: string
+}
+
+function ExportButton({ onClick, loading = false, label = 'Export CSV' }: ExportButtonProps): JSX.Element {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={loading}
+      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-700 hover:bg-zinc-600 text-zinc-200 text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed border border-zinc-600"
+      aria-label={label}
+    >
+      {loading ? (
+        <svg className="animate-spin w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+        </svg>
+      ) : (
+        <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+          <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+        </svg>
+      )}
+      {label}
+    </button>
+  )
+}
 
 function SummaryCard({ label, value }: { label: string; value: string | number }): JSX.Element {
   return (
@@ -188,6 +225,8 @@ export default function ReportsDashboard(): JSX.Element {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [compTab, setCompTab] = useState<'detail' | 'breakdown'>('breakdown')
+  const [exportingOrders, setExportingOrders] = useState(false)
+  const [exportOrdersError, setExportOrdersError] = useState<string | null>(null)
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
 
@@ -218,6 +257,26 @@ export default function ReportsDashboard(): JSX.Element {
   function handleCustomFetch(): void {
     if (!customFrom || !customTo) return
     void fetchReports('custom', customFrom, customTo)
+  }
+
+  async function handleExportOrders(): Promise<void> {
+    if (!accessToken) return
+    setExportingOrders(true)
+    setExportOrdersError(null)
+    try {
+      const orders = await callExportOrders(
+        supabaseUrl,
+        accessToken,
+        period,
+        customFrom || undefined,
+        customTo || undefined,
+      )
+      exportOrderList(orders, period, customFrom || undefined, customTo || undefined)
+    } catch (err) {
+      setExportOrdersError(err instanceof Error ? err.message : 'Failed to export orders')
+    } finally {
+      setExportingOrders(false)
+    }
   }
 
   const totalRevenue = data ? formatPrice(data.summary.total_revenue_cents, DEFAULT_CURRENCY_SYMBOL) : '—'
@@ -306,7 +365,13 @@ export default function ReportsDashboard(): JSX.Element {
 
           {/* Row 2 — Revenue chart */}
           <div className="bg-zinc-800 border border-zinc-700 rounded-2xl p-6">
-            <h2 className="text-base font-semibold text-white mb-4">Revenue by Day</h2>
+            <div className="flex items-center justify-between gap-3 mb-4">
+              <h2 className="text-base font-semibold text-white">Revenue by Day</h2>
+              <ExportButton
+                onClick={() => exportRevenueByDay(data, period, customFrom || undefined, customTo || undefined)}
+                label="Export CSV"
+              />
+            </div>
             <BarChart data={data.revenue_by_day} />
           </div>
 
@@ -314,7 +379,13 @@ export default function ReportsDashboard(): JSX.Element {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* Top Items */}
             <div className="bg-zinc-800 border border-zinc-700 rounded-2xl p-6">
-              <h2 className="text-base font-semibold text-white mb-4">Top Items</h2>
+              <div className="flex items-center justify-between gap-3 mb-4">
+                <h2 className="text-base font-semibold text-white">Top Items</h2>
+                <ExportButton
+                  onClick={() => exportTopItems(data, period, customFrom || undefined, customTo || undefined)}
+                  label="Export CSV"
+                />
+              </div>
               {data.top_items.length === 0 ? (
                 <p className="text-zinc-500 text-sm">No item data for this period</p>
               ) : (
@@ -345,7 +416,13 @@ export default function ReportsDashboard(): JSX.Element {
 
             {/* Payment Breakdown */}
             <div className="bg-zinc-800 border border-zinc-700 rounded-2xl p-6">
-              <h2 className="text-base font-semibold text-white mb-4">Payment Methods</h2>
+              <div className="flex items-center justify-between gap-3 mb-4">
+                <h2 className="text-base font-semibold text-white">Payment Methods</h2>
+                <ExportButton
+                  onClick={() => exportPaymentBreakdown(data, period, customFrom || undefined, customTo || undefined)}
+                  label="Export CSV"
+                />
+              </div>
               {data.payment_breakdown.length === 0 ? (
                 <p className="text-zinc-500 text-sm">No payment data for this period</p>
               ) : (
@@ -411,7 +488,7 @@ export default function ReportsDashboard(): JSX.Element {
             <div className="bg-zinc-800 border border-zinc-700 rounded-2xl p-6">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
                 <h2 className="text-base font-semibold text-white">Comp Item Detail</h2>
-                <div className="flex gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <button
                     type="button"
                     onClick={() => setCompTab('breakdown')}
@@ -436,6 +513,10 @@ export default function ReportsDashboard(): JSX.Element {
                   >
                     Full Log
                   </button>
+                  <ExportButton
+                    onClick={() => exportCompDetail(data, period, customFrom || undefined, customTo || undefined)}
+                    label="Export CSV"
+                  />
                 </div>
               </div>
 
@@ -446,6 +527,26 @@ export default function ReportsDashboard(): JSX.Element {
               )}
             </div>
           )}
+
+          {/* Row 6 — Full Order List Export */}
+          <div className="bg-zinc-800 border border-zinc-700 rounded-2xl p-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div>
+                <h2 className="text-base font-semibold text-white">Full Order List</h2>
+                <p className="text-sm text-zinc-400 mt-0.5">
+                  Export all paid orders for this period — includes table, totals, payment method, discounts &amp; comps.
+                </p>
+              </div>
+              <ExportButton
+                onClick={() => void handleExportOrders()}
+                loading={exportingOrders}
+                label={exportingOrders ? 'Exporting…' : 'Export Orders CSV'}
+              />
+            </div>
+            {exportOrdersError && (
+              <p className="mt-3 text-sm text-red-400">{exportOrdersError}</p>
+            )}
+          </div>
         </>
       )}
 

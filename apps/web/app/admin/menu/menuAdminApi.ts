@@ -81,9 +81,11 @@ export async function callCreateMenuItem(
   description?: string,
   imageUrl?: string,
   available = true,
+  allergens: string[] = [],
+  dietaryBadges: string[] = [],
+  spicyLevel = 'none',
 ): Promise<string> {
   if (!accessToken) throw new Error('Not authenticated')
-  const apiKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ''
   const res = await fetch(`${supabaseUrl}/functions/v1/create_menu_item`, {
     method: 'POST',
     headers: {
@@ -96,6 +98,9 @@ export async function callCreateMenuItem(
       price_cents: priceCents,
       modifiers,
       available,
+      allergens,
+      dietary_badges: dietaryBadges,
+      spicy_level: spicyLevel,
       ...(description !== undefined ? { description } : {}),
       ...(imageUrl !== undefined ? { image_url: imageUrl } : {}),
     }),
@@ -116,8 +121,10 @@ export async function callUpdateMenuItem(
   description?: string,
   imageUrl?: string,
   available = true,
+  allergens: string[] = [],
+  dietaryBadges: string[] = [],
+  spicyLevel = 'none',
 ): Promise<void> {
-  const apiKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ''
   const res = await fetch(`${supabaseUrl}/functions/v1/update_menu_item`, {
     method: 'POST',
     headers: {
@@ -130,6 +137,9 @@ export async function callUpdateMenuItem(
       price_cents: priceCents,
       modifiers,
       available,
+      allergens,
+      dietary_badges: dietaryBadges,
+      spicy_level: spicyLevel,
       ...(description !== undefined ? { description } : {}),
       ...(imageUrl !== undefined ? { image_url: imageUrl } : {}),
     }),

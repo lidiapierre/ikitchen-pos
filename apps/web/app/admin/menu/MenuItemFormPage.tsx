@@ -15,6 +15,10 @@ import FileUploadZone from './FileUploadZone'
 import type { UploadState } from './FileUploadZone'
 import { generateId, formatCurrency } from './MenuManager'
 
+export const ALLERGEN_OPTIONS = ['nuts', 'dairy', 'gluten', 'eggs', 'shellfish', 'soy', 'sesame'] as const
+export const DIETARY_OPTIONS = ['halal', 'vegetarian', 'vegan'] as const
+export const SPICY_OPTIONS = ['none', 'mild', 'medium', 'hot'] as const
+
 interface ItemFormValues {
   name: string
   description: string
@@ -22,6 +26,9 @@ interface ItemFormValues {
   menuId: string
   available: boolean
   modifiers: AdminModifier[]
+  allergens: string[]
+  dietaryBadges: string[]
+  spicyLevel: string
 }
 
 interface ItemFormErrors {
@@ -49,6 +56,9 @@ interface MenuItemRow {
   menu_id: string
   available: boolean
   modifiers: Array<{ id: string; name: string; price_delta_cents: number }>
+  allergens?: string[]
+  dietary_badges?: string[]
+  spicy_level?: string
 }
 
 const EMPTY_FORM: ItemFormValues = {
@@ -58,6 +68,9 @@ const EMPTY_FORM: ItemFormValues = {
   menuId: '',
   available: true,
   modifiers: [],
+  allergens: [],
+  dietaryBadges: [],
+  spicyLevel: 'none',
 }
 
 const EMPTY_MODIFIER: ModifierFormValues = { name: '', price: '' }
@@ -81,7 +94,7 @@ async function fetchMenuItemById(
 ): Promise<MenuItemRow | null> {
   const headers = { apikey: apiKey, Authorization: `Bearer ${apiKey}` }
   const url = new URL(`${supabaseUrl}/rest/v1/menu_items`)
-  url.searchParams.set('select', 'id,name,description,price_cents,image_url,menu_id,available,modifiers(id,name,price_delta_cents)')
+  url.searchParams.set('select', 'id,name,description,price_cents,image_url,menu_id,available,allergens,dietary_badges,spicy_level,modifiers(id,name,price_delta_cents)')
   url.searchParams.set('id', `eq.${itemId}`)
   const res = await fetch(url.toString(), { headers })
   if (!res.ok) throw new Error(`Failed to fetch menu item: ${res.status}`)
@@ -144,6 +157,9 @@ export default function MenuItemFormPage({ mode, itemId }: MenuItemFormPageProps
             menuId: item.menu_id,
             available: item.available ?? true,
             modifiers: (item.modifiers ?? []).map((m) => ({ ...m })),
+            allergens: item.allergens ?? [],
+            dietaryBadges: item.dietary_badges ?? [],
+            spicyLevel: item.spicy_level ?? 'none',
           })
           if (item.image_url) {
             setPreviewUrl(item.image_url)
@@ -275,6 +291,9 @@ export default function MenuItemFormPage({ mode, itemId }: MenuItemFormPageProps
           description,
           imageUrl,
           form.available,
+          form.allergens,
+          form.dietaryBadges,
+          form.spicyLevel,
         )
       } else if (mode === 'edit' && itemId) {
         await callUpdateMenuItem(
@@ -287,6 +306,9 @@ export default function MenuItemFormPage({ mode, itemId }: MenuItemFormPageProps
           description,
           imageUrl,
           form.available,
+          form.allergens,
+          form.dietaryBadges,
+          form.spicyLevel,
         )
       }
 
@@ -473,6 +495,106 @@ export default function MenuItemFormPage({ mode, itemId }: MenuItemFormPageProps
               ].join(' ')}
             />
           </button>
+        </div>
+
+        {/* Allergens */}
+        <div className="flex flex-col gap-3 border-t border-zinc-700 pt-4">
+          <h3 className="text-base font-semibold text-zinc-200">
+            Allergens <span className="text-zinc-500 font-normal">(select all that apply)</span>
+          </h3>
+          <div className="flex flex-wrap gap-2">
+            {ALLERGEN_OPTIONS.map((allergen) => {
+              const active = form.allergens.includes(allergen)
+              return (
+                <button
+                  key={allergen}
+                  type="button"
+                  onClick={() =>
+                    setForm((f) => ({
+                      ...f,
+                      allergens: active
+                        ? f.allergens.filter((a) => a !== allergen)
+                        : [...f.allergens, allergen],
+                    }))
+                  }
+                  disabled={submitting}
+                  aria-pressed={active}
+                  className={[
+                    'min-h-[40px] px-4 py-1.5 rounded-full text-sm font-medium capitalize transition-colors disabled:opacity-50',
+                    active
+                      ? 'bg-red-700 text-white'
+                      : 'bg-zinc-700 text-zinc-300 hover:bg-zinc-600',
+                  ].join(' ')}
+                >
+                  {allergen}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Dietary badges */}
+        <div className="flex flex-col gap-3 border-t border-zinc-700 pt-4">
+          <h3 className="text-base font-semibold text-zinc-200">
+            Dietary Badges <span className="text-zinc-500 font-normal">(select all that apply)</span>
+          </h3>
+          <div className="flex flex-wrap gap-2">
+            {DIETARY_OPTIONS.map((badge) => {
+              const active = form.dietaryBadges.includes(badge)
+              return (
+                <button
+                  key={badge}
+                  type="button"
+                  onClick={() =>
+                    setForm((f) => ({
+                      ...f,
+                      dietaryBadges: active
+                        ? f.dietaryBadges.filter((b) => b !== badge)
+                        : [...f.dietaryBadges, badge],
+                    }))
+                  }
+                  disabled={submitting}
+                  aria-pressed={active}
+                  className={[
+                    'min-h-[40px] px-4 py-1.5 rounded-full text-sm font-medium capitalize transition-colors disabled:opacity-50',
+                    active
+                      ? 'bg-emerald-700 text-white'
+                      : 'bg-zinc-700 text-zinc-300 hover:bg-zinc-600',
+                  ].join(' ')}
+                >
+                  {badge === 'halal' ? '✓ Halal' : badge.charAt(0).toUpperCase() + badge.slice(1)}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Spicy level */}
+        <div className="flex flex-col gap-3 border-t border-zinc-700 pt-4">
+          <h3 className="text-base font-semibold text-zinc-200">Spicy Level</h3>
+          <div className="flex flex-wrap gap-2">
+            {SPICY_OPTIONS.map((level) => {
+              const labels: Record<string, string> = { none: 'None', mild: '🌶 Mild', medium: '🌶🌶 Medium', hot: '🌶🌶🌶 Hot' }
+              const active = form.spicyLevel === level
+              return (
+                <button
+                  key={level}
+                  type="button"
+                  onClick={() => setForm((f) => ({ ...f, spicyLevel: level }))}
+                  disabled={submitting}
+                  aria-pressed={active}
+                  className={[
+                    'min-h-[40px] px-4 py-1.5 rounded-full text-sm font-medium transition-colors disabled:opacity-50',
+                    active
+                      ? 'bg-orange-700 text-white'
+                      : 'bg-zinc-700 text-zinc-300 hover:bg-zinc-600',
+                  ].join(' ')}
+                >
+                  {labels[level]}
+                </button>
+              )
+            })}
+          </div>
         </div>
 
         {/* Modifiers */}

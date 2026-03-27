@@ -113,6 +113,9 @@ export async function handler(
   const description = typeof payload['description'] === 'string' ? payload['description'].trim() : undefined
   const imageUrl = typeof payload['image_url'] === 'string' ? payload['image_url'].trim() : undefined
   const available = typeof payload['available'] === 'boolean' ? payload['available'] : true
+  const allergens = Array.isArray(payload['allergens']) ? (payload['allergens'] as string[]).filter((a) => typeof a === 'string') : []
+  const dietaryBadges = Array.isArray(payload['dietary_badges']) ? (payload['dietary_badges'] as string[]).filter((a) => typeof a === 'string') : []
+  const spicyLevel = typeof payload['spicy_level'] === 'string' ? payload['spicy_level'] : 'none'
 
   const { supabaseUrl, serviceKey } = env
   const dbHeaders = {
@@ -151,6 +154,9 @@ export async function handler(
           name,
           price_cents: priceCents,
           available,
+          allergens,
+          dietary_badges: dietaryBadges,
+          spicy_level: spicyLevel,
           ...(description !== undefined ? { description } : {}),
           ...(imageUrl !== undefined ? { image_url: imageUrl } : {}),
         }),

@@ -1,28 +1,32 @@
 import { describe, it, expect } from 'vitest'
-import { filterMenuItems } from './menuSearch'
-import type { MenuCategory } from './menuData'
+import { filterMenuItems, filterMenuItemsWithFilters } from './menuSearch'
+import type { MenuCategory, MenuItem } from './menuData'
+
+function mkItem(partial: Omit<MenuItem, 'allergens' | 'dietary_badges' | 'spicy_level'>): MenuItem {
+  return { ...partial, allergens: [], dietary_badges: [], spicy_level: 'none' }
+}
 
 const categories: MenuCategory[] = [
   {
     name: 'Burgers',
     items: [
-      { id: '1', name: 'Classic Burger', price_cents: 1000, available: true, modifiers: [] },
-      { id: '2', name: 'Veggie Burger', price_cents: 900, available: true, modifiers: [] },
-      { id: '3', name: 'Chicken Sandwich', price_cents: 1100, available: true, modifiers: [] },
+      mkItem({ id: '1', name: 'Classic Burger', price_cents: 1000, available: true, modifiers: [] }),
+      mkItem({ id: '2', name: 'Veggie Burger', price_cents: 900, available: true, modifiers: [] }),
+      mkItem({ id: '3', name: 'Chicken Sandwich', price_cents: 1100, available: true, modifiers: [] }),
     ],
   },
   {
     name: 'Drinks',
     items: [
-      { id: '4', name: 'Cola', price_cents: 300, available: true, modifiers: [] },
-      { id: '5', name: 'Lemonade', price_cents: 400, available: true, modifiers: [] },
+      mkItem({ id: '4', name: 'Cola', price_cents: 300, available: true, modifiers: [] }),
+      mkItem({ id: '5', name: 'Lemonade', price_cents: 400, available: true, modifiers: [] }),
     ],
   },
   {
     name: 'Sides',
     items: [
-      { id: '6', name: 'French Fries', price_cents: 500, available: true, modifiers: [] },
-      { id: '7', name: 'Onion Rings', price_cents: 550, available: true, modifiers: [] },
+      mkItem({ id: '6', name: 'French Fries', price_cents: 500, available: true, modifiers: [] }),
+      mkItem({ id: '7', name: 'Onion Rings', price_cents: 550, available: true, modifiers: [] }),
     ],
   },
 ]
@@ -90,11 +94,11 @@ describe('filterMenuItems', () => {
     const crossCategories: MenuCategory[] = [
       {
         name: 'Mains',
-        items: [{ id: 'a', name: 'Spicy Chicken', price_cents: 1200, available: true, modifiers: [] }],
+        items: [mkItem({ id: 'a', name: 'Spicy Chicken', price_cents: 1200, available: true, modifiers: [] })],
       },
       {
         name: 'Starters',
-        items: [{ id: 'b', name: 'Chicken Wings', price_cents: 800, available: true, modifiers: [] }],
+        items: [mkItem({ id: 'b', name: 'Chicken Wings', price_cents: 800, available: true, modifiers: [] })],
       },
     ]
     const results = filterMenuItems(crossCategories, 'chicken')
@@ -116,11 +120,57 @@ describe('filterMenuItems', () => {
     const overlapping: MenuCategory[] = [
       {
         name: 'Burger Specials',
-        items: [{ id: 'x', name: 'Mega Burger', price_cents: 1500, available: true, modifiers: [] }],
+        items: [mkItem({ id: 'x', name: 'Mega Burger', price_cents: 1500, available: true, modifiers: [] })],
       },
     ]
     const results = filterMenuItems(overlapping, 'burger')
     expect(results).toHaveLength(1)
     expect(results[0].item.id).toBe('x')
+  })
+})
+
+describe('filterMenuItemsWithFilters — dietary filter', () => {
+  const dietaryCategories: MenuCategory[] = [
+    {
+      name: 'Mains',
+      items: [
+        { ...mkItem({ id: '1', name: 'Chicken Biryani', price_cents: 1200, available: true, modifiers: [] }), dietary_badges: ['halal'] },
+        { ...mkItem({ id: '2', name: 'Paneer Tikka', price_cents: 900, available: true, modifiers: [] }), dietary_badges: ['vegetarian', 'halal'] },
+        { ...mkItem({ id: '3', name: 'Beef Burger', price_cents: 1000, available: true, modifiers: [] }), dietary_badges: [] },
+      ],
+    },
+  ]
+
+  it('filters by halal', () => {
+    const results = filterMenuItemsWithFilters(dietaryCategories, { query: '', dietary: 'halal', allergenFree: '' })
+    expect(results.map((r) => r.item.id)).toEqual(['1', '2'])
+  })
+
+  it('filters by vegetarian', () => {
+    const results = filterMenuItemsWithFilters(dietaryCategories, { query: '', dietary: 'vegetarian', allergenFree: '' })
+    expect(results.map((r) => r.item.id)).toEqual(['2'])
+  })
+})
+
+describe('filterMenuItemsWithFilters — allergen-free filter', () => {
+  const allergenCategories: MenuCategory[] = [
+    {
+      name: 'Starters',
+      items: [
+        { ...mkItem({ id: '1', name: 'Bruschetta', price_cents: 600, available: true, modifiers: [] }), allergens: ['gluten', 'dairy'] },
+        { ...mkItem({ id: '2', name: 'Salad', price_cents: 500, available: true, modifiers: [] }), allergens: [] },
+        { ...mkItem({ id: '3', name: 'Peanut Soup', price_cents: 700, available: true, modifiers: [] }), allergens: ['nuts'] },
+      ],
+    },
+  ]
+
+  it('excludes items containing the specified allergen', () => {
+    const results = filterMenuItemsWithFilters(allergenCategories, { query: '', dietary: '', allergenFree: 'nuts' })
+    expect(results.map((r) => r.item.id)).toEqual(['1', '2'])
+  })
+
+  it('excludes items with dairy allergen', () => {
+    const results = filterMenuItemsWithFilters(allergenCategories, { query: '', dietary: '', allergenFree: 'dairy' })
+    expect(results.map((r) => r.item.id)).toEqual(['2', '3'])
   })
 })

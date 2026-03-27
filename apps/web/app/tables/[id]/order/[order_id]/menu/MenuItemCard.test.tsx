@@ -10,6 +10,9 @@ const mockItem: MenuItem = {
   price_cents: 850,
   available: true,
   modifiers: [],
+  allergens: [],
+  dietary_badges: [],
+  spicy_level: 'none',
 }
 
 const mockItemWithModifiers: MenuItem = {
@@ -21,6 +24,9 @@ const mockItemWithModifiers: MenuItem = {
     { id: 'mod-001', name: 'Extra cheese', price_delta_cents: 50 },
     { id: 'mod-002', name: 'No onions', price_delta_cents: 0 },
   ],
+  allergens: [],
+  dietary_badges: [],
+  spicy_level: 'none',
 }
 
 const ORDER_ID = 'order-abc-123'

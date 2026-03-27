@@ -16,9 +16,9 @@ vi.mock('./components/TableCard', () => ({
 }))
 
 const MOCK_TABLES: TableRow[] = [
-  { id: 'table-uuid-001', label: '1', open_order_id: null, order_status: null, order_created_at: null },
-  { id: 'table-uuid-002', label: '2', open_order_id: 'order-uuid-001', order_status: 'open', order_created_at: '2026-03-27T10:00:00Z' },
-  { id: 'table-uuid-003', label: '3', open_order_id: null, order_status: null, order_created_at: null },
+  { id: 'table-uuid-001', label: '1', open_order_id: null, order_status: null, order_created_at: null, order_item_count: null },
+  { id: 'table-uuid-002', label: '2', open_order_id: 'order-uuid-001', order_status: 'open', order_created_at: '2026-03-27T10:00:00Z', order_item_count: 1 },
+  { id: 'table-uuid-003', label: '3', open_order_id: null, order_status: null, order_created_at: null, order_item_count: null },
 ]
 
 const originalEnv = process.env

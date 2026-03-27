@@ -93,6 +93,16 @@ export async function handler(
   const menuItemId = payload['menu_item_id'] as string
   const modifierIds: string[] = Array.isArray(rawModifierIds) ? (rawModifierIds as string[]) : []
 
+  // Validate optional course field (defaults to 'main' if not provided)
+  const rawCourse = payload['course']
+  if (rawCourse !== undefined && !['starter', 'main', 'dessert'].includes(rawCourse as string)) {
+    return new Response(
+      JSON.stringify({ success: false, error: 'course must be one of: starter, main, dessert' }),
+      { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    )
+  }
+  const course = typeof rawCourse === 'string' ? rawCourse : 'main'
+
   const { supabaseUrl, serviceKey } = env
   const dbHeaders = {
     apikey: serviceKey,
@@ -179,6 +189,7 @@ export async function handler(
             unit_price_cents: unitPriceCents,
             quantity: 1,
             modifier_ids: modifierIds,
+            course,
           }),
         },
       )
@@ -234,6 +245,7 @@ export async function handler(
               menu_item_id: menuItemId,
               unit_price_cents: priceCents,
               quantity: 1,
+              course,
             }),
           },
         )

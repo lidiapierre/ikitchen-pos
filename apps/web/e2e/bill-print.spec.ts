@@ -97,6 +97,17 @@ test.describe('Print Bill button', () => {
       });
     });
 
+
+    // ── Printers, printer_configs, menus (printer routing stubs) ─────────────
+    await page.route('**/rest/v1/printers**', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
+    });
+    await page.route('**/rest/v1/printer_configs**', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
+    });
+    await page.route('**/rest/v1/menus**', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
+    });
     // ── Restaurant config (BIN, register name, address — enhanced bill #261) ──
     await page.route('**/rest/v1/config**', async (route) => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });

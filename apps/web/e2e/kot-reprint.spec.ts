@@ -43,17 +43,38 @@ test.describe('KOT reprint button', () => {
     // Mock order status — open
     await page.route('**/rest/v1/orders**', async (route) => {
       const url = route.request().url();
-      if (url.includes(`id=eq.${ORDER_ID}`)) {
+      if (url.includes('select=restaurant_id')) {
         await route.fulfill({
           status: 200,
           contentType: 'application/json',
-          body: JSON.stringify([{ id: ORDER_ID, status: 'open', order_type: 'dine_in', customer_name: null, delivery_note: null, customer_mobile: null, bill_number: null, restaurant_id: 'rest-kot-e2e' }]),
+          body: JSON.stringify([{ restaurant_id: 'rest-kot-e2e' }]),
+        });
+      } else if (url.includes('select=covers')) {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify([{ covers: 2 }]),
         });
       } else {
         await route.fulfill({
           status: 200,
           contentType: 'application/json',
-          body: JSON.stringify([{ id: ORDER_ID, table_id: TABLE_ID, status: 'open', restaurant_id: 'rest-kot-e2e', order_type: 'dine_in', customer_name: null, delivery_note: null, customer_mobile: null, bill_number: null }]),
+          body: JSON.stringify([{
+            id: ORDER_ID,
+            table_id: TABLE_ID,
+            status: 'open',
+            covers: 2,
+            discount_type: null,
+            discount_value: null,
+            discount_amount_cents: 0,
+            order_comp: false,
+            restaurant_id: 'rest-kot-e2e',
+            order_type: 'dine_in',
+            customer_name: null,
+            delivery_note: null,
+            customer_mobile: null,
+            bill_number: null,
+          }]),
         });
       }
     });

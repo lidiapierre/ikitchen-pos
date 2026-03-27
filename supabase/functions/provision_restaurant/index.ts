@@ -1,0 +1,283 @@
+/**
+ * provision_restaurant — super-admin-only edge function.
+ *
+ * Creates a new restaurant and its owner account in one atomic-ish operation:
+ *   1. Validates slug uniqueness
+ *   2. Creates row in `restaurants`
+ *   3. Invites the owner via Supabase Auth admin invite
+ *   4. Creates row in `users` with role = 'owner'
+ *   5. Seeds default config (currency_code, currency_symbol, vat_percentage, service_charge)
+ *
+ * On any failure after the restaurant row is created, cleanup is attempted.
+ *
+ * Auth: caller must be authenticated AND have is_super_admin = true in the users table.
+ */
+
+export const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+}
+
+export type FetchFn = (input: string, init?: RequestInit) => Promise<Response>
+
+export interface HandlerEnv {
+  supabaseUrl: string
+  serviceKey: string
+}
+
+function readEnv(): HandlerEnv | null {
+  const g = globalThis as { Deno?: { env: { get: (key: string) => string | undefined } } }
+  if (!g.Deno) return null
+  const supabaseUrl = g.Deno.env.get('SUPABASE_URL') ?? ''
+  const serviceKey = g.Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+  if (!supabaseUrl || !serviceKey) return null
+  return { supabaseUrl, serviceKey }
+}
+
+/** Verify the JWT and confirm the caller has is_super_admin = true. */
+async function verifySuperAdmin(
+  req: Request,
+  supabaseUrl: string,
+  serviceKey: string,
+  fetchFn: FetchFn,
+): Promise<{ callerId: string } | { error: string; status: 401 | 403 }> {
+  const authHeader = req.headers.get('Authorization')
+  if (!authHeader?.startsWith('Bearer ')) {
+    return { error: 'Unauthorized', status: 401 }
+  }
+  const token = authHeader.slice(7).trim()
+  if (!token) return { error: 'Unauthorized', status: 401 }
+
+  // Verify JWT
+  let callerId: string
+  try {
+    const userRes = await fetchFn(`${supabaseUrl}/auth/v1/user`, {
+      headers: { apikey: serviceKey, Authorization: `Bearer ${token}` },
+    })
+    if (!userRes.ok) return { error: 'Unauthorized', status: 401 }
+    const user = (await userRes.json()) as { id?: string }
+    if (!user.id) return { error: 'Unauthorized', status: 401 }
+    callerId = user.id
+  } catch {
+    return { error: 'Unauthorized', status: 401 }
+  }
+
+  // Check is_super_admin flag
+  try {
+    const roleRes = await fetchFn(
+      `${supabaseUrl}/rest/v1/users?id=eq.${encodeURIComponent(callerId)}&select=is_super_admin&limit=1`,
+      {
+        headers: {
+          apikey: serviceKey,
+          Authorization: `Bearer ${serviceKey}`,
+        },
+      },
+    )
+    if (!roleRes.ok) return { error: 'Unauthorized', status: 401 }
+    const rows = (await roleRes.json()) as Array<{ is_super_admin: boolean }>
+    if (!rows || rows.length === 0) return { error: 'Forbidden', status: 403 }
+    if (!rows[0].is_super_admin) return { error: 'Forbidden — super-admin only', status: 403 }
+  } catch {
+    return { error: 'Unauthorized', status: 401 }
+  }
+
+  return { callerId }
+}
+
+export async function handler(
+  req: Request,
+  fetchFn: FetchFn = fetch,
+  env: HandlerEnv | null = readEnv(),
+): Promise<Response> {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { status: 200, headers: corsHeaders })
+  }
+
+  if (!env) {
+    return new Response(
+      JSON.stringify({ success: false, error: 'Server configuration error' }),
+      { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    )
+  }
+
+  const { supabaseUrl, serviceKey } = env
+
+  // --- auth ---
+  const auth = await verifySuperAdmin(req, supabaseUrl, serviceKey, fetchFn)
+  if ('error' in auth) {
+    return new Response(
+      JSON.stringify({ success: false, error: auth.error }),
+      { status: auth.status, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    )
+  }
+
+  // --- parse body ---
+  let body: unknown
+  try {
+    body = await req.json()
+  } catch {
+    return new Response(
+      JSON.stringify({ success: false, error: 'Invalid or missing request body' }),
+      { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    )
+  }
+
+  const payload = body as Record<string, unknown>
+
+  // --- validate ---
+  if (typeof payload['name'] !== 'string' || !(payload['name'] as string).trim()) {
+    return new Response(
+      JSON.stringify({ success: false, error: 'name is required' }),
+      { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    )
+  }
+  if (typeof payload['slug'] !== 'string' || !/^[a-z0-9-]+$/.test(payload['slug'] as string)) {
+    return new Response(
+      JSON.stringify({ success: false, error: 'slug is required and must be lowercase alphanumeric with hyphens' }),
+      { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    )
+  }
+  if (typeof payload['owner_email'] !== 'string' || !(payload['owner_email'] as string).includes('@')) {
+    return new Response(
+      JSON.stringify({ success: false, error: 'owner_email is required and must be valid' }),
+      { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    )
+  }
+
+  const name = (payload['name'] as string).trim()
+  const slug = (payload['slug'] as string).trim().toLowerCase()
+  const ownerEmail = (payload['owner_email'] as string).trim().toLowerCase()
+  const timezone = typeof payload['timezone'] === 'string' && payload['timezone'].trim()
+    ? (payload['timezone'] as string).trim()
+    : 'Asia/Dhaka'
+  const currencyCode = typeof payload['currency'] === 'string' && payload['currency'].trim()
+    ? (payload['currency'] as string).trim().toUpperCase()
+    : 'BDT'
+  const currencySymbol = currencyCode === 'BDT' ? '৳' : currencyCode
+
+  const serviceHeaders = {
+    apikey: serviceKey,
+    Authorization: `Bearer ${serviceKey}`,
+    'Content-Type': 'application/json',
+  }
+
+  // --- 1. Create restaurant ---
+  const restaurantRes = await fetchFn(`${supabaseUrl}/rest/v1/restaurants`, {
+    method: 'POST',
+    headers: { ...serviceHeaders, Prefer: 'return=representation' },
+    body: JSON.stringify({ name, slug, timezone }),
+  })
+
+  if (!restaurantRes.ok) {
+    const errBody = await restaurantRes.json().catch(() => ({})) as Record<string, unknown>
+    const msg = String(errBody['message'] ?? errBody['details'] ?? 'Failed to create restaurant')
+    // Duplicate slug will surface as a unique-violation
+    const friendly = msg.toLowerCase().includes('unique') || msg.toLowerCase().includes('duplicate')
+      ? `Slug "${slug}" is already taken`
+      : msg
+    return new Response(
+      JSON.stringify({ success: false, error: friendly }),
+      { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    )
+  }
+
+  const restaurants = (await restaurantRes.json()) as Array<{ id: string; name: string; slug: string; timezone: string; created_at: string }>
+  if (!restaurants || restaurants.length === 0) {
+    return new Response(
+      JSON.stringify({ success: false, error: 'Restaurant creation returned no data' }),
+      { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    )
+  }
+  const restaurant = restaurants[0]
+
+  // Cleanup helper — best-effort, not awaited in the success path
+  async function cleanupRestaurant(): Promise<void> {
+    await fetchFn(`${supabaseUrl}/rest/v1/restaurants?id=eq.${restaurant.id}`, {
+      method: 'DELETE',
+      headers: serviceHeaders,
+    }).catch(() => undefined)
+  }
+
+  // --- 2. Invite owner via Supabase Auth admin API ---
+  const inviteRes = await fetchFn(`${supabaseUrl}/auth/v1/invite`, {
+    method: 'POST',
+    headers: serviceHeaders,
+    body: JSON.stringify({ email: ownerEmail, data: { restaurant_id: restaurant.id } }),
+  })
+
+  if (!inviteRes.ok) {
+    await cleanupRestaurant()
+    const errBody = await inviteRes.json().catch(() => ({})) as Record<string, unknown>
+    const errMsg = String(errBody['msg'] ?? errBody['message'] ?? 'Failed to create owner auth account')
+    return new Response(
+      JSON.stringify({ success: false, error: errMsg }),
+      { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    )
+  }
+
+  const authUser = (await inviteRes.json()) as { id: string }
+
+  // --- 3. Create user row with role = owner ---
+  const userRes = await fetchFn(`${supabaseUrl}/rest/v1/users`, {
+    method: 'POST',
+    headers: { ...serviceHeaders, Prefer: 'return=minimal' },
+    body: JSON.stringify({
+      id: authUser.id,
+      restaurant_id: restaurant.id,
+      email: ownerEmail,
+      role: 'owner',
+      is_active: true,
+    }),
+  })
+
+  if (!userRes.ok) {
+    // Rollback auth user and restaurant
+    await fetchFn(`${supabaseUrl}/auth/v1/admin/users/${authUser.id}`, {
+      method: 'DELETE',
+      headers: serviceHeaders,
+    }).catch(() => undefined)
+    await cleanupRestaurant()
+    return new Response(
+      JSON.stringify({ success: false, error: 'Failed to create owner user profile' }),
+      { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    )
+  }
+
+  // --- 4. Seed default config ---
+  const defaultConfig = [
+    { restaurant_id: restaurant.id, key: 'currency_code', value: currencyCode },
+    { restaurant_id: restaurant.id, key: 'currency_symbol', value: currencySymbol },
+    { restaurant_id: restaurant.id, key: 'vat_percentage', value: '0' },
+    { restaurant_id: restaurant.id, key: 'service_charge', value: '0' },
+  ]
+
+  // Best-effort — config seeding failure doesn't abort the provisioning
+  await fetchFn(`${supabaseUrl}/rest/v1/config`, {
+    method: 'POST',
+    headers: { ...serviceHeaders, Prefer: 'resolution=ignore-duplicates' },
+    body: JSON.stringify(defaultConfig),
+  }).catch(() => undefined)
+
+  return new Response(
+    JSON.stringify({
+      success: true,
+      data: {
+        restaurant: {
+          id: restaurant.id,
+          name: restaurant.name,
+          slug: restaurant.slug,
+          timezone: restaurant.timezone,
+          created_at: restaurant.created_at,
+        },
+        owner_email: ownerEmail,
+      },
+    }),
+    { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+  )
+}
+
+if (typeof (globalThis as { Deno?: unknown }).Deno !== 'undefined') {
+  const g = globalThis as { Deno: { serve: (h: (req: Request) => Promise<Response>) => void } }
+  g.Deno.serve((req: Request) => handler(req))
+}

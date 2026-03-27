@@ -149,7 +149,7 @@ test.describe('Print Bill flow', () => {
 
     await page.goto(`/tables/${TABLE_ID}/order/${ORDER_ID}`);
 
-    await expect(page.getByText('Special Platter', { exact: true })).toBeVisible();
+    await expect(page.getByText('Special Platter', { exact: true }).last()).toBeVisible();
 
     // Advance to payment step
     await page.getByRole('button', { name: 'Close Order' }).click();
@@ -167,7 +167,7 @@ test.describe('Print Bill flow', () => {
 
     await page.goto(`/tables/${TABLE_ID}/order/${ORDER_ID}`);
 
-    await expect(page.getByText('Special Platter', { exact: true })).toBeVisible();
+    await expect(page.getByText('Special Platter', { exact: true }).last()).toBeVisible();
 
     // Close order → card payment → success
     await page.getByRole('button', { name: 'Close Order' }).click();
@@ -190,7 +190,7 @@ test.describe('Print Bill flow', () => {
 
     await page.goto(`/tables/${TABLE_ID}/order/${ORDER_ID}`);
 
-    await expect(page.getByText('Special Platter', { exact: true })).toBeVisible();
+    await expect(page.getByText('Special Platter', { exact: true }).last()).toBeVisible();
 
     await page.getByRole('button', { name: 'Close Order' }).click();
     await expect(page.getByText('Record Payment')).toBeVisible();
@@ -213,7 +213,7 @@ test.describe('Print Bill flow', () => {
 
     await page.goto(`/tables/${TABLE_ID}/order/${ORDER_ID}`);
 
-    await expect(page.getByText('Special Platter', { exact: true })).toBeVisible();
+    await expect(page.getByText('Special Platter', { exact: true }).last()).toBeVisible();
 
     await page.getByRole('button', { name: 'Close Order' }).click();
     await expect(page.getByText('Record Payment')).toBeVisible();
@@ -236,7 +236,7 @@ test.describe('Print Bill flow', () => {
   test('Print Bill button has at least 48px touch target on payment step', async ({ page }) => {
     await page.goto(`/tables/${TABLE_ID}/order/${ORDER_ID}`);
 
-    await expect(page.getByText('Special Platter', { exact: true })).toBeVisible();
+    await expect(page.getByText('Special Platter', { exact: true }).last()).toBeVisible();
 
     await page.getByRole('button', { name: 'Close Order' }).click();
     await expect(page.getByText('Record Payment')).toBeVisible();

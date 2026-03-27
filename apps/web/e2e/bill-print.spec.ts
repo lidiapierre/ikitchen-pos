@@ -1,52 +1,70 @@
 import { test, expect } from '@playwright/test';
 
-const TABLE_ID = 'table-e2e-bill';
-const ORDER_ID = 'order-e2e-bill';
-const ORDER_ITEM_ID = 'order-item-e2e-bill';
+const TABLE_ID = 'aaaaaaaa-0000-0000-0000-000000000040';
+const ORDER_ID = 'bbbbbbbb-0000-0000-0000-000000000040';
+const ORDER_ITEM_ID = 'cccccccc-0000-0000-0000-000000000040';
 
 /**
  * Bill print E2E tests — issue #145
  *
  * Verifies that the "Print Bill" button appears on both the payment step and
- * the success step of the order detail page.
+ * the success state, and that clicking it does not throw JS errors.
  */
 test.describe('Print Bill button', () => {
-  // Requires a valid session so UserContext can populate accessToken (needed for
-  // close_order / record_payment edge function calls after the RBAC auth fix).
-  test.use({ storageState: 'e2e/.auth/admin.json' })
+  test.use({ storageState: 'e2e/.auth/admin.json' });
 
   test.beforeEach(async ({ page }) => {
-    // Mock Supabase auth so UserContext.accessToken + role are populated.
-    // getUser() is called by getUserRole(); getSession() reads from cookies (set via storageState).
+    // ── Auth ──────────────────────────────────────────────────────────────────
     await page.route('**/auth/v1/user**', async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ id: '00000000-0000-0000-0000-000000000001', email: 'admin@lahore.ikitchen.com.bd', role: 'authenticated' }),
+        body: JSON.stringify({
+          id: '00000000-0000-0000-0000-000000000001',
+          email: 'admin@lahore.ikitchen.com.bd',
+          role: 'authenticated',
+        }),
       });
     });
+
     await page.route('**/rest/v1/users?**', async (route) => {
       const url = route.request().url();
       if (url.includes('select=role')) {
-        await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([{ role: 'owner' }]) });
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify([{ role: 'owner' }]),
+        });
       } else {
         await route.continue();
       }
     });
 
-    // Mock tables list
+    // ── Tables ────────────────────────────────────────────────────────────────
     await page.route('**/rest/v1/tables**', async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify([{ id: TABLE_ID, label: 'Table Bill' }]),
+        body: JSON.stringify([{ id: TABLE_ID, label: 'T40' }]),
       });
     });
 
-    // Mock order status — open
+    // ── Orders ────────────────────────────────────────────────────────────────
     await page.route('**/rest/v1/orders**', async (route) => {
       const url = route.request().url();
-      if (url.includes(`id=eq.${ORDER_ID}`)) {
+      if (url.includes('select=restaurant_id')) {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify([{ restaurant_id: 'restaurant-e2e-bill' }]),
+        });
+      } else if (url.includes('select=covers')) {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify([{ covers: 2 }]),
+        });
+      } else if (url.includes('select=status')) {
         await route.fulfill({
           status: 200,
           contentType: 'application/json',
@@ -56,12 +74,27 @@ test.describe('Print Bill button', () => {
         await route.fulfill({
           status: 200,
           contentType: 'application/json',
-          body: JSON.stringify([{ id: ORDER_ID, table_id: TABLE_ID }]),
+          body: JSON.stringify([{
+            id: ORDER_ID,
+            table_id: TABLE_ID,
+            status: 'open',
+            covers: 2,
+            discount_type: null,
+            discount_value: null,
+            discount_amount_cents: 0,
+            order_comp: false,
+            restaurant_id: 'restaurant-e2e-bill',
+            order_type: 'dine_in',
+            customer_name: null,
+            delivery_note: null,
+            customer_mobile: null,
+            bill_number: null,
+          }]),
         });
       }
     });
 
-    // Mock order items
+    // ── Order items ───────────────────────────────────────────────────────────
     await page.route('**/rest/v1/order_items**', async (route) => {
       await route.fulfill({
         status: 200,
@@ -69,32 +102,55 @@ test.describe('Print Bill button', () => {
         body: JSON.stringify([
           {
             id: ORDER_ITEM_ID,
+            order_id: ORDER_ID,
             quantity: 2,
             unit_price_cents: 1500,
             modifier_ids: [],
             sent_to_kitchen: true,
-            menu_items: { name: 'Chicken Karahi' },
+            comp: false,
+            comp_reason: null,
+            seat: null,
+            course: 'main',
+            course_status: 'fired',
+            item_discount_type: null,
+            item_discount_value: null,
+            menu_items: { name: 'Chicken Karahi', menu_id: null },
           },
         ]),
       });
     });
 
-    // Mock close_order action
+    // ── Edge functions ────────────────────────────────────────────────────────
     await page.route('**/functions/v1/close_order**', async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ success: true }),
+        body: JSON.stringify({ success: true, data: { final_total_cents: 3000 } }),
       });
     });
 
-    // Mock record_payment action
     await page.route('**/functions/v1/record_payment**', async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({ success: true, data: { payment_id: 'pay-e2e-bill', change_due: 0 } }),
       });
+    });
+
+    // ── Printer routing stubs ─────────────────────────────────────────────────
+    await page.route('**/rest/v1/printers**', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
+    });
+    await page.route('**/rest/v1/printer_configs**', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
+    });
+    await page.route('**/rest/v1/menus**', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
+    });
+
+    // ── Restaurant config (BIN, register name, address) ───────────────────────
+    await page.route('**/rest/v1/config**', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
     });
   });
 
@@ -103,17 +159,12 @@ test.describe('Print Bill button', () => {
     page.on('pageerror', (err) => errors.push(err.message));
 
     await page.goto(`/tables/${TABLE_ID}/order/${ORDER_ID}`);
+    await expect(page.getByText('Chicken Karahi', { exact: true }).last()).toBeVisible();
 
-    // Wait for items to load
-    await expect(page.getByText('Chicken Karahi', { exact: true })).toBeVisible();
-
-    // Close order to enter payment step
     await page.getByRole('button', { name: 'Close Order' }).click();
     await expect(page.getByText('Record Payment')).toBeVisible();
 
-    // Print Bill button should be visible on payment step
     await expect(page.getByRole('button', { name: /Print Bill/i })).toBeVisible();
-
     expect(errors).toHaveLength(0);
   });
 
@@ -122,37 +173,26 @@ test.describe('Print Bill button', () => {
     page.on('pageerror', (err) => errors.push(err.message));
 
     await page.goto(`/tables/${TABLE_ID}/order/${ORDER_ID}`);
+    await expect(page.getByText('Chicken Karahi', { exact: true }).last()).toBeVisible();
 
-    await expect(page.getByText('Chicken Karahi', { exact: true })).toBeVisible();
-
-    // Close order
     await page.getByRole('button', { name: 'Close Order' }).click();
     await expect(page.getByText('Record Payment')).toBeVisible();
-
-    // Select card and confirm payment
     await page.getByRole('button', { name: 'Card' }).click();
     await page.getByRole('button', { name: /Confirm Payment/ }).click();
-
-    // Success state
     await expect(page.getByText('Payment recorded — order closed')).toBeVisible();
 
-    // Print Bill button must be present on success step
     await expect(page.getByRole('button', { name: /Print Bill/i })).toBeVisible();
-
     expect(errors).toHaveLength(0);
   });
 
   test('Print Bill button has at least 48px height on payment step (touch target)', async ({ page }) => {
     await page.goto(`/tables/${TABLE_ID}/order/${ORDER_ID}`);
-
-    await expect(page.getByText('Chicken Karahi', { exact: true })).toBeVisible();
+    await expect(page.getByText('Chicken Karahi', { exact: true }).last()).toBeVisible();
 
     await page.getByRole('button', { name: 'Close Order' }).click();
     await expect(page.getByText('Record Payment')).toBeVisible();
 
-    const printBtn = page.getByRole('button', { name: /Print Bill/i });
-    const box = await printBtn.boundingBox();
-
+    const box = await page.getByRole('button', { name: /Print Bill/i }).boundingBox();
     expect(box?.height).toBeGreaterThanOrEqual(48);
   });
 
@@ -161,19 +201,12 @@ test.describe('Print Bill button', () => {
     page.on('pageerror', (err) => errors.push(err.message));
 
     await page.goto(`/tables/${TABLE_ID}/order/${ORDER_ID}`);
-
-    await expect(page.getByText('Chicken Karahi', { exact: true })).toBeVisible();
+    await expect(page.getByText('Chicken Karahi', { exact: true }).last()).toBeVisible();
 
     await page.getByRole('button', { name: 'Close Order' }).click();
     await expect(page.getByText('Record Payment')).toBeVisible();
 
-    const printBtn = page.getByRole('button', { name: /Print Bill/i });
-    await expect(printBtn).toBeVisible();
-
-    // Click the button — triggers print dialog
-    await printBtn.click();
-
-    // Wait briefly to allow any async errors to surface
+    await page.getByRole('button', { name: /Print Bill/i }).click();
     await page.waitForTimeout(500);
 
     expect(errors).toHaveLength(0);

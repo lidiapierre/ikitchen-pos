@@ -136,7 +136,7 @@ test.describe('void item flow', () => {
 
     await page.goto(`/tables/${TABLE_ID}/order/${ORDER_ID}`);
 
-    await expect(page.getByText('Chicken Tikka', { exact: true })).toBeVisible();
+    await expect(page.getByText('Chicken Tikka', { exact: true }).last()).toBeVisible();
 
     const voidButton = page.getByRole('button', { name: 'Void' }).first();
     await expect(voidButton).toBeVisible();
@@ -181,8 +181,8 @@ test.describe('void item flow', () => {
 
     await page.goto(`/tables/${TABLE_ID}/order/${ORDER_ID}`);
 
-    await expect(page.getByText('Chicken Tikka', { exact: true })).toBeVisible();
-    await expect(page.getByText('Butter Chicken', { exact: true })).toBeVisible();
+    await expect(page.getByText('Chicken Tikka', { exact: true }).last()).toBeVisible();
+    await expect(page.getByText('Butter Chicken', { exact: true }).last()).toBeVisible();
 
     await page.getByRole('button', { name: 'Void' }).first().click();
     await expect(page.getByRole('heading', { name: 'Void Item' })).toBeVisible();
@@ -191,8 +191,8 @@ test.describe('void item flow', () => {
     await page.getByRole('button', { name: 'Cancel', exact: true }).click();
 
     // Both items must still be present
-    await expect(page.getByText('Chicken Tikka', { exact: true })).toBeVisible();
-    await expect(page.getByText('Butter Chicken', { exact: true })).toBeVisible();
+    await expect(page.getByText('Chicken Tikka', { exact: true }).last()).toBeVisible();
+    await expect(page.getByText('Butter Chicken', { exact: true }).last()).toBeVisible();
   });
 
   test('confirming void with reason removes item from order', async ({ page }) => {
@@ -266,8 +266,8 @@ test.describe('void item flow', () => {
 
     await page.goto(`/tables/${TABLE_ID}/order/${ORDER_ID}`);
 
-    await expect(page.getByText('Chicken Tikka', { exact: true })).toBeVisible();
-    await expect(page.getByText('Butter Chicken', { exact: true })).toBeVisible();
+    await expect(page.getByText('Chicken Tikka', { exact: true }).last()).toBeVisible();
+    await expect(page.getByText('Butter Chicken', { exact: true }).last()).toBeVisible();
 
     // Open void dialog for first item
     await page.getByRole('button', { name: 'Void' }).first().click();
@@ -280,7 +280,7 @@ test.describe('void item flow', () => {
     await page.getByRole('button', { name: 'Confirm Void' }).click();
 
     // Chicken Tikka should be gone; Butter Chicken should remain
-    await expect(page.getByText('Butter Chicken', { exact: true })).toBeVisible();
-    await expect(page.getByText('Chicken Tikka', { exact: true })).not.toBeVisible();
+    await expect(page.getByText('Butter Chicken', { exact: true }).last()).toBeVisible();
+    await expect(page.getByText('Chicken Tikka', { exact: true }).last()).not.toBeVisible();
   });
 });

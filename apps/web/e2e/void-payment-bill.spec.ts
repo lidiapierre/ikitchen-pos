@@ -206,8 +206,8 @@ test.describe('void item, payment, and bill print flows', () => {
     await page.goto(`/tables/${TABLE_ID}/order/${ORDER_ID}`)
 
     // Both items should be visible
-    await expect(page.getByText('Chicken Tikka', { exact: true })).toBeVisible()
-    await expect(page.getByText('Butter Chicken', { exact: true })).toBeVisible()
+    await expect(page.getByText('Chicken Tikka', { exact: true }).last()).toBeVisible()
+    await expect(page.getByText('Butter Chicken', { exact: true }).last()).toBeVisible()
 
     // Click the Void button on the first item
     const voidButtons = page.getByRole('button', { name: 'Void' })
@@ -223,8 +223,8 @@ test.describe('void item, payment, and bill print flows', () => {
     await page.getByRole('button', { name: 'Confirm Void' }).click()
 
     // After void: only Butter Chicken remains, Chicken Tikka is gone
-    await expect(page.getByText('Butter Chicken', { exact: true })).toBeVisible()
-    await expect(page.getByText('Chicken Tikka', { exact: true })).not.toBeVisible()
+    await expect(page.getByText('Butter Chicken', { exact: true }).last()).toBeVisible()
+    await expect(page.getByText('Chicken Tikka', { exact: true }).last()).not.toBeVisible()
   })
 
   // ── Test 2: Payment full flow (cash) ─────────────────────────────────────
@@ -266,7 +266,7 @@ test.describe('void item, payment, and bill print flows', () => {
     await page.goto(`/tables/${TABLE_ID}/order/${ORDER_ID}`)
 
     // Items visible
-    await expect(page.getByText('Chicken Tikka', { exact: true })).toBeVisible()
+    await expect(page.getByText('Chicken Tikka', { exact: true }).last()).toBeVisible()
 
     // Close order
     await page.getByRole('button', { name: 'Close Order' }).click()
@@ -318,7 +318,7 @@ test.describe('void item, payment, and bill print flows', () => {
 
     await page.goto(`/tables/${TABLE_ID}/order/${ORDER_ID}`)
 
-    await expect(page.getByText('Special Meal', { exact: true })).toBeVisible()
+    await expect(page.getByText('Special Meal', { exact: true }).last()).toBeVisible()
 
     // Close order → go to payment step
     await page.getByRole('button', { name: 'Close Order' }).click()

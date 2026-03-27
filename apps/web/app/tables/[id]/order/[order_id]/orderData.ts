@@ -14,6 +14,10 @@ export interface OrderItem {
   seat: number | null
   course: CourseType
   course_status: CourseStatus
+  /** ID of the menu this item belongs to (used for printer routing). */
+  menuId: string | null
+  /** Printer type derived from the menu's printer_type column. */
+  printerType: 'kitchen' | 'cashier' | 'bar'
 }
 
 export interface OrderSummary {
@@ -32,7 +36,7 @@ interface OrderItemRow {
   seat: number | null
   course: CourseType
   course_status: CourseStatus
-  menu_items: { name: string }
+  menu_items: { name: string; menu_id: string | null }
 }
 
 interface ModifierRow {
@@ -46,7 +50,7 @@ export async function fetchOrderItems(
   orderId: string,
 ): Promise<OrderItem[]> {
   const url = new URL(`${supabaseUrl}/rest/v1/order_items`)
-  url.searchParams.set('select', 'id,quantity,unit_price_cents,modifier_ids,sent_to_kitchen,comp,comp_reason,seat,course,course_status,menu_items(name)')
+  url.searchParams.set('select', 'id,quantity,unit_price_cents,modifier_ids,sent_to_kitchen,comp,comp_reason,seat,course,course_status,menu_items(name,menu_id)')
   url.searchParams.set('order_id', `eq.${orderId}`)
   url.searchParams.set('voided', 'eq.false')
 
@@ -93,8 +97,38 @@ export async function fetchOrderItems(
     }
   }
 
+  // Fetch printer_type for each unique menu referenced by items
+  const menuPrinterTypeMap = new Map<string, 'kitchen' | 'cashier' | 'bar'>()
+  const uniqueMenuIds = [...new Set(rows.map((r) => r.menu_items.menu_id).filter(Boolean))] as string[]
+  if (uniqueMenuIds.length > 0) {
+    try {
+      const menuUrl = new URL(`${supabaseUrl}/rest/v1/menus`)
+      menuUrl.searchParams.set('select', 'id,printer_type')
+      menuUrl.searchParams.set('id', `in.(${uniqueMenuIds.join(',')})`)
+
+      const menuRes = await fetch(menuUrl.toString(), {
+        headers: {
+          apikey: apiKey,
+          Authorization: `Bearer ${apiKey}`,
+        },
+      })
+
+      if (menuRes.ok) {
+        const menus = (await menuRes.json()) as Array<{ id: string; printer_type: string | null }>
+        for (const m of menus) {
+          const pt = m.printer_type as 'kitchen' | 'cashier' | 'bar' | null
+          menuPrinterTypeMap.set(m.id, pt ?? 'kitchen')
+        }
+      }
+    } catch {
+      // Non-fatal: fall back to 'kitchen' for all items
+    }
+  }
+
   return rows.map((row) => {
     const ids = row.modifier_ids ?? []
+    const menuId = row.menu_items.menu_id ?? null
+    const printerType = (menuId ? menuPrinterTypeMap.get(menuId) : undefined) ?? 'kitchen'
     return {
       id: row.id,
       name: row.menu_items.name,
@@ -108,6 +142,8 @@ export async function fetchOrderItems(
       seat: row.seat ?? null,
       course: row.course ?? 'main',
       course_status: row.course_status ?? 'waiting',
+      menuId,
+      printerType,
     }
   })
 }

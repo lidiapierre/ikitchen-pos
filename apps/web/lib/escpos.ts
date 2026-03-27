@@ -52,6 +52,166 @@ function divider(char = '-', width = 42): number[] {
   return line(char.repeat(width))
 }
 
+export interface BillItem {
+  name: string
+  qty: number
+  /** Line total in cents (qty × price) */
+  lineCents: number
+  comp?: boolean
+}
+
+export interface BillEscPosOptions {
+  tableId?: string
+  orderId?: string
+  timestamp?: string
+  subtotalCents: number
+  discountCents?: number
+  discountLabel?: string
+  serviceChargeCents?: number
+  serviceChargePercent?: number
+  vatCents?: number
+  vatPercent?: number
+  taxInclusive?: boolean
+  totalCents: number
+  paymentMethod: 'cash' | 'card'
+  amountTenderedCents?: number
+  changeDueCents?: number
+  orderComp?: boolean
+}
+
+/**
+ * Right-align a value string within a fixed column width.
+ */
+function rightAlign(label: string, value: string, width = 42): string {
+  const available = Math.max(1, width - value.length)
+  return label.slice(0, available).padEnd(available) + value
+}
+
+function centsToCurrency(cents: number): string {
+  return (cents / 100).toFixed(2)
+}
+
+/**
+ * Build ESC/POS bytes for a bill/receipt.
+ */
+export function buildBillEscPos(
+  items: BillItem[],
+  opts: BillEscPosOptions,
+): Uint8Array {
+  const bytes: number[] = []
+  const {
+    tableId,
+    orderId,
+    timestamp,
+    subtotalCents,
+    discountCents = 0,
+    discountLabel,
+    serviceChargeCents = 0,
+    serviceChargePercent = 0,
+    vatCents = 0,
+    vatPercent = 0,
+    taxInclusive = false,
+    totalCents,
+    paymentMethod,
+    amountTenderedCents,
+    changeDueCents,
+    orderComp = false,
+  } = opts
+
+  // Init
+  bytes.push(...CMD_INIT)
+
+  // Header
+  bytes.push(...CMD_ALIGN_CENTER)
+  bytes.push(...CMD_BOLD_ON)
+  bytes.push(...line('iKitchen'))
+  bytes.push(...CMD_BOLD_OFF)
+  bytes.push(...line('RECEIPT'))
+  bytes.push(...CMD_ALIGN_LEFT)
+
+  if (timestamp) bytes.push(...line(timestamp))
+  bytes.push(...divider())
+
+  if (tableId) bytes.push(...line(`Table : ${tableId}`))
+  if (orderId) bytes.push(...line(`Order : ${orderId.slice(0, 8)}`))
+
+  bytes.push(...divider())
+
+  if (orderComp) {
+    bytes.push(...CMD_ALIGN_CENTER)
+    bytes.push(...CMD_BOLD_ON)
+    bytes.push(...line('*** COMPLIMENTARY ***'))
+    bytes.push(...CMD_BOLD_OFF)
+    bytes.push(...CMD_ALIGN_LEFT)
+  }
+
+  // Items
+  for (const item of items) {
+    const label = `${item.qty}x ${item.name}`
+    if (item.comp || orderComp) {
+      bytes.push(...line(`${label.slice(0, 36).padEnd(36)} COMP`))
+    } else {
+      bytes.push(...line(rightAlign(label, centsToCurrency(item.lineCents))))
+    }
+  }
+
+  bytes.push(...divider())
+
+  if (!orderComp) {
+    // Subtotal
+    bytes.push(...line(rightAlign('Subtotal', centsToCurrency(subtotalCents))))
+
+    // Discount
+    if (discountCents > 0) {
+      const dlabel = discountLabel ? `Discount (${discountLabel})` : 'Discount'
+      bytes.push(...line(rightAlign(dlabel, `-${centsToCurrency(discountCents)}`)))
+    }
+
+    // Service charge
+    if (serviceChargePercent > 0 && serviceChargeCents > 0) {
+      bytes.push(...line(rightAlign(`Service (${serviceChargePercent}%)`, centsToCurrency(serviceChargeCents))))
+    }
+
+    // VAT
+    if (vatPercent > 0 && vatCents > 0) {
+      const vatLabel = `VAT ${vatPercent}%${taxInclusive ? ' (incl.)' : ''}`
+      bytes.push(...line(rightAlign(vatLabel, centsToCurrency(vatCents))))
+    }
+
+    bytes.push(...divider('='))
+    bytes.push(...CMD_BOLD_ON)
+    bytes.push(...line(rightAlign('TOTAL', centsToCurrency(totalCents))))
+    bytes.push(...CMD_BOLD_OFF)
+
+    bytes.push(...divider())
+
+    // Payment
+    bytes.push(...line(rightAlign('Payment', paymentMethod.toUpperCase())))
+    if (paymentMethod === 'cash' && amountTenderedCents !== undefined) {
+      bytes.push(...line(rightAlign('Tendered', centsToCurrency(amountTenderedCents))))
+    }
+    if (paymentMethod === 'cash' && changeDueCents !== undefined) {
+      bytes.push(...line(rightAlign('Change', centsToCurrency(changeDueCents))))
+    }
+  } else {
+    bytes.push(...CMD_ALIGN_CENTER)
+    bytes.push(...CMD_BOLD_ON)
+    bytes.push(...line('TOTAL: COMPLIMENTARY'))
+    bytes.push(...CMD_BOLD_OFF)
+    bytes.push(...CMD_ALIGN_LEFT)
+  }
+
+  bytes.push(...divider())
+  bytes.push(...CMD_ALIGN_CENTER)
+  bytes.push(...line('Thank you for dining with us!'))
+
+  // Feed & cut
+  bytes.push(LF, LF, LF)
+  bytes.push(...CMD_CUT)
+
+  return new Uint8Array(bytes)
+}
+
 /**
  * Build ESC/POS bytes for a KOT.
  *

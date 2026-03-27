@@ -10,6 +10,7 @@ import {
   callUpdateMenu,
   callDeleteMenu,
   callDeleteMenuItem,
+  callUpdateMenuPrinterType,
 } from './menuAdminApi'
 import { formatPrice, DEFAULT_CURRENCY_SYMBOL } from '@/lib/formatPrice'
 import { useUser } from '@/lib/user-context'
@@ -125,6 +126,7 @@ export default function MenuManager(): JSX.Element {
         id: menuId,
         name: categoryName.trim(),
         restaurant_id: restaurantId,
+        printer_type: 'kitchen',
         items: [],
       }
       const addedName = categoryName.trim()
@@ -347,9 +349,45 @@ export default function MenuManager(): JSX.Element {
               </div>
             ) : (
               <div className="flex items-center gap-3 mb-3">
-                <h2 className="text-lg font-semibold text-zinc-300 uppercase tracking-wide flex-1">
-                  {menu.name}
-                </h2>
+                <div className="flex items-center gap-2 flex-1 flex-wrap">
+                  <h2 className="text-lg font-semibold text-zinc-300 uppercase tracking-wide">
+                    {menu.name}
+                  </h2>
+                  {/* Printer type selector for this category */}
+                  <div className="flex gap-1">
+                    {(['kitchen', 'cashier', 'bar'] as const).map((pt) => (
+                      <button
+                        key={pt}
+                        type="button"
+                        disabled={submitting}
+                        onClick={() => {
+                          const config = supabaseConfig.current
+                          if (!config) return
+                          setSubmitting(true)
+                          void callUpdateMenuPrinterType(config.url, config.key, menu.id, pt)
+                            .then(() => {
+                              setMenus((prev) =>
+                                prev.map((m) => m.id === menu.id ? { ...m, printer_type: pt } : m),
+                              )
+                            })
+                            .catch((err: unknown) => {
+                              showFeedback('error', err instanceof Error ? err.message : 'Failed to update printer type')
+                            })
+                            .finally(() => { setSubmitting(false) })
+                        }}
+                        className={[
+                          'text-xs px-2 py-0.5 rounded-full border font-medium transition-colors',
+                          menu.printer_type === pt
+                            ? 'bg-indigo-700 border-indigo-500 text-indigo-100'
+                            : 'bg-zinc-800 border-zinc-600 text-zinc-400 hover:border-zinc-400',
+                        ].join(' ')}
+                        title={`Route KOT for this menu to the ${pt} printer`}
+                      >
+                        {pt === 'kitchen' ? '🍳' : pt === 'cashier' ? '🧾' : '🍺'} {pt}
+                      </button>
+                    ))}
+                  </div>
+                </div>
                 {isDeletingThisCategory ? (
                   <div className="flex items-center gap-2 shrink-0">
                     <span className="text-sm text-red-400">Delete category?</span>

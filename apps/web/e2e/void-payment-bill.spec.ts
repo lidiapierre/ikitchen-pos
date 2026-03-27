@@ -122,6 +122,14 @@ test.describe('void item, payment, and bill print flows', () => {
         body: JSON.stringify({ success: true, data: { payment_id: 'pay-uuid', change_due: 2000 } }),
       })
     })
+
+    // ── Printers + menus (printer routing stubs) ─────────────────────────────
+    await page.route('**/rest/v1/printers**', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) })
+    })
+    await page.route('**/rest/v1/menus**', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) })
+    })
   })
 
   // ── Test 1: Void item ──────────────────────────────────────────────────────
@@ -130,15 +138,6 @@ test.describe('void item, payment, and bill print flows', () => {
     let voidCalled = false
     await page.route('**/rest/v1/order_items**', async (route) => {
       const url = route.request().url()
-      // Skip the VAT context query (select=menu_items(menu_id))
-      if (url.includes('menu_id')) {
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify([]),
-        })
-        return
-      }
       if (voidCalled) {
         // After void: return only 1 item
         await route.fulfill({
@@ -232,14 +231,6 @@ test.describe('void item, payment, and bill print flows', () => {
   test('payment flow: close order → cash → amount → confirm → change shown → success state', async ({ page }) => {
     await page.route('**/rest/v1/order_items**', async (route) => {
       const url = route.request().url()
-      if (url.includes('menu_id')) {
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify([]),
-        })
-        return
-      }
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -305,14 +296,6 @@ test.describe('void item, payment, and bill print flows', () => {
 
     await page.route('**/rest/v1/order_items**', async (route) => {
       const url = route.request().url()
-      if (url.includes('menu_id')) {
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify([]),
-        })
-        return
-      }
       await route.fulfill({
         status: 200,
         contentType: 'application/json',

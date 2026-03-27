@@ -1,0 +1,453 @@
+openapi: "3.1.0"
+info:
+  title: iKitchen POS Public API
+  description: |
+    REST API for external system integrations with iKitchen POS.
+
+    ## Authentication
+    All endpoints require an API key. Pass it via:
+    - `Authorization: Bearer <key>` header
+    - `X-API-Key: <key>` header
+
+    API keys are scoped to a single restaurant. All data returned is
+    automatically filtered to that restaurant.
+
+    ## Envelope
+    All responses use a consistent envelope:
+    ```json
+    {
+      "data": <payload>,
+      "meta": { "page": 1, "per_page": 50, "total": 123 }
+    }
+    ```
+
+    ## Rate Limiting
+    100 requests per minute per API key.
+  version: "1.0.0"
+  contact:
+    name: iKitchen Support
+    url: https://ikitchenbdltd.com
+
+servers:
+  - url: https://dmaogdwtgohrhbytxjqu.supabase.co/functions/v1/api
+    description: Production
+
+security:
+  - BearerApiKey: []
+  - XApiKey: []
+
+components:
+  securitySchemes:
+    BearerApiKey:
+      type: http
+      scheme: bearer
+      description: Pass your API key as a Bearer token
+    XApiKey:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: Pass your API key in the X-API-Key header
+
+  schemas:
+    Meta:
+      type: object
+      required: [page, per_page, total]
+      properties:
+        page:
+          type: integer
+          example: 1
+        per_page:
+          type: integer
+          example: 50
+        total:
+          type: integer
+          example: 124
+
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+          example: Unauthorized
+
+    Order:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        table_id:
+          type: string
+          format: uuid
+          nullable: true
+        status:
+          type: string
+          enum: [open, closed, cancelled, paid]
+        covers:
+          type: integer
+          nullable: true
+        final_total_cents:
+          type: integer
+          nullable: true
+          description: Total in smallest currency unit (e.g. cents)
+        discount_amount_cents:
+          type: integer
+          nullable: true
+        service_charge_cents:
+          type: integer
+          nullable: true
+        order_comp:
+          type: boolean
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    OrderItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        menu_item_id:
+          type: string
+          format: uuid
+        quantity:
+          type: integer
+        unit_price_cents:
+          type: integer
+        voided:
+          type: boolean
+        comp:
+          type: boolean
+          nullable: true
+        comp_reason:
+          type: string
+          nullable: true
+        seat:
+          type: integer
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        menu_items:
+          type: object
+          nullable: true
+          properties:
+            id:
+              type: string
+              format: uuid
+            name:
+              type: string
+            price_cents:
+              type: integer
+
+    Payment:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        method:
+          type: string
+          enum: [cash, card, other]
+        amount_cents:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+
+    OrderDetail:
+      allOf:
+        - $ref: '#/components/schemas/Order'
+        - type: object
+          properties:
+            order_comp_reason:
+              type: string
+              nullable: true
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/OrderItem'
+            payments:
+              type: array
+              items:
+                $ref: '#/components/schemas/Payment'
+
+    MenuItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        price_cents:
+          type: integer
+        available:
+          type: boolean
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    MenuCategory:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        menu_items:
+          type: array
+          items:
+            $ref: '#/components/schemas/MenuItem'
+
+    RevenueByDay:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+          example: "2026-03-27"
+        revenue_cents:
+          type: integer
+        order_count:
+          type: integer
+
+    PaymentBreakdown:
+      type: object
+      properties:
+        method:
+          type: string
+          enum: [cash, card, other]
+        count:
+          type: integer
+        amount_cents:
+          type: integer
+
+    RevenueSummary:
+      type: object
+      properties:
+        period:
+          type: string
+          enum: [day, week, month]
+        from:
+          type: string
+          format: date-time
+        to:
+          type: string
+          format: date-time
+        order_count:
+          type: integer
+        total_revenue_cents:
+          type: integer
+        avg_order_cents:
+          type: integer
+        total_covers:
+          type: integer
+        total_service_charge_cents:
+          type: integer
+        total_discount_cents:
+          type: integer
+        comp_order_count:
+          type: integer
+        revenue_by_day:
+          type: array
+          items:
+            $ref: '#/components/schemas/RevenueByDay'
+        payment_breakdown:
+          type: array
+          items:
+            $ref: '#/components/schemas/PaymentBreakdown'
+
+paths:
+  /orders:
+    get:
+      summary: List orders
+      description: Returns a paginated list of orders for the authenticated restaurant.
+      operationId: listOrders
+      tags: [Orders]
+      parameters:
+        - name: status
+          in: query
+          description: Filter by order status
+          schema:
+            type: string
+            enum: [open, closed, cancelled, paid]
+        - name: from
+          in: query
+          description: Start date (YYYY-MM-DD, inclusive)
+          schema:
+            type: string
+            format: date
+            example: "2026-01-01"
+        - name: to
+          in: query
+          description: End date (YYYY-MM-DD, inclusive)
+          schema:
+            type: string
+            format: date
+            example: "2026-03-27"
+        - name: table
+          in: query
+          description: Filter by table UUID
+          schema:
+            type: string
+            format: uuid
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 50
+            minimum: 1
+            maximum: 200
+      responses:
+        "200":
+          description: Paginated list of orders
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Order'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /orders/{id}:
+    get:
+      summary: Get a single order
+      description: Returns a single order with its items and payment details.
+      operationId: getOrder
+      tags: [Orders]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Order detail with items and payments
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/OrderDetail'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "404":
+          description: Order not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /menu:
+    get:
+      summary: Get full menu
+      description: Returns all menu categories with their items (name, price, availability).
+      operationId: getMenu
+      tags: [Menu]
+      responses:
+        "200":
+          description: Full menu with categories and items
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/MenuCategory'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /reports/revenue:
+    get:
+      summary: Revenue summary
+      description: |
+        Returns aggregated revenue data for a given period.
+        Includes daily breakdown, payment method split, and comp/discount totals.
+      operationId: getRevenue
+      tags: [Reports]
+      parameters:
+        - name: period
+          in: query
+          description: Preset period (overridden by from/to if both are provided)
+          schema:
+            type: string
+            enum: [day, week, month]
+            default: day
+        - name: from
+          in: query
+          description: Custom start date (YYYY-MM-DD)
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          description: Custom end date (YYYY-MM-DD)
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Revenue summary
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/RevenueSummary'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'

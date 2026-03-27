@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import type { JSX } from 'react'
+import { Download } from 'lucide-react'
 import { useUser } from '@/lib/user-context'
 import { callGetReports, callExportOrders } from './reportsApi'
 import type { ReportData, ReportPeriod, CompDetailItem, CompByItem, StaffPerformanceRow } from './reportsApi'
@@ -12,6 +13,8 @@ import {
   exportPaymentBreakdown,
   exportCompDetail,
   exportOrderList,
+  exportAccountingCSV,
+  exportDailySummary,
 } from './csvExport'
 
 const PERIOD_LABELS: { value: ReportPeriod; label: string }[] = [
@@ -42,9 +45,7 @@ function ExportButton({ onClick, loading = false, label = 'Export CSV' }: Export
           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
         </svg>
       ) : (
-        <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-          <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
-        </svg>
+        <Download className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
       )}
       {label}
     </button>
@@ -610,7 +611,44 @@ export default function ReportsDashboard(): JSX.Element {
             <StaffPerformanceTable rows={data.staff_performance ?? []} />
           </div>
 
-          {/* Row 7 — Full Order List Export */}
+          {/* Row 7 — Accounting Export */}
+          <div className="bg-zinc-800 border border-zinc-700 rounded-2xl p-6">
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+              <div>
+                <h2 className="text-base font-semibold text-white">Accounting Export</h2>
+                <p className="text-sm text-zinc-400 mt-0.5">
+                  Download a detailed financial summary for the selected period — daily revenue breakdown by payment
+                  method, or a human-readable summary with top items and payment totals.
+                </p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() =>
+                    exportAccountingCSV(data, period, customFrom || undefined, customTo || undefined)
+                  }
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-xs font-medium transition-colors border border-amber-500"
+                  aria-label="Export accounting CSV"
+                >
+                  <Download className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                  Export CSV
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    exportDailySummary(data, period, customFrom || undefined, customTo || undefined)
+                  }
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-700 hover:bg-zinc-600 text-zinc-200 text-xs font-medium transition-colors border border-zinc-600"
+                  aria-label="Export daily summary text"
+                >
+                  <Download className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                  Daily Summary
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Row 8 — Full Order List Export */}
           <div className="bg-zinc-800 border border-zinc-700 rounded-2xl p-6">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div>

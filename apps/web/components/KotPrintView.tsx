@@ -14,6 +14,12 @@ interface KotPrintViewProps {
    * Used when firing a specific course (e.g. "STARTER").
    */
   courseFilter?: 'starter' | 'main' | 'dessert'
+  /** Order type — shows TAKEAWAY or DELIVERY banner at the top of the KOT. */
+  orderType?: 'dine_in' | 'takeaway' | 'delivery'
+  /** Customer name for delivery orders. */
+  customerName?: string | null
+  /** Delivery note for delivery orders. */
+  deliveryNote?: string | null
 }
 
 const COURSE_LABELS: Record<string, string> = {
@@ -29,6 +35,9 @@ export default function KotPrintView({
   timestamp,
   showAll = false,
   courseFilter,
+  orderType = 'dine_in',
+  customerName,
+  deliveryNote,
 }: KotPrintViewProps): JSX.Element {
   // Base filter: unsent items (or all for reprint)
   let displayItems = showAll ? items : items.filter((item) => !item.sent_to_kitchen)
@@ -38,6 +47,9 @@ export default function KotPrintView({
     displayItems = displayItems.filter((item) => item.course === courseFilter)
   }
 
+  const isTakeaway = orderType === 'takeaway'
+  const isDelivery = orderType === 'delivery'
+
   return (
     <div aria-hidden="true" className="hidden print:block font-mono text-black bg-white p-2 w-full max-w-xs">
       <div className="text-center mb-2">
@@ -45,8 +57,24 @@ export default function KotPrintView({
         <p className="text-sm">KITCHEN ORDER TICKET</p>
         {showAll && !courseFilter && <p className="text-xs">(REPRINT)</p>}
       </div>
+
+      {/* TAKEAWAY / DELIVERY banner */}
+      {(isTakeaway || isDelivery) && (
+        <div className="border-2 border-black py-1 mb-2 text-center">
+          <p className="text-lg font-bold tracking-widest">
+            {isDelivery ? '★ DELIVERY ★' : '★ TAKEAWAY ★'}
+          </p>
+          {isDelivery && customerName && (
+            <p className="text-sm font-bold">{customerName}</p>
+          )}
+          {isDelivery && deliveryNote && (
+            <p className="text-xs">{deliveryNote}</p>
+          )}
+        </div>
+      )}
+
       <div className="border-t border-b border-black py-1 mb-2 text-sm">
-        <p>Table: {tableLabel}</p>
+        {!isTakeaway && !isDelivery && <p>Table: {tableLabel}</p>}
         <p>Order: {orderId.slice(0, 8)}</p>
         <p>Time: {timestamp}</p>
         {courseFilter !== undefined && (

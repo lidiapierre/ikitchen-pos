@@ -29,6 +29,12 @@ export interface BillPrintViewProps {
   serviceChargeCents?: number
   /** Explicit VAT amount in cents — pre-calculated by caller (overrides derived vatCents) */
   vatCents?: number
+  /** Order type — shown on bill for non-dine-in orders. */
+  orderType?: 'dine_in' | 'takeaway' | 'delivery'
+  /** Customer name for delivery orders. */
+  customerName?: string | null
+  /** Delivery note for delivery orders. */
+  deliveryNote?: string | null
 }
 
 export default function BillPrintView({
@@ -49,10 +55,16 @@ export default function BillPrintView({
   serviceChargePercent = 0,
   serviceChargeCents = 0,
   vatCents: vatCentsProp,
+  orderType = 'dine_in',
+  customerName,
+  deliveryNote,
 }: BillPrintViewProps): JSX.Element {
   // Use caller-provided vatCents when available (preferred — supports new calculation order).
   // Fall back to derived value for backward compatibility.
   const vatCents = vatCentsProp !== undefined ? vatCentsProp : totalCents - subtotalCents
+
+  const isTakeaway = orderType === 'takeaway'
+  const isDelivery = orderType === 'delivery'
 
   return (
     <div aria-hidden="true" className="hidden print:block font-mono text-black bg-white p-2 w-full max-w-xs">
@@ -63,9 +75,24 @@ export default function BillPrintView({
         <p className="text-xs">{timestamp}</p>
       </div>
 
+      {/* TAKEAWAY / DELIVERY banner on bill */}
+      {(isTakeaway || isDelivery) && (
+        <div className="border border-black py-1 mb-2 text-center">
+          <p className="text-sm font-bold tracking-widest">
+            {isDelivery ? 'DELIVERY' : 'TAKEAWAY'}
+          </p>
+          {isDelivery && customerName && (
+            <p className="text-xs font-bold">{customerName}</p>
+          )}
+          {isDelivery && deliveryNote && (
+            <p className="text-xs">{deliveryNote}</p>
+          )}
+        </div>
+      )}
+
       {/* Order info */}
       <div className="border-t border-b border-black py-1 mb-2 text-sm">
-        <p>Table: {tableLabel}</p>
+        {!isTakeaway && !isDelivery && <p>Table: {tableLabel}</p>}
         <p>Order: {orderId.slice(0, 8)}</p>
       </div>
 
@@ -178,7 +205,7 @@ export default function BillPrintView({
 
       {/* Footer */}
       <div className="border-t border-black mt-2 pt-1 text-center text-xs">
-        Thank you for dining with us!
+        {isDelivery ? 'Thank you for your order!' : 'Thank you for dining with us!'}
       </div>
     </div>
   )

@@ -9,33 +9,27 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
+function makeMockFetch(orderId = 'abc-123') {
+  return vi.fn().mockResolvedValue({
+    ok: true,
+    json: () =>
+      Promise.resolve({
+        success: true,
+        data: { order_id: orderId, status: 'open' },
+      }),
+  })
+}
+
 describe('callCreateOrder', () => {
   it('resolves with order_id on successful response', async (): Promise<void> => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue({
-        ok: true,
-        json: () =>
-          Promise.resolve({
-            success: true,
-            data: { order_id: 'abc-123', status: 'open' },
-          }),
-      }),
-    )
+    vi.stubGlobal('fetch', makeMockFetch())
 
     const result = await callCreateOrder(BASE_URL, API_KEY, TABLE_ID)
     expect(result.order_id).toBe('abc-123')
   })
 
   it('sends a POST request to the correct endpoint', async (): Promise<void> => {
-    const mockFetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: () =>
-        Promise.resolve({
-          success: true,
-          data: { order_id: 'xyz-456', status: 'open' },
-        }),
-    })
+    const mockFetch = makeMockFetch('xyz-456')
     vi.stubGlobal('fetch', mockFetch)
 
     await callCreateOrder(BASE_URL, API_KEY, 'table-uuid-003')
@@ -47,46 +41,66 @@ describe('callCreateOrder', () => {
         headers: expect.objectContaining({
           'Content-Type': 'application/json',
           Authorization: `Bearer ${API_KEY}`,
-          apikey: API_KEY,
         }),
       }),
     )
   })
 
-  it('sends table_id in the request body', async (): Promise<void> => {
-    const mockFetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: () =>
-        Promise.resolve({
-          success: true,
-          data: { order_id: 'order-789', status: 'open' },
-        }),
-    })
+  it('sends table_id in the request body for dine_in (legacy string signature)', async (): Promise<void> => {
+    const mockFetch = makeMockFetch('order-789')
     vi.stubGlobal('fetch', mockFetch)
 
     await callCreateOrder(BASE_URL, API_KEY, 'table-uuid-007')
 
     const [, init] = mockFetch.mock.calls[0] as [string, RequestInit]
-    const body = JSON.parse(init.body as string) as { table_id: string }
+    const body = JSON.parse(init.body as string) as { table_id: string; order_type: string }
     expect(body.table_id).toBe('table-uuid-007')
+    expect(body.order_type).toBe('dine_in')
   })
 
-  it('sends staff_id placeholder in the request body', async (): Promise<void> => {
-    const mockFetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: () =>
-        Promise.resolve({
-          success: true,
-          data: { order_id: 'order-789', status: 'open' },
-        }),
-    })
+  it('sends order_type dine_in by default', async (): Promise<void> => {
+    const mockFetch = makeMockFetch()
     vi.stubGlobal('fetch', mockFetch)
 
-    await callCreateOrder(BASE_URL, API_KEY, 'table-uuid-007')
+    await callCreateOrder(BASE_URL, API_KEY, { tableId: TABLE_ID, orderType: 'dine_in' })
 
     const [, init] = mockFetch.mock.calls[0] as [string, RequestInit]
-    const body = JSON.parse(init.body as string) as { staff_id: string }
-    expect(body.staff_id).toBe('placeholder-staff')
+    const body = JSON.parse(init.body as string) as { order_type: string }
+    expect(body.order_type).toBe('dine_in')
+  })
+
+  it('sends takeaway order without table_id', async (): Promise<void> => {
+    const mockFetch = makeMockFetch('takeaway-001')
+    vi.stubGlobal('fetch', mockFetch)
+
+    const result = await callCreateOrder(BASE_URL, API_KEY, { orderType: 'takeaway' })
+    expect(result.order_id).toBe('takeaway-001')
+
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit]
+    const body = JSON.parse(init.body as string) as { order_type: string; table_id?: string }
+    expect(body.order_type).toBe('takeaway')
+    expect(body.table_id).toBeUndefined()
+  })
+
+  it('sends delivery order with customer_name and delivery_note', async (): Promise<void> => {
+    const mockFetch = makeMockFetch('delivery-001')
+    vi.stubGlobal('fetch', mockFetch)
+
+    await callCreateOrder(BASE_URL, API_KEY, {
+      orderType: 'delivery',
+      customerName: 'Ahmed Khan',
+      deliveryNote: 'Ring the bell',
+    })
+
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit]
+    const body = JSON.parse(init.body as string) as {
+      order_type: string
+      customer_name: string
+      delivery_note: string
+    }
+    expect(body.order_type).toBe('delivery')
+    expect(body.customer_name).toBe('Ahmed Khan')
+    expect(body.delivery_note).toBe('Ring the bell')
   })
 
   it('throws with HTTP status when response is not ok', async (): Promise<void> => {

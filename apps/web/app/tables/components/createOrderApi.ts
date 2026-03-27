@@ -1,3 +1,5 @@
+export type OrderType = 'dine_in' | 'takeaway' | 'delivery'
+
 export interface CreateOrderResponse {
   success: boolean
   data?: { order_id: string; status: string }
@@ -8,18 +10,42 @@ export interface CreateOrderResult {
   order_id: string
 }
 
+export interface CreateOrderOptions {
+  tableId?: string
+  orderType?: OrderType
+  customerName?: string
+  deliveryNote?: string
+}
+
 export async function callCreateOrder(
   supabaseUrl: string,
   accessToken: string,
-  tableId: string,
+  tableIdOrOptions: string | CreateOrderOptions,
 ): Promise<CreateOrderResult> {
+  // Support legacy call signature (tableId as string) for backward compatibility
+  let opts: CreateOrderOptions
+  if (typeof tableIdOrOptions === 'string') {
+    opts = { tableId: tableIdOrOptions, orderType: 'dine_in' }
+  } else {
+    opts = tableIdOrOptions
+  }
+
+  const { tableId, orderType = 'dine_in', customerName, deliveryNote } = opts
+
+  const bodyPayload: Record<string, string> = {
+    order_type: orderType,
+  }
+  if (tableId) bodyPayload['table_id'] = tableId
+  if (customerName) bodyPayload['customer_name'] = customerName
+  if (deliveryNote) bodyPayload['delivery_note'] = deliveryNote
+
   const res = await fetch(`${supabaseUrl}/functions/v1/create_order`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${accessToken}`,
     },
-    body: JSON.stringify({ table_id: tableId }),
+    body: JSON.stringify(bodyPayload),
   })
   if (!res.ok) {
     const body = await res.text()

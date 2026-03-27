@@ -140,19 +140,19 @@ describe('fetchOrderSummary', () => {
   it('returns status open with null payment_method for open orders', async (): Promise<void> => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
-      json: async (): Promise<Array<{ status: string }>> => [{ status: 'open' }],
+      json: async (): Promise<Array<{ status: string; order_type: string; customer_name: null; delivery_note: null }>> => [{ status: 'open', order_type: 'dine_in', customer_name: null, delivery_note: null }],
     })
 
     const result = await fetchOrderSummary('https://example.supabase.co', 'test-key', 'order-123')
 
-    expect(result).toEqual({ status: 'open', payment_method: null })
+    expect(result).toEqual({ status: 'open', payment_method: null, order_type: 'dine_in', customer_name: null, delivery_note: null })
   })
 
   it('fetches payment method when order is paid', async (): Promise<void> => {
     mockFetch
       .mockResolvedValueOnce({
         ok: true,
-        json: async (): Promise<Array<{ status: string }>> => [{ status: 'paid' }],
+        json: async (): Promise<Array<{ status: string; order_type: string; customer_name: null; delivery_note: null }>> => [{ status: 'paid', order_type: 'dine_in', customer_name: null, delivery_note: null }],
       })
       .mockResolvedValueOnce({
         ok: true,
@@ -161,14 +161,14 @@ describe('fetchOrderSummary', () => {
 
     const result = await fetchOrderSummary('https://example.supabase.co', 'test-key', 'order-123')
 
-    expect(result).toEqual({ status: 'paid', payment_method: 'card' })
+    expect(result).toEqual({ status: 'paid', payment_method: 'card', order_type: 'dine_in', customer_name: null, delivery_note: null })
   })
 
   it('returns null payment_method when payment fetch fails for paid order', async (): Promise<void> => {
     mockFetch
       .mockResolvedValueOnce({
         ok: true,
-        json: async (): Promise<Array<{ status: string }>> => [{ status: 'paid' }],
+        json: async (): Promise<Array<{ status: string; order_type: string; customer_name: null; delivery_note: null }>> => [{ status: 'paid', order_type: 'dine_in', customer_name: null, delivery_note: null }],
       })
       .mockResolvedValueOnce({
         ok: false,
@@ -179,7 +179,7 @@ describe('fetchOrderSummary', () => {
 
     const result = await fetchOrderSummary('https://example.supabase.co', 'test-key', 'order-123')
 
-    expect(result).toEqual({ status: 'paid', payment_method: null })
+    expect(result).toEqual({ status: 'paid', payment_method: null, order_type: 'dine_in', customer_name: null, delivery_note: null })
   })
 
   it('throws when the order fetch fails', async (): Promise<void> => {
@@ -209,7 +209,7 @@ describe('fetchOrderSummary', () => {
   it('passes correct auth headers', async (): Promise<void> => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
-      json: async (): Promise<Array<{ status: string }>> => [{ status: 'open' }],
+      json: async (): Promise<Array<{ status: string; order_type: string; customer_name: null; delivery_note: null }>> => [{ status: 'open', order_type: 'dine_in', customer_name: null, delivery_note: null }],
     })
 
     await fetchOrderSummary('https://example.supabase.co', 'my-key', 'order-abc')
@@ -223,7 +223,7 @@ describe('fetchOrderSummary', () => {
   it('queries the correct order endpoint with id filter', async (): Promise<void> => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
-      json: async (): Promise<Array<{ status: string }>> => [{ status: 'open' }],
+      json: async (): Promise<Array<{ status: string; order_type: string; customer_name: null; delivery_note: null }>> => [{ status: 'open', order_type: 'dine_in', customer_name: null, delivery_note: null }],
     })
 
     await fetchOrderSummary('https://example.supabase.co', 'test-key', 'order-xyz')

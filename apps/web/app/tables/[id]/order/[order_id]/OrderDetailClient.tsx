@@ -58,6 +58,11 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
   const [paidPaymentMethod, setPaidPaymentMethod] = useState<string | null>(null)
   const [statusLoading, setStatusLoading] = useState(true)
 
+  // Order type state (takeaway / delivery support)
+  const [orderType, setOrderType] = useState<'dine_in' | 'takeaway' | 'delivery'>('dine_in')
+  const [orderCustomerName, setOrderCustomerName] = useState<string | null>(null)
+  const [orderDeliveryNote, setOrderDeliveryNote] = useState<string | null>(null)
+
   // Void item state
   const [voidingItem, setVoidingItem] = useState<OrderItem | null>(null)
   const [voidReason, setVoidReason] = useState('')
@@ -183,6 +188,9 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
           setOrderIsPaid(true)
           setPaidPaymentMethod(summary.payment_method)
         }
+        setOrderType(summary.order_type)
+        setOrderCustomerName(summary.customer_name)
+        setOrderDeliveryNote(summary.delivery_note)
       })
       .catch(() => {
         // Non-fatal: fall back to normal order view if status check fails
@@ -286,6 +294,11 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
   }
 
   function loadTableLabel(): void {
+    // For takeaway/delivery URL segments, skip DB lookup — label is derived from order type
+    if (tableId === 'takeaway' || tableId === 'delivery') {
+      setTableLabel(tableId === 'takeaway' ? 'TAKEAWAY' : 'DELIVERY')
+      return
+    }
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
     const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
     if (!supabaseUrl || !supabaseKey) return
@@ -1227,14 +1240,40 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
 
         <header className="mb-6">
           <h1 className="text-2xl font-bold text-white mb-4">Order</h1>
-          <div className="inline-flex items-center gap-2 bg-green-900/40 border border-green-700 rounded-xl px-4 py-2 mb-4">
-            <span className="text-green-400 font-semibold text-base">Paid</span>
+          <div className="flex flex-wrap items-center gap-2 mb-4">
+            <div className="inline-flex items-center gap-2 bg-green-900/40 border border-green-700 rounded-xl px-4 py-2">
+              <span className="text-green-400 font-semibold text-base">Paid</span>
+            </div>
+            {orderType === 'takeaway' && (
+              <div className="inline-flex items-center gap-2 bg-amber-900/40 border border-amber-700 rounded-xl px-4 py-2">
+                <span className="text-amber-400 font-semibold text-base">🛍 Takeaway</span>
+              </div>
+            )}
+            {orderType === 'delivery' && (
+              <div className="inline-flex items-center gap-2 bg-blue-900/40 border border-blue-700 rounded-xl px-4 py-2">
+                <span className="text-blue-400 font-semibold text-base">🚴 Delivery</span>
+              </div>
+            )}
           </div>
           <dl className="space-y-2 text-base">
-            <div className="flex gap-3">
-              <dt className="text-zinc-500">Table</dt>
-              <dd className="font-semibold text-white">{tableId}</dd>
-            </div>
+            {orderType === 'dine_in' && (
+              <div className="flex gap-3">
+                <dt className="text-zinc-500">Table</dt>
+                <dd className="font-semibold text-white">{tableLabel || tableId}</dd>
+              </div>
+            )}
+            {orderType === 'delivery' && orderCustomerName && (
+              <div className="flex gap-3">
+                <dt className="text-zinc-500">Customer</dt>
+                <dd className="font-semibold text-white">{orderCustomerName}</dd>
+              </div>
+            )}
+            {orderType === 'delivery' && orderDeliveryNote && (
+              <div className="flex gap-3">
+                <dt className="text-zinc-500">Note</dt>
+                <dd className="text-zinc-300">{orderDeliveryNote}</dd>
+              </div>
+            )}
             <div className="flex gap-3">
               <dt className="text-zinc-500">Order ID</dt>
               <dd className="font-mono text-sm text-zinc-300">{orderId}</dd>
@@ -1280,6 +1319,9 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
           timestamp={kotTimestamp}
           showAll={kotShowAll}
           courseFilter={kotCourseFilter ?? undefined}
+          orderType={orderType}
+          customerName={orderCustomerName}
+          deliveryNote={orderDeliveryNote}
         />
       </div>
 
@@ -1304,6 +1346,9 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
             orderComp={orderIsComp}
             serviceChargePercent={serviceChargePercent}
             serviceChargeCents={billServiceChargeCents}
+            orderType={orderType}
+            customerName={orderCustomerName}
+            deliveryNote={orderDeliveryNote}
           />
         </div>
       )}
@@ -1909,16 +1954,42 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
 
       <header className="mb-6">
         <h1 className="text-2xl font-bold text-white mb-4">Order</h1>
-        {orderIsComp && (
-          <div className="inline-flex items-center gap-2 bg-emerald-900/40 border border-emerald-700 rounded-xl px-4 py-2 mb-4">
-            <span className="text-emerald-400 font-semibold text-base">★ Complimentary Order</span>
-          </div>
-        )}
+        <div className="flex flex-wrap items-center gap-2 mb-4">
+          {orderIsComp && (
+            <div className="inline-flex items-center gap-2 bg-emerald-900/40 border border-emerald-700 rounded-xl px-4 py-2">
+              <span className="text-emerald-400 font-semibold text-base">★ Complimentary Order</span>
+            </div>
+          )}
+          {orderType === 'takeaway' && (
+            <div className="inline-flex items-center gap-2 bg-amber-900/40 border border-amber-700 rounded-xl px-4 py-2">
+              <span className="text-amber-400 font-semibold text-base">🛍 Takeaway</span>
+            </div>
+          )}
+          {orderType === 'delivery' && (
+            <div className="inline-flex items-center gap-2 bg-blue-900/40 border border-blue-700 rounded-xl px-4 py-2">
+              <span className="text-blue-400 font-semibold text-base">🚴 Delivery</span>
+            </div>
+          )}
+        </div>
         <dl className="space-y-2 text-base">
-          <div className="flex gap-3">
-            <dt className="text-zinc-500">Table</dt>
-            <dd className="font-semibold text-white">{tableId}</dd>
-          </div>
+          {orderType === 'dine_in' && (
+            <div className="flex gap-3">
+              <dt className="text-zinc-500">Table</dt>
+              <dd className="font-semibold text-white">{tableLabel || tableId}</dd>
+            </div>
+          )}
+          {orderType === 'delivery' && orderCustomerName && (
+            <div className="flex gap-3">
+              <dt className="text-zinc-500">Customer</dt>
+              <dd className="font-semibold text-white">{orderCustomerName}</dd>
+            </div>
+          )}
+          {orderType === 'delivery' && orderDeliveryNote && (
+            <div className="flex gap-3">
+              <dt className="text-zinc-500">Note</dt>
+              <dd className="text-zinc-300">{orderDeliveryNote}</dd>
+            </div>
+          )}
           <div className="flex gap-3">
             <dt className="text-zinc-500">Order ID</dt>
             <dd className="font-mono text-sm text-zinc-300">{orderId}</dd>
@@ -2006,13 +2077,15 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
               </button>
             )}
 
-            <button
-              type="button"
-              onClick={() => { void openTransferModal() }}
-              className="w-full min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold text-zinc-400 hover:text-amber-400 border-2 border-zinc-700 hover:border-amber-600 transition-colors mb-3"
-            >
-              ↔ Move Table
-            </button>
+            {orderType === 'dine_in' && (
+              <button
+                type="button"
+                onClick={() => { void openTransferModal() }}
+                className="w-full min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold text-zinc-400 hover:text-amber-400 border-2 border-zinc-700 hover:border-amber-600 transition-colors mb-3"
+              >
+                ↔ Move Table
+              </button>
+            )}
 
             <button
               type="button"

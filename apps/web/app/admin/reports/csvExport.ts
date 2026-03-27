@@ -103,6 +103,178 @@ export function exportCompDetail(data: ReportData, period: ReportPeriod, customF
 }
 
 // ---------------------------------------------------------------------------
+// Accounting export — per-day financial summary CSV
+// ---------------------------------------------------------------------------
+
+/**
+ * Exports a per-day accounting CSV with revenue broken down by payment method.
+ * Payment method totals are available only at the aggregate level from the
+ * reports API, so per-day values are proportionally distributed from the
+ * aggregate. Where a single day is selected the values are exact.
+ */
+export function exportAccountingCSV(
+  data: ReportData,
+  period: ReportPeriod,
+  customFrom?: string,
+  customTo?: string,
+): void {
+  const headers = [
+    'date',
+    'total_orders',
+    'total_revenue_cents',
+    'cash_revenue_cents',
+    'card_revenue_cents',
+    'comp_revenue_cents',
+    'vat_collected_cents',
+    'service_charge_cents',
+    'net_revenue_cents',
+  ]
+
+  // Build payment-method lookup from aggregate breakdown
+  const paymentMap: Record<string, number> = {}
+  for (const p of data.payment_breakdown) {
+    paymentMap[p.method.toLowerCase()] = p.revenue_cents
+  }
+
+  const totalRevenueCents = data.summary.total_revenue_cents
+  const totalServiceCharge = data.summary.total_service_charge_cents ?? 0
+  const totalComp = data.comp_detail?.total_comp_value_cents ?? 0
+
+  // Aggregate cash / card (sum everything that is not 'comp')
+  const cashRevenue = paymentMap['cash'] ?? 0
+  const cardRevenue =
+    Object.entries(paymentMap)
+      .filter(([method]) => method !== 'cash' && method !== 'comp')
+      .reduce((sum, [, v]) => sum + v, 0)
+
+  const rows = data.revenue_by_day.map(day => {
+    const proportion = totalRevenueCents > 0 ? day.revenue_cents / totalRevenueCents : 0
+    const dayCash = Math.round(cashRevenue * proportion)
+    const dayCard = Math.round(cardRevenue * proportion)
+    const dayComp = Math.round(totalComp * proportion)
+    const daySvc = Math.round(totalServiceCharge * proportion)
+    // VAT is not tracked in the current data model
+    const dayVat = 0
+    const dayNet = day.revenue_cents - daySvc - dayVat
+
+    return [
+      day.date,
+      (day as { date: string; revenue_cents: number; order_count?: number }).order_count ?? '',
+      day.revenue_cents,
+      dayCash,
+      dayCard,
+      dayComp,
+      dayVat,
+      daySvc,
+      dayNet,
+    ]
+  })
+
+  downloadCSV(buildCSV(headers, rows), makeFilename('accounting', period, customFrom, customTo))
+}
+
+// ---------------------------------------------------------------------------
+// Daily summary — human-readable text export
+// ---------------------------------------------------------------------------
+
+function pad(str: string, len: number): string {
+  return str.length >= len ? str : str + ' '.repeat(len - str.length)
+}
+
+/**
+ * Exports a human-readable financial summary for the selected period as a
+ * plain-text file (.txt). Covers total sales, payment breakdown, top 5 items,
+ * discounts & comps, and average order value.
+ */
+export function exportDailySummary(
+  data: ReportData,
+  period: ReportPeriod,
+  customFrom?: string,
+  customTo?: string,
+): void {
+  const periodLabel =
+    period === 'custom' && customFrom && customTo
+      ? `${customFrom} to ${customTo}`
+      : period.charAt(0).toUpperCase() + period.slice(1)
+
+  const divider = '─'.repeat(44)
+
+  const lines: string[] = [
+    'iKitchen POS — Financial Summary',
+    divider,
+    `Period   : ${periodLabel}`,
+    `Generated: ${new Date().toLocaleString('en-GB', { hour12: false })}`,
+    '',
+    'SALES OVERVIEW',
+    divider,
+    `${pad('Total Revenue:', 22)} ${formatPrice(data.summary.total_revenue_cents, DEFAULT_CURRENCY_SYMBOL)}`,
+    `${pad('Total Orders:', 22)} ${data.summary.order_count}`,
+    `${pad('Avg Order Value:', 22)} ${formatPrice(data.summary.avg_order_cents, DEFAULT_CURRENCY_SYMBOL)}`,
+    `${pad('Total Covers:', 22)} ${data.summary.total_covers}`,
+  ]
+
+  if ((data.summary.total_service_charge_cents ?? 0) > 0) {
+    lines.push(
+      `${pad('Service Charge:', 22)} ${formatPrice(data.summary.total_service_charge_cents, DEFAULT_CURRENCY_SYMBOL)}`,
+    )
+  }
+
+  lines.push('', 'PAYMENT BREAKDOWN', divider)
+  if (data.payment_breakdown.length === 0) {
+    lines.push('  No payment data')
+  } else {
+    for (const p of data.payment_breakdown) {
+      const label = p.method.charAt(0).toUpperCase() + p.method.slice(1)
+      lines.push(
+        `${pad(label + ':', 22)} ${formatPrice(p.revenue_cents, DEFAULT_CURRENCY_SYMBOL).padStart(12)}  (${p.count} orders)`,
+      )
+    }
+  }
+
+  lines.push('', 'TOP 5 ITEMS', divider)
+  const top5 = data.top_items.slice(0, 5)
+  if (top5.length === 0) {
+    lines.push('  No item data')
+  } else {
+    top5.forEach((item, idx) => {
+      const rank = `${idx + 1}.`
+      const name = pad(item.name, 28)
+      lines.push(`  ${rank.padEnd(4)}${name}  ${String(item.quantity_sold).padStart(4)} qty  ${formatPrice(item.revenue_cents, DEFAULT_CURRENCY_SYMBOL)}`)
+    })
+  }
+
+  if (data.comp_detail || data.discount_summary.discount_order_count > 0) {
+    lines.push('', 'COMPS & DISCOUNTS', divider)
+    if (data.comp_detail) {
+      lines.push(
+        `${pad('Total Comp Value:', 22)} ${formatPrice(data.comp_detail.total_comp_value_cents, DEFAULT_CURRENCY_SYMBOL)}`,
+        `${pad('  Item comps:', 22)} ${formatPrice(data.comp_detail.comp_item_value_cents, DEFAULT_CURRENCY_SYMBOL)}`,
+        `${pad('  Order comps:', 22)} ${formatPrice(data.comp_detail.comp_order_value_cents, DEFAULT_CURRENCY_SYMBOL)}`,
+      )
+    }
+    if (data.discount_summary.discount_order_count > 0) {
+      lines.push(
+        `${pad('Discounted Orders:', 22)} ${data.discount_summary.discount_order_count}`,
+        `${pad('Total Discounts:', 22)} ${formatPrice(data.discount_summary.total_discount_cents, DEFAULT_CURRENCY_SYMBOL)}`,
+      )
+    }
+  }
+
+  lines.push('', divider, 'Generated by iKitchen POS')
+
+  const content = lines.join('\n')
+  const blob = new Blob([content], { type: 'text/plain;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = makeFilename('daily-summary', period, customFrom, customTo).replace('.csv', '.txt')
+  document.body.appendChild(anchor)
+  anchor.click()
+  document.body.removeChild(anchor)
+  setTimeout(() => URL.revokeObjectURL(url), 10_000)
+}
+
+// ---------------------------------------------------------------------------
 // Full order list (data comes from export_orders edge function)
 // ---------------------------------------------------------------------------
 

@@ -3,6 +3,8 @@ import { Geist, Geist_Mono, Noto_Sans_Bengali } from "next/font/google";
 import "./globals.css";
 import AppHeader from "@/components/AppHeader";
 import { UserProvider } from "@/lib/user-context";
+import OfflineIndicator from "@/components/OfflineIndicator";
+import ServiceWorkerRegistration from "@/components/ServiceWorkerRegistration";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -32,6 +34,10 @@ export default function RootLayout({
 }>): React.ReactElement {
   return (
     <html lang="en">
+      <head>
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#0f172a" />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${notoSansBengali.variable} antialiased`}
       >
@@ -39,6 +45,8 @@ export default function RootLayout({
           <AppHeader />
           {children}
         </UserProvider>
+        <OfflineIndicator />
+        <ServiceWorkerRegistration />
       </body>
     </html>
   );

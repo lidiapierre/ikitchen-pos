@@ -1,8 +1,8 @@
 import { test, expect } from '@playwright/test';
 
-const TABLE_ID = 'table-e2e-kot';
-const ORDER_ID = 'order-e2e-kot';
-const ORDER_ITEM_ID = 'order-item-e2e-kot';
+const TABLE_ID = 'aaaaaaaa-0000-0000-0000-000000000050';
+const ORDER_ID = 'bbbbbbbb-0000-0000-0000-000000000050';
+const ORDER_ITEM_ID = 'cccccccc-0000-0000-0000-000000000050';
 
 /**
  * KOT reprint E2E tests — issue #157
@@ -14,46 +14,61 @@ test.describe('KOT reprint button', () => {
   test.use({ storageState: 'e2e/.auth/admin.json' });
 
   test.beforeEach(async ({ page }) => {
-    // Mock Supabase auth so UserContext.accessToken + role are populated.
+    // ── Auth ──────────────────────────────────────────────────────────────────
     await page.route('**/auth/v1/user**', async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ id: '00000000-0000-0000-0000-000000000001', email: 'admin@lahore.ikitchen.com.bd', role: 'authenticated' }),
+        body: JSON.stringify({
+          id: '00000000-0000-0000-0000-000000000001',
+          email: 'admin@lahore.ikitchen.com.bd',
+          role: 'authenticated',
+        }),
       });
     });
 
     await page.route('**/rest/v1/users?**', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify([{ role: 'owner' }]),
-      });
+      const url = route.request().url();
+      if (url.includes('select=role')) {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify([{ role: 'owner' }]),
+        });
+      } else {
+        await route.continue();
+      }
     });
 
-    // Mock tables list
+    // ── Tables ────────────────────────────────────────────────────────────────
     await page.route('**/rest/v1/tables**', async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify([{ id: TABLE_ID, label: 'Table KOT' }]),
+        body: JSON.stringify([{ id: TABLE_ID, label: 'T50' }]),
       });
     });
 
-    // Mock order status — open
+    // ── Orders ────────────────────────────────────────────────────────────────
     await page.route('**/rest/v1/orders**', async (route) => {
       const url = route.request().url();
       if (url.includes('select=restaurant_id')) {
         await route.fulfill({
           status: 200,
           contentType: 'application/json',
-          body: JSON.stringify([{ restaurant_id: 'rest-kot-e2e' }]),
+          body: JSON.stringify([{ restaurant_id: 'restaurant-e2e-kot' }]),
         });
       } else if (url.includes('select=covers')) {
         await route.fulfill({
           status: 200,
           contentType: 'application/json',
-          body: JSON.stringify([{ covers: 2 }]),
+          body: JSON.stringify([{ covers: 1 }]),
+        });
+      } else if (url.includes('select=status')) {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify([{ status: 'open' }]),
         });
       } else {
         await route.fulfill({
@@ -63,12 +78,12 @@ test.describe('KOT reprint button', () => {
             id: ORDER_ID,
             table_id: TABLE_ID,
             status: 'open',
-            covers: 2,
+            covers: 1,
             discount_type: null,
             discount_value: null,
             discount_amount_cents: 0,
             order_comp: false,
-            restaurant_id: 'rest-kot-e2e',
+            restaurant_id: 'restaurant-e2e-kot',
             order_type: 'dine_in',
             customer_name: null,
             delivery_note: null,
@@ -79,7 +94,7 @@ test.describe('KOT reprint button', () => {
       }
     });
 
-    // Mock order items — at least one item so the Reprint KOT button is visible
+    // ── Order items ───────────────────────────────────────────────────────────
     await page.route('**/rest/v1/order_items**', async (route) => {
       await route.fulfill({
         status: 200,
@@ -87,18 +102,25 @@ test.describe('KOT reprint button', () => {
         body: JSON.stringify([
           {
             id: ORDER_ITEM_ID,
+            order_id: ORDER_ID,
             quantity: 2,
             unit_price_cents: 1000,
             modifier_ids: [],
             sent_to_kitchen: true,
-            menu_items: { name: 'Test Dish' },
+            comp: false,
+            comp_reason: null,
+            seat: null,
+            course: 'main',
+            course_status: 'fired',
+            item_discount_type: null,
+            item_discount_value: null,
+            menu_items: { name: 'Test Dish', menu_id: null },
           },
         ]),
       });
     });
 
-
-    // ── Printers, printer_configs, menus (printer routing stubs) ─────────────
+    // ── Printer routing stubs ─────────────────────────────────────────────────
     await page.route('**/rest/v1/printers**', async (route) => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
     });
@@ -108,7 +130,8 @@ test.describe('KOT reprint button', () => {
     await page.route('**/rest/v1/menus**', async (route) => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
     });
-    // ── Restaurant config (BIN, register name, address — enhanced bill #261) ──
+
+    // ── Restaurant config ─────────────────────────────────────────────────────
     await page.route('**/rest/v1/config**', async (route) => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
     });
@@ -119,11 +142,7 @@ test.describe('KOT reprint button', () => {
     page.on('pageerror', (err) => errors.push(err.message));
 
     await page.goto(`/tables/${TABLE_ID}/order/${ORDER_ID}`);
-
-    // Wait for items to load
-    await expect(page.getByText('Test Dish', { exact: true }).first()).toBeVisible();
-
-    // Reprint KOT button must be present
+    await expect(page.getByText('Test Dish', { exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: /Reprint KOT/i })).toBeVisible();
 
     expect(errors).toHaveLength(0);
@@ -133,33 +152,22 @@ test.describe('KOT reprint button', () => {
     const errors: string[] = [];
     page.on('pageerror', (err) => errors.push(err.message));
 
-    // Intercept the print dialog — Playwright can't interact with OS print dialogs,
-    // but we can confirm no JS error fires when the button is clicked.
     await page.goto(`/tables/${TABLE_ID}/order/${ORDER_ID}`);
-
-    await expect(page.getByText('Test Dish', { exact: true }).first()).toBeVisible();
+    await expect(page.getByText('Test Dish', { exact: true })).toBeVisible();
 
     const reprintBtn = page.getByRole('button', { name: /Reprint KOT/i });
     await expect(reprintBtn).toBeVisible();
-
-    // Click the button — this triggers the Reprinting… state + setTimeout + window.print()
     await reprintBtn.click();
 
-    // The button should briefly show "Reprinting…" (may resolve quickly in Playwright)
-    // Just verify no JS error was thrown
     await page.waitForTimeout(500);
-
     expect(errors).toHaveLength(0);
   });
 
   test('Reprint KOT button has at least 48px height (touch target)', async ({ page }) => {
     await page.goto(`/tables/${TABLE_ID}/order/${ORDER_ID}`);
+    await expect(page.getByText('Test Dish', { exact: true })).toBeVisible();
 
-    await expect(page.getByText('Test Dish', { exact: true }).first()).toBeVisible();
-
-    const reprintBtn = page.getByRole('button', { name: /Reprint KOT/i });
-    const box = await reprintBtn.boundingBox();
-
+    const box = await page.getByRole('button', { name: /Reprint KOT/i }).boundingBox();
     expect(box?.height).toBeGreaterThanOrEqual(48);
   });
 
@@ -172,11 +180,9 @@ test.describe('KOT reprint button', () => {
     });
 
     await page.goto(`/tables/${TABLE_ID}/order/${ORDER_ID}`);
-    await expect(page.getByText('Test Dish', { exact: true }).first()).toBeVisible();
+    await expect(page.getByText('Test Dish', { exact: true })).toBeVisible();
 
     await page.getByRole('button', { name: /Reprint KOT/i }).click();
-
-    // Wait long enough for any async calls that might fire
     await page.waitForTimeout(600);
 
     expect(kotApiCalled).toBe(false);

@@ -47,6 +47,15 @@ import {
 
 const COMP_REASONS = ['VIP', 'Complaint resolution', 'Staff meal', 'Event', 'Other'] as const
 
+function ordinalSuffixForBadge(n: number): string {
+  if (n % 100 >= 11 && n % 100 <= 13) return `${n}th`
+  const rem = n % 10
+  if (rem === 1) return `${n}st`
+  if (rem === 2) return `${n}nd`
+  if (rem === 3) return `${n}rd`
+  return `${n}th`
+}
+
 interface OrderDetailClientProps {
   tableId: string
   orderId: string
@@ -87,6 +96,11 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
   const [receiptMobile, setReceiptMobile] = useState<string>('')
   const [savingMobile, setSavingMobile] = useState(false)
   const [receiptMobileError, setReceiptMobileError] = useState<string | null>(null)
+
+  // Customer CRM lookup badge (issue #172)
+  interface CustomerLookup { visit_count: number; total_spend_cents: number }
+  const [customerLookup, setCustomerLookup] = useState<CustomerLookup | null>(null)
+  const customerLookupDebounceRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Restaurant config for enhanced bill (issue #261)
   const [restaurantName, setRestaurantName] = useState<string>('Lahore by iKitchen')
@@ -1052,10 +1066,35 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
     return lines.join('\n')
   }
 
+  // Lookup customer by mobile with debounce (issue #172)
+  function lookupCustomerByMobile(mobile: string): void {
+    if (customerLookupDebounceRef.current) clearTimeout(customerLookupDebounceRef.current)
+    if (!mobile.trim() || mobile.trim().length < 6) {
+      setCustomerLookup(null)
+      return
+    }
+    customerLookupDebounceRef.current = setTimeout(() => {
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+      if (!supabaseUrl || !supabaseKey) return
+      void fetch(
+        `${supabaseUrl}/rest/v1/customers?mobile=eq.${encodeURIComponent(mobile.trim())}&select=visit_count,total_spend_cents&limit=1`,
+        { headers: { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` } },
+      )
+        .then((r) => r.ok ? r.json() as Promise<Array<CustomerLookup>> : Promise.resolve([]))
+        .then((rows) => {
+          setCustomerLookup(rows.length > 0 ? rows[0] : null)
+        })
+        .catch(() => { setCustomerLookup(null) })
+    }, 400)
+  }
+
   function handleOpenReceiptModal(): void {
     setReceiptMobile(orderCustomerMobile ?? '')
     setReceiptMobileError(null)
+    setCustomerLookup(null)
     setShowReceiptModal(true)
+    if (orderCustomerMobile) lookupCustomerByMobile(orderCustomerMobile)
   }
 
   async function handleSendReceipt(channel: 'whatsapp' | 'sms'): Promise<void> {
@@ -1726,9 +1765,16 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                   setReceiptMobile(e.target.value)
                   setReceiptMobileError(null)
+                  lookupCustomerByMobile(e.target.value)
                 }}
                 className="w-full min-h-[48px] px-4 rounded-xl text-base bg-zinc-700 text-white border-2 border-zinc-600 focus:border-amber-400 focus:outline-none"
               />
+              {customerLookup !== null && (
+                <div className="mt-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-indigo-900/40 border border-indigo-700 text-indigo-300 text-sm font-medium">
+                  <Phone size={12} aria-hidden="true" />
+                  {ordinalSuffixForBadge(customerLookup.visit_count)} visit · {formatPrice(customerLookup.total_spend_cents, currencySymbol)} total
+                </div>
+              )}
             </div>
             {receiptMobileError !== null && (
               <p className="text-sm text-red-400">{receiptMobileError}</p>

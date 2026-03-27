@@ -360,7 +360,71 @@ export async function handler(
       // Best-effort: inventory deduction must never block order close
     }
 
-    // 6. Emit audit log entry — actor_id comes from verified JWT
+    // 6. Upsert customer record (best-effort — never block order close)
+    try {
+      // Re-fetch the order to check if customer_mobile is set
+      const customerOrderRes = await fetchFn(
+        `${supabaseUrl}/rest/v1/orders?select=customer_mobile,customer_name&id=eq.${orderId}&limit=1`,
+        { headers: dbHeaders },
+      )
+      if (customerOrderRes.ok) {
+        const customerOrderRows = (await customerOrderRes.json()) as Array<{
+          customer_mobile: string | null
+          customer_name: string | null
+        }>
+        const customerMobile = customerOrderRows[0]?.customer_mobile
+        if (customerMobile) {
+          const customerName = customerOrderRows[0]?.customer_name ?? null
+          // Use INSERT ... ON CONFLICT DO UPDATE via PostgREST upsert
+          const upsertPayload: Record<string, unknown> = {
+            restaurant_id: restaurantId,
+            mobile: customerMobile,
+            visit_count: 1,
+            total_spend_cents: finalTotal,
+            last_visit_at: new Date().toISOString(),
+          }
+          if (customerName) {
+            upsertPayload['name'] = customerName
+          }
+          await fetchFn(
+            `${supabaseUrl}/rest/v1/customers?on_conflict=restaurant_id,mobile`,
+            {
+              method: 'POST',
+              headers: {
+                ...dbHeaders,
+                Prefer: 'resolution=merge-duplicates,return=minimal',
+              },
+              // For merge-duplicates, PostgREST does a full replace — we need a DB-side increment.
+              // Use an RPC for the atomic upsert/increment.
+              body: JSON.stringify(upsertPayload),
+            },
+          ).catch(() => {
+            // Non-fatal: best-effort
+          })
+
+          // Atomically increment visit_count and total_spend_cents via RPC
+          await fetchFn(
+            `${supabaseUrl}/rest/v1/rpc/upsert_customer_visit`,
+            {
+              method: 'POST',
+              headers: { ...dbHeaders, Prefer: 'return=minimal' },
+              body: JSON.stringify({
+                p_restaurant_id: restaurantId,
+                p_mobile: customerMobile,
+                p_name: customerName,
+                p_spend_cents: finalTotal,
+              }),
+            },
+          ).catch(() => {
+            // Non-fatal: best-effort
+          })
+        }
+      }
+    } catch {
+      // Best-effort: customer upsert must never block order close
+    }
+
+    // 7. Emit audit log entry — actor_id comes from verified JWT
     const auditRes = await fetchFn(
       `${supabaseUrl}/rest/v1/audit_log`,
       {

@@ -146,14 +146,14 @@ test.describe('payment flow', () => {
   test('Close Order button is visible on an open order', async ({ page }) => {
     await page.goto(`/tables/${TABLE_ID}/order/${ORDER_ID}`);
 
-    await expect(page.getByText('Lamb Karahi', { exact: true })).toBeVisible();
+    await expect(page.getByText('Lamb Karahi', { exact: true }).last()).toBeVisible();
     await expect(page.getByRole('button', { name: 'Close Order' })).toBeVisible();
   });
 
   test('clicking Close Order shows the Record Payment heading', async ({ page }) => {
     await page.goto(`/tables/${TABLE_ID}/order/${ORDER_ID}`);
 
-    await expect(page.getByText('Lamb Karahi', { exact: true })).toBeVisible();
+    await expect(page.getByText('Lamb Karahi', { exact: true }).last()).toBeVisible();
 
     await page.getByRole('button', { name: 'Close Order' }).click();
 
@@ -163,7 +163,7 @@ test.describe('payment flow', () => {
   test('cash payment: enter amount → confirm → change shown → Done → success state', async ({ page }) => {
     await page.goto(`/tables/${TABLE_ID}/order/${ORDER_ID}`);
 
-    await expect(page.getByText('Lamb Karahi', { exact: true })).toBeVisible();
+    await expect(page.getByText('Lamb Karahi', { exact: true }).last()).toBeVisible();
 
     // Close order → payment step
     await page.getByRole('button', { name: 'Close Order' }).click();
@@ -196,7 +196,7 @@ test.describe('payment flow', () => {
 
     await page.goto(`/tables/${TABLE_ID}/order/${ORDER_ID}`);
 
-    await expect(page.getByText('Lamb Karahi', { exact: true })).toBeVisible();
+    await expect(page.getByText('Lamb Karahi', { exact: true }).last()).toBeVisible();
 
     await page.getByRole('button', { name: 'Close Order' }).click();
     await expect(page.getByText('Record Payment')).toBeVisible();

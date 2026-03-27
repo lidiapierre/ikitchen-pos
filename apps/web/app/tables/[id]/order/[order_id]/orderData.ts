@@ -18,6 +18,29 @@ export interface OrderItem {
   menuId: string | null
   /** Printer type derived from the menu's printer_type column. */
   printerType: 'kitchen' | 'cashier' | 'bar'
+  /** Per-item discount type: 'percent' | 'fixed' | null */
+  item_discount_type: 'percent' | 'fixed' | null
+  /**
+   * Per-item discount stored value:
+   *   'percent' → percent * 100  (e.g. 10% = 1000)
+   *   'fixed'   → amount in cents (e.g. ৳50 = 5000)
+   */
+  item_discount_value: number | null
+}
+
+/**
+ * Compute the discount amount in cents for a single order item.
+ * Returns 0 when no item-level discount is set.
+ */
+export function calcItemDiscountCents(item: Pick<OrderItem, 'quantity' | 'price_cents' | 'item_discount_type' | 'item_discount_value'>): number {
+  if (!item.item_discount_type || item.item_discount_value == null) return 0
+  const grossCents = item.quantity * item.price_cents
+  if (item.item_discount_type === 'percent') {
+    // item_discount_value = percent * 100 (e.g. 1000 = 10%)
+    return Math.round(grossCents * item.item_discount_value / 10000)
+  }
+  // fixed: item_discount_value = cents
+  return Math.min(item.item_discount_value, grossCents)
 }
 
 export interface OrderSummary {
@@ -36,6 +59,8 @@ interface OrderItemRow {
   seat: number | null
   course: CourseType
   course_status: CourseStatus
+  item_discount_type: 'percent' | 'fixed' | null
+  item_discount_value: number | null
   menu_items: { name: string; menu_id: string | null }
 }
 
@@ -50,7 +75,7 @@ export async function fetchOrderItems(
   orderId: string,
 ): Promise<OrderItem[]> {
   const url = new URL(`${supabaseUrl}/rest/v1/order_items`)
-  url.searchParams.set('select', 'id,quantity,unit_price_cents,modifier_ids,sent_to_kitchen,comp,comp_reason,seat,course,course_status,menu_items(name,menu_id)')
+  url.searchParams.set('select', 'id,quantity,unit_price_cents,modifier_ids,sent_to_kitchen,comp,comp_reason,seat,course,course_status,item_discount_type,item_discount_value,menu_items(name,menu_id)')
   url.searchParams.set('order_id', `eq.${orderId}`)
   url.searchParams.set('voided', 'eq.false')
 
@@ -144,6 +169,8 @@ export async function fetchOrderItems(
       course_status: row.course_status ?? 'waiting',
       menuId,
       printerType,
+      item_discount_type: row.item_discount_type ?? null,
+      item_discount_value: row.item_discount_value ?? null,
     }
   })
 }

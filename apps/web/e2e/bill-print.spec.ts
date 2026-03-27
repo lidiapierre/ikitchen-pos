@@ -95,6 +95,10 @@ test.describe('Print Bill button', () => {
         contentType: 'application/json',
         body: JSON.stringify({ success: true, data: { payment_id: 'pay-e2e-bill', change_due: 0 } }),
       });
+
+    // ── Restaurant config (BIN, register name, address — enhanced bill #261) ──
+    await page.route('**/rest/v1/config**', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
     });
   });
 

@@ -53,8 +53,8 @@ export const STATUS_CONFIG: Record<TableStatus, StatusConfig> = {
   },
   ordered: {
     label: 'Ordered',
-    cardClass: 'bg-amber-900 border-amber-500 hover:bg-amber-800',
-    badgeClass: 'bg-amber-500 text-white',
+    cardClass: 'bg-green-900 border-green-500 hover:bg-green-800',
+    badgeClass: 'bg-green-500 text-white',
   },
   overdue: {
     label: 'Overdue',

@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react'
 import type { JSX } from 'react'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
+import { AlertTriangle, CheckCircle2 } from 'lucide-react'
 
 interface KdsSettingsRow {
   id: string | null
@@ -235,13 +236,15 @@ export default function KdsSettingsPage(): JSX.Element {
 
         {/* Messages */}
         {errorMsg && (
-          <div className="p-3 rounded-xl bg-red-900/50 border border-red-700 text-red-200 text-sm">
-            ⚠️ {errorMsg}
+          <div className="p-3 rounded-xl bg-red-900/50 border border-red-700 text-red-200 text-sm flex items-center gap-2">
+            <AlertTriangle size={16} aria-hidden="true" />
+            {errorMsg}
           </div>
         )}
         {successMsg && (
-          <div className="p-3 rounded-xl bg-green-900/50 border border-green-700 text-green-200 text-sm">
-            ✅ {successMsg}
+          <div className="p-3 rounded-xl bg-green-900/50 border border-green-700 text-green-200 text-sm flex items-center gap-2">
+            <CheckCircle2 size={16} aria-hidden="true" />
+            {successMsg}
           </div>
         )}
 

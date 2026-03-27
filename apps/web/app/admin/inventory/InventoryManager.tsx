@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import type { JSX } from 'react'
 import { useUser } from '@/lib/user-context'
+import { AlertTriangle } from 'lucide-react'
 import {
   fetchIngredients,
   createIngredient,
@@ -166,10 +167,10 @@ export default function InventoryManager(): JSX.Element {
       <div className="flex gap-1 bg-zinc-800 p-1 rounded-xl w-fit flex-wrap">
         {(
           [
-            { id: 'ingredients', label: '🥩 Ingredients' },
-            { id: 'recipes', label: '📋 Recipes' },
-            { id: 'adjustments', label: '📦 Adjustments' },
-            { id: 'wastage', label: '🗑 Wastage' },
+            { id: 'ingredients', label: 'Ingredients' },
+            { id: 'recipes', label: 'Recipes' },
+            { id: 'adjustments', label: 'Adjustments' },
+            { id: 'wastage', label: 'Wastage' },
           ] as { id: Tab; label: string }[]
         ).map(({ id, label }) => (
           <button
@@ -427,7 +428,7 @@ function IngredientsTab({
                     <span className="text-base font-semibold text-white">{ing.name}</span>
                     {low && (
                       <span className="text-xs font-bold bg-red-700 text-red-100 px-2 py-0.5 rounded-full">
-                        ⚠ Low Stock
+                        <span className="inline-flex items-center gap-1"><AlertTriangle size={10} aria-hidden="true" />Low Stock</span>
                       </span>
                     )}
                   </div>
@@ -772,10 +773,10 @@ function AdjustmentsTab({
   }
 
   const REASON_LABELS: Record<string, string> = {
-    sale: '🛒 Sale',
-    delivery: '🚚 Delivery',
-    wastage: '🗑 Wastage',
-    manual: '✏️ Manual',
+    sale: 'Sale',
+    delivery: 'Delivery',
+    wastage: 'Wastage',
+    manual: 'Manual',
   }
 
   return (
@@ -882,10 +883,10 @@ interface WastageTabProps {
 }
 
 const WASTAGE_REASONS: { value: WastageReason; label: string }[] = [
-  { value: 'spoiled', label: '🍂 Spoiled' },
-  { value: 'over-prepared', label: '🍳 Over-prepared' },
-  { value: 'dropped', label: '💧 Dropped' },
-  { value: 'expired', label: '📅 Expired' },
+  { value: 'spoiled', label: 'Spoiled' },
+  { value: 'over-prepared', label: 'Over-prepared' },
+  { value: 'dropped', label: 'Dropped' },
+  { value: 'expired', label: 'Expired' },
 ]
 
 function WastageTab({
@@ -989,10 +990,10 @@ function WastageTab({
   const maxQty = ranked.length > 0 ? ranked[0].totalQty : 1
 
   const WASTAGE_REASON_LABELS: Record<WastageReason, string> = {
-    spoiled: '🍂 Spoiled',
-    'over-prepared': '🍳 Over-prepared',
-    dropped: '💧 Dropped',
-    expired: '📅 Expired',
+    spoiled: 'Spoiled',
+    'over-prepared': 'Over-prepared',
+    dropped: 'Dropped',
+    expired: 'Expired',
   }
 
   return (

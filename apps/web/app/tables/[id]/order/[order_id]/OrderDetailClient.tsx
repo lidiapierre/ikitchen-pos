@@ -28,6 +28,20 @@ import { supabase } from '@/lib/supabase'
 import { useUser } from '@/lib/user-context'
 import { callSetCovers, callSetItemSeat } from './splitBillApi'
 import SplitBillPrintView from '@/components/SplitBillPrintView'
+import {
+  CheckCircle2,
+  Flame,
+  Clock,
+  ShoppingBag,
+  Bike,
+  Printer as PrinterIcon,
+  Scissors,
+  AlertTriangle,
+  Star,
+  Check,
+  X,
+  Pencil,
+} from 'lucide-react'
 
 const COMP_REASONS = ['VIP', 'Complaint resolution', 'Staff meal', 'Event', 'Other'] as const
 
@@ -1030,7 +1044,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
                     }}
                     className="min-h-[48px] min-w-[48px] px-3 rounded-lg text-sm font-semibold text-amber-400 hover:text-white hover:bg-amber-700 transition-colors"
                   >
-                    {item.item_discount_type ? '✎%' : '%'}
+                    {item.item_discount_type ? <Pencil size={12} aria-hidden='true' /> : '%'}
                   </button>
                   <button
                     type="button"
@@ -1070,11 +1084,11 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
     const statuses = new Set(courseItems.map((i) => i.course_status))
     let badge: JSX.Element
     if (statuses.has('served')) {
-      badge = <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-green-900/60 text-green-400">✅ Served</span>
+      badge = <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-green-900/60 text-green-400 inline-flex items-center gap-1"><CheckCircle2 size={12} aria-hidden="true" />Served</span>
     } else if (statuses.has('fired')) {
-      badge = <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-orange-900/60 text-orange-400">🔥 Fired</span>
+      badge = <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-orange-900/60 text-orange-400 inline-flex items-center gap-1"><Flame size={12} aria-hidden="true" />Fired</span>
     } else {
-      badge = <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-zinc-700 text-zinc-400">⏳ Waiting</span>
+      badge = <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-zinc-700 text-zinc-400 inline-flex items-center gap-1"><Clock size={12} aria-hidden="true" />Waiting</span>
     }
     return badge
   }
@@ -1151,7 +1165,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
                           : 'border-orange-600 text-orange-400 hover:bg-orange-900/30 hover:border-orange-400',
                       ].join(' ')}
                     >
-                      {isFiring ? '🔥 Firing…' : `🔥 Fire ${label}`}
+                      {isFiring ? 'Firing…' : `Fire ${label}`}
                     </button>
                   )}
 
@@ -1168,7 +1182,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
                           : 'border-green-700 text-green-400 hover:bg-green-900/30 hover:border-green-400',
                       ].join(' ')}
                     >
-                      {isServing ? '✅ Marking…' : `✅ ${label} Served`}
+                      {isServing ? 'Marking…' : `${label} Served`}
                     </button>
                   )}
                 </div>
@@ -1246,12 +1260,12 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
             </div>
             {orderType === 'takeaway' && (
               <div className="inline-flex items-center gap-2 bg-amber-900/40 border border-amber-700 rounded-xl px-4 py-2">
-                <span className="text-amber-400 font-semibold text-base">🛍 Takeaway</span>
+                <span className="text-amber-400 font-semibold text-base inline-flex items-center gap-1"><ShoppingBag size={16} aria-hidden="true" />Takeaway</span>
               </div>
             )}
             {orderType === 'delivery' && (
               <div className="inline-flex items-center gap-2 bg-blue-900/40 border border-blue-700 rounded-xl px-4 py-2">
-                <span className="text-blue-400 font-semibold text-base">🚴 Delivery</span>
+                <span className="text-blue-400 font-semibold text-base inline-flex items-center gap-1"><Bike size={16} aria-hidden="true" />Delivery</span>
               </div>
             )}
           </div>
@@ -1379,9 +1393,10 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
               <button
                 type="button"
                 onClick={() => { setShowSplitBill(false) }}
-                className="min-h-[48px] min-w-[48px] text-zinc-400 hover:text-white text-2xl"
+                className="min-h-[48px] min-w-[48px] text-zinc-400 hover:text-white flex items-center justify-center"
+                aria-label="Close"
               >
-                ✕
+                <X size={20} aria-hidden="true" />
               </button>
             </div>
 
@@ -1433,7 +1448,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
                   }}
                   className="w-full min-h-[48px] px-6 rounded-xl text-base font-semibold bg-amber-500 hover:bg-amber-400 text-zinc-900 transition-colors"
                 >
-                  🖨 Print {covers} separate bills
+                  <span className="inline-flex items-center gap-1"><PrinterIcon size={16} aria-hidden="true" />Print {covers} separate bills</span>
                 </button>
               </div>
             ) : (
@@ -1530,7 +1545,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
                   }}
                   className="w-full min-h-[48px] px-6 rounded-xl text-base font-semibold bg-amber-500 hover:bg-amber-400 text-zinc-900 transition-colors"
                 >
-                  🖨 Print by seat
+                  <span className="inline-flex items-center gap-1"><PrinterIcon size={16} aria-hidden="true" />Print by seat</span>
                 </button>
               </div>
             )}
@@ -1604,9 +1619,10 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
                   <button
                     type="button"
                     onClick={() => { setShowTransferModal(false) }}
-                    className="text-zinc-400 hover:text-white text-base px-3 py-2 min-h-[48px] min-w-[48px]"
+                    className="text-zinc-400 hover:text-white px-3 py-2 min-h-[48px] min-w-[48px] flex items-center justify-center"
+                    aria-label="Close"
                   >
-                    ✕
+                    <X size={20} aria-hidden="true" />
                   </button>
                 </div>
                 <p className="text-zinc-400 text-base">Select a table to move this order to:</p>
@@ -1940,7 +1956,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
 
       {kotPrintError && (
         <div className="mb-4 p-4 rounded-xl bg-red-900/60 border border-red-700 text-red-200 text-sm whitespace-pre-wrap">
-          <p className="font-semibold mb-1">⚠️ Printer error</p>
+          <p className="font-semibold mb-1 flex items-center gap-2"><AlertTriangle size={16} aria-hidden="true" />Printer error</p>
           <p>{kotPrintError}</p>
           <button
             type="button"
@@ -1957,17 +1973,17 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
         <div className="flex flex-wrap items-center gap-2 mb-4">
           {orderIsComp && (
             <div className="inline-flex items-center gap-2 bg-emerald-900/40 border border-emerald-700 rounded-xl px-4 py-2">
-              <span className="text-emerald-400 font-semibold text-base">★ Complimentary Order</span>
+              <span className="text-emerald-400 font-semibold text-base inline-flex items-center gap-1"><Star size={16} aria-hidden="true" />Complimentary Order</span>
             </div>
           )}
           {orderType === 'takeaway' && (
             <div className="inline-flex items-center gap-2 bg-amber-900/40 border border-amber-700 rounded-xl px-4 py-2">
-              <span className="text-amber-400 font-semibold text-base">🛍 Takeaway</span>
+              <span className="text-amber-400 font-semibold text-base inline-flex items-center gap-1"><ShoppingBag size={16} aria-hidden="true" />Takeaway</span>
             </div>
           )}
           {orderType === 'delivery' && (
             <div className="inline-flex items-center gap-2 bg-blue-900/40 border border-blue-700 rounded-xl px-4 py-2">
-              <span className="text-blue-400 font-semibold text-base">🚴 Delivery</span>
+              <span className="text-blue-400 font-semibold text-base inline-flex items-center gap-1"><Bike size={16} aria-hidden="true" />Delivery</span>
             </div>
           )}
         </div>
@@ -2073,7 +2089,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
                     : 'bg-zinc-700 hover:bg-zinc-600 text-white border-2 border-zinc-600',
                 ].join(' ')}
               >
-                {reprintingKot ? 'Reprinting…' : '🖨 Reprint KOT'}
+                {reprintingKot ? 'Reprinting…' : <span className='inline-flex items-center gap-1'><PrinterIcon size={16} aria-hidden='true' />Reprint KOT</span>}
               </button>
             )}
 
@@ -2148,7 +2164,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
               )}
               {orderIsComp && (
                 <div className="flex justify-between text-emerald-400 font-semibold">
-                  <span>★ Complimentary</span>
+                  <span className="inline-flex items-center gap-1"><Star size={14} aria-hidden="true" />Complimentary</span>
                   <span>COMP</span>
                 </div>
               )}
@@ -2221,7 +2237,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
                 )}
                 {appliedDiscountCents > 0 && (
                   <p className="text-sm text-emerald-400">
-                    ✓ Discount applied: -{formatPrice(appliedDiscountCents, currencySymbol)}
+                    Discount applied: -{formatPrice(appliedDiscountCents, currencySymbol)}
                   </p>
                 )}
               </div>
@@ -2297,7 +2313,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
                   : 'bg-zinc-700 hover:bg-zinc-600 text-white',
               ].join(' ')}
             >
-              {printingBill ? 'Printing…' : '🖨 Print Bill'}
+              {printingBill ? 'Printing…' : <span className='inline-flex items-center gap-1'><PrinterIcon size={16} aria-hidden='true' />Print Bill</span>}
             </button>
 
             <button
@@ -2308,7 +2324,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
               }}
               className="w-full min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold transition-colors border-2 border-zinc-600 text-zinc-300 hover:border-amber-400 hover:text-amber-400"
             >
-              ✂ Split Bill
+              <span className="inline-flex items-center gap-1"><Scissors size={16} aria-hidden="true" />Split Bill</span>
             </button>
 
             <button
@@ -2339,7 +2355,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
           </div>
         ) : (
           <div className="space-y-5 text-center py-4">
-            <div className="text-5xl mb-2">✓</div>
+            <div className="mb-2 text-green-400 flex justify-center"><CheckCircle2 size={64} aria-hidden="true" /></div>
             <h2 className="text-2xl font-bold text-green-400">Payment recorded — order closed</h2>
             {confirmedPaymentMethod !== null && (
               <p className="text-zinc-400 text-base capitalize">Paid by {confirmedPaymentMethod}</p>
@@ -2355,7 +2371,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
                   : 'bg-zinc-700 hover:bg-zinc-600 text-white',
               ].join(' ')}
             >
-              {printingBill ? 'Printing…' : '🖨 Print Bill'}
+              {printingBill ? 'Printing…' : <span className='inline-flex items-center gap-1'><PrinterIcon size={16} aria-hidden='true' />Print Bill</span>}
             </button>
             <p className="text-zinc-400 text-base">Returning to tables…</p>
           </div>

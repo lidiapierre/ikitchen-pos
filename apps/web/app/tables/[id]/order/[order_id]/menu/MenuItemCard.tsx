@@ -7,6 +7,7 @@ import { callAddItemToOrder } from './addItemApi'
 import ModifierSelectionModal from './ModifierSelectionModal'
 import { formatPrice, DEFAULT_CURRENCY_SYMBOL } from '@/lib/formatPrice'
 import { useUser } from '@/lib/user-context'
+import { Check } from 'lucide-react'
 
 type CourseType = 'starter' | 'main' | 'dessert'
 
@@ -103,9 +104,9 @@ export default function MenuItemCard({ item, orderId, onItemAdded, currencySymbo
   const isUnavailable = !item.available
 
   const SPICY_LABELS: Record<string, string> = {
-    mild: '🌶 Mild',
-    medium: '🌶🌶 Medium',
-    hot: '🌶🌶🌶 Hot',
+    mild: 'Mild',
+    medium: 'Medium',
+    hot: 'Hot',
   }
 
   const DIETARY_COLORS: Record<string, string> = {
@@ -158,7 +159,9 @@ export default function MenuItemCard({ item, orderId, onItemAdded, currencySymbo
                   key={badge}
                   className={`text-xs font-medium px-1.5 py-0.5 rounded-full capitalize ${DIETARY_COLORS[badge.toLowerCase()] ?? 'bg-zinc-700 text-zinc-300'}`}
                 >
-                  {badge.toLowerCase() === 'halal' ? '✓ Halal' : badge}
+                  {badge.toLowerCase() === 'halal' ? (
+                    <span className="flex items-center gap-1"><Check size={10} aria-hidden="true" />Halal</span>
+                  ) : badge}
                 </span>
               ))}
             </div>
@@ -224,7 +227,9 @@ export default function MenuItemCard({ item, orderId, onItemAdded, currencySymbo
                   : 'bg-amber-600 hover:bg-amber-500 text-white',
           ].join(' ')}
         >
-          {isUnavailable ? '86\'d' : loading ? 'Adding…' : success ? '✓ Added' : 'Add'}
+          {isUnavailable ? '86\'d' : loading ? 'Adding…' : success ? (
+            <span className="flex items-center justify-center gap-1"><Check size={16} aria-hidden="true" />Added</span>
+          ) : 'Add'}
         </button>
         {error !== null && (
           <span className="text-base text-red-400">{error}</span>

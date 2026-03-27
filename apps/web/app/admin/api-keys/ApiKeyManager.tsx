@@ -5,6 +5,7 @@ import type { JSX } from 'react'
 import { useUser } from '@/lib/user-context'
 import { fetchApiKeys, createApiKey, revokeApiKey } from './apiKeysApi'
 import type { ApiKeyRow, CreatedApiKey } from './apiKeysApi'
+import { CheckCircle2, Check } from 'lucide-react'
 
 type FeedbackType = 'success' | 'error'
 interface Feedback {
@@ -45,7 +46,7 @@ function NewKeyBanner({ createdKey }: { createdKey: CreatedApiKey }): JSX.Elemen
   return (
     <div className="mb-6 p-4 rounded-xl bg-emerald-900 border border-emerald-600">
       <p className="text-emerald-200 font-semibold mb-1">
-        ✅ API key created — copy it now. It will not be shown again.
+        <span className="inline-flex items-center gap-2"><CheckCircle2 size={16} aria-hidden="true" />API key created — copy it now. It will not be shown again.</span>
       </p>
       <div className="flex items-center gap-3 mt-2">
         <code className="flex-1 font-mono text-sm text-white bg-zinc-800 px-3 py-2 rounded break-all select-all">
@@ -55,7 +56,7 @@ function NewKeyBanner({ createdKey }: { createdKey: CreatedApiKey }): JSX.Elemen
           onClick={handleCopy}
           className="px-3 py-2 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white text-sm font-medium transition-colors min-w-[72px]"
         >
-          {copied ? '✓ Copied' : 'Copy'}
+          {copied ? <span className='inline-flex items-center gap-1'><Check size={14} aria-hidden='true' />Copied</span> : 'Copy'}
         </button>
       </div>
     </div>

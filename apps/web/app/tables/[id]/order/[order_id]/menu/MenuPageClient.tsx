@@ -9,6 +9,7 @@ import MenuItemCard from './MenuItemCard'
 import { filterMenuItemsWithFilters, hasActiveFilters, EMPTY_FILTERS } from './menuSearch'
 import type { MenuFilters } from './menuSearch'
 import { formatPrice, DEFAULT_CURRENCY_SYMBOL } from '@/lib/formatPrice'
+import { X, Check } from 'lucide-react'
 
 interface MenuPageClientProps {
   tableId: string
@@ -158,7 +159,7 @@ export default function MenuPageClient({ tableId, orderId }: MenuPageClientProps
               aria-label="Clear search and filters"
               className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white text-lg leading-none min-h-[48px] min-w-[48px] flex items-center justify-center transition-colors"
             >
-              ×
+              <X size={16} aria-hidden="true" />
             </button>
           )}
         </div>
@@ -179,7 +180,9 @@ export default function MenuPageClient({ tableId, orderId }: MenuPageClientProps
                   : 'bg-zinc-700 text-zinc-300 hover:bg-zinc-600',
               ].join(' ')}
             >
-              {badge === 'halal' ? '✓ Halal' : badge.charAt(0).toUpperCase() + badge.slice(1)}
+              {badge === 'halal' ? (
+                <span className="flex items-center gap-1"><Check size={10} aria-hidden="true" />Halal</span>
+              ) : badge.charAt(0).toUpperCase() + badge.slice(1)}
             </button>
           ))}
 

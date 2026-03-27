@@ -16,15 +16,16 @@ import type { JSX } from 'react'
 import { supabase } from '@/lib/supabase'
 import { PRINT_BRIDGE_URL } from '@/lib/kotPrint'
 import { buildKotEscPos } from '@/lib/escpos'
+import { AlertTriangle, CheckCircle2, Info, Printer as PrinterIcon, X } from 'lucide-react'
 
 const IP_REGEX = /^(\d{1,3}\.){3}\d{1,3}$/
 
 type PrinterType = 'kitchen' | 'cashier' | 'bar'
 
 const PRINTER_TYPE_LABELS: Record<PrinterType, string> = {
-  kitchen: '🍳 Kitchen',
-  cashier: '🧾 Cashier',
-  bar: '🍺 Bar',
+  kitchen: 'Kitchen',
+  cashier: 'Cashier',
+  bar: 'Bar',
 }
 
 interface PrinterRow {
@@ -241,20 +242,20 @@ export default function PrinterSettingsPage(): JSX.Element {
       })
 
       if (res.ok) {
-        setTestResult({ id: printer.id, ok: true, msg: '✅ Test print sent successfully.' })
+        setTestResult({ id: printer.id, ok: true, msg: 'Test print sent successfully.' })
       } else {
         let detail = `HTTP ${res.status}`
         try {
           const body = await res.json() as { error?: string }
           if (body?.error) detail = body.error
         } catch { /* ignore */ }
-        setTestResult({ id: printer.id, ok: false, msg: `⚠️ Bridge error: ${detail}` })
+        setTestResult({ id: printer.id, ok: false, msg: `Bridge error: ${detail}` })
       }
     } catch (err) {
       const detail = err instanceof TypeError && err.message.includes('fetch')
         ? 'Bridge not running. Run: node scripts/print-bridge.js'
         : (err instanceof Error ? err.message : String(err))
-      setTestResult({ id: printer.id, ok: false, msg: `⚠️ ${detail}` })
+      setTestResult({ id: printer.id, ok: false, msg: detail })
     } finally {
       setTestingId(null)
     }
@@ -287,14 +288,18 @@ export default function PrinterSettingsPage(): JSX.Element {
       </p>
 
       {globalError && (
-        <div className="mb-4 p-3 rounded-xl bg-red-900/50 border border-red-700 text-red-200 text-sm">
-          ⚠️ {globalError}
+        <div className="mb-4 p-3 rounded-xl bg-red-900/50 border border-red-700 text-red-200 text-sm flex items-center gap-2">
+          <AlertTriangle size={16} aria-hidden="true" />
+          {globalError}
         </div>
       )}
 
       {/* Bridge info */}
       <div className="mb-6 p-4 rounded-xl bg-zinc-800 border border-zinc-700 text-sm text-zinc-400">
-        <p className="font-semibold text-zinc-300 mb-1">ℹ️ Print Bridge Required</p>
+        <p className="font-semibold text-zinc-300 mb-1 flex items-center gap-2">
+          <Info size={14} aria-hidden="true" />
+          Print Bridge Required
+        </p>
         <p>Network printing requires the print bridge running on the same computer as the browser:</p>
         <pre className="mt-2 text-xs bg-black/50 rounded p-2 text-green-400 overflow-x-auto">
           node scripts/print-bridge.js
@@ -362,9 +367,9 @@ export default function PrinterSettingsPage(): JSX.Element {
                     type="button"
                     onClick={() => { void handleTestPrint(printer) }}
                     disabled={testingId === printer.id || !printer.enabled}
-                    className="min-h-[36px] px-3 rounded-lg text-xs font-semibold bg-zinc-700 hover:bg-zinc-600 text-white transition-colors disabled:opacity-50"
+                    className="min-h-[36px] px-3 rounded-lg text-xs font-semibold bg-zinc-700 hover:bg-zinc-600 text-white transition-colors disabled:opacity-50 flex items-center gap-1"
                   >
-                    {testingId === printer.id ? '…' : '🖨 Test'}
+                    {testingId === printer.id ? 'Testing…' : <><PrinterIcon size={12} aria-hidden="true" /> Test</>}
                   </button>
 
                   {/* Edit */}
@@ -391,12 +396,15 @@ export default function PrinterSettingsPage(): JSX.Element {
               {testResult?.id === printer.id && (
                 <div
                   className={[
-                    'mt-3 p-2 rounded-lg text-xs',
+                    'mt-3 p-2 rounded-lg text-xs flex items-center gap-2',
                     testResult.ok
                       ? 'bg-green-900/40 text-green-300 border border-green-700'
                       : 'bg-red-900/40 text-red-300 border border-red-700',
                   ].join(' ')}
                 >
+                  {testResult.ok
+                    ? <CheckCircle2 size={14} aria-hidden="true" />
+                    : <AlertTriangle size={14} aria-hidden="true" />}
                   {testResult.msg}
                 </div>
               )}
@@ -416,9 +424,10 @@ export default function PrinterSettingsPage(): JSX.Element {
               <button
                 type="button"
                 onClick={() => { setShowModal(false) }}
-                className="text-zinc-400 hover:text-white text-2xl min-h-[44px] min-w-[44px]"
+                className="text-zinc-400 hover:text-white min-h-[44px] min-w-[44px] flex items-center justify-center"
+                aria-label="Close"
               >
-                ✕
+                <X size={20} aria-hidden="true" />
               </button>
             </div>
 
@@ -513,8 +522,9 @@ export default function PrinterSettingsPage(): JSX.Element {
             </div>
 
             {formError && (
-              <div className="p-3 rounded-xl bg-red-900/50 border border-red-700 text-red-200 text-sm">
-                ⚠️ {formError}
+              <div className="p-3 rounded-xl bg-red-900/50 border border-red-700 text-red-200 text-sm flex items-center gap-2">
+                <AlertTriangle size={16} aria-hidden="true" />
+                {formError}
               </div>
             )}
 
@@ -554,8 +564,9 @@ export default function PrinterSettingsPage(): JSX.Element {
               This will remove the printer profile. Print jobs will fall back to browser print.
             </p>
             {deleteError && (
-              <div className="p-3 rounded-xl bg-red-900/50 border border-red-700 text-red-200 text-sm">
-                ⚠️ {deleteError}
+              <div className="p-3 rounded-xl bg-red-900/50 border border-red-700 text-red-200 text-sm flex items-center gap-2">
+                <AlertTriangle size={16} aria-hidden="true" />
+                {deleteError}
               </div>
             )}
             <div className="flex gap-3">

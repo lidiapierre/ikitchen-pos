@@ -26,14 +26,14 @@ describe('fetchTables', () => {
   it('returns tables with open_order_id populated when an open order exists', async (): Promise<void> => {
     mockFetch([
       { ok: true, body: [{ id: 'table-1', label: 'Table 1' }, { id: 'table-2', label: 'Table 2' }] },
-      { ok: true, body: [{ id: 'order-1', table_id: 'table-1' }] },
+      { ok: true, body: [{ id: 'order-1', table_id: 'table-1', status: 'open', created_at: '2026-03-27T08:00:00Z' }] },
     ])
 
     const result = await fetchTables(BASE_URL, API_KEY)
 
     expect(result).toEqual([
-      { id: 'table-1', label: 'Table 1', open_order_id: 'order-1' },
-      { id: 'table-2', label: 'Table 2', open_order_id: null },
+      { id: 'table-1', label: 'Table 1', open_order_id: 'order-1', order_status: 'open', order_created_at: '2026-03-27T08:00:00Z' },
+      { id: 'table-2', label: 'Table 2', open_order_id: null, order_status: null, order_created_at: null },
     ])
   })
 
@@ -46,9 +46,21 @@ describe('fetchTables', () => {
     const result = await fetchTables(BASE_URL, API_KEY)
 
     expect(result).toEqual([
-      { id: 'table-1', label: 'Table 1', open_order_id: null },
-      { id: 'table-2', label: 'Table 2', open_order_id: null },
+      { id: 'table-1', label: 'Table 1', open_order_id: null, order_status: null, order_created_at: null },
+      { id: 'table-2', label: 'Table 2', open_order_id: null, order_status: null, order_created_at: null },
     ])
+  })
+
+  it('populates order_status from the order record', async (): Promise<void> => {
+    mockFetch([
+      { ok: true, body: [{ id: 'table-1', label: 'Table 1' }] },
+      { ok: true, body: [{ id: 'order-1', table_id: 'table-1', status: 'pending_payment', created_at: '2026-03-27T08:00:00Z' }] },
+    ])
+
+    const result = await fetchTables(BASE_URL, API_KEY)
+
+    expect(result[0].order_status).toBe('pending_payment')
+    expect(result[0].order_created_at).toBe('2026-03-27T08:00:00Z')
   })
 
   it('sends correct apikey and Authorization headers', async (): Promise<void> => {
@@ -83,7 +95,7 @@ describe('fetchTables', () => {
     expect(tablesCall).toContain('select=id%2Clabel')
   })
 
-  it('queries orders with status=eq.open', async (): Promise<void> => {
+  it('queries orders with status=in.(open,pending_payment)', async (): Promise<void> => {
     const fetchMock = vi.fn(async () => ({
       ok: true,
       json: async () => [],
@@ -95,7 +107,7 @@ describe('fetchTables', () => {
 
     const ordersCall = fetchMock.mock.calls[1][0] as string
     expect(ordersCall).toContain('/rest/v1/orders')
-    expect(ordersCall).toContain('status=eq.open')
+    expect(ordersCall).toContain('status=in.')
   })
 
   it('throws when the tables request fails', async (): Promise<void> => {

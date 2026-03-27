@@ -2,6 +2,8 @@ export interface TableRow {
   id: string
   label: string
   open_order_id: string | null
+  order_status: string | null
+  order_created_at: string | null
 }
 
 interface TableApiRow {
@@ -12,6 +14,8 @@ interface TableApiRow {
 interface OrderApiRow {
   id: string
   table_id: string | null
+  status: string
+  created_at: string
 }
 
 export async function fetchTables(
@@ -34,8 +38,8 @@ export async function fetchTables(
   }
 
   const ordersUrl = new URL(`${supabaseUrl}/rest/v1/orders`)
-  ordersUrl.searchParams.set('select', 'id,table_id')
-  ordersUrl.searchParams.set('status', 'eq.open')
+  ordersUrl.searchParams.set('select', 'id,table_id,status,created_at')
+  ordersUrl.searchParams.set('status', 'in.(open,pending_payment)')
 
   const ordersRes = await fetch(ordersUrl.toString(), { headers })
 
@@ -47,16 +51,21 @@ export async function fetchTables(
   const tables = (await tablesRes.json()) as TableApiRow[]
   const orders = (await ordersRes.json()) as OrderApiRow[]
 
-  const openOrderByTable = new Map<string, string>()
+  const openOrderByTable = new Map<string, OrderApiRow>()
   for (const order of orders) {
     if (order.table_id !== null) {
-      openOrderByTable.set(order.table_id, order.id)
+      openOrderByTable.set(order.table_id, order)
     }
   }
 
-  return tables.map((table) => ({
-    id: table.id,
-    label: table.label,
-    open_order_id: openOrderByTable.get(table.id) ?? null,
-  }))
+  return tables.map((table) => {
+    const order = openOrderByTable.get(table.id)
+    return {
+      id: table.id,
+      label: table.label,
+      open_order_id: order?.id ?? null,
+      order_status: order?.status ?? null,
+      order_created_at: order?.created_at ?? null,
+    }
+  })
 }

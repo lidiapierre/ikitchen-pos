@@ -87,6 +87,40 @@ export async function fetchVatConfig(
 }
 
 /**
+ * Fetch the service charge percent for a restaurant from the config table.
+ * Returns 0 (disabled) if not configured or on error.
+ */
+export async function fetchServiceChargePercent(
+  supabaseUrl: string,
+  apiKey: string,
+  restaurantId: string,
+): Promise<number> {
+  const headers = {
+    apikey: apiKey,
+    Authorization: `Bearer ${apiKey}`,
+  }
+  try {
+    const configUrl = new URL(`${supabaseUrl}/rest/v1/config`)
+    configUrl.searchParams.set('restaurant_id', `eq.${restaurantId}`)
+    configUrl.searchParams.set('key', 'eq.service_charge_percent')
+    configUrl.searchParams.set('select', 'value')
+    configUrl.searchParams.set('limit', '1')
+
+    const configRes = await fetch(configUrl.toString(), { headers })
+    if (configRes.ok) {
+      const rows = (await configRes.json()) as Array<{ value: string }>
+      if (rows.length > 0) {
+        const parsed = parseFloat(rows[0].value)
+        return isNaN(parsed) || parsed < 0 ? 0 : parsed
+      }
+    }
+  } catch {
+    // Non-fatal: default to 0 (disabled)
+  }
+  return 0
+}
+
+/**
  * Fetch the restaurant_id and (optionally) the menu_id of the first item
  * in the order — used to look up per-menu VAT rates.
  */

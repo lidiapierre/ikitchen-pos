@@ -16,7 +16,8 @@ import { callTransferOrder } from './transferOrderApi'
 import { markItemsSentToKitchen } from './kotApi'
 import { formatPrice, DEFAULT_CURRENCY_SYMBOL } from '@/lib/formatPrice'
 import { calcVat } from '@/lib/vatCalc'
-import { fetchVatConfig, fetchOrderVatContext } from '@/lib/fetchVatConfig'
+import { calcServiceCharge } from '@/lib/serviceChargeCalc'
+import { fetchVatConfig, fetchOrderVatContext, fetchServiceChargePercent } from '@/lib/fetchVatConfig'
 import { printKot } from '@/lib/kotPrint'
 import type { PrinterConfig } from '@/lib/kotPrint'
 import KotPrintView from '@/components/KotPrintView'
@@ -108,6 +109,9 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
   const [taxInclusive, setTaxInclusive] = useState(false)
   const [vatConfigLoading, setVatConfigLoading] = useState(true)
 
+  // Service charge config state (fetched once on load)
+  const [serviceChargePercent, setServiceChargePercent] = useState(0)
+
   // Discount state
   const [discountType, setDiscountType] = useState<'percent' | 'flat'>('percent')
   const [discountValueStr, setDiscountValueStr] = useState<string>('')
@@ -181,16 +185,21 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
     setVatConfigLoading(true)
     fetchOrderVatContext(supabaseUrl, supabaseKey, orderId)
       .then(({ restaurantId, menuId }) =>
-        fetchVatConfig(supabaseUrl, supabaseKey, restaurantId, menuId),
+        Promise.all([
+          fetchVatConfig(supabaseUrl, supabaseKey, restaurantId, menuId),
+          fetchServiceChargePercent(supabaseUrl, supabaseKey, restaurantId),
+        ]),
       )
-      .then((config) => {
+      .then(([config, scPercent]) => {
         setVatPercent(config.vatPercent)
         setTaxInclusive(config.taxInclusive)
+        setServiceChargePercent(scPercent)
       })
       .catch(() => {
-        // Non-fatal: fall back to 0% VAT (safe — no overcharging)
+        // Non-fatal: fall back to 0% VAT / 0% service charge (safe — no overcharging)
         setVatPercent(0)
         setTaxInclusive(false)
+        setServiceChargePercent(0)
       })
       .finally(() => {
         setVatConfigLoading(false)
@@ -279,18 +288,27 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
     .filter((item) => !item.comp && !orderIsComp)
     .reduce((sum, item) => sum + item.quantity * item.price_cents, 0)
 
-  // VAT breakdown (uses fetched config; calcVat is a pure function)
-  const vatBreakdown = calcVat(rawItemsTotalCents, vatPercent, taxInclusive)
-  const { subtotalCents: billSubtotalCents, vatCents: billVatCents, totalCents: billTotalCentsBeforeDiscount } = vatBreakdown
-
-  // Apply discount and order comp
-  const effectiveBillTotalCents = orderIsComp
+  // Calculation order: Subtotal → Discount → Service Charge → VAT → Total
+  // Step 1: apply discount to raw subtotal
+  const postDiscountCents = orderIsComp
     ? 0
-    : Math.max(0, billTotalCentsBeforeDiscount - appliedDiscountCents)
+    : Math.max(0, rawItemsTotalCents - appliedDiscountCents)
 
-  const billTotalCents = effectiveBillTotalCents
+  // Step 2: apply service charge to post-discount subtotal
+  const scBreakdown = calcServiceCharge(postDiscountCents, orderIsComp ? 0 : serviceChargePercent)
+  const billServiceChargeCents = scBreakdown.serviceChargeCents
 
-  // Displayed "total" in the order footer is the VAT-inclusive grand total
+  // Step 3: apply VAT to (post-discount + service charge) base
+  const vatBase = postDiscountCents + billServiceChargeCents
+  const vatBreakdown = calcVat(vatBase, vatPercent, taxInclusive)
+  const { vatCents: billVatCents } = vatBreakdown
+
+  // Displayed subtotal = raw items total (before any adjustments)
+  const billSubtotalCents = rawItemsTotalCents
+
+  const billTotalCents = orderIsComp ? 0 : vatBreakdown.totalCents
+
+  // Displayed "total" in the order footer is the grand total
   const totalCents = billTotalCents
   const totalFormatted = formatPrice(totalCents, currencySymbol)
 
@@ -848,6 +866,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
             subtotalCents={billSubtotalCents}
             vatPercent={vatPercent}
             taxInclusive={taxInclusive}
+            vatCents={billVatCents}
             totalCents={billTotalCents}
             paymentMethod={billPaymentMethod}
             amountTenderedCents={billAmountTenderedCents}
@@ -856,6 +875,8 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
             discountAmountCents={appliedDiscountCents}
             discountLabel={appliedDiscountLabel}
             orderComp={orderIsComp}
+            serviceChargePercent={serviceChargePercent}
+            serviceChargeCents={billServiceChargeCents}
           />
         </div>
       )}
@@ -872,6 +893,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
             taxInclusive={taxInclusive}
             timestamp={splitBillTimestamp}
             evenSplit={splitBillPrintMode === 'even'}
+            serviceChargePercent={serviceChargePercent}
           />
         </div>
       )}
@@ -1514,22 +1536,28 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
                 <span>Subtotal</span>
                 <span>{formatPrice(billSubtotalCents, currencySymbol)}</span>
               </div>
-              {billVatCents > 0 && (
-                <div className="flex justify-between text-zinc-400">
-                  <span>VAT {vatPercent}%{taxInclusive ? ' (incl.)' : ''}</span>
-                  <span>{formatPrice(billVatCents, currencySymbol)}</span>
-                </div>
-              )}
               {appliedDiscountCents > 0 && (
                 <div className="flex justify-between text-emerald-400">
                   <span>Discount{appliedDiscountLabel ? ` (${appliedDiscountLabel})` : ''}</span>
                   <span>-{formatPrice(appliedDiscountCents, currencySymbol)}</span>
                 </div>
               )}
+              {serviceChargePercent > 0 && billServiceChargeCents > 0 && !orderIsComp && (
+                <div className="flex justify-between text-zinc-400">
+                  <span>Service Charge ({serviceChargePercent}%)</span>
+                  <span>{formatPrice(billServiceChargeCents, currencySymbol)}</span>
+                </div>
+              )}
+              {billVatCents > 0 && (
+                <div className="flex justify-between text-zinc-400">
+                  <span>VAT {vatPercent}%{taxInclusive ? ' (incl.)' : ''}</span>
+                  <span>{formatPrice(billVatCents, currencySymbol)}</span>
+                </div>
+              )}
               {orderIsComp && (
                 <div className="flex justify-between text-emerald-400 font-semibold">
                   <span>★ Complimentary</span>
-                  <span>-{formatPrice(billTotalCentsBeforeDiscount, currencySymbol)}</span>
+                  <span>COMP</span>
                 </div>
               )}
               <div className="flex justify-between font-bold text-white border-t border-zinc-700 pt-1.5 mt-1">

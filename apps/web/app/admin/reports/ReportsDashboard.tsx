@@ -281,6 +281,9 @@ export default function ReportsDashboard(): JSX.Element {
 
   const totalRevenue = data ? formatPrice(data.summary.total_revenue_cents, DEFAULT_CURRENCY_SYMBOL) : '—'
   const avgOrder = data ? formatPrice(data.summary.avg_order_cents, DEFAULT_CURRENCY_SYMBOL) : '—'
+  const totalServiceCharge = data && (data.summary.total_service_charge_cents ?? 0) > 0
+    ? formatPrice(data.summary.total_service_charge_cents, DEFAULT_CURRENCY_SYMBOL)
+    : null
   const totalPaymentRevenue = data
     ? data.payment_breakdown.reduce((sum, p) => sum + p.revenue_cents, 0)
     : 0
@@ -362,6 +365,11 @@ export default function ReportsDashboard(): JSX.Element {
             <SummaryCard label="Avg Order" value={avgOrder} />
             <SummaryCard label="Covers" value={data.summary.total_covers} />
           </div>
+          {totalServiceCharge !== null && (
+            <div className="grid grid-cols-1 gap-4">
+              <SummaryCard label="Service Charge Revenue" value={totalServiceCharge} />
+            </div>
+          )}
 
           {/* Row 2 — Revenue chart */}
           <div className="bg-zinc-800 border border-zinc-700 rounded-2xl p-6">

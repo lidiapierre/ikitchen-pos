@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import type { JSX } from 'react'
 import Link from 'next/link'
-import { fetchPricingAdminData } from './pricingAdminData'
+import { fetchPricingAdminData, fetchConfigValue } from './pricingAdminData'
 import type { VatRate, PricingCategory, PricingMenuItem } from './pricingAdminData'
 import {
   callCreateVatRate,
@@ -71,6 +71,8 @@ export default function PricingManager(): JSX.Element {
   const [vatRates, setVatRates] = useState<VatRate[]>([])
   const [categories, setCategories] = useState<PricingCategory[]>([])
   const [taxInclusive, setTaxInclusive] = useState<boolean>(false)
+  const [serviceChargePercent, setServiceChargePercent] = useState<number>(0)
+  const [serviceChargeInput, setServiceChargeInput] = useState<string>('0')
   const [currencyCode, setCurrencyCode] = useState<string>('BDT')
   const [currencySymbol, setCurrencySymbol] = useState<string>('৳')
   const [currencyCodeInput, setCurrencyCodeInput] = useState<string>('BDT')
@@ -117,6 +119,15 @@ export default function PricingManager(): JSX.Element {
         setCurrencyCode(data.currencyCode)
         setCurrencySymbol(data.currencySymbol)
         setCurrencyCodeInput(data.currencyCode)
+        // Fetch service charge config
+        return fetchConfigValue(supabaseUrl, supabaseKey, data.restaurantId, 'service_charge_percent', '0')
+          .then((scValue) => {
+            const parsed = parseFloat(scValue)
+            const sc = isNaN(parsed) || parsed < 0 ? 0 : parsed
+            setServiceChargePercent(sc)
+            setServiceChargeInput(String(sc))
+          })
+          .catch(() => { /* non-fatal */ })
       })
       .catch((err: unknown) => {
         setFetchError(err instanceof Error ? err.message : 'Failed to load pricing data')
@@ -196,6 +207,26 @@ export default function PricingManager(): JSX.Element {
     if (!match) return
     setCurrencyCodeInput(code)
     setCurrencySymbol(match.symbol)
+  }
+
+  async function handleSaveServiceCharge(): Promise<void> {
+    const config = supabaseConfig.current
+    if (!config || !restaurantId) return
+    const val = parseFloat(serviceChargeInput)
+    if (isNaN(val) || val < 0 || val > 100) {
+      showFeedback('error', 'Service charge must be between 0 and 100.')
+      return
+    }
+    setSubmitting(true)
+    try {
+      await callUpsertConfig(config.url, config.key, restaurantId, 'service_charge_percent', String(val))
+      setServiceChargePercent(val)
+      showFeedback('success', val === 0 ? 'Service charge disabled.' : `Service charge set to ${val}%.`)
+    } catch (err) {
+      showFeedback('error', err instanceof Error ? err.message : 'Failed to save service charge.')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   async function handleSaveCurrency(): Promise<void> {
@@ -528,6 +559,50 @@ export default function PricingManager(): JSX.Element {
         >
           {taxInclusive ? 'Tax-inclusive' : 'Tax-exclusive'}
         </button>
+      </div>
+
+      {/* Service charge section */}
+      <div className="bg-zinc-800 border border-zinc-700 rounded-2xl p-5 flex flex-col gap-4">
+        <div>
+          <p className="text-base font-semibold text-white">Service Charge</p>
+          <p className="text-sm text-zinc-400 mt-1">
+            Optional service charge applied to the bill after discounts, before VAT. Set to 0 to disable.
+          </p>
+        </div>
+        <div className="flex items-end gap-3">
+          <div className="flex flex-col gap-1 flex-1 max-w-[180px]">
+            <label htmlFor="service-charge-input" className="text-sm font-medium text-zinc-300">
+              Service Charge (%)
+            </label>
+            <input
+              id="service-charge-input"
+              type="number"
+              min="0"
+              max="100"
+              step="0.5"
+              value={serviceChargeInput}
+              onChange={(e) => { setServiceChargeInput(e.target.value) }}
+              disabled={submitting || !restaurantId}
+              className="min-h-[48px] px-4 py-2 rounded-xl bg-zinc-900 text-white border border-zinc-600 focus:border-indigo-500 focus:outline-none text-base disabled:opacity-50"
+              placeholder="0"
+            />
+          </div>
+          <button
+            onClick={() => { void handleSaveServiceCharge() }}
+            disabled={submitting || !restaurantId}
+            className="min-h-[48px] px-5 py-2 rounded-xl bg-indigo-600 text-white text-base font-medium hover:bg-indigo-500 transition-colors disabled:opacity-50"
+          >
+            Save
+          </button>
+          {serviceChargePercent > 0 && (
+            <span className="text-sm text-zinc-400 self-center">
+              Currently: <span className="text-white font-semibold">{serviceChargePercent}%</span>
+            </span>
+          )}
+          {serviceChargePercent === 0 && (
+            <span className="text-sm text-zinc-500 self-center">Disabled</span>
+          )}
+        </div>
       </div>
 
       {/* Currency section */}

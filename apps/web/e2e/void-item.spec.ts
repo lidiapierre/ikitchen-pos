@@ -102,19 +102,18 @@ test.describe('void item flow', () => {
         body: JSON.stringify({ success: true }),
       });
     });
+
+    // ── Printers + menus (printer routing — return empty so fallback to browser print) ─
+    await page.route('**/rest/v1/printers**', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
+    });
+    await page.route('**/rest/v1/menus**', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
+    });
   });
 
   test('void dialog opens when Void button is clicked', async ({ page }) => {
     await page.route('**/rest/v1/order_items**', async (route) => {
-      const url = route.request().url();
-      if (url.includes('menu_id')) {
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify([]),
-        });
-        return;
-      }
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -148,15 +147,6 @@ test.describe('void item flow', () => {
 
   test('cancelling void dialog keeps all items in the order', async ({ page }) => {
     await page.route('**/rest/v1/order_items**', async (route) => {
-      const url = route.request().url();
-      if (url.includes('menu_id')) {
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify([]),
-        });
-        return;
-      }
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -209,15 +199,6 @@ test.describe('void item flow', () => {
     let voidCalled = false;
 
     await page.route('**/rest/v1/order_items**', async (route) => {
-      const url = route.request().url();
-      if (url.includes('menu_id')) {
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify([]),
-        });
-        return;
-      }
       if (voidCalled) {
         // After void: only Butter Chicken remains
         await route.fulfill({

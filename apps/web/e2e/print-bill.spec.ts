@@ -96,15 +96,6 @@ test.describe('Print Bill flow', () => {
 
     // ── Order items ───────────────────────────────────────────────────────────
     await page.route('**/rest/v1/order_items**', async (route) => {
-      const url = route.request().url();
-      if (url.includes('menu_id')) {
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify([]),
-        });
-        return;
-      }
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -141,6 +132,14 @@ test.describe('Print Bill flow', () => {
         contentType: 'application/json',
         body: JSON.stringify({ success: true, data: { payment_id: 'pay-e2e-print', change_due: 0 } }),
       });
+    });
+
+    // ── Printers + menus (printer routing — return empty so fallback to browser print) ─
+    await page.route('**/rest/v1/printers**', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
+    });
+    await page.route('**/rest/v1/menus**', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
     });
   });
 

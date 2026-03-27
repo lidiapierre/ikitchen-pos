@@ -56,6 +56,15 @@ export interface CompDetail {
   top_comped_items: CompByItem[]
 }
 
+export interface StaffPerformanceRow {
+  server_id: string
+  staff_name: string
+  role: string
+  total_orders: number
+  total_revenue_cents: number
+  avg_ticket_cents: number
+}
+
 export interface ReportData {
   summary: ReportSummary
   revenue_by_day: RevenueByDay[]
@@ -63,6 +72,7 @@ export interface ReportData {
   payment_breakdown: PaymentBreakdown[]
   discount_summary: DiscountSummary
   comp_detail?: CompDetail
+  staff_performance?: StaffPerformanceRow[]
 }
 
 interface GetReportsResponse {

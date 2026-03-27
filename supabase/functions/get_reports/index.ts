@@ -127,6 +127,12 @@ interface UserRow {
   id: string
   name: string | null
   email: string
+  role?: string
+}
+
+interface StaffOrderRow {
+  server_id: string | null
+  final_total_cents: number | null
 }
 
 export async function handler(
@@ -420,6 +426,70 @@ export async function handler(
       .sort((a, b) => b.total_value_cents - a.total_value_cents)
       .slice(0, 10)
 
+    // 8. Staff performance — aggregate paid orders by server_id
+    // Fetch orders that have a server_id (may be a subset of all paid orders)
+    const staffOrdersRes = await fetchFn(
+      `${supabaseUrl}/rest/v1/orders?select=server_id,final_total_cents&status=eq.paid&created_at=gte.${encodeURIComponent(start)}&created_at=lte.${encodeURIComponent(end)}&server_id=not.is.null&limit=10000`,
+      { headers: dbHeaders },
+    )
+
+    type StaffPerformanceRow = {
+      server_id: string
+      staff_name: string
+      role: string
+      total_orders: number
+      total_revenue_cents: number
+      avg_ticket_cents: number
+    }
+
+    let staffPerformance: StaffPerformanceRow[] = []
+
+    if (staffOrdersRes.ok) {
+      const staffOrders = (await staffOrdersRes.json()) as StaffOrderRow[]
+
+      // Aggregate by server_id
+      const serverMap: Record<string, { total_orders: number; total_revenue_cents: number }> = {}
+      for (const o of staffOrders) {
+        if (!o.server_id) continue
+        if (!serverMap[o.server_id]) serverMap[o.server_id] = { total_orders: 0, total_revenue_cents: 0 }
+        serverMap[o.server_id].total_orders += 1
+        serverMap[o.server_id].total_revenue_cents += o.final_total_cents ?? 0
+      }
+
+      const serverIds = Object.keys(serverMap)
+      if (serverIds.length > 0) {
+        // Fetch user profiles for names/roles
+        const staffUsersRes = await fetchFn(
+          `${supabaseUrl}/rest/v1/users?select=id,name,email,role&id=in.(${serverIds.join(',')})`,
+          { headers: dbHeaders },
+        )
+
+        if (staffUsersRes.ok) {
+          const staffUsers = (await staffUsersRes.json()) as UserRow[]
+          const userProfileMap: Record<string, { name: string; role: string }> = {}
+          for (const u of staffUsers) {
+            userProfileMap[u.id] = { name: u.name ?? u.email, role: u.role ?? 'server' }
+          }
+
+          staffPerformance = serverIds.map(serverId => {
+            const agg = serverMap[serverId]
+            const profile = userProfileMap[serverId] ?? { name: serverId, role: 'server' }
+            return {
+              server_id: serverId,
+              staff_name: profile.name,
+              role: profile.role,
+              total_orders: agg.total_orders,
+              total_revenue_cents: agg.total_revenue_cents,
+              avg_ticket_cents: agg.total_orders > 0 ? Math.round(agg.total_revenue_cents / agg.total_orders) : 0,
+            }
+          })
+
+          // Sort by revenue descending
+          staffPerformance.sort((a, b) => b.total_revenue_cents - a.total_revenue_cents)
+        }
+      }
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
@@ -446,6 +516,7 @@ export async function handler(
             comp_order_value_cents: compOrderValueCents,
             top_comped_items: topCompedItems,
           },
+          staff_performance: staffPerformance,
         },
       }),
       { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },

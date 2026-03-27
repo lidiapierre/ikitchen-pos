@@ -95,7 +95,7 @@ test.describe('modifier selection — direct add (no modifiers)', () => {
     await expect(page.getByText(/Customise/)).not.toBeVisible()
 
     // Success state appears on the card
-    await expect(page.getByText('Added')).toBeVisible({ timeout: 5000 })
+    await expect(page.getByRole('button', { name: 'Added' })).toBeVisible({ timeout: 5000 })
   })
 })
 
@@ -211,7 +211,7 @@ test.describe('modifier selection — modal flow (item with modifiers)', () => {
     await page.getByRole('button', { name: /Extra cheese/ }).click()
     await page.getByRole('button', { name: 'Add to Order' }).click()
 
-    await expect(page.getByText('Added')).toBeVisible({ timeout: 5000 })
+    await expect(page.getByRole('button', { name: 'Added' })).toBeVisible({ timeout: 5000 })
 
     expect(capturedBody).not.toBeNull()
     expect((capturedBody as { modifier_ids: string[] }).modifier_ids).toContain('mod-001')

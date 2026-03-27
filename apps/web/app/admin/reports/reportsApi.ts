@@ -8,6 +8,7 @@ export interface ReportSummary {
 export interface RevenueByDay {
   date: string
   revenue_cents: number
+  order_count?: number
 }
 
 export interface TopItem {
@@ -70,6 +71,56 @@ interface GetReportsResponse {
 }
 
 export type ReportPeriod = 'today' | 'week' | 'month' | 'custom'
+
+export interface ExportOrderRow {
+  order_id: string
+  table_label: string | null
+  created_at: string
+  final_total_cents: number
+  payment_methods: string
+  discount_amount_cents: number
+  order_comp: boolean
+}
+
+interface ExportOrdersResponse {
+  success: boolean
+  data?: ExportOrderRow[]
+  error?: string
+}
+
+export async function callExportOrders(
+  supabaseUrl: string,
+  accessToken: string,
+  period: ReportPeriod,
+  from?: string,
+  to?: string,
+): Promise<ExportOrderRow[]> {
+  const body: { period: ReportPeriod; from?: string; to?: string } = { period }
+  if (period === 'custom' && from && to) {
+    body.from = from
+    body.to = to
+  }
+
+  const res = await fetch(`${supabaseUrl}/functions/v1/export_orders`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify(body),
+  })
+
+  if (!res.ok) {
+    const text = await res.text()
+    throw new Error(`export_orders failed: ${res.status} ${res.statusText} — ${text}`)
+  }
+
+  const json = (await res.json()) as ExportOrdersResponse
+  if (!json.success || !json.data) {
+    throw new Error(json.error ?? 'Failed to export orders')
+  }
+  return json.data
+}
 
 export async function callGetReports(
   supabaseUrl: string,

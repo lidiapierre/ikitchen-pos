@@ -215,13 +215,15 @@ export async function handler(
     const avgOrderCents = orderCount > 0 ? Math.round(totalRevenueCents / orderCount) : 0
 
     // 2. Revenue by day
-    const revenueByDayMap: Record<string, number> = {}
+    const revenueByDayMap: Record<string, { revenue_cents: number; order_count: number }> = {}
     for (const o of orders) {
       const date = o.created_at.slice(0, 10)
-      revenueByDayMap[date] = (revenueByDayMap[date] ?? 0) + (o.final_total_cents ?? 0)
+      if (!revenueByDayMap[date]) revenueByDayMap[date] = { revenue_cents: 0, order_count: 0 }
+      revenueByDayMap[date].revenue_cents += o.final_total_cents ?? 0
+      revenueByDayMap[date].order_count += 1
     }
     const revenueByDay = Object.entries(revenueByDayMap)
-      .map(([date, revenue_cents]) => ({ date, revenue_cents }))
+      .map(([date, v]) => ({ date, revenue_cents: v.revenue_cents, order_count: v.order_count }))
       .sort((a, b) => a.date.localeCompare(b.date))
 
     // 3. Payment method breakdown — from the payments table (method stored there, not on orders)

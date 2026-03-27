@@ -9,6 +9,7 @@ import {
   type KdsOrder,
   type KdsSettings,
 } from './kdsApi'
+import { CheckCircle2, AlertTriangle, ChefHat, Delete } from 'lucide-react'
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -45,10 +46,10 @@ const AGE_BADGE: Record<AgeLevel, string> = {
   red: 'bg-red-900/60 text-red-300 animate-pulse',
 }
 
-const AGE_DOT: Record<AgeLevel, string> = {
-  green: '🟢',
-  yellow: '🟡',
-  red: '🔴',
+const AGE_DOT_COLOR: Record<AgeLevel, string> = {
+  green: 'bg-green-500',
+  yellow: 'bg-yellow-400',
+  red: 'bg-red-500',
 }
 
 const KDS_UNLOCK_KEY = 'kds_unlocked'
@@ -80,12 +81,12 @@ function PinScreen({ onUnlock, correctPin }: { onUnlock: () => void; correctPin:
     setEntered((prev) => prev.slice(0, -1))
   }
 
-  const digits = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', '⌫']
+  const digits = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', 'del']
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-zinc-950 gap-8 px-4">
       <div className="text-center">
-        <div className="text-4xl font-bold text-white mb-2">🍳 Kitchen Display</div>
+        <div className="text-4xl font-bold text-white mb-2 flex items-center gap-3"><ChefHat size={40} aria-hidden="true" />Kitchen Display</div>
         <div className="text-zinc-400 text-xl">Enter PIN to continue</div>
       </div>
 
@@ -108,7 +109,7 @@ function PinScreen({ onUnlock, correctPin }: { onUnlock: () => void; correctPin:
       <div className="grid grid-cols-3 gap-4 w-full max-w-xs">
         {digits.map((d, idx) => {
           if (d === '') return <div key={idx} />
-          const isBack = d === '⌫'
+          const isBack = d === 'del'
           return (
             <button
               key={d}
@@ -121,7 +122,7 @@ function PinScreen({ onUnlock, correctPin }: { onUnlock: () => void; correctPin:
                   : 'bg-zinc-800 hover:bg-zinc-700 text-white',
               ].join(' ')}
             >
-              {d}
+              {isBack ? <Delete size={28} aria-hidden='true' /> : d}
             </button>
           )
         })}
@@ -173,7 +174,7 @@ function OrderCard({ order, onDone, doneLoading }: OrderCardProps): JSX.Element 
           {order.tableLabel}
         </div>
         <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-lg font-bold ${AGE_BADGE[level]}`}>
-          <span>{AGE_DOT[level]}</span>
+          <span className={`inline-block w-3 h-3 rounded-full ${AGE_DOT_COLOR[level]}`} aria-hidden="true" />
           <span>{formatAge(ageMs)}</span>
         </div>
       </div>
@@ -240,7 +241,7 @@ function OrderCard({ order, onDone, doneLoading }: OrderCardProps): JSX.Element 
             : 'bg-green-700 hover:bg-green-600 active:bg-green-800 text-white',
         ].join(' ')}
       >
-        {doneLoading ? 'Marking…' : '✅ Mark Done'}
+        {doneLoading ? 'Marking…' : <span className='inline-flex items-center gap-2'><CheckCircle2 size={24} aria-hidden='true' />Mark Done</span>}
       </button>
     </div>
   )
@@ -345,7 +346,7 @@ export default function KitchenDisplay(): JSX.Element {
       {/* Top bar */}
       <header className="flex items-center justify-between bg-zinc-900 border-b border-zinc-800 px-6 py-4 shrink-0">
         <div className="flex items-center gap-3">
-          <span className="text-3xl">🍳</span>
+          <ChefHat size={32} className="text-amber-400" aria-hidden="true" />
           <span className="text-2xl font-bold text-white">Kitchen Display</span>
         </div>
         <div className="flex items-center gap-4">
@@ -368,7 +369,7 @@ export default function KitchenDisplay(): JSX.Element {
       <main className="flex-1 p-6">
         {error && (
           <div className="mb-4 p-4 rounded-xl bg-red-900/40 border border-red-700 text-red-300 text-lg">
-            ⚠️ {error}
+            <span className="inline-flex items-center gap-2"><AlertTriangle size={20} aria-hidden="true" />{error}</span>
           </div>
         )}
 
@@ -380,7 +381,7 @@ export default function KitchenDisplay(): JSX.Element {
 
         {!loading && orders.length === 0 && (
           <div className="flex flex-col items-center justify-center h-64 gap-4">
-            <span className="text-6xl">✅</span>
+            <CheckCircle2 size={64} className="text-green-500" aria-hidden="true" />
             <span className="text-zinc-400 text-2xl font-medium">All clear — no pending orders</span>
           </div>
         )}

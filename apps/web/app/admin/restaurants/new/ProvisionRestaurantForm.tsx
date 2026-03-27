@@ -7,6 +7,7 @@ import type { JSX } from 'react'
 import { callProvisionRestaurant } from '../restaurantAdminApi'
 import { fetchIsSuperAdmin } from '../restaurantAdminData'
 import { useUser } from '@/lib/user-context'
+import { Zap, CheckCircle2 } from 'lucide-react'
 
 interface FormValues {
   name: string
@@ -144,7 +145,7 @@ export default function ProvisionRestaurantForm(): JSX.Element {
       })
       setFeedback({
         type: 'success',
-        message: `✅ Restaurant "${result.restaurant.name}" provisioned! Owner invite sent to ${result.owner_email}.`,
+        message: `Restaurant "${result.restaurant.name}" provisioned! Owner invite sent to ${result.owner_email}.`,
       })
       // Navigate back to the list after a short delay
       setTimeout(() => router.push('/admin/restaurants'), 2000)
@@ -201,8 +202,9 @@ export default function ProvisionRestaurantForm(): JSX.Element {
 
       {/* Super-admin badge */}
       <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-purple-900/50 border border-purple-700 w-fit">
+        <Zap size={14} className="text-purple-300" aria-hidden="true" />
         <span className="text-xs font-bold uppercase tracking-wider text-purple-300">
-          ⚡ Super Admin — Provisioning
+          Super Admin — Provisioning
         </span>
       </div>
 

@@ -11,6 +11,7 @@ import { STATUS_CONFIG } from './tableStatus'
 import type { TableStatus } from './tableStatus'
 import { callCreateOrder } from './components/createOrderApi'
 import { useUser } from '@/lib/user-context'
+import { ShoppingBag, Bike, X } from 'lucide-react'
 
 /** Auto-refresh interval in milliseconds (30 seconds) */
 const REFRESH_INTERVAL_MS = 30_000
@@ -201,7 +202,7 @@ export default function TablesPage(): JSX.Element {
               : 'border-amber-500 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 hover:border-amber-400',
           ].join(' ')}
         >
-          {creatingOrder ? 'Creating…' : '🛍 New Takeaway Order'}
+          {creatingOrder ? 'Creating…' : <span className='inline-flex items-center gap-2'><ShoppingBag size={18} aria-hidden='true' />New Takeaway Order</span>}
         </button>
         <button
           type="button"
@@ -219,7 +220,7 @@ export default function TablesPage(): JSX.Element {
               : 'border-blue-500 bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 hover:border-blue-400',
           ].join(' ')}
         >
-          🚴 New Delivery Order
+          <span className='inline-flex items-center gap-2'><Bike size={18} aria-hidden='true' />New Delivery Order</span>
         </button>
       </div>
 
@@ -279,7 +280,7 @@ export default function TablesPage(): JSX.Element {
                             ? 'bg-blue-900/60 text-blue-300'
                             : 'bg-amber-900/60 text-amber-300',
                         ].join(' ')}>
-                          {isDelivery ? '🚴 DELIVERY' : '🛍 TAKEAWAY'}
+                          {isDelivery ? <span className='inline-flex items-center gap-1'><Bike size={12} aria-hidden='true' />DELIVERY</span> : <span className='inline-flex items-center gap-1'><ShoppingBag size={12} aria-hidden='true' />TAKEAWAY</span>}
                         </span>
                         <span className="text-xs text-zinc-500">{orderAge(order.created_at)}</span>
                       </div>
@@ -310,16 +311,17 @@ export default function TablesPage(): JSX.Element {
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70">
           <div className="w-full max-w-lg bg-zinc-900 rounded-t-2xl p-6 space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-xl font-semibold text-white">🚴 New Delivery Order</h2>
+              <h2 className="text-xl font-semibold text-white flex items-center gap-2"><Bike size={20} aria-hidden="true" />New Delivery Order</h2>
               <button
                 type="button"
                 onClick={() => {
                   setShowDeliveryModal(false)
                   setCreateOrderError(null)
                 }}
-                className="min-h-[48px] min-w-[48px] text-zinc-400 hover:text-white text-2xl"
+                className="min-h-[48px] min-w-[48px] text-zinc-400 hover:text-white flex items-center justify-center"
+                aria-label="Close"
               >
-                ✕
+                <X size={20} aria-hidden="true" />
               </button>
             </div>
 

@@ -13,6 +13,7 @@ import { callExtractMenuItem, uploadMenuFile, fileToBase64 } from './extractMenu
 import { useUser } from '@/lib/user-context'
 import FileUploadZone from './FileUploadZone'
 import type { UploadState } from './FileUploadZone'
+import { Check } from 'lucide-react'
 import { generateId, formatCurrency } from './MenuManager'
 
 export const ALLERGEN_OPTIONS = ['nuts', 'dairy', 'gluten', 'eggs', 'shellfish', 'soy', 'sesame'] as const
@@ -562,7 +563,7 @@ export default function MenuItemFormPage({ mode, itemId }: MenuItemFormPageProps
                       : 'bg-zinc-700 text-zinc-300 hover:bg-zinc-600',
                   ].join(' ')}
                 >
-                  {badge === 'halal' ? '✓ Halal' : badge.charAt(0).toUpperCase() + badge.slice(1)}
+                  {badge === 'halal' ? <span className='inline-flex items-center gap-1'><Check size={10} aria-hidden='true' />Halal</span> : badge.charAt(0).toUpperCase() + badge.slice(1)}
                 </button>
               )
             })}
@@ -574,7 +575,7 @@ export default function MenuItemFormPage({ mode, itemId }: MenuItemFormPageProps
           <h3 className="text-base font-semibold text-zinc-200">Spicy Level</h3>
           <div className="flex flex-wrap gap-2">
             {SPICY_OPTIONS.map((level) => {
-              const labels: Record<string, string> = { none: 'None', mild: '🌶 Mild', medium: '🌶🌶 Medium', hot: '🌶🌶🌶 Hot' }
+              const labels: Record<string, string> = { none: 'None', mild: 'Mild', medium: 'Medium', hot: 'Hot' }
               const active = form.spicyLevel === level
               return (
                 <button

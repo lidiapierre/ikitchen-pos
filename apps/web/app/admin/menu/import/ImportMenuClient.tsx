@@ -8,6 +8,7 @@ import { fetchMenuAdminData } from '../menuAdminData'
 import type { AdminMenu } from '../menuAdminData'
 import { callCreateMenu, callCreateMenuItem } from '../menuAdminApi'
 import { callExtractMenuBulk } from './extractMenuBulkApi'
+import { X, Check } from 'lucide-react'
 import type { ExtractedMenuItemDraft } from './extractMenuBulkApi'
 import { fileToBase64 } from '../extractMenuItemApi'
 
@@ -291,7 +292,7 @@ export default function ImportMenuClient(): JSX.Element {
                   aria-label={`Remove ${file.name}`}
                   className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-red-600 text-white text-xs flex items-center justify-center hover:bg-red-500 transition-colors"
                 >
-                  ×
+                  <X size={12} aria-hidden="true" />
                 </button>
                 <span className="block text-xs text-zinc-500 mt-1 max-w-[80px] truncate">{file.name}</span>
               </div>
@@ -350,7 +351,7 @@ export default function ImportMenuClient(): JSX.Element {
           <div className="flex flex-col gap-2">
             {/* Header row */}
             <div className="grid grid-cols-[auto_1fr_1fr_auto_auto] gap-2 px-4 py-2 text-sm font-medium text-zinc-400">
-              <span>✓</span>
+              <Check size={16} aria-hidden="true" />
               <span>Name</span>
               <span>Category</span>
               <span>Price</span>
@@ -411,9 +412,9 @@ export default function ImportMenuClient(): JSX.Element {
                 <button
                   onClick={() => removeRow(row.rowId)}
                   aria-label={`Remove ${row.name}`}
-                  className="min-h-[40px] min-w-[40px] flex items-center justify-center rounded-xl bg-red-900 text-red-200 hover:bg-red-800 transition-colors text-lg font-bold"
+                  className="min-h-[40px] min-w-[40px] flex items-center justify-center rounded-xl bg-red-900 text-red-200 hover:bg-red-800 transition-colors"
                 >
-                  ×
+                  <X size={16} aria-hidden="true" />
                 </button>
               </div>
             ))}
@@ -458,7 +459,7 @@ export default function ImportMenuClient(): JSX.Element {
         <>
           {importResult.success > 0 && (
             <p className="text-green-400 text-base font-medium">
-              ✓ {importResult.success} item{importResult.success !== 1 ? 's' : ''} imported successfully
+              <span className="inline-flex items-center gap-1"><Check size={16} aria-hidden="true" />{importResult.success} item{importResult.success !== 1 ? 's' : ''} imported successfully</span>
             </p>
           )}
           {importResult.failed.length > 0 && (

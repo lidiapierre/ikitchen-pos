@@ -6,6 +6,7 @@ import type { JSX } from 'react'
 import { fetchAdminRestaurants, fetchIsSuperAdmin } from './restaurantAdminData'
 import type { AdminRestaurant } from './restaurantAdminData'
 import { useUser } from '@/lib/user-context'
+import { Zap } from 'lucide-react'
 
 function formatDate(iso: string): string {
   try {
@@ -104,8 +105,9 @@ export default function RestaurantList(): JSX.Element {
 
       {/* Super-admin badge */}
       <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-purple-900/50 border border-purple-700 w-fit">
+        <Zap size={14} className="text-purple-300" aria-hidden="true" />
         <span className="text-xs font-bold uppercase tracking-wider text-purple-300">
-          ⚡ Super Admin
+          Super Admin
         </span>
       </div>
 

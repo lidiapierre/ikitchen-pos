@@ -383,7 +383,7 @@ export default function MenuManager(): JSX.Element {
                         ].join(' ')}
                         title={`Route KOT for this menu to the ${pt} printer`}
                       >
-                        {pt === 'kitchen' ? '🍳' : pt === 'cashier' ? '🧾' : '🍺'} {pt}
+                        {pt}
                       </button>
                     ))}
                   </div>

@@ -15,10 +15,14 @@ export async function callAddItemToOrder(
   orderId: string,
   menuItemId: string,
   modifierIds?: string[],
+  course?: string,
 ): Promise<AddItemResult> {
   const body: Record<string, unknown> = { order_id: orderId, menu_item_id: menuItemId }
   if (modifierIds !== undefined && modifierIds.length > 0) {
     body['modifier_ids'] = modifierIds
+  }
+  if (course !== undefined && course !== 'main') {
+    body['course'] = course
   }
   const res = await fetch(`${supabaseUrl}/functions/v1/add_item_to_order`, {
     method: 'POST',

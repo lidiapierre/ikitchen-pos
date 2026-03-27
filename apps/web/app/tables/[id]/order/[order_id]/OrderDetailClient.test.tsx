@@ -49,9 +49,9 @@ vi.mock('@/lib/fetchVatConfig', () => ({
 }))
 
 const mockItems = [
-  { id: '1', name: 'Bruschetta', quantity: 2, price_cents: 850, modifier_ids: [], modifier_names: [], sent_to_kitchen: false, comp: false, comp_reason: null },
-  { id: '2', name: 'Grilled Salmon', quantity: 1, price_cents: 1850, modifier_ids: [], modifier_names: [], sent_to_kitchen: false, comp: false, comp_reason: null },
-  { id: '3', name: 'House Wine', quantity: 2, price_cents: 950, modifier_ids: [], modifier_names: [], sent_to_kitchen: false, comp: false, comp_reason: null },
+  { id: '1', name: 'Bruschetta', quantity: 2, price_cents: 850, modifier_ids: [], modifier_names: [], sent_to_kitchen: false, comp: false, comp_reason: null, seat: null, course: 'main' as const, course_status: 'waiting' as const },
+  { id: '2', name: 'Grilled Salmon', quantity: 1, price_cents: 1850, modifier_ids: [], modifier_names: [], sent_to_kitchen: false, comp: false, comp_reason: null, seat: null, course: 'main' as const, course_status: 'waiting' as const },
+  { id: '3', name: 'House Wine', quantity: 2, price_cents: 950, modifier_ids: [], modifier_names: [], sent_to_kitchen: false, comp: false, comp_reason: null, seat: null, course: 'main' as const, course_status: 'waiting' as const },
 ]
 
 describe('OrderDetailClient', () => {
@@ -864,6 +864,9 @@ describe('OrderDetailClient', () => {
           sent_to_kitchen: false,
           comp: false,
           comp_reason: null,
+          seat: null,
+          course: 'main' as const,
+          course_status: 'waiting' as const,
         },
       ])
 
@@ -901,6 +904,9 @@ describe('OrderDetailClient', () => {
           sent_to_kitchen: false,
           comp: false,
           comp_reason: null,
+          seat: null,
+          course: 'main' as const,
+          course_status: 'waiting' as const,
         },
       ])
 

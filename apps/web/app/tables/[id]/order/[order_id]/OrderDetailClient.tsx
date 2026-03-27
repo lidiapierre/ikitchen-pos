@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import type { JSX } from 'react'
 import { fetchOrderItems, fetchOrderSummary } from './orderData'
-import type { OrderItem } from './orderData'
+import type { OrderItem, CourseType } from './orderData'
 import { callCloseOrder } from './closeOrderApi'
 import { callRecordPayment } from './recordPaymentApi'
 import { callVoidItem } from './voidItemApi'
@@ -14,6 +14,7 @@ import { callApplyDiscount } from './applyDiscountApi'
 import { callCompItem } from './compApi'
 import { callTransferOrder } from './transferOrderApi'
 import { markItemsSentToKitchen } from './kotApi'
+import { callFireCourse, callServeCourse } from './fireCourseApi'
 import { formatPrice, DEFAULT_CURRENCY_SYMBOL } from '@/lib/formatPrice'
 import { calcVat } from '@/lib/vatCalc'
 import { calcServiceCharge } from '@/lib/serviceChargeCalc'
@@ -91,6 +92,13 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
   // Bill print state
   const [billTimestamp, setBillTimestamp] = useState('')
   const [printingBill, setPrintingBill] = useState(false)
+
+  // Course management state
+  const [firingCourse, setFiringCourse] = useState<CourseType | null>(null)
+  const [servingCourse, setServingCourse] = useState<CourseType | null>(null)
+  const [courseActionError, setCourseActionError] = useState<string | null>(null)
+  // null = no active course print; 'starter'|'main'|'dessert' = printing that course
+  const [kotCourseFilter, setKotCourseFilter] = useState<CourseType | null>(null)
 
   // Table label state
   const [tableLabel, setTableLabel] = useState<string>('')
@@ -420,6 +428,81 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
     }
   }
 
+  // Fire a specific course: print course KOT, then mark items as sent + fired
+  async function handleFireCourse(course: CourseType): Promise<void> {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+    if (!supabaseUrl || !supabaseKey || !accessToken) return
+
+    const courseItems = items.filter((i) => i.course === course && !i.sent_to_kitchen && !i.comp)
+    if (courseItems.length === 0) return
+
+    setCourseActionError(null)
+    setFiringCourse(course)
+
+    const ts = new Date().toLocaleString()
+    setKotTimestamp(ts)
+    setKotCourseFilter(course)
+
+    try {
+      const result = await printKot({
+        items: courseItems.map((i) => ({ name: i.name, qty: i.quantity })),
+        tableId,
+        orderId,
+        timestamp: ts,
+        printerConfig,
+        onBeforeBrowserPrint: () => { /* KotPrintView already rendered with courseFilter */ },
+      })
+
+      if (!result.success && result.errorMessage) {
+        setKotPrintError(result.errorMessage)
+        setKotCourseFilter(null)
+        setFiringCourse(null)
+        return
+      }
+
+      // Mark items as fired in the DB
+      await callFireCourse(supabaseUrl, accessToken, orderId, course)
+
+      // Update local state optimistically
+      setItems((prev) =>
+        prev.map((i) =>
+          i.course === course && !i.sent_to_kitchen
+            ? { ...i, sent_to_kitchen: true, course_status: 'fired' }
+            : i,
+        ),
+      )
+    } catch (err) {
+      setCourseActionError(err instanceof Error ? err.message : `Failed to fire ${course}`)
+    } finally {
+      setKotCourseFilter(null)
+      setFiringCourse(null)
+    }
+  }
+
+  // Mark a course as served (no KOT, just status update)
+  async function handleServeCourse(course: CourseType): Promise<void> {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    if (!supabaseUrl || !accessToken) return
+
+    setCourseActionError(null)
+    setServingCourse(course)
+    try {
+      await callServeCourse(supabaseUrl, accessToken, orderId, course)
+
+      // Update local state optimistically
+      setItems((prev) =>
+        prev.map((i) =>
+          i.course === course ? { ...i, course_status: 'served' } : i,
+        ),
+      )
+    } catch (err) {
+      setCourseActionError(err instanceof Error ? err.message : `Failed to serve ${course}`)
+    } finally {
+      setServingCourse(null)
+    }
+  }
+
   // Print Bill: capture timestamp and trigger print dialog
   function handlePrintBill(): void {
     setBillTimestamp(new Date().toLocaleString())
@@ -660,6 +743,102 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
     }
   }
 
+  // Render a single item row (shared between course view and read-only view)
+  function renderItemRow(item: OrderItem, inOrderStep: boolean): JSX.Element {
+    const isComp = item.comp || orderIsComp
+    const lineTotalCents = item.quantity * item.price_cents
+    return (
+      <li
+        key={item.id}
+        className={[
+          'bg-zinc-800 rounded-xl px-4 py-3 text-base',
+          isComp ? 'opacity-70' : '',
+        ].join(' ')}
+      >
+        <div className="flex items-center justify-between gap-4">
+          <span className={['font-semibold text-white flex-1', isComp ? 'line-through' : ''].join(' ')}>
+            {item.name}
+            {isComp && (
+              <span className="ml-2 text-xs font-bold text-emerald-400 no-underline not-italic" style={{ textDecoration: 'none' }}>
+                COMP
+              </span>
+            )}
+          </span>
+          <span className="text-zinc-400">×{item.quantity}</span>
+          {isComp ? (
+            <span className="text-emerald-400 text-sm italic">Complimentary</span>
+          ) : (
+            <>
+              <span className="text-zinc-400">{formatPrice(item.price_cents, currencySymbol)} each</span>
+              <span className="font-bold text-amber-400">{formatPrice(lineTotalCents, currencySymbol)}</span>
+            </>
+          )}
+          {inOrderStep && (
+            <div className="flex gap-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setVoidingItem(item)
+                  setVoidReason('')
+                  setVoidError(null)
+                }}
+                className="min-h-[48px] min-w-[48px] px-3 rounded-lg text-sm font-semibold text-red-400 hover:text-white hover:bg-red-700 transition-colors"
+              >
+                Void
+              </button>
+              {isAdmin && !item.comp && !orderIsComp && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCompingItem(item)
+                    setCompReason(COMP_REASONS[0])
+                    setCompError(null)
+                  }}
+                  className="min-h-[48px] min-w-[48px] px-3 rounded-lg text-sm font-semibold text-emerald-400 hover:text-white hover:bg-emerald-700 transition-colors"
+                >
+                  Comp
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+        {item.modifier_names.length > 0 && (
+          <ul className="mt-1 space-y-0.5 pl-2">
+            {item.modifier_names.map((modName) => (
+              <li key={modName} className="text-base text-zinc-400">
+                + {modName}
+              </li>
+            ))}
+          </ul>
+        )}
+      </li>
+    )
+  }
+
+  function renderCourseStatusBadge(course: CourseType): JSX.Element | null {
+    // Derive status: if any item in course has course_status 'served', whole course is served.
+    // If any is 'fired', course is fired. Otherwise waiting.
+    const courseItems = items.filter((i) => i.course === course && !i.comp && !orderIsComp)
+    if (courseItems.length === 0) return null
+
+    const statuses = new Set(courseItems.map((i) => i.course_status))
+    let badge: JSX.Element
+    if (statuses.has('served')) {
+      badge = <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-green-900/60 text-green-400">✅ Served</span>
+    } else if (statuses.has('fired')) {
+      badge = <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-orange-900/60 text-orange-400">🔥 Fired</span>
+    } else {
+      badge = <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-zinc-700 text-zinc-400">⏳ Waiting</span>
+    }
+    return badge
+  }
+
+  const COURSE_SECTIONS: { course: CourseType; label: string }[] = [
+    { course: 'starter', label: 'Starter' },
+    { course: 'main', label: 'Main' },
+    { course: 'dessert', label: 'Dessert' },
+  ]
+
   function renderItems(): JSX.Element {
     if (loading) {
       return <p className="text-zinc-400 text-base">Loading items…</p>
@@ -670,79 +849,93 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
     if (items.length === 0) {
       return <p className="text-zinc-500 text-base">No items yet — tap Add Items to start</p>
     }
+
+    const inOrderStep = step === 'order'
+
+    // Group items by course, only render sections that have items
+    const sections = COURSE_SECTIONS.filter(({ course }) =>
+      items.some((i) => i.course === course),
+    )
+
     return (
-      <ul className="space-y-2 mb-6">
-        {items.map((item) => {
-          const isComp = item.comp || orderIsComp
-          const lineTotalCents = item.quantity * item.price_cents
+      <div className="space-y-6 mb-6">
+        {sections.map(({ course, label }) => {
+          const courseItems = items.filter((i) => i.course === course)
+          const unfiredItems = courseItems.filter((i) => !i.sent_to_kitchen && !i.comp && !orderIsComp)
+          const statusBadge = renderCourseStatusBadge(course)
+
+          // All non-comp items for this course are either fired or served
+          const allFired = courseItems
+            .filter((i) => !i.comp && !orderIsComp)
+            .every((i) => i.sent_to_kitchen)
+
+          const allServed = courseItems
+            .filter((i) => !i.comp && !orderIsComp)
+            .every((i) => i.course_status === 'served')
+
+          const isFiring = firingCourse === course
+          const isServing = servingCourse === course
+
           return (
-            <li
-              key={item.id}
-              className={[
-                'bg-zinc-800 rounded-xl px-4 py-3 text-base',
-                isComp ? 'opacity-70' : '',
-              ].join(' ')}
-            >
-              <div className="flex items-center justify-between gap-4">
-                <span className={['font-semibold text-white flex-1', isComp ? 'line-through' : ''].join(' ')}>
-                  {item.name}
-                  {isComp && (
-                    <span className="ml-2 text-xs font-bold text-emerald-400 no-underline not-italic" style={{ textDecoration: 'none' }}>
-                      COMP
-                    </span>
-                  )}
-                </span>
-                <span className="text-zinc-400">×{item.quantity}</span>
-                {isComp ? (
-                  <span className="text-emerald-400 text-sm italic">Complimentary</span>
-                ) : (
-                  <>
-                    <span className="text-zinc-400">{formatPrice(item.price_cents, currencySymbol)} each</span>
-                    <span className="font-bold text-amber-400">{formatPrice(lineTotalCents, currencySymbol)}</span>
-                  </>
-                )}
-                {step === 'order' && (
-                  <div className="flex gap-1">
+            <section key={course}>
+              {/* Course header */}
+              <div className="flex items-center gap-3 mb-3">
+                <h3 className="text-sm font-bold text-zinc-400 uppercase tracking-wider">{label}</h3>
+                {statusBadge}
+              </div>
+
+              {/* Items */}
+              <ul className="space-y-2">
+                {courseItems.map((item) => renderItemRow(item, inOrderStep))}
+              </ul>
+
+              {/* Course action buttons (only in order step) */}
+              {inOrderStep && !orderIsComp && (
+                <div className="flex gap-2 mt-3">
+                  {/* Fire Course button: only shown when there are unsent items */}
+                  {unfiredItems.length > 0 && (
                     <button
                       type="button"
-                      onClick={() => {
-                        setVoidingItem(item)
-                        setVoidReason('')
-                        setVoidError(null)
-                      }}
-                      className="min-h-[48px] min-w-[48px] px-3 rounded-lg text-sm font-semibold text-red-400 hover:text-white hover:bg-red-700 transition-colors"
+                      onClick={() => { void handleFireCourse(course) }}
+                      disabled={isFiring || isServing}
+                      className={[
+                        'flex-1 min-h-[44px] rounded-xl text-sm font-semibold transition-colors border-2',
+                        isFiring
+                          ? 'border-orange-700 bg-orange-900/20 text-orange-400 cursor-wait'
+                          : 'border-orange-600 text-orange-400 hover:bg-orange-900/30 hover:border-orange-400',
+                      ].join(' ')}
                     >
-                      Void
+                      {isFiring ? '🔥 Firing…' : `🔥 Fire ${label}`}
                     </button>
-                    {isAdmin && !item.comp && !orderIsComp && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setCompingItem(item)
-                          setCompReason(COMP_REASONS[0])
-                          setCompError(null)
-                        }}
-                        className="min-h-[48px] min-w-[48px] px-3 rounded-lg text-sm font-semibold text-emerald-400 hover:text-white hover:bg-emerald-700 transition-colors"
-                      >
-                        Comp
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
-              {item.modifier_names.length > 0 && (
-                <ul className="mt-1 space-y-0.5 pl-2">
-                  {item.modifier_names.map((modName) => (
-                    <li key={modName} className="text-base text-zinc-400">
-                      + {modName}
-                    </li>
-                  ))}
-                </ul>
+                  )}
+
+                  {/* Mark Served button: shown when all items are fired but not yet served */}
+                  {allFired && !allServed && unfiredItems.length === 0 && (
+                    <button
+                      type="button"
+                      onClick={() => { void handleServeCourse(course) }}
+                      disabled={isServing || isFiring}
+                      className={[
+                        'flex-1 min-h-[44px] rounded-xl text-sm font-semibold transition-colors border-2',
+                        isServing
+                          ? 'border-green-700 bg-green-900/20 text-green-400 cursor-wait'
+                          : 'border-green-700 text-green-400 hover:bg-green-900/30 hover:border-green-400',
+                      ].join(' ')}
+                    >
+                      {isServing ? '✅ Marking…' : `✅ ${label} Served`}
+                    </button>
+                  )}
+                </div>
               )}
-            </li>
+            </section>
           )
         })}
-      </ul>
+
+        {/* Course action error */}
+        {courseActionError !== null && (
+          <p className="text-sm text-red-400">{courseActionError}</p>
+        )}
+      </div>
     )
   }
 
@@ -846,13 +1039,14 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
   return (
     <main className="min-h-screen bg-zinc-900 p-6 flex flex-col">
       {/* KOT print component — only marked as print-area when KOT is actively printing */}
-      <div className={kotStatus !== null || reprintingKot ? 'print-area' : ''}>
+      <div className={kotStatus !== null || reprintingKot || firingCourse !== null ? 'print-area' : ''}>
         <KotPrintView
           tableLabel={tableLabel || tableId.slice(0, 8)}
           orderId={orderId}
           items={items}
           timestamp={kotTimestamp}
           showAll={kotShowAll}
+          courseFilter={kotCourseFilter ?? undefined}
         />
       </div>
 

@@ -354,6 +354,9 @@ authorization_url_path = "/oauth/consent"
 # Allow dynamic client registration
 allow_dynamic_registration = false
 
+[functions.fire_course]
+verify_jwt = false
+
 [functions.add_item_to_order]
 verify_jwt = false
 

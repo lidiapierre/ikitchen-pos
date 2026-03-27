@@ -8,6 +8,20 @@ import ModifierSelectionModal from './ModifierSelectionModal'
 import { formatPrice, DEFAULT_CURRENCY_SYMBOL } from '@/lib/formatPrice'
 import { useUser } from '@/lib/user-context'
 
+type CourseType = 'starter' | 'main' | 'dessert'
+
+const COURSES: { value: CourseType; label: string }[] = [
+  { value: 'starter', label: 'S' },
+  { value: 'main', label: 'M' },
+  { value: 'dessert', label: 'D' },
+]
+
+const COURSE_COLORS: Record<CourseType, string> = {
+  starter: 'border-sky-400 bg-sky-400/10 text-sky-400',
+  main: 'border-amber-400 bg-amber-400/10 text-amber-400',
+  dessert: 'border-pink-400 bg-pink-400/10 text-pink-400',
+}
+
 interface MenuItemCardProps {
   item: MenuItem
   orderId: string
@@ -20,6 +34,9 @@ export default function MenuItemCard({ item, orderId, onItemAdded, currencySymbo
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Course selection — default to 'main'
+  const [selectedCourse, setSelectedCourse] = useState<CourseType>('main')
 
   // Modifier modal state
   const [showModal, setShowModal] = useState(false)
@@ -34,7 +51,14 @@ export default function MenuItemCard({ item, orderId, onItemAdded, currencySymbo
       if (!supabaseUrl || !accessToken) {
         throw new Error('Not authenticated')
       }
-      await callAddItemToOrder(supabaseUrl, accessToken, orderId, item.id, modifierIds.length > 0 ? modifierIds : undefined)
+      await callAddItemToOrder(
+        supabaseUrl,
+        accessToken,
+        orderId,
+        item.id,
+        modifierIds.length > 0 ? modifierIds : undefined,
+        selectedCourse,
+      )
       setSuccess(true)
       const modifierDeltaCents = item.modifiers
         .filter((mod) => modifierIds.includes(mod.id))
@@ -159,6 +183,30 @@ export default function MenuItemCard({ item, orderId, onItemAdded, currencySymbo
             </span>
           )}
         </div>
+
+        {/* Course selector — compact segmented control */}
+        {!isUnavailable && (
+          <div className="flex gap-1" role="group" aria-label="Course">
+            {COURSES.map(({ value, label }) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => { setSelectedCourse(value) }}
+                aria-pressed={selectedCourse === value}
+                className={[
+                  'flex-1 min-h-[36px] rounded-lg text-xs font-bold border-2 transition-colors',
+                  selectedCourse === value
+                    ? COURSE_COLORS[value]
+                    : 'border-zinc-600 text-zinc-500 hover:border-zinc-400 hover:text-zinc-300',
+                ].join(' ')}
+                title={value.charAt(0).toUpperCase() + value.slice(1)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
+
         <button
           type="button"
           onClick={handleTap}

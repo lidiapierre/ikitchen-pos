@@ -64,6 +64,9 @@ export interface Order {
   updated_at: string
 }
 
+export type CourseType = 'starter' | 'main' | 'dessert'
+export type CourseStatus = 'waiting' | 'fired' | 'served'
+
 export interface OrderItem {
   id: string
   order_id: string
@@ -71,6 +74,8 @@ export interface OrderItem {
   quantity: number
   unit_price_cents: number
   voided: boolean
+  course: CourseType
+  course_status: CourseStatus
   created_at: string
   updated_at: string
 }

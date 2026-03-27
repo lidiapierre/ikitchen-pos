@@ -1,3 +1,6 @@
+export type CourseType = 'starter' | 'main' | 'dessert'
+export type CourseStatus = 'waiting' | 'fired' | 'served'
+
 export interface OrderItem {
   id: string
   name: string
@@ -9,6 +12,8 @@ export interface OrderItem {
   comp: boolean
   comp_reason: string | null
   seat: number | null
+  course: CourseType
+  course_status: CourseStatus
 }
 
 export interface OrderSummary {
@@ -25,6 +30,8 @@ interface OrderItemRow {
   comp: boolean
   comp_reason: string | null
   seat: number | null
+  course: CourseType
+  course_status: CourseStatus
   menu_items: { name: string }
 }
 
@@ -39,7 +46,7 @@ export async function fetchOrderItems(
   orderId: string,
 ): Promise<OrderItem[]> {
   const url = new URL(`${supabaseUrl}/rest/v1/order_items`)
-  url.searchParams.set('select', 'id,quantity,unit_price_cents,modifier_ids,sent_to_kitchen,comp,comp_reason,seat,menu_items(name)')
+  url.searchParams.set('select', 'id,quantity,unit_price_cents,modifier_ids,sent_to_kitchen,comp,comp_reason,seat,course,course_status,menu_items(name)')
   url.searchParams.set('order_id', `eq.${orderId}`)
   url.searchParams.set('voided', 'eq.false')
 
@@ -99,6 +106,8 @@ export async function fetchOrderItems(
       comp: row.comp ?? false,
       comp_reason: row.comp_reason ?? null,
       seat: row.seat ?? null,
+      course: row.course ?? 'main',
+      course_status: row.course_status ?? 'waiting',
     }
   })
 }

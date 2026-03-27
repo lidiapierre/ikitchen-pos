@@ -19,6 +19,7 @@ export interface RecipeItem {
   // joined
   ingredient_name?: string
   ingredient_unit?: string
+  ingredient_cost_per_unit?: number | null
 }
 
 export type WastageReason = 'spoiled' | 'over-prepared' | 'dropped' | 'expired'
@@ -41,6 +42,7 @@ export interface StockAdjustment {
 export interface MenuItem {
   id: string
   name: string
+  price_cents: number
 }
 
 function buildHeaders(apiKey: string): Record<string, string> {
@@ -152,14 +154,14 @@ export async function fetchAllRecipeItems(
   supabaseUrl: string,
   apiKey: string,
 ): Promise<RecipeItem[]> {
-  const url = `${supabaseUrl}/rest/v1/recipe_items?select=id,menu_item_id,ingredient_id,quantity_used,ingredients(name,unit)`
+  const url = `${supabaseUrl}/rest/v1/recipe_items?select=id,menu_item_id,ingredient_id,quantity_used,ingredients(name,unit,cost_per_unit)`
   const raw = await req<
     Array<{
       id: string
       menu_item_id: string
       ingredient_id: string
       quantity_used: number
-      ingredients: { name: string; unit: string } | null
+      ingredients: { name: string; unit: string; cost_per_unit: number | null } | null
     }>
   >(url, 'GET', apiKey)
   return raw.map((r) => ({
@@ -169,6 +171,7 @@ export async function fetchAllRecipeItems(
     quantity_used: r.quantity_used,
     ingredient_name: r.ingredients?.name,
     ingredient_unit: r.ingredients?.unit,
+    ingredient_cost_per_unit: r.ingredients?.cost_per_unit ?? null,
   }))
 }
 
@@ -294,7 +297,7 @@ export async function fetchMenuItems(
   restaurantId: string,
 ): Promise<MenuItem[]> {
   // menu_items are linked via menus → restaurant_id; use embedded filter syntax
-  const url = `${supabaseUrl}/rest/v1/menu_items?select=id,name,menus!inner(restaurant_id)&menus.restaurant_id=eq.${restaurantId}&order=name.asc`
-  const raw = await req<Array<{ id: string; name: string; menus?: unknown }>>(url, 'GET', apiKey)
-  return raw.map((r) => ({ id: r.id, name: r.name }))
+  const url = `${supabaseUrl}/rest/v1/menu_items?select=id,name,price_cents,menus!inner(restaurant_id)&menus.restaurant_id=eq.${restaurantId}&order=name.asc`
+  const raw = await req<Array<{ id: string; name: string; price_cents: number; menus?: unknown }>>(url, 'GET', apiKey)
+  return raw.map((r) => ({ id: r.id, name: r.name, price_cents: r.price_cents }))
 }

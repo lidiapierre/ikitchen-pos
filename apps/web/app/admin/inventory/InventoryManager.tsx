@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import type { JSX } from 'react'
 import { useUser } from '@/lib/user-context'
-import { AlertTriangle } from 'lucide-react'
+import { AlertTriangle, TrendingUp } from 'lucide-react'
 import {
   fetchIngredients,
   createIngredient,
@@ -23,7 +23,7 @@ import {
   type WastageReason,
 } from './inventoryApi'
 
-type Tab = 'ingredients' | 'recipes' | 'adjustments' | 'wastage'
+type Tab = 'ingredients' | 'recipes' | 'margins' | 'adjustments' | 'wastage'
 
 type FeedbackType = 'success' | 'error'
 interface Feedback {
@@ -169,6 +169,7 @@ export default function InventoryManager(): JSX.Element {
           [
             { id: 'ingredients', label: 'Ingredients' },
             { id: 'recipes', label: 'Recipes' },
+            { id: 'margins', label: 'Dish Margins' },
             { id: 'adjustments', label: 'Adjustments' },
             { id: 'wastage', label: 'Wastage' },
           ] as { id: Tab; label: string }[]
@@ -212,6 +213,13 @@ export default function InventoryManager(): JSX.Element {
           setSubmitting={setSubmitting}
           showFeedback={showFeedback}
           onRefresh={() => { void loadData(restaurantId) }}
+        />
+      )}
+
+      {tab === 'margins' && (
+        <MarginsTab
+          menuItems={menuItems}
+          recipeItems={recipeItems}
         />
       )}
 
@@ -1175,6 +1183,157 @@ function WastageTab({
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+// ── Dish Margins Tab ──────────────────────────────────────────────────────────
+
+interface MarginsTabProps {
+  menuItems: MenuItem[]
+  recipeItems: RecipeItem[]
+}
+
+interface DishMargin {
+  menuItemId: string
+  name: string
+  priceCents: number
+  ingredientCost: number | null  // null when no recipe or missing costs
+  marginPct: number | null
+  hasRecipe: boolean
+  missingCosts: boolean
+}
+
+function computeMargins(menuItems: MenuItem[], recipeItems: RecipeItem[]): DishMargin[] {
+  return menuItems.map((item) => {
+    const recipe = recipeItems.filter((r) => r.menu_item_id === item.id)
+    const hasRecipe = recipe.length > 0
+    const sellingPrice = item.price_cents / 100
+
+    if (!hasRecipe) {
+      return { menuItemId: item.id, name: item.name, priceCents: item.price_cents, ingredientCost: null, marginPct: null, hasRecipe: false, missingCosts: false }
+    }
+
+    const missingCosts = recipe.some((r) => r.ingredient_cost_per_unit == null)
+    if (missingCosts) {
+      return { menuItemId: item.id, name: item.name, priceCents: item.price_cents, ingredientCost: null, marginPct: null, hasRecipe: true, missingCosts: true }
+    }
+
+    const ingredientCost = recipe.reduce((sum, r) => sum + r.quantity_used * (r.ingredient_cost_per_unit ?? 0), 0)
+    const marginPct = sellingPrice > 0 ? ((sellingPrice - ingredientCost) / sellingPrice) * 100 : null
+
+    return { menuItemId: item.id, name: item.name, priceCents: item.price_cents, ingredientCost, marginPct, hasRecipe: true, missingCosts: false }
+  })
+}
+
+function MarginBadge({ pct }: { pct: number | null }): JSX.Element {
+  if (pct === null) {
+    return <span className="text-xs text-zinc-500 px-2 py-1 rounded-full bg-zinc-700">—</span>
+  }
+  const color = pct >= 60 ? 'bg-green-800 text-green-200' : pct >= 40 ? 'bg-amber-800 text-amber-200' : 'bg-red-800 text-red-200'
+  return <span className={`text-xs font-bold px-2 py-1 rounded-full ${color}`}>{pct.toFixed(1)}%</span>
+}
+
+function MarginsTab({ menuItems, recipeItems }: MarginsTabProps): JSX.Element {
+  const margins = computeMargins(menuItems, recipeItems)
+  const withMargins = margins.filter((m) => m.marginPct !== null)
+  const avgMargin = withMargins.length > 0
+    ? withMargins.reduce((s, m) => s + (m.marginPct ?? 0), 0) / withMargins.length
+    : null
+
+  const noRecipe = margins.filter((m) => !m.hasRecipe).length
+  const missingCosts = margins.filter((m) => m.hasRecipe && m.missingCosts).length
+
+  return (
+    <div className="flex flex-col gap-6">
+      <div className="flex items-center gap-2">
+        <TrendingUp size={20} className="text-indigo-400" aria-hidden="true" />
+        <h2 className="text-lg font-semibold text-white">Dish Margin Calculator</h2>
+      </div>
+
+      {/* Summary cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-4">
+          <p className="text-xs text-zinc-500 uppercase tracking-wide font-semibold">Total Dishes</p>
+          <p className="text-2xl font-bold text-white mt-1">{menuItems.length}</p>
+        </div>
+        <div className="bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-4">
+          <p className="text-xs text-zinc-500 uppercase tracking-wide font-semibold">With Recipe</p>
+          <p className="text-2xl font-bold text-white mt-1">{margins.filter((m) => m.hasRecipe).length}</p>
+        </div>
+        <div className="bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-4">
+          <p className="text-xs text-zinc-500 uppercase tracking-wide font-semibold">Avg Margin</p>
+          <p className={`text-2xl font-bold mt-1 ${avgMargin == null ? 'text-zinc-500' : avgMargin >= 60 ? 'text-green-400' : avgMargin >= 40 ? 'text-amber-400' : 'text-red-400'}`}>
+            {avgMargin != null ? `${avgMargin.toFixed(1)}%` : '—'}
+          </p>
+        </div>
+        <div className="bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-4">
+          <p className="text-xs text-zinc-500 uppercase tracking-wide font-semibold">Needs Attention</p>
+          <p className="text-2xl font-bold text-amber-400 mt-1">{noRecipe + missingCosts}</p>
+          <p className="text-xs text-zinc-500 mt-0.5">{noRecipe} no recipe · {missingCosts} missing costs</p>
+        </div>
+      </div>
+
+      {/* Legend */}
+      <div className="flex items-center gap-4 text-xs text-zinc-400 flex-wrap">
+        <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-green-600 inline-block" />&#x2265; 60% Good</span>
+        <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-amber-600 inline-block" />40&#x2013;60% Fair</span>
+        <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-red-600 inline-block" />&lt; 40% Low</span>
+      </div>
+
+      {/* Table */}
+      {menuItems.length === 0 ? (
+        <p className="text-zinc-500 text-sm">No menu items found. Add menu items and set up recipes first.</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-xs font-semibold uppercase tracking-wide text-zinc-500 border-b border-zinc-700">
+                <th className="text-left py-3 px-4">Dish</th>
+                <th className="text-right py-3 px-4">Selling Price</th>
+                <th className="text-right py-3 px-4">Ingredient Cost</th>
+                <th className="text-right py-3 px-4">Gross Margin</th>
+                <th className="text-right py-3 px-4">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {margins.map((m) => (
+                <tr key={m.menuItemId} className="border-b border-zinc-800 hover:bg-zinc-800/50 transition-colors">
+                  <td className="py-3 px-4 font-medium text-white">{m.name}</td>
+                  <td className="py-3 px-4 text-right text-zinc-300">
+                    {(m.priceCents / 100).toFixed(2)}
+                  </td>
+                  <td className="py-3 px-4 text-right text-zinc-300">
+                    {m.ingredientCost != null ? m.ingredientCost.toFixed(2) : (
+                      <span className="text-zinc-600 text-xs">
+                        {!m.hasRecipe ? 'No recipe' : 'Missing costs'}
+                      </span>
+                    )}
+                  </td>
+                  <td className="py-3 px-4 text-right">
+                    {m.marginPct != null ? (
+                      <span className={`font-bold ${m.marginPct >= 60 ? 'text-green-400' : m.marginPct >= 40 ? 'text-amber-400' : 'text-red-400'}`}>
+                        {m.marginPct.toFixed(1)}%
+                      </span>
+                    ) : (
+                      <span className="text-zinc-600">—</span>
+                    )}
+                  </td>
+                  <td className="py-3 px-4 text-right">
+                    <MarginBadge pct={m.marginPct} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {(noRecipe > 0 || missingCosts > 0) && (
+        <p className="text-xs text-zinc-500">
+          {'💡 Go to the '}<span className="text-zinc-300 font-medium">Recipes</span>{' tab to link ingredients to dishes, and set '}<span className="text-zinc-300 font-medium">Cost per Unit</span>{' on each ingredient to see full margins.'}
+        </p>
+      )}
     </div>
   )
 }

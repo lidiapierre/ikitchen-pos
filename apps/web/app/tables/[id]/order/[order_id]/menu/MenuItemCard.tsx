@@ -78,6 +78,20 @@ export default function MenuItemCard({ item, orderId, onItemAdded, currencySymbo
 
   const isUnavailable = !item.available
 
+  const SPICY_LABELS: Record<string, string> = {
+    mild: '🌶 Mild',
+    medium: '🌶🌶 Medium',
+    hot: '🌶🌶🌶 Hot',
+  }
+
+  const DIETARY_COLORS: Record<string, string> = {
+    halal: 'bg-emerald-800 text-emerald-200',
+    vegetarian: 'bg-green-800 text-green-200',
+    vegan: 'bg-lime-800 text-lime-200',
+  }
+
+  const ALLERGEN_COLORS = 'bg-red-900 text-red-200'
+
   return (
     <>
       {showModal && (
@@ -100,7 +114,7 @@ export default function MenuItemCard({ item, orderId, onItemAdded, currencySymbo
         ].join(' ')}
       >
         <div className="flex flex-col gap-1">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="text-base font-semibold text-white">{item.name}</span>
             {isUnavailable && (
               <span className="text-xs font-medium bg-zinc-700 text-zinc-400 px-2 py-0.5 rounded-full">
@@ -111,6 +125,38 @@ export default function MenuItemCard({ item, orderId, onItemAdded, currencySymbo
           <span className="text-lg font-bold text-amber-400">{priceFormatted}</span>
           {item.modifiers.length > 0 && (
             <span className="text-sm text-zinc-400">{item.modifiers.length} option{item.modifiers.length !== 1 ? 's' : ''}</span>
+          )}
+          {/* Dietary badges */}
+          {item.dietary_badges && item.dietary_badges.length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-0.5">
+              {item.dietary_badges.map((badge) => (
+                <span
+                  key={badge}
+                  className={`text-xs font-medium px-1.5 py-0.5 rounded-full capitalize ${DIETARY_COLORS[badge.toLowerCase()] ?? 'bg-zinc-700 text-zinc-300'}`}
+                >
+                  {badge.toLowerCase() === 'halal' ? '✓ Halal' : badge}
+                </span>
+              ))}
+            </div>
+          )}
+          {/* Allergen tags */}
+          {item.allergens && item.allergens.length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-0.5">
+              {item.allergens.map((allergen) => (
+                <span
+                  key={allergen}
+                  className={`text-xs font-medium px-1.5 py-0.5 rounded-full capitalize ${ALLERGEN_COLORS}`}
+                >
+                  {allergen}
+                </span>
+              ))}
+            </div>
+          )}
+          {/* Spicy level */}
+          {item.spicy_level && item.spicy_level !== 'none' && SPICY_LABELS[item.spicy_level.toLowerCase()] && (
+            <span className="text-xs text-orange-400 font-medium mt-0.5">
+              {SPICY_LABELS[item.spicy_level.toLowerCase()]}
+            </span>
           )}
         </div>
         <button

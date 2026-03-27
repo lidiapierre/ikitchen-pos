@@ -6,7 +6,8 @@ import type { JSX } from 'react'
 import { fetchMenuCategories } from './menuData'
 import type { MenuCategory } from './menuData'
 import MenuItemCard from './MenuItemCard'
-import { filterMenuItems } from './menuSearch'
+import { filterMenuItemsWithFilters, hasActiveFilters, EMPTY_FILTERS } from './menuSearch'
+import type { MenuFilters } from './menuSearch'
 import { formatPrice, DEFAULT_CURRENCY_SYMBOL } from '@/lib/formatPrice'
 
 interface MenuPageClientProps {
@@ -20,6 +21,7 @@ export default function MenuPageClient({ tableId, orderId }: MenuPageClientProps
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
+  const [filters, setFilters] = useState<MenuFilters>(EMPTY_FILTERS)
   const searchInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -55,7 +57,16 @@ export default function MenuPageClient({ tableId, orderId }: MenuPageClientProps
 
   function handleClearSearch(): void {
     setSearchQuery('')
+    setFilters(EMPTY_FILTERS)
     searchInputRef.current?.focus()
+  }
+
+  function handleSetDietary(value: string): void {
+    setFilters((f) => ({ ...f, dietary: f.dietary === value ? '' : value }))
+  }
+
+  function handleSetAllergenFree(value: string): void {
+    setFilters((f) => ({ ...f, allergenFree: f.allergenFree === value ? '' : value }))
   }
 
   const totalFormatted = formatPrice(orderTotalCents, DEFAULT_CURRENCY_SYMBOL)
@@ -71,12 +82,13 @@ export default function MenuPageClient({ tableId, orderId }: MenuPageClientProps
       return <p className="text-zinc-500 text-base">No menu items available</p>
     }
 
-    if (searchQuery.trim() !== '') {
-      const results = filterMenuItems(categories, searchQuery)
+    const activeFilters: MenuFilters = { ...filters, query: searchQuery }
+    if (hasActiveFilters(activeFilters)) {
+      const results = filterMenuItemsWithFilters(categories, activeFilters)
       if (results.length === 0) {
         return (
           <p className="text-zinc-500 text-base">
-            No items found for &ldquo;{searchQuery}&rdquo;
+            No items match your search or filters.
           </p>
         )
       }
@@ -127,7 +139,8 @@ export default function MenuPageClient({ tableId, orderId }: MenuPageClientProps
         <h1 className="text-2xl font-bold text-white">Menu</h1>
       </header>
 
-      <div className="mb-6">
+      <div className="mb-6 flex flex-col gap-3">
+        {/* Search bar */}
         <div className="relative">
           <input
             ref={searchInputRef}
@@ -138,16 +151,55 @@ export default function MenuPageClient({ tableId, orderId }: MenuPageClientProps
             aria-label="Search menu items"
             className="w-full bg-zinc-800 text-white placeholder-zinc-500 rounded-xl px-4 py-3 pr-10 text-base border border-zinc-700 focus:outline-none focus:border-amber-500 transition-colors"
           />
-          {searchQuery !== '' && (
+          {(searchQuery !== '' || filters.dietary !== '' || filters.allergenFree !== '') && (
             <button
               type="button"
               onClick={handleClearSearch}
-              aria-label="Clear search"
+              aria-label="Clear search and filters"
               className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white text-lg leading-none min-h-[48px] min-w-[48px] flex items-center justify-center transition-colors"
             >
               ×
             </button>
           )}
+        </div>
+
+        {/* Dietary filters */}
+        <div className="flex flex-wrap gap-2 items-center">
+          <span className="text-xs text-zinc-500 font-medium uppercase tracking-wide mr-1">Diet:</span>
+          {(['halal', 'vegetarian', 'vegan'] as const).map((badge) => (
+            <button
+              key={badge}
+              type="button"
+              onClick={() => handleSetDietary(badge)}
+              aria-pressed={filters.dietary === badge}
+              className={[
+                'text-xs font-medium px-3 py-1.5 rounded-full capitalize transition-colors min-h-[32px]',
+                filters.dietary === badge
+                  ? 'bg-emerald-600 text-white'
+                  : 'bg-zinc-700 text-zinc-300 hover:bg-zinc-600',
+              ].join(' ')}
+            >
+              {badge === 'halal' ? '✓ Halal' : badge.charAt(0).toUpperCase() + badge.slice(1)}
+            </button>
+          ))}
+
+          <span className="text-xs text-zinc-500 font-medium uppercase tracking-wide mx-1">Allergen-free:</span>
+          {(['nuts', 'dairy', 'gluten', 'eggs', 'shellfish', 'soy', 'sesame'] as const).map((allergen) => (
+            <button
+              key={allergen}
+              type="button"
+              onClick={() => handleSetAllergenFree(allergen)}
+              aria-pressed={filters.allergenFree === allergen}
+              className={[
+                'text-xs font-medium px-3 py-1.5 rounded-full capitalize transition-colors min-h-[32px]',
+                filters.allergenFree === allergen
+                  ? 'bg-red-700 text-white'
+                  : 'bg-zinc-700 text-zinc-300 hover:bg-zinc-600',
+              ].join(' ')}
+            >
+              No {allergen}
+            </button>
+          ))}
         </div>
       </div>
 

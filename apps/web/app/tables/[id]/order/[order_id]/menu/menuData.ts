@@ -10,6 +10,9 @@ export interface MenuItem {
   price_cents: number
   available: boolean
   modifiers: Modifier[]
+  allergens: string[]
+  dietary_badges: string[]
+  spicy_level: string
 }
 
 export interface MenuCategory {
@@ -29,6 +32,9 @@ interface MenuItemRow {
   price_cents: number
   available: boolean
   modifiers: ModifierRow[]
+  allergens: string[]
+  dietary_badges: string[]
+  spicy_level: string
 }
 
 interface MenuRow {
@@ -74,7 +80,7 @@ export async function fetchMenuCategories(
 
   const menusUrl = new URL(`${supabaseUrl}/rest/v1/menus`)
   menusUrl.searchParams.set('restaurant_id', `eq.${restaurant_id}`)
-  menusUrl.searchParams.set('select', 'id,name,menu_items(id,name,price_cents,available,modifiers(id,name,price_delta_cents))')
+  menusUrl.searchParams.set('select', 'id,name,menu_items(id,name,price_cents,available,allergens,dietary_badges,spicy_level,modifiers(id,name,price_delta_cents))')
 
   const menusRes = await fetch(menusUrl.toString(), {
     headers: {
@@ -99,6 +105,9 @@ export async function fetchMenuCategories(
       name: item.name,
       price_cents: item.price_cents,
       available: item.available ?? true,
+      allergens: item.allergens ?? [],
+      dietary_badges: item.dietary_badges ?? [],
+      spicy_level: item.spicy_level ?? 'none',
       modifiers: item.modifiers.map((mod) => ({
         id: mod.id,
         name: mod.name,

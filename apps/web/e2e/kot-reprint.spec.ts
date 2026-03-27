@@ -55,6 +55,7 @@ test.describe('KOT reprint button', () => {
           },
         ]),
       });
+    });
 
     // ── Restaurant config (BIN, register name, address — enhanced bill #261) ──
     await page.route('**/rest/v1/config**', async (route) => {

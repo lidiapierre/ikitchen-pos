@@ -76,6 +76,7 @@ interface OrderRow {
   covers: number | null
   discount_amount_cents: number | null
   order_comp: boolean | null
+  service_charge_cents: number | null
   created_at: string
 }
 
@@ -191,7 +192,7 @@ export async function handler(
   try {
     // Fetch all paid orders in range
     const ordersRes = await fetchFn(
-      `${supabaseUrl}/rest/v1/orders?select=id,final_total_cents,covers,discount_amount_cents,order_comp,created_at&status=eq.paid&created_at=gte.${encodeURIComponent(start)}&created_at=lte.${encodeURIComponent(end)}&limit=10000`,
+      `${supabaseUrl}/rest/v1/orders?select=id,final_total_cents,covers,discount_amount_cents,order_comp,service_charge_cents,created_at&status=eq.paid&created_at=gte.${encodeURIComponent(start)}&created_at=lte.${encodeURIComponent(end)}&limit=10000`,
       { headers: dbHeaders },
     )
     if (!ordersRes.ok) {
@@ -207,9 +208,11 @@ export async function handler(
     // 1. Sales summary
     let totalRevenueCents = 0
     let totalCovers = 0
+    let totalServiceChargeCents = 0
     for (const o of orders) {
       totalRevenueCents += o.final_total_cents ?? 0
       totalCovers += o.covers ?? 0
+      totalServiceChargeCents += o.service_charge_cents ?? 0
     }
     const orderCount = orders.length
     const avgOrderCents = orderCount > 0 ? Math.round(totalRevenueCents / orderCount) : 0
@@ -426,6 +429,7 @@ export async function handler(
             order_count: orderCount,
             avg_order_cents: avgOrderCents,
             total_covers: totalCovers,
+            total_service_charge_cents: totalServiceChargeCents,
           },
           revenue_by_day: revenueByDay,
           top_items: topItems,

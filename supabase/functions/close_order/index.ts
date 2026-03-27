@@ -93,9 +93,9 @@ export async function handler(
   }
 
   try {
-    // 1. Fetch the order to verify it exists and is open
+    // 1. Fetch the order to verify it exists and is open (also get discount & comp info)
     const orderRes = await fetchFn(
-      `${supabaseUrl}/rest/v1/orders?select=id,restaurant_id,status&id=eq.${orderId}`,
+      `${supabaseUrl}/rest/v1/orders?select=id,restaurant_id,status,discount_amount_cents,order_comp&id=eq.${orderId}`,
       { headers: dbHeaders },
     )
     if (!orderRes.ok) {
@@ -104,7 +104,13 @@ export async function handler(
         { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
       )
     }
-    const orders = (await orderRes.json()) as Array<{ id: string; restaurant_id: string; status: string }>
+    const orders = (await orderRes.json()) as Array<{
+      id: string
+      restaurant_id: string
+      status: string
+      discount_amount_cents: number | null
+      order_comp: boolean | null
+    }>
     if (orders.length === 0) {
       return new Response(
         JSON.stringify({ success: false, error: 'Order not found' }),
@@ -118,6 +124,8 @@ export async function handler(
       )
     }
     const restaurantId = orders[0].restaurant_id
+    const discountAmountCents = orders[0].discount_amount_cents ?? 0
+    const orderIsComp = orders[0].order_comp === true
 
     // 2. Calculate final total from non-voided order items
     const itemsRes = await fetchFn(
@@ -133,13 +141,39 @@ export async function handler(
     const items = (await itemsRes.json()) as Array<{ unit_price_cents: number; quantity: number }>
     const finalTotal = items.reduce((sum, item) => sum + item.unit_price_cents * item.quantity, 0)
 
-    // 3. Update order status to pending_payment and persist final_total_cents
+    // 3. Fetch service charge config and calculate service_charge_cents
+    // Order: Subtotal → Discount → Service Charge → VAT → Total
+    let serviceChargeCents = 0
+    if (!orderIsComp) {
+      try {
+        const configUrl = `${supabaseUrl}/rest/v1/config?select=value&restaurant_id=eq.${restaurantId}&key=eq.service_charge_percent&limit=1`
+        const configRes = await fetchFn(configUrl, { headers: dbHeaders })
+        if (configRes.ok) {
+          const configRows = (await configRes.json()) as Array<{ value: string }>
+          if (configRows.length > 0) {
+            const scPercent = parseFloat(configRows[0].value)
+            if (!isNaN(scPercent) && scPercent > 0) {
+              const postDiscountBase = Math.max(0, finalTotal - discountAmountCents)
+              serviceChargeCents = Math.round((postDiscountBase * scPercent) / 100)
+            }
+          }
+        }
+      } catch {
+        // Non-fatal: service charge defaults to 0
+      }
+    }
+
+    // 4. Update order status to pending_payment and persist final_total_cents + service_charge_cents
     const updateRes = await fetchFn(
       `${supabaseUrl}/rest/v1/orders?id=eq.${orderId}`,
       {
         method: 'PATCH',
         headers: { ...dbHeaders, Prefer: 'return=minimal' },
-        body: JSON.stringify({ status: 'pending_payment', final_total_cents: finalTotal }),
+        body: JSON.stringify({
+          status: 'pending_payment',
+          final_total_cents: finalTotal,
+          service_charge_cents: serviceChargeCents,
+        }),
       },
     )
     if (!updateRes.ok) {
@@ -149,7 +183,7 @@ export async function handler(
       )
     }
 
-    // 4. Emit audit log entry — actor_id comes from verified JWT
+    // 5. Emit audit log entry — actor_id comes from verified JWT
     const auditRes = await fetchFn(
       `${supabaseUrl}/rest/v1/audit_log`,
       {
@@ -161,7 +195,7 @@ export async function handler(
           action: 'close_order',
           entity_type: 'orders',
           entity_id: orderId,
-          payload: { final_total_cents: finalTotal },
+          payload: { final_total_cents: finalTotal, service_charge_cents: serviceChargeCents },
         }),
       },
     )
@@ -173,7 +207,7 @@ export async function handler(
     }
 
     return new Response(
-      JSON.stringify({ success: true, data: { final_total_cents: finalTotal } }),
+      JSON.stringify({ success: true, data: { final_total_cents: finalTotal, service_charge_cents: serviceChargeCents } }),
       { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
     )
   } catch {

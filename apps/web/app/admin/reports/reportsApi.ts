@@ -3,6 +3,7 @@ export interface ReportSummary {
   order_count: number
   avg_order_cents: number
   total_covers: number
+  total_service_charge_cents: number
 }
 
 export interface RevenueByDay {

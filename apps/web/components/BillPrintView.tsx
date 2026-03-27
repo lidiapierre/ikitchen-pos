@@ -22,6 +22,12 @@ export interface BillPrintViewProps {
   discountLabel?: string
   /** Whether the entire order is complimentary */
   orderComp?: boolean
+  /** Service charge rate in percent (e.g. 10 for 10%). 0 = hidden. */
+  serviceChargePercent?: number
+  /** Service charge amount in cents — pre-calculated by caller */
+  serviceChargeCents?: number
+  /** Explicit VAT amount in cents — pre-calculated by caller (overrides derived vatCents) */
+  vatCents?: number
 }
 
 export default function BillPrintView({
@@ -39,10 +45,13 @@ export default function BillPrintView({
   discountAmountCents = 0,
   discountLabel,
   orderComp = false,
+  serviceChargePercent = 0,
+  serviceChargeCents = 0,
+  vatCents: vatCentsProp,
 }: BillPrintViewProps): JSX.Element {
-  // vatCents is already pre-calculated by the caller (calcVat utility).
-  // Derive it here for display only; totalCents is the authoritative value.
-  const vatCents = totalCents - subtotalCents
+  // Use caller-provided vatCents when available (preferred — supports new calculation order).
+  // Fall back to derived value for backward compatibility.
+  const vatCents = vatCentsProp !== undefined ? vatCentsProp : totalCents - subtotalCents
 
   return (
     <div aria-hidden="true" className="hidden print:block font-mono text-black bg-white p-2 w-full max-w-xs">
@@ -99,6 +108,12 @@ export default function BillPrintView({
               <div className="flex justify-between">
                 <span>{discountLabel ? `Discount (${discountLabel})` : 'Discount'}</span>
                 <span>-{formatPrice(discountAmountCents, DEFAULT_CURRENCY_SYMBOL)}</span>
+              </div>
+            )}
+            {serviceChargePercent > 0 && serviceChargeCents > 0 && (
+              <div className="flex justify-between">
+                <span>Service Charge ({serviceChargePercent}%)</span>
+                <span>{formatPrice(serviceChargeCents, DEFAULT_CURRENCY_SYMBOL)}</span>
               </div>
             )}
             {vatPercent > 0 && (

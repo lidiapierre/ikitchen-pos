@@ -13,6 +13,8 @@ export interface SplitBillPrintViewProps {
   timestamp: string
   /** Whether this is an even split (true) or by-seat split (false) */
   evenSplit?: boolean
+  /** Service charge rate in percent (e.g. 10 for 10%). 0 = hidden. */
+  serviceChargePercent?: number
 }
 
 /**
@@ -28,6 +30,7 @@ export default function SplitBillPrintView({
   taxInclusive = false,
   timestamp,
   evenSplit = false,
+  serviceChargePercent = 0,
 }: SplitBillPrintViewProps): JSX.Element {
   // For even split: calculate total then divide
   const totalRawCents = items
@@ -143,33 +146,42 @@ export default function SplitBillPrintView({
 
             {/* Totals */}
             <div className="border-t border-black pt-1 mb-2 text-sm space-y-0.5">
-              {vatPercent > 0 && !taxInclusive && (
-                <>
-                  <div className="flex justify-between">
-                    <span>Subtotal</span>
-                    <span>{formatPrice(section.subtotalCents, DEFAULT_CURRENCY_SYMBOL)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>VAT {vatPercent}%</span>
-                    <span>
-                      {formatPrice(
-                        Math.round(section.subtotalCents * vatPercent / 100),
-                        DEFAULT_CURRENCY_SYMBOL,
+              {(vatPercent > 0 && !taxInclusive) || serviceChargePercent > 0 ? (
+                (() => {
+                  const scCents = serviceChargePercent > 0
+                    ? Math.round(section.subtotalCents * serviceChargePercent / 100)
+                    : 0
+                  const vatBase = section.subtotalCents + scCents
+                  const vatCents = vatPercent > 0 && !taxInclusive
+                    ? Math.round(vatBase * vatPercent / 100)
+                    : 0
+                  const sectionTotal = vatBase + vatCents
+                  return (
+                    <>
+                      <div className="flex justify-between">
+                        <span>Subtotal</span>
+                        <span>{formatPrice(section.subtotalCents, DEFAULT_CURRENCY_SYMBOL)}</span>
+                      </div>
+                      {serviceChargePercent > 0 && scCents > 0 && (
+                        <div className="flex justify-between">
+                          <span>Service Charge ({serviceChargePercent}%)</span>
+                          <span>{formatPrice(scCents, DEFAULT_CURRENCY_SYMBOL)}</span>
+                        </div>
                       )}
-                    </span>
-                  </div>
-                  <div className="flex justify-between font-bold">
-                    <span>Total</span>
-                    <span>
-                      {formatPrice(
-                        Math.round(section.subtotalCents * (1 + vatPercent / 100)),
-                        DEFAULT_CURRENCY_SYMBOL,
+                      {vatPercent > 0 && !taxInclusive && (
+                        <div className="flex justify-between">
+                          <span>VAT {vatPercent}%</span>
+                          <span>{formatPrice(vatCents, DEFAULT_CURRENCY_SYMBOL)}</span>
+                        </div>
                       )}
-                    </span>
-                  </div>
-                </>
-              )}
-              {(vatPercent === 0 || taxInclusive) && (
+                      <div className="flex justify-between font-bold">
+                        <span>Total</span>
+                        <span>{formatPrice(sectionTotal, DEFAULT_CURRENCY_SYMBOL)}</span>
+                      </div>
+                    </>
+                  )
+                })()
+              ) : (
                 <div className="flex justify-between font-bold">
                   <span>Total{taxInclusive && vatPercent > 0 ? ` (incl. VAT ${vatPercent}%)` : ''}</span>
                   <span>{formatPrice(section.subtotalCents, DEFAULT_CURRENCY_SYMBOL)}</span>

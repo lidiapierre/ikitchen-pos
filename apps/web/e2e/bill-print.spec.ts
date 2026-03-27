@@ -56,7 +56,7 @@ test.describe('Print Bill button', () => {
         await route.fulfill({
           status: 200,
           contentType: 'application/json',
-          body: JSON.stringify([{ id: ORDER_ID, table_id: TABLE_ID }]),
+          body: JSON.stringify([{ id: ORDER_ID, table_id: TABLE_ID, status: 'open', restaurant_id: 'rest-bill-e2e', order_type: 'dine_in', customer_name: null, delivery_note: null, customer_mobile: null, bill_number: null }]),
         });
       }
     });

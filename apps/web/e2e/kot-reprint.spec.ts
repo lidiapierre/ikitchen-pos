@@ -11,7 +11,26 @@ const ORDER_ITEM_ID = 'order-item-e2e-kot';
  * there are items and that clicking it does not throw JS errors.
  */
 test.describe('KOT reprint button', () => {
+  test.use({ storageState: 'e2e/.auth/admin.json' });
+
   test.beforeEach(async ({ page }) => {
+    // Mock Supabase auth so UserContext.accessToken + role are populated.
+    await page.route('**/auth/v1/user**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ id: '00000000-0000-0000-0000-000000000001', email: 'admin@lahore.ikitchen.com.bd', role: 'authenticated' }),
+      });
+    });
+
+    await page.route('**/rest/v1/users?**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([{ role: 'owner' }]),
+      });
+    });
+
     // Mock tables list
     await page.route('**/rest/v1/tables**', async (route) => {
       await route.fulfill({
@@ -28,13 +47,13 @@ test.describe('KOT reprint button', () => {
         await route.fulfill({
           status: 200,
           contentType: 'application/json',
-          body: JSON.stringify([{ status: 'open' }]),
+          body: JSON.stringify([{ id: ORDER_ID, status: 'open', order_type: 'dine_in', customer_name: null, delivery_note: null, customer_mobile: null, bill_number: null, restaurant_id: 'rest-kot-e2e' }]),
         });
       } else {
         await route.fulfill({
           status: 200,
           contentType: 'application/json',
-          body: JSON.stringify([{ id: ORDER_ID, table_id: TABLE_ID }]),
+          body: JSON.stringify([{ id: ORDER_ID, table_id: TABLE_ID, status: 'open', restaurant_id: 'rest-kot-e2e', order_type: 'dine_in', customer_name: null, delivery_note: null, customer_mobile: null, bill_number: null }]),
         });
       }
     });

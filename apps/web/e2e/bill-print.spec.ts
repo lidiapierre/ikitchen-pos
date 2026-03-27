@@ -105,7 +105,7 @@ test.describe('Print Bill button', () => {
     await page.goto(`/tables/${TABLE_ID}/order/${ORDER_ID}`);
 
     // Wait for items to load
-    await expect(page.getByText('Chicken Karahi', { exact: true })).toBeVisible();
+    await expect(page.getByText('Chicken Karahi', { exact: true }).first()).toBeVisible();
 
     // Close order to enter payment step
     await page.getByRole('button', { name: 'Close Order' }).click();
@@ -123,7 +123,7 @@ test.describe('Print Bill button', () => {
 
     await page.goto(`/tables/${TABLE_ID}/order/${ORDER_ID}`);
 
-    await expect(page.getByText('Chicken Karahi', { exact: true })).toBeVisible();
+    await expect(page.getByText('Chicken Karahi', { exact: true }).first()).toBeVisible();
 
     // Close order
     await page.getByRole('button', { name: 'Close Order' }).click();
@@ -145,7 +145,7 @@ test.describe('Print Bill button', () => {
   test('Print Bill button has at least 48px height on payment step (touch target)', async ({ page }) => {
     await page.goto(`/tables/${TABLE_ID}/order/${ORDER_ID}`);
 
-    await expect(page.getByText('Chicken Karahi', { exact: true })).toBeVisible();
+    await expect(page.getByText('Chicken Karahi', { exact: true }).first()).toBeVisible();
 
     await page.getByRole('button', { name: 'Close Order' }).click();
     await expect(page.getByText('Record Payment')).toBeVisible();
@@ -162,7 +162,7 @@ test.describe('Print Bill button', () => {
 
     await page.goto(`/tables/${TABLE_ID}/order/${ORDER_ID}`);
 
-    await expect(page.getByText('Chicken Karahi', { exact: true })).toBeVisible();
+    await expect(page.getByText('Chicken Karahi', { exact: true }).first()).toBeVisible();
 
     await page.getByRole('button', { name: 'Close Order' }).click();
     await expect(page.getByText('Record Payment')).toBeVisible();

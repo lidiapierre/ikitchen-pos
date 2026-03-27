@@ -41,6 +41,8 @@ import {
   Check,
   X,
   Pencil,
+  MessageCircle,
+  Phone,
 } from 'lucide-react'
 
 const COMP_REASONS = ['VIP', 'Complaint resolution', 'Staff meal', 'Event', 'Other'] as const
@@ -79,6 +81,12 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
   // Enhanced bill fields (issue #261)
   const [orderCustomerMobile, setOrderCustomerMobile] = useState<string | null>(null)
   const [orderBillNumber, setOrderBillNumber] = useState<string | null>(null)
+
+  // Send Receipt modal state (issue #173)
+  const [showReceiptModal, setShowReceiptModal] = useState(false)
+  const [receiptMobile, setReceiptMobile] = useState<string>('')
+  const [savingMobile, setSavingMobile] = useState(false)
+  const [receiptMobileError, setReceiptMobileError] = useState<string | null>(null)
 
   // Restaurant config for enhanced bill (issue #261)
   const [restaurantName, setRestaurantName] = useState<string>('Lahore by iKitchen')
@@ -1006,6 +1014,100 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
     }
   }
 
+  // ─── Send Receipt (issue #173) ───────────────────────────────────────────
+  function generateReceiptText(): string {
+    const lines: string[] = []
+    lines.push(restaurantName)
+    if (restaurantAddress) lines.push(restaurantAddress)
+    lines.push('')
+    lines.push(`Date: ${new Date().toLocaleString()}`)
+    if (orderBillNumber) lines.push(`Bill: ${orderBillNumber}`)
+    lines.push('─'.repeat(32))
+    for (const item of items) {
+      const isComp = item.comp || orderIsComp
+      const lineCents = isComp ? 0 : item.quantity * item.price_cents - calcItemDiscountCents(item)
+      const priceStr = isComp ? 'Free' : formatPrice(lineCents, currencySymbol)
+      lines.push(`${item.name} x${item.quantity}  ${priceStr}`)
+    }
+    lines.push('─'.repeat(32))
+    if (!orderIsComp) {
+      lines.push(`Subtotal: ${formatPrice(billSubtotalCents, currencySymbol)}`)
+      if (appliedDiscountCents > 0) {
+        lines.push(`Discount: -${formatPrice(appliedDiscountCents, currencySymbol)}`)
+      }
+      if (serviceChargePercent > 0 && billServiceChargeCents > 0) {
+        lines.push(`Service Charge (${serviceChargePercent}%): ${formatPrice(billServiceChargeCents, currencySymbol)}`)
+      }
+      if (vatPercent > 0 && billVatCents > 0) {
+        lines.push(`VAT ${vatPercent}%${taxInclusive ? ' (incl.)' : ''}: ${formatPrice(billVatCents, currencySymbol)}`)
+      }
+      lines.push(`Total: ${formatPrice(billTotalCents, currencySymbol)}`)
+    } else {
+      lines.push('Total: COMPLIMENTARY')
+    }
+    const pm = confirmedPaymentMethod ?? paidPaymentMethod ?? 'Unknown'
+    lines.push(`Payment: ${pm.charAt(0).toUpperCase() + pm.slice(1)}`)
+    lines.push('')
+    lines.push('Thank you for dining with us!')
+    return lines.join('\n')
+  }
+
+  function handleOpenReceiptModal(): void {
+    setReceiptMobile(orderCustomerMobile ?? '')
+    setReceiptMobileError(null)
+    setShowReceiptModal(true)
+  }
+
+  async function handleSendReceipt(channel: 'whatsapp' | 'sms'): Promise<void> {
+    const mobile = receiptMobile.trim().replace(/\s+/g, '')
+    if (!mobile) {
+      setReceiptMobileError('Please enter a mobile number')
+      return
+    }
+
+    // Save mobile to DB if it was not already set on the order
+    if (!orderCustomerMobile && mobile) {
+      setSavingMobile(true)
+      try {
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+        const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+        if (supabaseUrl && supabaseKey) {
+          await fetch(`${supabaseUrl}/rest/v1/orders?id=eq.${orderId}`, {
+            method: 'PATCH',
+            headers: {
+              apikey: supabaseKey,
+              Authorization: `Bearer ${supabaseKey}`,
+              'Content-Type': 'application/json',
+              Prefer: 'return=minimal',
+            },
+            body: JSON.stringify({ customer_mobile: mobile }),
+          })
+          setOrderCustomerMobile(mobile)
+        }
+      } catch {
+        // Non-fatal — still open the link
+      } finally {
+        setSavingMobile(false)
+      }
+    }
+
+    const receiptText = generateReceiptText()
+    const encodedText = encodeURIComponent(receiptText)
+
+    // Strip leading + for wa.me (it handles international format)
+    const mobileForWa = mobile.startsWith('+') ? mobile.slice(1) : mobile
+
+    if (channel === 'whatsapp') {
+      window.open(`https://wa.me/${mobileForWa}?text=${encodedText}`, '_blank', 'noopener,noreferrer')
+    } else {
+      // sms: link — mobile kept as-is (may include +)
+      window.open(`sms:${mobile}?body=${encodedText}`, '_blank', 'noopener,noreferrer')
+    }
+
+    setShowReceiptModal(false)
+  }
+  // ─────────────────────────────────────────────────────────────────────────
+
   // Render a single item row (shared between course view and read-only view)
   function renderItemRow(item: OrderItem, inOrderStep: boolean): JSX.Element {
     const isComp = item.comp || orderIsComp
@@ -1592,6 +1694,77 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
                   <span className="inline-flex items-center gap-1"><PrinterIcon size={16} aria-hidden="true" />Print by seat</span>
                 </button>
               </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Send Receipt modal (issue #173) */}
+      {showReceiptModal && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70">
+          <div className="w-full max-w-lg bg-zinc-800 rounded-t-2xl p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold text-white">Send Digital Receipt</h2>
+              <button
+                type="button"
+                onClick={() => { setShowReceiptModal(false) }}
+                className="min-h-[48px] min-w-[48px] text-zinc-400 hover:text-white flex items-center justify-center"
+                aria-label="Close"
+              >
+                <X size={20} aria-hidden="true" />
+              </button>
+            </div>
+            <div>
+              <label htmlFor="receipt-mobile" className="block text-zinc-400 text-base mb-2">
+                Customer mobile number
+              </label>
+              <input
+                id="receipt-mobile"
+                type="tel"
+                placeholder="+8801XXXXXXXXX"
+                value={receiptMobile}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                  setReceiptMobile(e.target.value)
+                  setReceiptMobileError(null)
+                }}
+                className="w-full min-h-[48px] px-4 rounded-xl text-base bg-zinc-700 text-white border-2 border-zinc-600 focus:border-amber-400 focus:outline-none"
+              />
+            </div>
+            {receiptMobileError !== null && (
+              <p className="text-sm text-red-400">{receiptMobileError}</p>
+            )}
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => { void handleSendReceipt('whatsapp') }}
+                disabled={savingMobile}
+                className={[
+                  'flex-1 min-h-[48px] min-w-[48px] px-4 rounded-xl text-base font-semibold transition-colors inline-flex items-center justify-center gap-2',
+                  savingMobile
+                    ? 'bg-zinc-700 text-zinc-400 cursor-wait'
+                    : 'bg-green-700 hover:bg-green-600 text-white',
+                ].join(' ')}
+              >
+                <MessageCircle size={18} aria-hidden="true" />
+                WhatsApp
+              </button>
+              <button
+                type="button"
+                onClick={() => { void handleSendReceipt('sms') }}
+                disabled={savingMobile}
+                className={[
+                  'flex-1 min-h-[48px] min-w-[48px] px-4 rounded-xl text-base font-semibold transition-colors inline-flex items-center justify-center gap-2',
+                  savingMobile
+                    ? 'bg-zinc-700 text-zinc-400 cursor-wait'
+                    : 'bg-blue-700 hover:bg-blue-600 text-white',
+                ].join(' ')}
+              >
+                <Phone size={18} aria-hidden="true" />
+                SMS
+              </button>
+            </div>
+            {savingMobile && (
+              <p className="text-xs text-zinc-400 text-center">Saving mobile number…</p>
             )}
           </div>
         </div>
@@ -2416,6 +2589,14 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
               ].join(' ')}
             >
               {printingBill ? 'Printing…' : <span className='inline-flex items-center gap-1'><PrinterIcon size={16} aria-hidden='true' />Print Bill</span>}
+            </button>
+            <button
+              type="button"
+              onClick={handleOpenReceiptModal}
+              className="w-full min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold transition-colors border-2 border-zinc-600 bg-zinc-700 hover:bg-zinc-600 text-white inline-flex items-center justify-center gap-2"
+            >
+              <MessageCircle size={16} aria-hidden="true" />
+              Send Receipt
             </button>
             <p className="text-zinc-400 text-base">Returning to tables…</p>
           </div>

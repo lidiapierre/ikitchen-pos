@@ -65,7 +65,7 @@ test.describe('KOT reprint button', () => {
     await page.goto(`/tables/${TABLE_ID}/order/${ORDER_ID}`);
 
     // Wait for items to load
-    await expect(page.getByText('Test Dish', { exact: true })).toBeVisible();
+    await expect(page.getByText('Test Dish', { exact: true }).first()).toBeVisible();
 
     // Reprint KOT button must be present
     await expect(page.getByRole('button', { name: /Reprint KOT/i })).toBeVisible();
@@ -81,7 +81,7 @@ test.describe('KOT reprint button', () => {
     // but we can confirm no JS error fires when the button is clicked.
     await page.goto(`/tables/${TABLE_ID}/order/${ORDER_ID}`);
 
-    await expect(page.getByText('Test Dish', { exact: true })).toBeVisible();
+    await expect(page.getByText('Test Dish', { exact: true }).first()).toBeVisible();
 
     const reprintBtn = page.getByRole('button', { name: /Reprint KOT/i });
     await expect(reprintBtn).toBeVisible();
@@ -99,7 +99,7 @@ test.describe('KOT reprint button', () => {
   test('Reprint KOT button has at least 48px height (touch target)', async ({ page }) => {
     await page.goto(`/tables/${TABLE_ID}/order/${ORDER_ID}`);
 
-    await expect(page.getByText('Test Dish', { exact: true })).toBeVisible();
+    await expect(page.getByText('Test Dish', { exact: true }).first()).toBeVisible();
 
     const reprintBtn = page.getByRole('button', { name: /Reprint KOT/i });
     const box = await reprintBtn.boundingBox();
@@ -116,7 +116,7 @@ test.describe('KOT reprint button', () => {
     });
 
     await page.goto(`/tables/${TABLE_ID}/order/${ORDER_ID}`);
-    await expect(page.getByText('Test Dish', { exact: true })).toBeVisible();
+    await expect(page.getByText('Test Dish', { exact: true }).first()).toBeVisible();
 
     await page.getByRole('button', { name: /Reprint KOT/i }).click();
 

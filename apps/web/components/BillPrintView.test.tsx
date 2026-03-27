@@ -11,7 +11,7 @@ const mockItems: OrderItem[] = [
     price_cents: 1500,
     modifier_ids: [],
     modifier_names: [],
-    sent_to_kitchen: true, comp: false, comp_reason: null, seat: null, course: 'main' as const, course_status: 'waiting' as const, menuId: null, printerType: 'kitchen' as const,
+    sent_to_kitchen: true, comp: false, comp_reason: null, seat: null, course: 'main' as const, course_status: 'waiting' as const, menuId: null, printerType: 'kitchen' as const, item_discount_type: null, item_discount_value: null,
   },
   {
     id: '2',
@@ -20,7 +20,7 @@ const mockItems: OrderItem[] = [
     price_cents: 200,
     modifier_ids: [],
     modifier_names: [],
-    sent_to_kitchen: true, comp: false, comp_reason: null, seat: null, course: 'main' as const, course_status: 'waiting' as const, menuId: null, printerType: 'kitchen' as const,
+    sent_to_kitchen: true, comp: false, comp_reason: null, seat: null, course: 'main' as const, course_status: 'waiting' as const, menuId: null, printerType: 'kitchen' as const, item_discount_type: null, item_discount_value: null,
   },
 ]
 

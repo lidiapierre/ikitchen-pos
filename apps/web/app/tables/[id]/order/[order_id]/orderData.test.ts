@@ -22,8 +22,8 @@ describe('fetchOrderItems', () => {
     const result = await fetchOrderItems('https://example.supabase.co', 'test-key', 'order-123')
 
     expect(result).toEqual([
-      { id: 'item-1', name: 'Bruschetta', quantity: 2, price_cents: 850, modifier_ids: [], modifier_names: [], sent_to_kitchen: false, comp: false, comp_reason: null, seat: null, course: 'main', course_status: 'waiting' },
-      { id: 'item-2', name: 'Grilled Salmon', quantity: 1, price_cents: 1850, modifier_ids: [], modifier_names: [], sent_to_kitchen: false, comp: false, comp_reason: null, seat: null, course: 'main', course_status: 'waiting' },
+      { id: 'item-1', name: 'Bruschetta', quantity: 2, price_cents: 850, modifier_ids: [], modifier_names: [], sent_to_kitchen: false, comp: false, comp_reason: null, seat: null, course: 'main', course_status: 'waiting', menuId: null, printerType: 'kitchen', item_discount_type: null, item_discount_value: null },
+      { id: 'item-2', name: 'Grilled Salmon', quantity: 1, price_cents: 1850, modifier_ids: [], modifier_names: [], sent_to_kitchen: false, comp: false, comp_reason: null, seat: null, course: 'main', course_status: 'waiting', menuId: null, printerType: 'kitchen', item_discount_type: null, item_discount_value: null },
     ])
   })
 

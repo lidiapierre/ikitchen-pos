@@ -127,9 +127,13 @@ export async function handler(
     const discountAmountCents = orders[0].discount_amount_cents ?? 0
     const orderIsComp = orders[0].order_comp === true
 
-    // 2. Calculate final total from non-voided order items
+    // 2. Calculate final total from non-voided order items, applying per-item discounts first
+    //    Calculation order (issue #254):
+    //      Per-item: unit_price × qty → apply item discount → item subtotal
+    //      Sum all item subtotals → order subtotal (= finalTotal stored here)
+    //      Apply order-level discount on subtotal (used for service charge base + in record_payment)
     const itemsRes = await fetchFn(
-      `${supabaseUrl}/rest/v1/order_items?select=unit_price_cents,quantity&order_id=eq.${orderId}&voided=eq.false&comp=eq.false`,
+      `${supabaseUrl}/rest/v1/order_items?select=unit_price_cents,quantity,item_discount_type,item_discount_value&order_id=eq.${orderId}&voided=eq.false&comp=eq.false`,
       { headers: { ...dbHeaders, Prefer: 'count=none' } },
     )
     if (!itemsRes.ok) {
@@ -138,8 +142,26 @@ export async function handler(
         { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
       )
     }
-    const items = (await itemsRes.json()) as Array<{ unit_price_cents: number; quantity: number }>
-    const finalTotal = items.reduce((sum, item) => sum + item.unit_price_cents * item.quantity, 0)
+    const items = (await itemsRes.json()) as Array<{
+      unit_price_cents: number
+      quantity: number
+      item_discount_type: string | null
+      item_discount_value: number | null
+    }>
+
+    // Step 1: apply per-item discounts to compute each item's subtotal, then sum
+    const finalTotal = items.reduce((sum, item) => {
+      const grossCents = item.unit_price_cents * item.quantity
+      let itemDiscountCents = 0
+      if (item.item_discount_type === 'percent' && item.item_discount_value != null) {
+        // stored as percent * 100 (e.g. 1000 = 10%)
+        itemDiscountCents = Math.round(grossCents * item.item_discount_value / 10000)
+      } else if (item.item_discount_type === 'fixed' && item.item_discount_value != null) {
+        // stored as cents
+        itemDiscountCents = Math.min(item.item_discount_value, grossCents)
+      }
+      return sum + grossCents - itemDiscountCents
+    }, 0)
 
     // 3. Fetch service charge config and calculate service_charge_cents
     // Order: Subtotal → Discount → Service Charge → VAT → Total

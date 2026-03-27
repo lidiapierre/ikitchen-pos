@@ -25,6 +25,7 @@ vi.mock('./recordPaymentApi', () => ({
 vi.mock('./orderData', () => ({
   fetchOrderItems: vi.fn(),
   fetchOrderSummary: vi.fn(),
+  calcItemDiscountCents: vi.fn().mockReturnValue(0),
 }))
 
 vi.mock('./voidItemApi', () => ({
@@ -49,9 +50,9 @@ vi.mock('@/lib/fetchVatConfig', () => ({
 }))
 
 const mockItems = [
-  { id: '1', name: 'Bruschetta', quantity: 2, price_cents: 850, modifier_ids: [], modifier_names: [], sent_to_kitchen: false, comp: false, comp_reason: null, seat: null, course: 'main' as const, course_status: 'waiting' as const, menuId: null, printerType: 'kitchen' as const },
-  { id: '2', name: 'Grilled Salmon', quantity: 1, price_cents: 1850, modifier_ids: [], modifier_names: [], sent_to_kitchen: false, comp: false, comp_reason: null, seat: null, course: 'main' as const, course_status: 'waiting' as const, menuId: null, printerType: 'kitchen' as const },
-  { id: '3', name: 'House Wine', quantity: 2, price_cents: 950, modifier_ids: [], modifier_names: [], sent_to_kitchen: false, comp: false, comp_reason: null, seat: null, course: 'main' as const, course_status: 'waiting' as const, menuId: null, printerType: 'kitchen' as const },
+  { id: '1', name: 'Bruschetta', quantity: 2, price_cents: 850, modifier_ids: [], modifier_names: [], sent_to_kitchen: false, comp: false, comp_reason: null, seat: null, course: 'main' as const, course_status: 'waiting' as const, menuId: null, printerType: 'kitchen' as const, item_discount_type: null, item_discount_value: null },
+  { id: '2', name: 'Grilled Salmon', quantity: 1, price_cents: 1850, modifier_ids: [], modifier_names: [], sent_to_kitchen: false, comp: false, comp_reason: null, seat: null, course: 'main' as const, course_status: 'waiting' as const, menuId: null, printerType: 'kitchen' as const, item_discount_type: null, item_discount_value: null },
+  { id: '3', name: 'House Wine', quantity: 2, price_cents: 950, modifier_ids: [], modifier_names: [], sent_to_kitchen: false, comp: false, comp_reason: null, seat: null, course: 'main' as const, course_status: 'waiting' as const, menuId: null, printerType: 'kitchen' as const, item_discount_type: null, item_discount_value: null },
 ]
 
 describe('OrderDetailClient', () => {
@@ -866,7 +867,7 @@ describe('OrderDetailClient', () => {
           comp_reason: null,
           seat: null,
           course: 'main' as const,
-          course_status: 'waiting' as const, menuId: null, printerType: 'kitchen' as const,
+          course_status: 'waiting' as const, menuId: null, printerType: 'kitchen' as const, item_discount_type: null, item_discount_value: null,
         },
       ])
 
@@ -906,7 +907,7 @@ describe('OrderDetailClient', () => {
           comp_reason: null,
           seat: null,
           course: 'main' as const,
-          course_status: 'waiting' as const, menuId: null, printerType: 'kitchen' as const,
+          course_status: 'waiting' as const, menuId: null, printerType: 'kitchen' as const, item_discount_type: null, item_discount_value: null,
         },
       ])
 

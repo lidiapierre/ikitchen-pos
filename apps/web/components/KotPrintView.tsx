@@ -70,6 +70,13 @@ export default function KotPrintView({
                 ))}
               </ul>
             )}
+            {item.item_discount_type != null && (
+              <p className="pl-3 text-xs">
+                {item.item_discount_type === 'percent' && item.item_discount_value != null
+                  ? `[disc: -${item.item_discount_value / 100}%]`
+                  : '[disc: flat]'}
+              </p>
+            )}
           </li>
         ))}
       </ul>

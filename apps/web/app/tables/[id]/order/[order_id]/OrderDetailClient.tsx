@@ -4,13 +4,14 @@ import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import type { JSX } from 'react'
-import { fetchOrderItems, fetchOrderSummary } from './orderData'
+import { fetchOrderItems, fetchOrderSummary, calcItemDiscountCents } from './orderData'
 import type { OrderItem, CourseType } from './orderData'
 import { callCloseOrder } from './closeOrderApi'
 import { callRecordPayment } from './recordPaymentApi'
 import { callVoidItem } from './voidItemApi'
 import { callCancelOrder } from './cancelOrderApi'
 import { callApplyDiscount } from './applyDiscountApi'
+import { callApplyItemDiscount } from './applyItemDiscountApi'
 import { callCompItem } from './compApi'
 import { callTransferOrder } from './transferOrderApi'
 import { markItemsSentToKitchen } from './kotApi'
@@ -129,6 +130,13 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
   const [discountError, setDiscountError] = useState<string | null>(null)
   const [appliedDiscountCents, setAppliedDiscountCents] = useState(0)
   const [appliedDiscountLabel, setAppliedDiscountLabel] = useState<string | undefined>(undefined)
+
+  // Item-level discount state
+  const [discountingItem, setDiscountingItem] = useState<OrderItem | null>(null)
+  const [itemDiscountType, setItemDiscountType] = useState<'percent' | 'fixed'>('percent')
+  const [itemDiscountValueStr, setItemDiscountValueStr] = useState<string>('')
+  const [applyingItemDiscount, setApplyingItemDiscount] = useState(false)
+  const [itemDiscountError, setItemDiscountError] = useState<string | null>(null)
 
   // Comp state
   const [compingItem, setCompingItem] = useState<OrderItem | null>(null)
@@ -317,10 +325,15 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
     return () => { clearTimeout(timer) }
   }, [step, router, printingBill])
 
-  // Exclude comp'd items from the subtotal
+  // Exclude comp'd items from the subtotal.
+  // Apply per-item discounts first (issue #254), then order-level discount below.
   const rawItemsTotalCents = items
     .filter((item) => !item.comp && !orderIsComp)
-    .reduce((sum, item) => sum + item.quantity * item.price_cents, 0)
+    .reduce((sum, item) => {
+      const grossCents = item.quantity * item.price_cents
+      const itemDiscount = calcItemDiscountCents(item)
+      return sum + grossCents - itemDiscount
+    }, 0)
 
   // Calculation order: Subtotal → Discount → Service Charge → VAT → Total
   // Step 1: apply discount to raw subtotal
@@ -624,7 +637,10 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
         items: items.map((i) => ({
           name: i.name,
           qty: i.quantity,
-          lineCents: i.quantity * i.price_cents,
+          // Apply per-item discount to the line total sent to the ESC/POS printer
+          lineCents: (i.comp || orderIsComp)
+            ? 0
+            : i.quantity * i.price_cents - calcItemDiscountCents(i),
           comp: i.comp || orderIsComp,
         })),
         tableId,
@@ -792,6 +808,43 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
     }
   }
 
+  async function handleApplyItemDiscount(): Promise<void> {
+    if (!discountingItem) return
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    if (!supabaseUrl || !accessToken) {
+      setItemDiscountError('Not authenticated')
+      return
+    }
+    const val = parseFloat(itemDiscountValueStr)
+    if (isNaN(val) || val <= 0) {
+      setItemDiscountError('Please enter a valid discount value')
+      return
+    }
+    if (itemDiscountType === 'percent' && val > 100) {
+      setItemDiscountError('Percentage cannot exceed 100')
+      return
+    }
+    setItemDiscountError(null)
+    setApplyingItemDiscount(true)
+    try {
+      const result = await callApplyItemDiscount(supabaseUrl, accessToken, discountingItem.id, itemDiscountType, val)
+      // Update the item in local state so the UI reflects the discount immediately
+      setItems((prev) =>
+        prev.map((i) =>
+          i.id === discountingItem.id
+            ? { ...i, item_discount_type: result.item_discount_type, item_discount_value: result.item_discount_value }
+            : i,
+        ),
+      )
+      setDiscountingItem(null)
+      setItemDiscountValueStr('')
+    } catch (err) {
+      setItemDiscountError(err instanceof Error ? err.message : 'Failed to apply item discount')
+    } finally {
+      setApplyingItemDiscount(false)
+    }
+  }
+
   async function handleCompItem(): Promise<void> {
     if (!compingItem) return
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -896,7 +949,10 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
   // Render a single item row (shared between course view and read-only view)
   function renderItemRow(item: OrderItem, inOrderStep: boolean): JSX.Element {
     const isComp = item.comp || orderIsComp
-    const lineTotalCents = item.quantity * item.price_cents
+    const grossLineCents = item.quantity * item.price_cents
+    const itemDiscountCents = isComp ? 0 : calcItemDiscountCents(item)
+    const lineTotalCents = grossLineCents - itemDiscountCents
+    const hasItemDiscount = !isComp && itemDiscountCents > 0
     return (
       <li
         key={item.id}
@@ -920,7 +976,20 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
           ) : (
             <>
               <span className="text-zinc-400">{formatPrice(item.price_cents, currencySymbol)} each</span>
-              <span className="font-bold text-amber-400">{formatPrice(lineTotalCents, currencySymbol)}</span>
+              <div className="flex flex-col items-end">
+                {hasItemDiscount && (
+                  <span className="text-zinc-500 line-through text-sm">{formatPrice(grossLineCents, currencySymbol)}</span>
+                )}
+                <span className={['font-bold', hasItemDiscount ? 'text-emerald-400' : 'text-amber-400'].join(' ')}>
+                  {formatPrice(lineTotalCents, currencySymbol)}
+                </span>
+                {hasItemDiscount && item.item_discount_type === 'percent' && item.item_discount_value != null && (
+                  <span className="text-xs text-emerald-500">-{item.item_discount_value / 100}%</span>
+                )}
+                {hasItemDiscount && item.item_discount_type === 'fixed' && (
+                  <span className="text-xs text-emerald-500">-{formatPrice(itemDiscountCents, currencySymbol)}</span>
+                )}
+              </div>
             </>
           )}
           {inOrderStep && (
@@ -937,17 +1006,31 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
                 Void
               </button>
               {isAdmin && !item.comp && !orderIsComp && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCompingItem(item)
-                    setCompReason(COMP_REASONS[0])
-                    setCompError(null)
-                  }}
-                  className="min-h-[48px] min-w-[48px] px-3 rounded-lg text-sm font-semibold text-emerald-400 hover:text-white hover:bg-emerald-700 transition-colors"
-                >
-                  Comp
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDiscountingItem(item)
+                      setItemDiscountType('percent')
+                      setItemDiscountValueStr('')
+                      setItemDiscountError(null)
+                    }}
+                    className="min-h-[48px] min-w-[48px] px-3 rounded-lg text-sm font-semibold text-amber-400 hover:text-white hover:bg-amber-700 transition-colors"
+                  >
+                    {item.item_discount_type ? '✎%' : '%'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCompingItem(item)
+                      setCompReason(COMP_REASONS[0])
+                      setCompError(null)
+                    }}
+                    className="min-h-[48px] min-w-[48px] px-3 rounded-lg text-sm font-semibold text-emerald-400 hover:text-white hover:bg-emerald-700 transition-colors"
+                  >
+                    Comp
+                  </button>
+                </>
               )}
             </div>
           )}
@@ -1593,6 +1676,98 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
                 ].join(' ')}
               >
                 {cancelling ? 'Cancelling…' : 'Confirm Cancel'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Item-level discount dialog */}
+      {discountingItem !== null && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70">
+          <div className="w-full max-w-lg bg-zinc-800 rounded-t-2xl p-6 space-y-4">
+            <h2 className="text-xl font-semibold text-white">Item Discount</h2>
+            <p className="text-zinc-300 text-base">
+              Apply discount to <span className="font-semibold text-white">{discountingItem.name}</span>
+              {discountingItem.item_discount_type && (
+                <span className="ml-2 text-xs text-amber-400">(already discounted — will replace)</span>
+              )}
+            </p>
+
+            {/* Discount type toggle */}
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => { setItemDiscountType('percent') }}
+                className={[
+                  'flex-1 min-h-[44px] rounded-xl text-sm font-semibold transition-colors border-2',
+                  itemDiscountType === 'percent'
+                    ? 'border-amber-400 bg-amber-400/10 text-amber-400'
+                    : 'border-zinc-600 text-zinc-300 hover:border-zinc-400',
+                ].join(' ')}
+              >
+                % Off
+              </button>
+              <button
+                type="button"
+                onClick={() => { setItemDiscountType('fixed') }}
+                className={[
+                  'flex-1 min-h-[44px] rounded-xl text-sm font-semibold transition-colors border-2',
+                  itemDiscountType === 'fixed'
+                    ? 'border-amber-400 bg-amber-400/10 text-amber-400'
+                    : 'border-zinc-600 text-zinc-300 hover:border-zinc-400',
+                ].join(' ')}
+              >
+                Flat Amount
+              </button>
+            </div>
+
+            <div>
+              <label htmlFor="item-discount-value" className="block text-zinc-400 text-base mb-2">
+                {itemDiscountType === 'percent' ? 'Percentage (e.g. 10 for 10%)' : `Amount in ${currencySymbol} (e.g. 50)`}
+              </label>
+              <input
+                id="item-discount-value"
+                type="number"
+                min="0"
+                max={itemDiscountType === 'percent' ? '100' : undefined}
+                step={itemDiscountType === 'percent' ? '1' : '0.01'}
+                placeholder={itemDiscountType === 'percent' ? '10' : '50.00'}
+                value={itemDiscountValueStr}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setItemDiscountValueStr(e.target.value) }}
+                className="w-full min-h-[48px] px-4 rounded-xl text-base bg-zinc-700 text-white border-2 border-zinc-600 focus:border-amber-400 focus:outline-none"
+              />
+            </div>
+
+            {itemDiscountError !== null && (
+              <p className="text-base text-red-400">{itemDiscountError}</p>
+            )}
+
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setDiscountingItem(null)
+                  setItemDiscountValueStr('')
+                  setItemDiscountError(null)
+                }}
+                disabled={applyingItemDiscount}
+                className="flex-1 min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold border-2 border-zinc-600 text-zinc-300 hover:border-zinc-400 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => { void handleApplyItemDiscount() }}
+                disabled={applyingItemDiscount || itemDiscountValueStr === ''}
+                className={[
+                  'flex-1 min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold transition-colors',
+                  applyingItemDiscount || itemDiscountValueStr === ''
+                    ? 'bg-zinc-700 text-zinc-400 cursor-wait'
+                    : 'bg-amber-500 hover:bg-amber-400 text-zinc-900',
+                ].join(' ')}
+              >
+                {applyingItemDiscount ? 'Applying…' : 'Apply Discount'}
               </button>
             </div>
           </div>

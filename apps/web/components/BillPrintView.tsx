@@ -1,6 +1,7 @@
 import React from 'react'
 import type { JSX } from 'react'
 import type { OrderItem } from '@/app/tables/[id]/order/[order_id]/orderData'
+import { calcItemDiscountCents } from '@/app/tables/[id]/order/[order_id]/orderData'
 import { formatPrice, DEFAULT_CURRENCY_SYMBOL } from '@/lib/formatPrice'
 
 export interface BillPrintViewProps {
@@ -78,18 +79,35 @@ export default function BillPrintView({
       {/* Items */}
       <ul className="mb-2">
         {items.map((item) => {
-          const lineCents = item.quantity * item.price_cents
+          const grossCents = item.quantity * item.price_cents
           const isComp = item.comp || orderComp
+          const itemDiscountCents = isComp ? 0 : calcItemDiscountCents(item)
+          const lineCents = grossCents - itemDiscountCents
+          const hasItemDiscount = !isComp && itemDiscountCents > 0
           return (
-            <li key={item.id} className="flex justify-between text-sm">
-              <span>
-                {item.quantity}× {item.name}
-                {isComp && <span className="ml-1 text-xs">[COMP]</span>}
-              </span>
-              {isComp ? (
-                <span className="italic text-xs">Complimentary</span>
-              ) : (
-                <span>{formatPrice(lineCents, DEFAULT_CURRENCY_SYMBOL)}</span>
+            <li key={item.id} className="text-sm mb-0.5">
+              <div className="flex justify-between">
+                <span>
+                  {item.quantity}× {item.name}
+                  {isComp && <span className="ml-1 text-xs">[COMP]</span>}
+                </span>
+                {isComp ? (
+                  <span className="italic text-xs">Complimentary</span>
+                ) : hasItemDiscount ? (
+                  <span>
+                    <span className="line-through text-xs mr-1">{formatPrice(grossCents, DEFAULT_CURRENCY_SYMBOL)}</span>
+                    {formatPrice(lineCents, DEFAULT_CURRENCY_SYMBOL)}
+                  </span>
+                ) : (
+                  <span>{formatPrice(lineCents, DEFAULT_CURRENCY_SYMBOL)}</span>
+                )}
+              </div>
+              {hasItemDiscount && (
+                <div className="pl-4 text-xs">
+                  {item.item_discount_type === 'percent' && item.item_discount_value != null
+                    ? `Item discount: -${item.item_discount_value / 100}%`
+                    : `Item discount: -${formatPrice(itemDiscountCents, DEFAULT_CURRENCY_SYMBOL)}`}
+                </div>
               )}
             </li>
           )

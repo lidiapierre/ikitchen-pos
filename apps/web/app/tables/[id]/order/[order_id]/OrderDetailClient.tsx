@@ -76,6 +76,15 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
   const [orderType, setOrderType] = useState<'dine_in' | 'takeaway' | 'delivery'>('dine_in')
   const [orderCustomerName, setOrderCustomerName] = useState<string | null>(null)
   const [orderDeliveryNote, setOrderDeliveryNote] = useState<string | null>(null)
+  // Enhanced bill fields (issue #261)
+  const [orderCustomerMobile, setOrderCustomerMobile] = useState<string | null>(null)
+  const [orderBillNumber, setOrderBillNumber] = useState<string | null>(null)
+
+  // Restaurant config for enhanced bill (issue #261)
+  const [restaurantName, setRestaurantName] = useState<string>('Lahore by iKitchen')
+  const [restaurantAddress, setRestaurantAddress] = useState<string>('Lahore by iKitchen, Dhaka')
+  const [binNumber, setBinNumber] = useState<string | undefined>(undefined)
+  const [registerName, setRegisterName] = useState<string | undefined>(undefined)
 
   // Void item state
   const [voidingItem, setVoidingItem] = useState<OrderItem | null>(null)
@@ -205,6 +214,8 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
         setOrderType(summary.order_type)
         setOrderCustomerName(summary.customer_name)
         setOrderDeliveryNote(summary.delivery_note)
+        setOrderCustomerMobile(summary.customer_mobile)
+        setOrderBillNumber(summary.bill_number)
       })
       .catch(() => {
         // Non-fatal: fall back to normal order view if status check fails
@@ -228,12 +239,34 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
         Promise.all([
           fetchVatConfig(supabaseUrl, supabaseKey, restaurantId, menuId),
           fetchServiceChargePercent(supabaseUrl, supabaseKey, restaurantId),
+          // Fetch restaurant name
+          fetch(
+            `${supabaseUrl}/rest/v1/restaurants?id=eq.${restaurantId}&select=name&limit=1`,
+            { headers: { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` } },
+          ).then((r) => r.ok ? r.json() as Promise<Array<{ name: string }>> : Promise.resolve([])),
+          // Fetch enhanced bill config keys in a single request
+          fetch(
+            `${supabaseUrl}/rest/v1/config?restaurant_id=eq.${restaurantId}&key=in.(bin_number,register_name,restaurant_address)&select=key,value`,
+            { headers: { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` } },
+          ).then((r) => r.ok ? r.json() as Promise<Array<{ key: string; value: string }>> : Promise.resolve([])),
         ]),
       )
-      .then(([config, scPercent]) => {
+      .then(([config, scPercent, restaurantRows, configRows]) => {
         setVatPercent(config.vatPercent)
         setTaxInclusive(config.taxInclusive)
         setServiceChargePercent(scPercent)
+        // Restaurant name
+        if (Array.isArray(restaurantRows) && restaurantRows.length > 0) {
+          setRestaurantName((restaurantRows as Array<{ name: string }>)[0].name)
+        }
+        // Enhanced bill config
+        const cfgMap = new Map<string, string>()
+        for (const row of (configRows as Array<{ key: string; value: string }>)) {
+          cfgMap.set(row.key, row.value)
+        }
+        if (cfgMap.has('bin_number')) setBinNumber(cfgMap.get('bin_number'))
+        if (cfgMap.has('register_name')) setRegisterName(cfgMap.get('register_name'))
+        if (cfgMap.has('restaurant_address')) setRestaurantAddress(cfgMap.get('restaurant_address') ?? '')
       })
       .catch(() => {
         // Non-fatal: fall back to 0% VAT / 0% service charge (safe — no overcharging)
@@ -1363,6 +1396,12 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
             orderType={orderType}
             customerName={orderCustomerName}
             deliveryNote={orderDeliveryNote}
+            customerMobile={orderCustomerMobile}
+            restaurantName={restaurantName}
+            restaurantAddress={restaurantAddress}
+            binNumber={binNumber}
+            billNumber={orderBillNumber ?? undefined}
+            registerName={registerName}
           />
         </div>
       )}
@@ -1380,6 +1419,11 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
             timestamp={splitBillTimestamp}
             evenSplit={splitBillPrintMode === 'even'}
             serviceChargePercent={serviceChargePercent}
+            restaurantName={restaurantName}
+            restaurantAddress={restaurantAddress}
+            binNumber={binNumber}
+            billNumber={orderBillNumber ?? undefined}
+            registerName={registerName}
           />
         </div>
       )}

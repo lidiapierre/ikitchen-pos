@@ -52,6 +52,10 @@ export interface OrderSummary {
   customer_name: string | null
   /** Delivery address/note for delivery orders */
   delivery_note: string | null
+  /** Customer mobile number for delivery/takeaway orders (issue #261) */
+  customer_mobile: string | null
+  /** Sequential bill reference generated on close_order (issue #261) */
+  bill_number: string | null
 }
 
 interface OrderItemRow {
@@ -193,7 +197,7 @@ export async function fetchOrderSummary(
 
   const orderUrl = new URL(`${supabaseUrl}/rest/v1/orders`)
   orderUrl.searchParams.set('id', `eq.${orderId}`)
-  orderUrl.searchParams.set('select', 'status,order_type,customer_name,delivery_note')
+  orderUrl.searchParams.set('select', 'status,order_type,customer_name,delivery_note,customer_mobile,bill_number')
 
   const orderRes = await fetch(orderUrl.toString(), { headers })
   if (!orderRes.ok) {
@@ -206,6 +210,8 @@ export async function fetchOrderSummary(
     order_type: string | null
     customer_name: string | null
     delivery_note: string | null
+    customer_mobile: string | null
+    bill_number: string | null
   }>
   if (orders.length === 0) {
     throw new Error('Order not found')
@@ -215,6 +221,8 @@ export async function fetchOrderSummary(
   const orderType = (orders[0].order_type ?? 'dine_in') as 'dine_in' | 'takeaway' | 'delivery'
   const customerName = orders[0].customer_name ?? null
   const deliveryNote = orders[0].delivery_note ?? null
+  const customerMobile = orders[0].customer_mobile ?? null
+  const billNumber = orders[0].bill_number ?? null
 
   if (status !== 'paid') {
     return {
@@ -223,6 +231,8 @@ export async function fetchOrderSummary(
       order_type: orderType,
       customer_name: customerName,
       delivery_note: deliveryNote,
+      customer_mobile: customerMobile,
+      bill_number: billNumber,
     }
   }
 
@@ -239,6 +249,8 @@ export async function fetchOrderSummary(
       order_type: orderType,
       customer_name: customerName,
       delivery_note: deliveryNote,
+      customer_mobile: customerMobile,
+      bill_number: billNumber,
     }
   }
 
@@ -249,5 +261,7 @@ export async function fetchOrderSummary(
     order_type: orderType,
     customer_name: customerName,
     delivery_note: deliveryNote,
+    customer_mobile: customerMobile,
+    bill_number: billNumber,
   }
 }

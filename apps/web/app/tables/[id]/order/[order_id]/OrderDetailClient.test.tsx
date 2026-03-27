@@ -64,7 +64,7 @@ describe('OrderDetailClient', () => {
     const { fetchOrderItems } = await import('./orderData')
     vi.mocked(fetchOrderItems).mockResolvedValue(mockItems)
     const { fetchOrderSummary } = await import('./orderData')
-    vi.mocked(fetchOrderSummary).mockResolvedValue({ status: 'open', payment_method: null })
+    vi.mocked(fetchOrderSummary).mockResolvedValue({ status: 'open', payment_method: null, order_type: 'dine_in', customer_name: null, delivery_note: null, customer_mobile: null, bill_number: null })
   })
 
   afterEach((): void => {
@@ -893,7 +893,7 @@ describe('OrderDetailClient', () => {
       const { fetchOrderSummary } = await import('./orderData')
       const { fetchOrderItems } = await import('./orderData')
 
-      vi.mocked(fetchOrderSummary).mockResolvedValue({ status: 'paid', payment_method: 'card' })
+      vi.mocked(fetchOrderSummary).mockResolvedValue({ status: 'paid', payment_method: 'card', order_type: 'dine_in', customer_name: null, delivery_note: null, customer_mobile: null, bill_number: null })
       vi.mocked(fetchOrderItems).mockResolvedValue([
         {
           id: '1',
@@ -924,7 +924,7 @@ describe('OrderDetailClient', () => {
   describe('paid order read-only view', () => {
     it('shows read-only paid state when navigating to an already-paid order', async (): Promise<void> => {
       const { fetchOrderSummary } = await import('./orderData')
-      vi.mocked(fetchOrderSummary).mockResolvedValue({ status: 'paid', payment_method: 'card' })
+      vi.mocked(fetchOrderSummary).mockResolvedValue({ status: 'paid', payment_method: 'card', order_type: 'dine_in', customer_name: null, delivery_note: null, customer_mobile: null, bill_number: null })
 
       render(<OrderDetailClient tableId="5" orderId="order-paid-123" />)
 
@@ -935,7 +935,7 @@ describe('OrderDetailClient', () => {
 
     it('shows payment method in paid read-only view', async (): Promise<void> => {
       const { fetchOrderSummary } = await import('./orderData')
-      vi.mocked(fetchOrderSummary).mockResolvedValue({ status: 'paid', payment_method: 'cash' })
+      vi.mocked(fetchOrderSummary).mockResolvedValue({ status: 'paid', payment_method: 'cash', order_type: 'dine_in', customer_name: null, delivery_note: null, customer_mobile: null, bill_number: null })
 
       render(<OrderDetailClient tableId="5" orderId="order-paid-123" />)
 
@@ -947,7 +947,7 @@ describe('OrderDetailClient', () => {
 
     it('does not show Close Order or Add Items in paid read-only view', async (): Promise<void> => {
       const { fetchOrderSummary } = await import('./orderData')
-      vi.mocked(fetchOrderSummary).mockResolvedValue({ status: 'paid', payment_method: 'card' })
+      vi.mocked(fetchOrderSummary).mockResolvedValue({ status: 'paid', payment_method: 'card', order_type: 'dine_in', customer_name: null, delivery_note: null, customer_mobile: null, bill_number: null })
 
       render(<OrderDetailClient tableId="5" orderId="order-paid-123" />)
 
@@ -961,7 +961,7 @@ describe('OrderDetailClient', () => {
 
     it('shows order total in paid read-only view', async (): Promise<void> => {
       const { fetchOrderSummary } = await import('./orderData')
-      vi.mocked(fetchOrderSummary).mockResolvedValue({ status: 'paid', payment_method: 'card' })
+      vi.mocked(fetchOrderSummary).mockResolvedValue({ status: 'paid', payment_method: 'card', order_type: 'dine_in', customer_name: null, delivery_note: null, customer_mobile: null, bill_number: null })
 
       render(<OrderDetailClient tableId="5" orderId="order-paid-123" />)
 
@@ -974,7 +974,7 @@ describe('OrderDetailClient', () => {
 
     it('Back to tables link has minimum 48px touch target in paid view', async (): Promise<void> => {
       const { fetchOrderSummary } = await import('./orderData')
-      vi.mocked(fetchOrderSummary).mockResolvedValue({ status: 'paid', payment_method: 'card' })
+      vi.mocked(fetchOrderSummary).mockResolvedValue({ status: 'paid', payment_method: 'card', order_type: 'dine_in', customer_name: null, delivery_note: null, customer_mobile: null, bill_number: null })
 
       render(<OrderDetailClient tableId="5" orderId="order-paid-123" />)
 
@@ -1024,7 +1024,7 @@ describe('OrderDetailClient', () => {
       const { fetchOrderSummary } = await import('./orderData')
       const { fetchOrderItems } = await import('./orderData')
 
-      vi.mocked(fetchOrderSummary).mockResolvedValue({ status: 'paid', payment_method: 'card' })
+      vi.mocked(fetchOrderSummary).mockResolvedValue({ status: 'paid', payment_method: 'card', order_type: 'dine_in', customer_name: null, delivery_note: null, customer_mobile: null, bill_number: null })
       // fetchOrderItems never resolves — items remain in loading state
       vi.mocked(fetchOrderItems).mockReturnValue(new Promise<never>(() => {}))
 
@@ -1041,7 +1041,7 @@ describe('OrderDetailClient', () => {
       const { fetchOrderSummary } = await import('./orderData')
       const { fetchOrderItems } = await import('./orderData')
 
-      vi.mocked(fetchOrderSummary).mockResolvedValue({ status: 'paid', payment_method: 'card' })
+      vi.mocked(fetchOrderSummary).mockResolvedValue({ status: 'paid', payment_method: 'card', order_type: 'dine_in', customer_name: null, delivery_note: null, customer_mobile: null, bill_number: null })
       vi.mocked(fetchOrderItems).mockRejectedValue(new Error('Items load failed'))
 
       render(<OrderDetailClient tableId="5" orderId="order-paid-err" />)
@@ -1059,7 +1059,7 @@ describe('OrderDetailClient', () => {
       const { fetchOrderSummary } = await import('./orderData')
       const { fetchOrderItems } = await import('./orderData')
 
-      vi.mocked(fetchOrderSummary).mockResolvedValue({ status: 'paid', payment_method: 'card' })
+      vi.mocked(fetchOrderSummary).mockResolvedValue({ status: 'paid', payment_method: 'card', order_type: 'dine_in', customer_name: null, delivery_note: null, customer_mobile: null, bill_number: null })
       vi.mocked(fetchOrderItems).mockResolvedValue([])
 
       render(<OrderDetailClient tableId="5" orderId="order-paid-empty" />)

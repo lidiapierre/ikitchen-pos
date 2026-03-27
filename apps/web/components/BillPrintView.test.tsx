@@ -63,8 +63,9 @@ describe('BillPrintView', () => {
       />,
     )
 
-    expect(screen.getByText('Table: Table 3')).toBeInTheDocument()
-    expect(screen.getByText('Order: order-ab')).toBeInTheDocument()
+    // New layout: table and order# are key-value pairs in separate spans
+    expect(screen.getByText('Table 3')).toBeInTheDocument()
+    expect(screen.getByText('order-ab')).toBeInTheDocument()
   })
 
   it('renders the timestamp', () => {
@@ -98,12 +99,15 @@ describe('BillPrintView', () => {
       />,
     )
 
+    // New layout: item name, qty and amount are in separate spans
+    expect(screen.getByText('Chicken Karahi')).toBeInTheDocument()
+    // quantity column: "2"
+    expect(screen.getAllByText('2').length).toBeGreaterThanOrEqual(1)
     // Chicken Karahi: 2 × ৳15.00 = ৳30.00
-    expect(screen.getByText(/2× Chicken Karahi/)).toBeInTheDocument()
     expect(screen.getByText('৳ 30.00')).toBeInTheDocument()
 
+    expect(screen.getByText('Naan')).toBeInTheDocument()
     // Naan: 4 × ৳2.00 = ৳8.00
-    expect(screen.getByText(/4× Naan/)).toBeInTheDocument()
     expect(screen.getByText('৳ 8.00')).toBeInTheDocument()
   })
 
@@ -122,7 +126,7 @@ describe('BillPrintView', () => {
     )
 
     // ৳ 38.00
-    expect(screen.getByText('Subtotal')).toBeInTheDocument()
+    expect(screen.getByText('Sub Total')).toBeInTheDocument()
     expect(screen.getByText('৳ 38.00')).toBeInTheDocument()
   })
 
@@ -140,7 +144,7 @@ describe('BillPrintView', () => {
       />,
     )
 
-    // VAT 15%: 570 cents = ৳ 5.70
+    // VAT 15%: shown as "VAT 15%"
     expect(screen.getByText('VAT 15%')).toBeInTheDocument()
     expect(screen.getByText('৳ 5.70')).toBeInTheDocument()
   })
@@ -159,8 +163,8 @@ describe('BillPrintView', () => {
       />,
     )
 
-    // Total = 4370 cents = ৳ 43.70
-    expect(screen.getByText('Total')).toBeInTheDocument()
+    // New label is "Pay" for the total line
+    expect(screen.getByText('Pay')).toBeInTheDocument()
     expect(screen.getByText('৳ 43.70')).toBeInTheDocument()
   })
 
@@ -178,7 +182,8 @@ describe('BillPrintView', () => {
       />,
     )
 
-    expect(screen.getByText('Payment')).toBeInTheDocument()
+    // New label: "Tendered by" with method value "card"
+    expect(screen.getByText('Tendered by')).toBeInTheDocument()
     expect(screen.getByText('card')).toBeInTheDocument()
   })
 
@@ -218,11 +223,11 @@ describe('BillPrintView', () => {
     )
 
     // 5000 cents = ৳ 50.00
-    expect(screen.getByText('Tendered')).toBeInTheDocument()
+    expect(screen.getByText('Cash Tendered')).toBeInTheDocument()
     expect(screen.getByText('৳ 50.00')).toBeInTheDocument()
 
     // 630 cents = ৳ 6.30
-    expect(screen.getByText('Change due')).toBeInTheDocument()
+    expect(screen.getByText('Change Due')).toBeInTheDocument()
     expect(screen.getByText('৳ 6.30')).toBeInTheDocument()
   })
 
@@ -240,8 +245,8 @@ describe('BillPrintView', () => {
       />,
     )
 
-    expect(screen.queryByText('Tendered')).not.toBeInTheDocument()
-    expect(screen.queryByText('Change due')).not.toBeInTheDocument()
+    expect(screen.queryByText('Cash Tendered')).not.toBeInTheDocument()
+    expect(screen.queryByText('Change Due')).not.toBeInTheDocument()
   })
 
   it('does not render tendered/change rows when not provided for cash payment', () => {
@@ -258,8 +263,8 @@ describe('BillPrintView', () => {
       />,
     )
 
-    expect(screen.queryByText('Tendered')).not.toBeInTheDocument()
-    expect(screen.queryByText('Change due')).not.toBeInTheDocument()
+    expect(screen.queryByText('Cash Tendered')).not.toBeInTheDocument()
+    expect(screen.queryByText('Change Due')).not.toBeInTheDocument()
   })
 
   it('renders the thank-you footer', () => {
@@ -276,7 +281,7 @@ describe('BillPrintView', () => {
       />,
     )
 
-    expect(screen.getByText('Thank you for dining with us!')).toBeInTheDocument()
+    expect(screen.getByText('Thank You!!!')).toBeInTheDocument()
   })
 
   it('is hidden on screen via aria-hidden', () => {
@@ -314,7 +319,61 @@ describe('BillPrintView', () => {
     )
 
     expect(screen.getByText('Lahore by iKitchen')).toBeInTheDocument()
-    // Subtotal and total should be ৳ 0.00
+    // Sub Total and Pay should be ৳ 0.00
     expect(screen.getAllByText('৳ 0.00').length).toBeGreaterThanOrEqual(2)
+  })
+
+  it('renders BIN number when provided', () => {
+    render(
+      <BillPrintView
+        tableLabel="Table 3"
+        orderId="order-abc-12345678"
+        items={mockItems}
+        subtotalCents={SUBTOTAL}
+        vatPercent={VAT_PERCENT}
+        totalCents={TOTAL}
+        paymentMethod="card"
+        timestamp="25/03/2026, 14:00:00"
+        binNumber="003206332-0101 -Musak6.3"
+      />,
+    )
+
+    expect(screen.getByText(/003206332-0101/)).toBeInTheDocument()
+  })
+
+  it('renders bill number when provided', () => {
+    render(
+      <BillPrintView
+        tableLabel="Table 3"
+        orderId="order-abc-12345678"
+        items={mockItems}
+        subtotalCents={SUBTOTAL}
+        vatPercent={VAT_PERCENT}
+        totalCents={TOTAL}
+        paymentMethod="card"
+        timestamp="25/03/2026, 14:00:00"
+        billNumber="RN0001234"
+      />,
+    )
+
+    expect(screen.getByText('RN0001234')).toBeInTheDocument()
+  })
+
+  it('renders register name when provided', () => {
+    render(
+      <BillPrintView
+        tableLabel="Table 3"
+        orderId="order-abc-12345678"
+        items={mockItems}
+        subtotalCents={SUBTOTAL}
+        vatPercent={VAT_PERCENT}
+        totalCents={TOTAL}
+        paymentMethod="card"
+        timestamp="25/03/2026, 14:00:00"
+        registerName="Cashier 1"
+      />,
+    )
+
+    expect(screen.getByText('Cashier 1')).toBeInTheDocument()
   })
 })

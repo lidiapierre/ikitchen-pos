@@ -185,17 +185,91 @@ export async function handler(
       }
     }
 
-    // 4. Update order status to pending_payment and persist final_total_cents + service_charge_cents
+    // 4. Generate atomic sequential bill number for this restaurant.
+    //    Use an upsert-then-increment pattern: insert row with last_value=1 if not exists,
+    //    otherwise increment. We read the updated value back via return=representation.
+    let billNumber: string | null = null
+    try {
+      // Attempt to increment using a RPC or a read-modify-write via PostgREST.
+      // PostgREST does not support atomic increment directly, so we use a two-step approach:
+      //   a) Upsert to ensure the row exists (last_value stays the same on conflict update if we set it to last_value).
+      //   b) Fetch + increment via a PATCH with arithmetic is not supported in PostgREST.
+      //
+      // Instead, use a DB function (decrement_ingredient_stock style) or fall back to:
+      //   a) fetch current last_value
+      //   b) PATCH with last_value + 1 — non-atomic but acceptable for POS (concurrent closes rare)
+      //
+      // For true atomicity we call a Postgres RPC if available, otherwise best-effort.
+
+      // Try to call an RPC that atomically increments and returns new value
+      const rpcRes = await fetchFn(
+        `${supabaseUrl}/rest/v1/rpc/next_bill_sequence`,
+        {
+          method: 'POST',
+          headers: { ...dbHeaders, Prefer: 'return=representation' },
+          body: JSON.stringify({ p_restaurant_id: restaurantId }),
+        },
+      )
+      if (rpcRes.ok) {
+        const rpcText = await rpcRes.text()
+        const nextVal = rpcText ? parseInt(JSON.parse(rpcText) as string, 10) : NaN
+        if (!isNaN(nextVal)) {
+          billNumber = 'RN' + String(nextVal).padStart(7, '0')
+        }
+      }
+
+      // Fallback: best-effort non-atomic increment
+      if (!billNumber) {
+        // Upsert sequence row
+        await fetchFn(
+          `${supabaseUrl}/rest/v1/bill_sequences?on_conflict=restaurant_id`,
+          {
+            method: 'POST',
+            headers: { ...dbHeaders, Prefer: 'resolution=ignore-duplicates,return=minimal' },
+            body: JSON.stringify({ restaurant_id: restaurantId, last_value: 0 }),
+          },
+        )
+        // Fetch current
+        const seqRes = await fetchFn(
+          `${supabaseUrl}/rest/v1/bill_sequences?restaurant_id=eq.${restaurantId}&select=last_value&limit=1`,
+          { headers: dbHeaders },
+        )
+        if (seqRes.ok) {
+          const seqRows = (await seqRes.json()) as Array<{ last_value: number }>
+          const currentVal = seqRows.length > 0 ? seqRows[0].last_value : 0
+          const nextVal = currentVal + 1
+          await fetchFn(
+            `${supabaseUrl}/rest/v1/bill_sequences?restaurant_id=eq.${restaurantId}`,
+            {
+              method: 'PATCH',
+              headers: { ...dbHeaders, Prefer: 'return=minimal' },
+              body: JSON.stringify({ last_value: nextVal }),
+            },
+          )
+          billNumber = 'RN' + String(nextVal).padStart(7, '0')
+        }
+      }
+    } catch {
+      // Non-fatal: bill number generation must never block order close
+      billNumber = null
+    }
+
+    // 4b. Update order status to pending_payment and persist final_total_cents + service_charge_cents + bill_number
+    const orderUpdatePayload: Record<string, unknown> = {
+      status: 'pending_payment',
+      final_total_cents: finalTotal,
+      service_charge_cents: serviceChargeCents,
+    }
+    if (billNumber) {
+      orderUpdatePayload['bill_number'] = billNumber
+    }
+
     const updateRes = await fetchFn(
       `${supabaseUrl}/rest/v1/orders?id=eq.${orderId}`,
       {
         method: 'PATCH',
         headers: { ...dbHeaders, Prefer: 'return=minimal' },
-        body: JSON.stringify({
-          status: 'pending_payment',
-          final_total_cents: finalTotal,
-          service_charge_cents: serviceChargeCents,
-        }),
+        body: JSON.stringify(orderUpdatePayload),
       },
     )
     if (!updateRes.ok) {
@@ -298,7 +372,7 @@ export async function handler(
           action: 'close_order',
           entity_type: 'orders',
           entity_id: orderId,
-          payload: { final_total_cents: finalTotal, service_charge_cents: serviceChargeCents },
+          payload: { final_total_cents: finalTotal, service_charge_cents: serviceChargeCents, bill_number: billNumber },
         }),
       },
     )
@@ -310,7 +384,7 @@ export async function handler(
     }
 
     return new Response(
-      JSON.stringify({ success: true, data: { final_total_cents: finalTotal, service_charge_cents: serviceChargeCents } }),
+      JSON.stringify({ success: true, data: { final_total_cents: finalTotal, service_charge_cents: serviceChargeCents, bill_number: billNumber } }),
       { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
     )
   } catch {

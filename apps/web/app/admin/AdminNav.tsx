@@ -15,6 +15,7 @@ import {
   Monitor,
   Building2,
   KeyRound,
+  Store,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -34,6 +35,7 @@ const NAV_LINKS: NavLink[] = [
   { href: '/admin/reports', label: 'Reports', icon: BarChart2 },
   { href: '/admin/settings/printer', label: 'Printer', icon: Printer },
   { href: '/admin/settings/kds', label: 'KDS', icon: Monitor },
+  { href: '/admin/settings/restaurant', label: 'Restaurant', icon: Store },
   { href: '/admin/restaurants', label: 'Restaurants', icon: Building2 },
   { href: '/admin/api-keys', label: 'API Keys', icon: KeyRound },
 ]

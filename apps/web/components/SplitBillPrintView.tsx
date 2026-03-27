@@ -15,6 +15,18 @@ export interface SplitBillPrintViewProps {
   evenSplit?: boolean
   /** Service charge rate in percent (e.g. 10 for 10%). 0 = hidden. */
   serviceChargePercent?: number
+
+  // --- Enhanced bill header fields (issue #261) ---
+  /** Restaurant name (overrides hard-coded default). */
+  restaurantName?: string
+  /** Restaurant address shown below name. */
+  restaurantAddress?: string
+  /** VAT / BIN registration number. */
+  binNumber?: string
+  /** Sequential bill reference e.g. RN0001234. */
+  billNumber?: string
+  /** Terminal / register name e.g. "Cashier 1". */
+  registerName?: string
 }
 
 /**
@@ -31,6 +43,11 @@ export default function SplitBillPrintView({
   timestamp,
   evenSplit = false,
   serviceChargePercent = 0,
+  restaurantName = 'Lahore by iKitchen',
+  restaurantAddress = 'Lahore by iKitchen, Dhaka',
+  binNumber,
+  billNumber,
+  registerName,
 }: SplitBillPrintViewProps): JSX.Element {
   // For even split: calculate total then divide
   const totalRawCents = items
@@ -108,17 +125,45 @@ export default function SplitBillPrintView({
             style={{ pageBreakAfter: idx < sections.length - 1 ? 'always' : 'auto' }}
           >
             {/* Header */}
-            <div className="text-center mb-2">
-              <p className="text-base font-bold">Lahore by iKitchen</p>
-              <p className="text-xs">Lahore by iKitchen, Dhaka</p>
-              <p className="text-xs">{timestamp}</p>
+            <div className="text-center mb-1">
+              <p className="text-base font-bold">{restaurantName}</p>
+              <p className="text-xs">{restaurantAddress}</p>
             </div>
 
+            {/* BIN # */}
+            {binNumber && (
+              <div className="text-center mb-1">
+                <p className="text-xs">BIN: {binNumber}</p>
+              </div>
+            )}
+
             {/* Order info */}
-            <div className="border-t border-b border-black py-1 mb-2 text-sm">
-              <p>Table: {tableLabel}</p>
-              <p>Order: {orderId.slice(0, 8)}</p>
-              <p className="font-bold">{section.label}</p>
+            <div className="border-t border-b border-black py-1 mb-2 text-xs space-y-0.5">
+              {billNumber && (
+                <div className="flex justify-between">
+                  <span className="font-semibold">Bill No</span>
+                  <span>{billNumber}</span>
+                </div>
+              )}
+              <div className="flex justify-between">
+                <span>Date</span>
+                <span>{timestamp}</span>
+              </div>
+              {registerName && (
+                <div className="flex justify-between">
+                  <span>Register</span>
+                  <span>{registerName}</span>
+                </div>
+              )}
+              <div className="flex justify-between">
+                <span>Table</span>
+                <span>{tableLabel}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Order#</span>
+                <span>{orderId.slice(0, 8)}</span>
+              </div>
+              <div className="font-bold text-sm">{section.label}</div>
             </div>
 
             {/* Items (only for by-seat split) */}
@@ -191,7 +236,7 @@ export default function SplitBillPrintView({
 
             {/* Footer */}
             <div className="border-t border-black mt-2 pt-1 text-center text-xs">
-              Thank you for dining with us!
+              Thank You!!!
             </div>
           </div>
         ))}

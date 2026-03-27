@@ -7,6 +7,7 @@ export interface Ingredient {
   unit: 'g' | 'kg' | 'L' | 'ml' | 'pcs'
   current_stock: number
   low_stock_threshold: number
+  cost_per_unit: number | null
   created_at: string
 }
 
@@ -20,16 +21,21 @@ export interface RecipeItem {
   ingredient_unit?: string
 }
 
+export type WastageReason = 'spoiled' | 'over-prepared' | 'dropped' | 'expired'
+
 export interface StockAdjustment {
   id: string
   restaurant_id: string
   ingredient_id: string
   quantity_delta: number
   reason: 'sale' | 'delivery' | 'wastage' | 'manual'
+  wastage_reason: WastageReason | null
   created_by: string | null
   created_at: string
   // joined
   ingredient_name?: string
+  ingredient_unit?: string
+  ingredient_cost_per_unit?: number | null
 }
 
 export interface MenuItem {
@@ -87,6 +93,7 @@ export async function createIngredient(
     unit: string
     current_stock: number
     low_stock_threshold: number
+    cost_per_unit?: number | null
   },
 ): Promise<Ingredient> {
   const url = `${supabaseUrl}/rest/v1/ingredients`
@@ -194,7 +201,7 @@ export async function fetchStockAdjustments(
   apiKey: string,
   restaurantId: string,
 ): Promise<StockAdjustment[]> {
-  const url = `${supabaseUrl}/rest/v1/stock_adjustments?restaurant_id=eq.${restaurantId}&select=id,restaurant_id,ingredient_id,quantity_delta,reason,created_by,created_at,ingredients(name)&order=created_at.desc&limit=200`
+  const url = `${supabaseUrl}/rest/v1/stock_adjustments?restaurant_id=eq.${restaurantId}&select=id,restaurant_id,ingredient_id,quantity_delta,reason,wastage_reason,created_by,created_at,ingredients(name,unit,cost_per_unit)&order=created_at.desc&limit=200`
   const raw = await req<
     Array<{
       id: string
@@ -202,15 +209,52 @@ export async function fetchStockAdjustments(
       ingredient_id: string
       quantity_delta: number
       reason: string
+      wastage_reason: string | null
       created_by: string | null
       created_at: string
-      ingredients: { name: string } | null
+      ingredients: { name: string; unit: string; cost_per_unit: number | null } | null
     }>
   >(url, 'GET', apiKey)
   return raw.map((r) => ({
     ...r,
     reason: r.reason as StockAdjustment['reason'],
+    wastage_reason: (r.wastage_reason as StockAdjustment['wastage_reason']) ?? null,
     ingredient_name: r.ingredients?.name,
+    ingredient_unit: r.ingredients?.unit,
+    ingredient_cost_per_unit: r.ingredients?.cost_per_unit ?? null,
+  }))
+}
+
+export async function fetchWastageAdjustments(
+  supabaseUrl: string,
+  apiKey: string,
+  restaurantId: string,
+  fromDate?: string,
+  toDate?: string,
+): Promise<StockAdjustment[]> {
+  let url = `${supabaseUrl}/rest/v1/stock_adjustments?restaurant_id=eq.${restaurantId}&reason=eq.wastage&select=id,restaurant_id,ingredient_id,quantity_delta,reason,wastage_reason,created_by,created_at,ingredients(name,unit,cost_per_unit)&order=created_at.desc`
+  if (fromDate) url += `&created_at=gte.${fromDate}`
+  if (toDate) url += `&created_at=lte.${toDate}`
+  const raw = await req<
+    Array<{
+      id: string
+      restaurant_id: string
+      ingredient_id: string
+      quantity_delta: number
+      reason: string
+      wastage_reason: string | null
+      created_by: string | null
+      created_at: string
+      ingredients: { name: string; unit: string; cost_per_unit: number | null } | null
+    }>
+  >(url, 'GET', apiKey)
+  return raw.map((r) => ({
+    ...r,
+    reason: r.reason as StockAdjustment['reason'],
+    wastage_reason: (r.wastage_reason as StockAdjustment['wastage_reason']) ?? null,
+    ingredient_name: r.ingredients?.name,
+    ingredient_unit: r.ingredients?.unit,
+    ingredient_cost_per_unit: r.ingredients?.cost_per_unit ?? null,
   }))
 }
 
@@ -222,11 +266,15 @@ export async function createStockAdjustment(
     ingredient_id: string
     quantity_delta: number
     reason: 'delivery' | 'wastage' | 'manual'
+    wastage_reason?: WastageReason | null
     created_by: string | null
   },
 ): Promise<void> {
   // Insert adjustment record
-  await req<void>(`${supabaseUrl}/rest/v1/stock_adjustments`, 'POST', apiKey, data, 'return=minimal')
+  const { wastage_reason, ...rest } = data
+  const payload: Record<string, unknown> = { ...rest }
+  if (wastage_reason) payload.wastage_reason = wastage_reason
+  await req<void>(`${supabaseUrl}/rest/v1/stock_adjustments`, 'POST', apiKey, payload, 'return=minimal')
   // Atomically apply delta to current_stock via RPC.
   // decrement_ingredient_stock does: current_stock = current_stock - p_amount
   // So to apply quantity_delta (positive=add, negative=deduct) we pass p_amount = -quantity_delta

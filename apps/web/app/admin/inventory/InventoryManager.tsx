@@ -13,14 +13,16 @@ import {
   deleteRecipeItem,
   fetchStockAdjustments,
   createStockAdjustment,
+  fetchWastageAdjustments,
   fetchMenuItems,
   type Ingredient,
   type RecipeItem,
   type StockAdjustment,
   type MenuItem,
+  type WastageReason,
 } from './inventoryApi'
 
-type Tab = 'ingredients' | 'recipes' | 'adjustments'
+type Tab = 'ingredients' | 'recipes' | 'adjustments' | 'wastage'
 
 type FeedbackType = 'success' | 'error'
 interface Feedback {
@@ -56,6 +58,7 @@ export default function InventoryManager(): JSX.Element {
   const [recipeItems, setRecipeItems] = useState<RecipeItem[]>([])
   const [adjustments, setAdjustments] = useState<StockAdjustment[]>([])
   const [menuItems, setMenuItems] = useState<MenuItem[]>([])
+  const [wastageRecords, setWastageRecords] = useState<StockAdjustment[]>([])
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ''
@@ -70,16 +73,18 @@ export default function InventoryManager(): JSX.Element {
 
   const loadData = useCallback(
     async (restId: string) => {
-      const [ings, recs, adjs, menus] = await Promise.all([
+      const [ings, recs, adjs, menus, wastage] = await Promise.all([
         fetchIngredients(supabaseUrl, supabaseKey, restId),
         fetchAllRecipeItems(supabaseUrl, supabaseKey),
         fetchStockAdjustments(supabaseUrl, supabaseKey, restId),
         fetchMenuItems(supabaseUrl, supabaseKey, restId),
+        fetchWastageAdjustments(supabaseUrl, supabaseKey, restId),
       ])
       setIngredients(ings)
       setRecipeItems(recs)
       setAdjustments(adjs)
       setMenuItems(menus)
+      setWastageRecords(wastage)
     },
     [supabaseUrl, supabaseKey],
   )
@@ -158,12 +163,13 @@ export default function InventoryManager(): JSX.Element {
       )}
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-zinc-800 p-1 rounded-xl w-fit">
+      <div className="flex gap-1 bg-zinc-800 p-1 rounded-xl w-fit flex-wrap">
         {(
           [
             { id: 'ingredients', label: '🥩 Ingredients' },
             { id: 'recipes', label: '📋 Recipes' },
             { id: 'adjustments', label: '📦 Adjustments' },
+            { id: 'wastage', label: '🗑 Wastage' },
           ] as { id: Tab; label: string }[]
         ).map(({ id, label }) => (
           <button
@@ -221,6 +227,20 @@ export default function InventoryManager(): JSX.Element {
           onRefresh={() => { void loadData(restaurantId) }}
         />
       )}
+
+      {tab === 'wastage' && (
+        <WastageTab
+          ingredients={ingredients}
+          wastageRecords={wastageRecords}
+          restaurantId={restaurantId}
+          supabaseUrl={supabaseUrl}
+          supabaseKey={supabaseKey}
+          submitting={submitting}
+          setSubmitting={setSubmitting}
+          showFeedback={showFeedback}
+          onRefresh={() => { void loadData(restaurantId) }}
+        />
+      )}
     </div>
   )
 }
@@ -253,7 +273,7 @@ function IngredientsTab({
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
   // Form state for add/edit
-  const emptyForm: IngredientFormState = { name: '', unit: 'pcs', current_stock: '', low_stock_threshold: '' }
+  const emptyForm: IngredientFormState = { name: '', unit: 'pcs', current_stock: '', low_stock_threshold: '', cost_per_unit: '' }
   const [form, setForm] = useState<IngredientFormState>(emptyForm)
   const [formError, setFormError] = useState('')
 
@@ -275,6 +295,7 @@ function IngredientsTab({
         unit: form.unit,
         current_stock: Number(form.current_stock),
         low_stock_threshold: Number(form.low_stock_threshold),
+        cost_per_unit: form.cost_per_unit !== '' ? Number(form.cost_per_unit) : null,
       })
       setForm(emptyForm)
       setShowAdd(false)
@@ -296,6 +317,7 @@ function IngredientsTab({
         unit: form.unit,
         current_stock: Number(form.current_stock),
         low_stock_threshold: Number(form.low_stock_threshold),
+        cost_per_unit: form.cost_per_unit !== '' ? Number(form.cost_per_unit) : null,
       })
       setEditingId(null)
       showFeedback('success', 'Ingredient updated.')
@@ -330,6 +352,7 @@ function IngredientsTab({
       unit: ing.unit,
       current_stock: String(ing.current_stock),
       low_stock_threshold: String(ing.low_stock_threshold),
+      cost_per_unit: ing.cost_per_unit != null ? String(ing.cost_per_unit) : '',
     })
     setFormError('')
     setShowAdd(false)
@@ -412,6 +435,9 @@ function IngredientsTab({
                     Stock: <span className={low ? 'text-red-400 font-semibold' : 'text-zinc-300'}>{formatQty(ing.current_stock)} {ing.unit}</span>
                     {' · '}
                     Threshold: {formatQty(ing.low_stock_threshold)} {ing.unit}
+                    {ing.cost_per_unit != null && (
+                      <> {' · '}Cost: <span className="text-zinc-300">{ing.cost_per_unit.toFixed(2)}/{ing.unit}</span></>
+                    )}
                   </div>
                 </div>
 
@@ -441,6 +467,7 @@ interface IngredientFormState {
   unit: 'g' | 'kg' | 'L' | 'ml' | 'pcs'
   current_stock: string
   low_stock_threshold: string
+  cost_per_unit: string
 }
 
 interface IngredientFormProps {
@@ -501,6 +528,18 @@ function IngredientForm({ form, setForm, formError, submitting, onSave, onCancel
             step="any"
             className="min-h-[48px] px-4 py-2 rounded-xl bg-zinc-800 text-white border border-zinc-600 focus:border-indigo-500 focus:outline-none"
             placeholder="0"
+          />
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-sm font-medium text-zinc-300">Cost per Unit <span className="text-zinc-500 font-normal">(optional)</span></label>
+          <input
+            type="number"
+            value={form.cost_per_unit}
+            onChange={(e) => setForm((f) => ({ ...f, cost_per_unit: e.target.value }))}
+            min="0"
+            step="any"
+            className="min-h-[48px] px-4 py-2 rounded-xl bg-zinc-800 text-white border border-zinc-600 focus:border-indigo-500 focus:outline-none"
+            placeholder="e.g. 1.50"
           />
         </div>
       </div>
@@ -819,6 +858,317 @@ function AdjustmentsTab({
                 <span className="text-xs bg-zinc-700 text-zinc-300 px-2 py-1 rounded-full shrink-0">
                   {REASON_LABELS[adj.reason] ?? adj.reason}
                 </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ── Wastage Tab ───────────────────────────────────────────────────────────────
+
+interface WastageTabProps {
+  ingredients: Ingredient[]
+  wastageRecords: StockAdjustment[]
+  restaurantId: string
+  supabaseUrl: string
+  supabaseKey: string
+  submitting: boolean
+  setSubmitting: (v: boolean) => void
+  showFeedback: (type: FeedbackType, msg: string) => void
+  onRefresh: () => void
+}
+
+const WASTAGE_REASONS: { value: WastageReason; label: string }[] = [
+  { value: 'spoiled', label: '🍂 Spoiled' },
+  { value: 'over-prepared', label: '🍳 Over-prepared' },
+  { value: 'dropped', label: '💧 Dropped' },
+  { value: 'expired', label: '📅 Expired' },
+]
+
+function WastageTab({
+  ingredients,
+  wastageRecords,
+  restaurantId,
+  supabaseUrl,
+  supabaseKey,
+  submitting,
+  setSubmitting,
+  showFeedback,
+  onRefresh,
+}: WastageTabProps): JSX.Element {
+  const today = new Date()
+  const weekAgo = new Date(today)
+  weekAgo.setDate(today.getDate() - 7)
+
+  const [form, setForm] = useState({
+    ingredient_id: '',
+    quantity: '',
+    wastage_reason: 'spoiled' as WastageReason,
+    occurred_at: new Date().toISOString().slice(0, 16), // datetime-local format
+  })
+  const [formError, setFormError] = useState('')
+
+  // Report filter
+  const [fromDate, setFromDate] = useState(weekAgo.toISOString().slice(0, 10))
+  const [toDate, setToDate] = useState(today.toISOString().slice(0, 10))
+  const [reportRecords, setReportRecords] = useState<StockAdjustment[]>(wastageRecords)
+  const [reportLoading, setReportLoading] = useState(false)
+
+  async function handleSubmit(): Promise<void> {
+    if (!form.ingredient_id) { setFormError('Select an ingredient'); return }
+    const qty = Number(form.quantity)
+    if (isNaN(qty) || qty <= 0) { setFormError('Enter a positive quantity to waste'); return }
+    setFormError('')
+    setSubmitting(true)
+    try {
+      await createStockAdjustment(supabaseUrl, supabaseKey, {
+        restaurant_id: restaurantId,
+        ingredient_id: form.ingredient_id,
+        quantity_delta: -qty, // wastage always deducts
+        reason: 'wastage',
+        wastage_reason: form.wastage_reason,
+        created_by: null,
+      })
+      const ingName = ingredients.find((i) => i.id === form.ingredient_id)?.name ?? ''
+      setForm((f) => ({ ...f, ingredient_id: '', quantity: '', occurred_at: new Date().toISOString().slice(0, 16) }))
+      showFeedback('success', `Wastage of ${formatQty(qty)} recorded for ${ingName}.`)
+      onRefresh()
+    } catch (err) {
+      showFeedback('error', err instanceof Error ? err.message : 'Failed to log wastage')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  async function loadReport(): Promise<void> {
+    setReportLoading(true)
+    try {
+      const records = await fetchWastageAdjustments(
+        supabaseUrl,
+        supabaseKey,
+        restaurantId,
+        fromDate ? `${fromDate}T00:00:00` : undefined,
+        toDate ? `${toDate}T23:59:59` : undefined,
+      )
+      setReportRecords(records)
+    } catch (err) {
+      showFeedback('error', err instanceof Error ? err.message : 'Failed to load wastage report')
+    } finally {
+      setReportLoading(false)
+    }
+  }
+
+  // Aggregate by ingredient
+  interface IngredientWaste {
+    name: string
+    unit: string
+    totalQty: number
+    totalCost: number | null
+    hasCost: boolean
+  }
+
+  const aggregated = reportRecords.reduce<Record<string, IngredientWaste>>((acc, r) => {
+    const name = r.ingredient_name ?? r.ingredient_id
+    const unit = r.ingredient_unit ?? ''
+    const qty = Math.abs(r.quantity_delta)
+    const costPerUnit = r.ingredient_cost_per_unit ?? null
+    if (!acc[name]) {
+      acc[name] = { name, unit, totalQty: 0, totalCost: costPerUnit != null ? 0 : null, hasCost: costPerUnit != null }
+    }
+    acc[name].totalQty += qty
+    if (acc[name].hasCost && costPerUnit != null) {
+      acc[name].totalCost = (acc[name].totalCost ?? 0) + qty * costPerUnit
+    }
+    return acc
+  }, {})
+
+  const ranked = Object.values(aggregated).sort((a, b) => b.totalQty - a.totalQty)
+  const maxQty = ranked.length > 0 ? ranked[0].totalQty : 1
+
+  const WASTAGE_REASON_LABELS: Record<WastageReason, string> = {
+    spoiled: '🍂 Spoiled',
+    'over-prepared': '🍳 Over-prepared',
+    dropped: '💧 Dropped',
+    expired: '📅 Expired',
+  }
+
+  return (
+    <div className="flex flex-col gap-8">
+      {/* ── Entry Form ────────────────────────────────── */}
+      <div className="bg-zinc-800 border border-zinc-700 rounded-2xl p-5 flex flex-col gap-4">
+        <h2 className="text-base font-semibold text-white">Log Wastage</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="flex flex-col gap-1">
+            <label className="text-sm font-medium text-zinc-300">Ingredient <span className="text-red-400">*</span></label>
+            <select
+              value={form.ingredient_id}
+              onChange={(e) => setForm((f) => ({ ...f, ingredient_id: e.target.value }))}
+              className="min-h-[48px] px-4 py-2 rounded-xl bg-zinc-900 text-white border border-zinc-600 focus:border-indigo-500 focus:outline-none"
+            >
+              <option value="">— select —</option>
+              {ingredients.map((i) => (
+                <option key={i.id} value={i.id}>{i.name} ({i.unit})</option>
+              ))}
+            </select>
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-sm font-medium text-zinc-300">Quantity Wasted <span className="text-red-400">*</span></label>
+            <input
+              type="number"
+              value={form.quantity}
+              onChange={(e) => setForm((f) => ({ ...f, quantity: e.target.value }))}
+              min="0.001"
+              step="any"
+              placeholder="e.g. 2.5"
+              className="min-h-[48px] px-4 py-2 rounded-xl bg-zinc-900 text-white border border-zinc-600 focus:border-indigo-500 focus:outline-none"
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-sm font-medium text-zinc-300">Reason</label>
+            <select
+              value={form.wastage_reason}
+              onChange={(e) => setForm((f) => ({ ...f, wastage_reason: e.target.value as WastageReason }))}
+              className="min-h-[48px] px-4 py-2 rounded-xl bg-zinc-900 text-white border border-zinc-600 focus:border-indigo-500 focus:outline-none"
+            >
+              {WASTAGE_REASONS.map((r) => (
+                <option key={r.value} value={r.value}>{r.label}</option>
+              ))}
+            </select>
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-sm font-medium text-zinc-300">Date &amp; Time</label>
+            <input
+              type="datetime-local"
+              value={form.occurred_at}
+              onChange={(e) => setForm((f) => ({ ...f, occurred_at: e.target.value }))}
+              className="min-h-[48px] px-4 py-2 rounded-xl bg-zinc-900 text-white border border-zinc-600 focus:border-indigo-500 focus:outline-none"
+            />
+          </div>
+        </div>
+        {formError && <p className="text-sm text-red-400">{formError}</p>}
+        <div>
+          <button
+            onClick={() => { void handleSubmit() }}
+            disabled={submitting}
+            className="min-h-[48px] px-6 py-2 rounded-xl bg-red-700 text-white font-medium hover:bg-red-600 disabled:opacity-50 transition-colors"
+          >
+            Log Wastage
+          </button>
+        </div>
+      </div>
+
+      {/* ── Report ────────────────────────────────────── */}
+      <div className="flex flex-col gap-4">
+        <div className="flex items-center gap-4 flex-wrap">
+          <h2 className="text-base font-semibold text-white">Wastage Report</h2>
+          <div className="flex items-center gap-2 flex-wrap">
+            <input
+              type="date"
+              value={fromDate}
+              onChange={(e) => setFromDate(e.target.value)}
+              className="min-h-[40px] px-3 py-1.5 rounded-xl bg-zinc-800 text-white border border-zinc-600 focus:border-indigo-500 focus:outline-none text-sm"
+            />
+            <span className="text-zinc-500 text-sm">to</span>
+            <input
+              type="date"
+              value={toDate}
+              onChange={(e) => setToDate(e.target.value)}
+              className="min-h-[40px] px-3 py-1.5 rounded-xl bg-zinc-800 text-white border border-zinc-600 focus:border-indigo-500 focus:outline-none text-sm"
+            />
+            <button
+              onClick={() => { void loadReport() }}
+              disabled={reportLoading}
+              className="min-h-[40px] px-4 py-1.5 rounded-xl bg-zinc-700 text-white text-sm font-medium hover:bg-zinc-600 disabled:opacity-50 transition-colors"
+            >
+              {reportLoading ? 'Loading…' : 'Apply'}
+            </button>
+          </div>
+        </div>
+
+        {/* Summary cards */}
+        {ranked.length > 0 && (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-4">
+              <p className="text-xs text-zinc-500 uppercase tracking-wide font-semibold">Total Events</p>
+              <p className="text-2xl font-bold text-white mt-1">{reportRecords.length}</p>
+            </div>
+            <div className="bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-4">
+              <p className="text-xs text-zinc-500 uppercase tracking-wide font-semibold">Ingredients Affected</p>
+              <p className="text-2xl font-bold text-white mt-1">{ranked.length}</p>
+            </div>
+            <div className="bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-4 col-span-2">
+              <p className="text-xs text-zinc-500 uppercase tracking-wide font-semibold">Est. Total Cost</p>
+              <p className="text-2xl font-bold text-white mt-1">
+                {ranked.some((r) => r.hasCost)
+                  ? ranked.filter((r) => r.hasCost).reduce((sum, r) => sum + (r.totalCost ?? 0), 0).toFixed(2)
+                  : '—'}
+              </p>
+              {!ranked.some((r) => r.hasCost) && (
+                <p className="text-xs text-zinc-500 mt-0.5">Set cost_per_unit on ingredients to see cost estimates</p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Ranked bar chart */}
+        {ranked.length === 0 ? (
+          <p className="text-zinc-500 text-sm">No wastage recorded in this period.</p>
+        ) : (
+          <div className="bg-zinc-800 border border-zinc-700 rounded-2xl p-5 flex flex-col gap-3">
+            <h3 className="text-sm font-semibold text-zinc-300 uppercase tracking-wide">Most Wasted Ingredients</h3>
+            <div className="flex flex-col gap-3">
+              {ranked.map((r) => (
+                <div key={r.name} className="flex flex-col gap-1">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="font-medium text-white">{r.name}</span>
+                    <span className="text-zinc-400">
+                      {formatQty(r.totalQty)} {r.unit}
+                      {r.hasCost && r.totalCost != null && (
+                        <span className="text-zinc-500 ml-2">· {r.totalCost.toFixed(2)}</span>
+                      )}
+                    </span>
+                  </div>
+                  <div className="w-full bg-zinc-700 rounded-full h-2">
+                    <div
+                      className="bg-red-500 h-2 rounded-full transition-all"
+                      style={{ width: `${(r.totalQty / maxQty) * 100}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Recent log */}
+        {reportRecords.length > 0 && (
+          <div className="flex flex-col gap-2">
+            <h3 className="text-sm font-semibold text-zinc-400 uppercase tracking-wide">Recent Entries</h3>
+            {reportRecords.slice(0, 50).map((r) => (
+              <div
+                key={r.id}
+                className="bg-zinc-800 border border-zinc-700 rounded-xl px-5 py-3 flex items-center gap-4 flex-wrap"
+              >
+                <div className="flex-1 min-w-0">
+                  <span className="font-semibold text-white">{r.ingredient_name ?? r.ingredient_id}</span>
+                  <span className="text-xs text-zinc-500 ml-2">{new Date(r.created_at).toLocaleString()}</span>
+                </div>
+                <span className="text-sm font-bold text-red-400 shrink-0">
+                  −{formatQty(Math.abs(r.quantity_delta))} {r.ingredient_unit ?? ''}
+                </span>
+                {r.wastage_reason && (
+                  <span className="text-xs bg-zinc-700 text-zinc-300 px-2 py-1 rounded-full shrink-0">
+                    {WASTAGE_REASON_LABELS[r.wastage_reason] ?? r.wastage_reason}
+                  </span>
+                )}
+                {r.ingredient_cost_per_unit != null && (
+                  <span className="text-xs text-zinc-500 shrink-0">
+                    Cost: {(Math.abs(r.quantity_delta) * r.ingredient_cost_per_unit).toFixed(2)}
+                  </span>
+                )}
               </div>
             ))}
           </div>

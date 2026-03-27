@@ -28,12 +28,39 @@ export interface DiscountSummary {
   comp_order_count: number
 }
 
+export interface CompDetailItem {
+  type: 'item' | 'order'
+  item_name: string
+  quantity: number
+  unit_price_cents: number
+  total_value_cents: number
+  reason: string | null
+  authorised_by: string | null
+  date: string
+}
+
+export interface CompByItem {
+  item_name: string
+  quantity: number
+  total_value_cents: number
+  count: number
+}
+
+export interface CompDetail {
+  items: CompDetailItem[]
+  total_comp_value_cents: number
+  comp_item_value_cents: number
+  comp_order_value_cents: number
+  top_comped_items: CompByItem[]
+}
+
 export interface ReportData {
   summary: ReportSummary
   revenue_by_day: RevenueByDay[]
   top_items: TopItem[]
   payment_breakdown: PaymentBreakdown[]
   discount_summary: DiscountSummary
+  comp_detail?: CompDetail
 }
 
 interface GetReportsResponse {

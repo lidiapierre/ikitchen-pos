@@ -92,6 +92,42 @@ interface OrderItemRow {
   menu_items: { name: string } | null
 }
 
+interface CompItemRow {
+  id: string
+  menu_item_id: string
+  quantity: number
+  unit_price_cents: number
+  comp_reason: string | null
+  created_at: string
+  menu_items: { name: string } | null
+  orders: {
+    id: string
+    created_at: string
+    status: string
+  } | null
+}
+
+interface CompOrderRow {
+  id: string
+  order_comp_reason: string | null
+  order_comp_by: string | null
+  created_at: string
+  order_items: Array<{
+    id: string
+    menu_item_id: string
+    quantity: number
+    unit_price_cents: number
+    voided: boolean
+    menu_items: { name: string } | null
+  }>
+}
+
+interface UserRow {
+  id: string
+  name: string | null
+  email: string
+}
+
 export async function handler(
   req: Request,
   fetchFn: FetchFn = fetch,
@@ -250,6 +286,135 @@ export async function handler(
         .map(i => ({ name: i.name, quantity_sold: i.quantity, revenue_cents: i.revenue }))
     }
 
+    // 6. Comp item detail — item-level comps
+    const compItemsRes = await fetchFn(
+      `${supabaseUrl}/rest/v1/order_items?select=id,menu_item_id,quantity,unit_price_cents,comp_reason,created_at,menu_items(name),orders!inner(id,created_at,status)&comp=eq.true&orders.status=eq.paid&orders.created_at=gte.${encodeURIComponent(start)}&orders.created_at=lte.${encodeURIComponent(end)}&limit=10000`,
+      { headers: dbHeaders },
+    )
+
+    // 7. Comp item detail — order-level comps
+    const compOrdersRes = await fetchFn(
+      `${supabaseUrl}/rest/v1/orders?select=id,order_comp_reason,order_comp_by,created_at,order_items(id,menu_item_id,quantity,unit_price_cents,voided,menu_items(name))&order_comp=eq.true&status=eq.paid&created_at=gte.${encodeURIComponent(start)}&created_at=lte.${encodeURIComponent(end)}&limit=1000`,
+      { headers: dbHeaders },
+    )
+
+    // Collect all user IDs that authorised order-level comps
+    type CompDetailItem = {
+      type: 'item' | 'order'
+      item_name: string
+      quantity: number
+      unit_price_cents: number
+      total_value_cents: number
+      reason: string | null
+      authorised_by: string | null
+      date: string
+    }
+
+    const compItems: CompDetailItem[] = []
+    const compByItemMap: Record<string, { item_name: string; quantity: number; total_value_cents: number; count: number }> = {}
+    let totalCompValueCents = 0
+    let compItemValueCents = 0
+    let compOrderValueCents = 0
+
+    // Process item-level comps
+    if (compItemsRes.ok) {
+      const rawCompItems = (await compItemsRes.json()) as CompItemRow[]
+      for (const ci of rawCompItems) {
+        const itemName = ci.menu_items?.name ?? ci.menu_item_id
+        const totalVal = ci.quantity * ci.unit_price_cents
+        compItemValueCents += totalVal
+        totalCompValueCents += totalVal
+
+        const orderDate = (ci.orders as { created_at: string } | null)?.created_at ?? ci.created_at
+
+        compItems.push({
+          type: 'item',
+          item_name: itemName,
+          quantity: ci.quantity,
+          unit_price_cents: ci.unit_price_cents,
+          total_value_cents: totalVal,
+          reason: ci.comp_reason,
+          authorised_by: null, // item-level comps don't store who did it
+          date: orderDate,
+        })
+
+        // Aggregate by item
+        if (!compByItemMap[itemName]) {
+          compByItemMap[itemName] = { item_name: itemName, quantity: 0, total_value_cents: 0, count: 0 }
+        }
+        compByItemMap[itemName].quantity += ci.quantity
+        compByItemMap[itemName].total_value_cents += totalVal
+        compByItemMap[itemName].count += 1
+      }
+    }
+
+    // Process order-level comps; resolve authorised_by names
+    const authorisedByIds: string[] = []
+    let compOrderRows: CompOrderRow[] = []
+    if (compOrdersRes.ok) {
+      compOrderRows = (await compOrdersRes.json()) as CompOrderRow[]
+      for (const co of compOrderRows) {
+        if (co.order_comp_by && !authorisedByIds.includes(co.order_comp_by)) {
+          authorisedByIds.push(co.order_comp_by)
+        }
+      }
+    }
+
+    // Fetch user names for authorised_by IDs
+    const userNameMap: Record<string, string> = {}
+    if (authorisedByIds.length > 0) {
+      const usersRes = await fetchFn(
+        `${supabaseUrl}/rest/v1/users?select=id,name,email&id=in.(${authorisedByIds.join(',')})`,
+        { headers: dbHeaders },
+      )
+      if (usersRes.ok) {
+        const users = (await usersRes.json()) as UserRow[]
+        for (const u of users) {
+          userNameMap[u.id] = u.name ?? u.email
+        }
+      }
+    }
+
+    // Build comp detail for order-level comps
+    for (const co of compOrderRows) {
+      const authorisedBy = co.order_comp_by ? (userNameMap[co.order_comp_by] ?? co.order_comp_by) : null
+      const nonVoidedItems = co.order_items.filter(oi => !oi.voided)
+
+      for (const oi of nonVoidedItems) {
+        const itemName = oi.menu_items?.name ?? oi.menu_item_id
+        const totalVal = oi.quantity * oi.unit_price_cents
+        compOrderValueCents += totalVal
+        totalCompValueCents += totalVal
+
+        compItems.push({
+          type: 'order',
+          item_name: itemName,
+          quantity: oi.quantity,
+          unit_price_cents: oi.unit_price_cents,
+          total_value_cents: totalVal,
+          reason: co.order_comp_reason,
+          authorised_by: authorisedBy,
+          date: co.created_at,
+        })
+
+        // Aggregate by item
+        if (!compByItemMap[itemName]) {
+          compByItemMap[itemName] = { item_name: itemName, quantity: 0, total_value_cents: 0, count: 0 }
+        }
+        compByItemMap[itemName].quantity += oi.quantity
+        compByItemMap[itemName].total_value_cents += totalVal
+        compByItemMap[itemName].count += 1
+      }
+    }
+
+    // Sort comp items by date descending
+    compItems.sort((a, b) => b.date.localeCompare(a.date))
+
+    // Top comped items by total value
+    const topCompedItems = Object.values(compByItemMap)
+      .sort((a, b) => b.total_value_cents - a.total_value_cents)
+      .slice(0, 10)
+
     return new Response(
       JSON.stringify({
         success: true,
@@ -267,6 +432,13 @@ export async function handler(
             discount_order_count: discountOrderCount,
             total_discount_cents: totalDiscountCents,
             comp_order_count: compOrderCount,
+          },
+          comp_detail: {
+            items: compItems,
+            total_comp_value_cents: totalCompValueCents,
+            comp_item_value_cents: compItemValueCents,
+            comp_order_value_cents: compOrderValueCents,
+            top_comped_items: topCompedItems,
           },
         },
       }),

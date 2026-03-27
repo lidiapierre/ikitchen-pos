@@ -17,6 +17,7 @@ import {
   Store,
   Settings,
   Heart,
+  CalendarDays,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -42,6 +43,7 @@ const NAV_SECTIONS: NavSection[] = [
       { href: '/admin/inventory', label: 'Inventory', icon: Package },
       { href: '/admin/reports', label: 'Reports', icon: BarChart2 },
       { href: '/admin/customers', label: 'Customers', icon: Heart },
+      { href: '/admin/reservations', label: 'Reservations', icon: CalendarDays },
       { href: '/admin/api-keys', label: 'API Keys', icon: KeyRound },
     ],
   },

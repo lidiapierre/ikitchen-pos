@@ -35,6 +35,12 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
 
   const { pathname } = request.nextUrl
 
+  // /kitchen is a PIN-protected (or open) display page for kitchen devices.
+  // It handles its own lightweight auth so the standard JWT middleware is skipped.
+  if (pathname.startsWith('/kitchen')) {
+    return supabaseResponse
+  }
+
   // Authenticated user hitting /login → redirect to /tables
   if (user !== null && pathname === '/login') {
     const url = request.nextUrl.clone()

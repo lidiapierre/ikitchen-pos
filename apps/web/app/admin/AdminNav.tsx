@@ -17,6 +17,7 @@ const NAV_LINKS: NavLink[] = [
   { href: '/admin/users', label: 'Users' },
   { href: '/admin/reports', label: '📊 Reports' },
   { href: '/admin/settings/printer', label: '🖨 Printer' },
+  { href: '/admin/settings/kds', label: '📺 KDS' },
   { href: '/admin/restaurants', label: '🏢 Restaurants' },
   { href: '/admin/api-keys', label: '🔑 API Keys' },
 ]

@@ -46,6 +46,12 @@ export function calcItemDiscountCents(item: Pick<OrderItem, 'quantity' | 'price_
 export interface OrderSummary {
   status: string
   payment_method: string | null
+  /** Order type — dine_in (default), takeaway, or delivery */
+  order_type: 'dine_in' | 'takeaway' | 'delivery'
+  /** Customer name for delivery orders */
+  customer_name: string | null
+  /** Delivery address/note for delivery orders */
+  delivery_note: string | null
 }
 
 interface OrderItemRow {
@@ -187,7 +193,7 @@ export async function fetchOrderSummary(
 
   const orderUrl = new URL(`${supabaseUrl}/rest/v1/orders`)
   orderUrl.searchParams.set('id', `eq.${orderId}`)
-  orderUrl.searchParams.set('select', 'status')
+  orderUrl.searchParams.set('select', 'status,order_type,customer_name,delivery_note')
 
   const orderRes = await fetch(orderUrl.toString(), { headers })
   if (!orderRes.ok) {
@@ -195,14 +201,29 @@ export async function fetchOrderSummary(
     throw new Error(`Failed to fetch order: ${orderRes.status} ${orderRes.statusText} — ${body}`)
   }
 
-  const orders = (await orderRes.json()) as Array<{ status: string }>
+  const orders = (await orderRes.json()) as Array<{
+    status: string
+    order_type: string | null
+    customer_name: string | null
+    delivery_note: string | null
+  }>
   if (orders.length === 0) {
     throw new Error('Order not found')
   }
 
   const { status } = orders[0]
+  const orderType = (orders[0].order_type ?? 'dine_in') as 'dine_in' | 'takeaway' | 'delivery'
+  const customerName = orders[0].customer_name ?? null
+  const deliveryNote = orders[0].delivery_note ?? null
+
   if (status !== 'paid') {
-    return { status, payment_method: null }
+    return {
+      status,
+      payment_method: null,
+      order_type: orderType,
+      customer_name: customerName,
+      delivery_note: deliveryNote,
+    }
   }
 
   const paymentUrl = new URL(`${supabaseUrl}/rest/v1/payments`)
@@ -212,12 +233,21 @@ export async function fetchOrderSummary(
 
   const paymentRes = await fetch(paymentUrl.toString(), { headers })
   if (!paymentRes.ok) {
-    return { status, payment_method: null }
+    return {
+      status,
+      payment_method: null,
+      order_type: orderType,
+      customer_name: customerName,
+      delivery_note: deliveryNote,
+    }
   }
 
   const payments = (await paymentRes.json()) as Array<{ method: string }>
   return {
     status,
     payment_method: payments.length > 0 ? payments[0].method : null,
+    order_type: orderType,
+    customer_name: customerName,
+    delivery_note: deliveryNote,
   }
 }

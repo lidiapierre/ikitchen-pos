@@ -65,14 +65,26 @@ export async function handler(
   }
 
   const payload = body as Record<string, unknown>
-  if (typeof payload['table_id'] !== 'string' || payload['table_id'] === '') {
+
+  // Parse order_type (default to dine_in for backward compatibility)
+  const orderType = (payload['order_type'] as string | undefined) ?? 'dine_in'
+  if (!['dine_in', 'takeaway', 'delivery'].includes(orderType)) {
     return new Response(
-      JSON.stringify({ success: false, error: 'table_id is required and must be a non-empty string' }),
+      JSON.stringify({ success: false, error: 'order_type must be dine_in, takeaway, or delivery' }),
       { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
     )
   }
 
-  const tableId = payload['table_id'] as string
+  const customerName = (payload['customer_name'] as string | undefined) ?? null
+  const deliveryNote = (payload['delivery_note'] as string | undefined) ?? null
+
+  // Delivery orders require customer_name
+  if (orderType === 'delivery' && (!customerName || customerName.trim() === '')) {
+    return new Response(
+      JSON.stringify({ success: false, error: 'customer_name is required for delivery orders' }),
+      { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    )
+  }
 
   const { supabaseUrl, serviceKey } = env
   const dbHeaders = {
@@ -83,38 +95,82 @@ export async function handler(
   }
 
   try {
-    // 1. Fetch table to verify it exists and get restaurant_id
-    const tableRes = await fetchFn(
-      `${supabaseUrl}/rest/v1/tables?select=id,restaurant_id&id=eq.${tableId}`,
-      { headers: dbHeaders },
-    )
-    if (!tableRes.ok) {
-      return new Response(
-        JSON.stringify({ success: false, error: 'Failed to fetch table' }),
-        { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
-      )
-    }
-    const tables = (await tableRes.json()) as Array<{ id: string; restaurant_id: string }>
-    if (tables.length === 0) {
-      return new Response(
-        JSON.stringify({ success: false, error: 'Table not found' }),
-        { status: 404, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
-      )
-    }
-    const restaurantId = tables[0].restaurant_id
+    let restaurantId: string
+    let tableId: string | null = null
 
-    // 2. Insert the new order, capturing the server who created it
+    if (orderType === 'dine_in') {
+      // Dine-in: table_id required — unchanged existing behaviour
+      if (typeof payload['table_id'] !== 'string' || payload['table_id'] === '') {
+        return new Response(
+          JSON.stringify({ success: false, error: 'table_id is required for dine_in orders' }),
+          { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+        )
+      }
+      tableId = payload['table_id'] as string
+
+      // Fetch table to verify it exists and get restaurant_id
+      const tableRes = await fetchFn(
+        `${supabaseUrl}/rest/v1/tables?select=id,restaurant_id&id=eq.${tableId}`,
+        { headers: dbHeaders },
+      )
+      if (!tableRes.ok) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Failed to fetch table' }),
+          { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+        )
+      }
+      const tables = (await tableRes.json()) as Array<{ id: string; restaurant_id: string }>
+      if (tables.length === 0) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Table not found' }),
+          { status: 404, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+        )
+      }
+      restaurantId = tables[0].restaurant_id
+    } else {
+      // Takeaway / Delivery: no table required — get restaurant_id from the user's record
+      const userRes = await fetchFn(
+        `${supabaseUrl}/rest/v1/users?select=restaurant_id&id=eq.${encodeURIComponent(caller.actorId)}&limit=1`,
+        { headers: dbHeaders },
+      )
+      if (!userRes.ok) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Failed to fetch user restaurant' }),
+          { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+        )
+      }
+      const users = (await userRes.json()) as Array<{ restaurant_id: string }>
+      if (users.length === 0) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'User not found' }),
+          { status: 404, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+        )
+      }
+      restaurantId = users[0].restaurant_id
+
+      // Accept optional table_id for future flexibility, but do not require it
+      if (typeof payload['table_id'] === 'string' && payload['table_id'] !== '') {
+        tableId = payload['table_id'] as string
+      }
+    }
+
+    // Insert the new order
+    const insertBody: Record<string, unknown> = {
+      restaurant_id: restaurantId,
+      status: 'open',
+      server_id: caller.actorId,
+      order_type: orderType,
+    }
+    if (tableId !== null) insertBody['table_id'] = tableId
+    if (customerName !== null) insertBody['customer_name'] = customerName
+    if (deliveryNote !== null) insertBody['delivery_note'] = deliveryNote
+
     const insertRes = await fetchFn(
       `${supabaseUrl}/rest/v1/orders`,
       {
         method: 'POST',
         headers: dbHeaders,
-        body: JSON.stringify({
-          restaurant_id: restaurantId,
-          table_id: tableId,
-          status: 'open',
-          server_id: caller.actorId,
-        }),
+        body: JSON.stringify(insertBody),
       },
     )
     if (!insertRes.ok) {

@@ -14,8 +14,8 @@ const REFRESH_INTERVAL_MS = 30_000
 
 const STATUS_LEGEND: { status: TableStatus; label: string; dotClass: string }[] = [
   { status: 'available', label: 'Empty', dotClass: 'bg-zinc-500' },
-  { status: 'occupied', label: 'Occupied', dotClass: 'bg-green-500' },
-  { status: 'bill_requested', label: 'Bill Requested', dotClass: 'bg-orange-500' },
+  { status: 'seated', label: 'Seated', dotClass: 'bg-blue-500' },
+  { status: 'ordered', label: 'Ordered', dotClass: 'bg-amber-500' },
   { status: 'overdue', label: 'Overdue (>2h)', dotClass: 'bg-red-500' },
 ]
 

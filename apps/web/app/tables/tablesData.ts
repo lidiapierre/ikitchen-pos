@@ -4,6 +4,8 @@ export interface TableRow {
   open_order_id: string | null
   order_status: string | null
   order_created_at: string | null
+  /** Count of non-voided items on the active order; null when no active order. */
+  order_item_count: number | null
 }
 
 interface TableApiRow {
@@ -58,6 +60,27 @@ export async function fetchTables(
     }
   }
 
+  // Fetch non-voided item counts for all active orders (to distinguish seated vs ordered)
+  const itemCountByOrder = new Map<string, number>()
+  const orderIds = orders.map((o) => o.id)
+  if (orderIds.length > 0) {
+    const itemsUrl = new URL(`${supabaseUrl}/rest/v1/order_items`)
+    itemsUrl.searchParams.set('select', 'order_id')
+    itemsUrl.searchParams.set('voided', 'eq.false')
+    itemsUrl.searchParams.set('order_id', `in.(${orderIds.join(',')})`)
+
+    const itemsRes = await fetch(itemsUrl.toString(), { headers })
+    if (!itemsRes.ok) {
+      const body = await itemsRes.text()
+      throw new Error(`Failed to fetch order items: ${itemsRes.status} ${itemsRes.statusText} — ${body}`)
+    }
+
+    const items = (await itemsRes.json()) as Array<{ order_id: string }>
+    for (const item of items) {
+      itemCountByOrder.set(item.order_id, (itemCountByOrder.get(item.order_id) ?? 0) + 1)
+    }
+  }
+
   return tables.map((table) => {
     const order = openOrderByTable.get(table.id)
     return {
@@ -66,6 +89,7 @@ export async function fetchTables(
       open_order_id: order?.id ?? null,
       order_status: order?.status ?? null,
       order_created_at: order?.created_at ?? null,
+      order_item_count: order !== undefined ? (itemCountByOrder.get(order.id) ?? 0) : null,
     }
   })
 }

@@ -10,14 +10,15 @@ vi.mock('next/navigation', () => ({
   useRouter: (): { push: (url: string) => void } => ({ push: mockPush }),
 }))
 
-const emptyTable: TableRow = { id: 'table-uuid-001', label: '1', open_order_id: null, order_status: null, order_created_at: null }
-// order_created_at is 30 min ago so it always resolves to 'occupied' (not overdue)
+const emptyTable: TableRow = { id: 'table-uuid-001', label: '1', open_order_id: null, order_status: null, order_created_at: null, order_item_count: null }
+// order_created_at is 30 min ago and has items, so resolves to 'ordered' (not overdue)
 const occupiedTable: TableRow = {
   id: 'table-uuid-002',
   label: '2',
   open_order_id: 'order-abc-123',
   order_status: 'open',
   order_created_at: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
+  order_item_count: 2,
 }
 
 describe('TableCard', () => {
@@ -191,9 +192,9 @@ describe('TableCard', () => {
       expect(screen.getByText('Empty')).toBeInTheDocument()
     })
 
-    it('renders "Occupied" status for an occupied table', () => {
+    it('renders "Ordered" status for a table with an active order and items', () => {
       render(<TableCard table={occupiedTable} />)
-      expect(screen.getByText('Occupied')).toBeInTheDocument()
+      expect(screen.getByText('Ordered')).toBeInTheDocument()
     })
   })
 })

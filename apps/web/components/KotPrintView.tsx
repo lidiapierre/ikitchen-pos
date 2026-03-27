@@ -9,22 +9,51 @@ interface KotPrintViewProps {
   timestamp: string
   /** When true, prints all items instead of only unsent items (used for reprint). */
   showAll?: boolean
+  /**
+   * When set, only items matching this course are printed and a course header is shown.
+   * Used when firing a specific course (e.g. "STARTER").
+   */
+  courseFilter?: 'starter' | 'main' | 'dessert'
 }
 
-export default function KotPrintView({ tableLabel, orderId, items, timestamp, showAll = false }: KotPrintViewProps): JSX.Element {
-  const displayItems = showAll ? items : items.filter((item) => !item.sent_to_kitchen)
+const COURSE_LABELS: Record<string, string> = {
+  starter: 'STARTER',
+  main: 'MAIN',
+  dessert: 'DESSERT',
+}
+
+export default function KotPrintView({
+  tableLabel,
+  orderId,
+  items,
+  timestamp,
+  showAll = false,
+  courseFilter,
+}: KotPrintViewProps): JSX.Element {
+  // Base filter: unsent items (or all for reprint)
+  let displayItems = showAll ? items : items.filter((item) => !item.sent_to_kitchen)
+
+  // Apply course filter when firing a specific course
+  if (courseFilter !== undefined) {
+    displayItems = displayItems.filter((item) => item.course === courseFilter)
+  }
 
   return (
     <div aria-hidden="true" className="hidden print:block font-mono text-black bg-white p-2 w-full max-w-xs">
       <div className="text-center mb-2">
         <p className="text-base font-bold">Lahore by iKitchen</p>
         <p className="text-sm">KITCHEN ORDER TICKET</p>
-        {showAll && <p className="text-xs">(REPRINT)</p>}
+        {showAll && !courseFilter && <p className="text-xs">(REPRINT)</p>}
       </div>
       <div className="border-t border-b border-black py-1 mb-2 text-sm">
         <p>Table: {tableLabel}</p>
         <p>Order: {orderId.slice(0, 8)}</p>
         <p>Time: {timestamp}</p>
+        {courseFilter !== undefined && (
+          <p className="font-bold text-base mt-1">
+            ── {COURSE_LABELS[courseFilter] ?? courseFilter.toUpperCase()} ──
+          </p>
+        )}
       </div>
       <ul className="space-y-2">
         {displayItems.map((item) => (

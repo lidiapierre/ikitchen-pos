@@ -198,7 +198,7 @@ test.describe('void item flow', () => {
     await expect(page.getByRole('heading', { name: 'Void Item' })).toBeVisible();
 
     // Cancel the dialog
-    await page.getByRole('button', { name: /Cancel/i }).click();
+    await page.getByRole('button', { name: 'Cancel', exact: true }).click();
 
     // Both items must still be present
     await expect(page.getByText('Chicken Tikka', { exact: true })).toBeVisible();

@@ -17,6 +17,7 @@ const NAV_LINKS: NavLink[] = [
   { href: '/admin/users', label: 'Users' },
   { href: '/admin/reports', label: '📊 Reports' },
   { href: '/admin/settings/printer', label: '🖨 Printer' },
+  { href: '/admin/restaurants', label: '🏢 Restaurants' },
 ]
 
 export default function AdminNav(): JSX.Element {

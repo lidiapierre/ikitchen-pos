@@ -2,6 +2,9 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { isAdminRole, type UserRole } from '@/lib/user-role'
 
+/** Routes that require is_super_admin = true (in addition to any admin role). */
+const SUPER_ADMIN_PATHS = ['/admin/restaurants']
+
 export async function middleware(request: NextRequest): Promise<NextResponse> {
   let supabaseResponse = NextResponse.next({ request })
 
@@ -53,17 +56,28 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
     // role key is needed and Vercel does not require SUPABASE_SERVICE_ROLE_KEY.
     const { data, error } = await supabase
       .from('users')
-      .select('role')
+      .select('role, is_super_admin')
       .eq('id', user.id)
       .single()
 
     const VALID_ROLES: UserRole[] = ['owner', 'manager', 'server', 'kitchen']
     const raw = (error === null && data !== null) ? (data as { role: string }).role : null
     const role = (raw !== null && VALID_ROLES.includes(raw as UserRole)) ? (raw as UserRole) : null
+    const isSuperAdmin = (error === null && data !== null)
+      ? Boolean((data as { is_super_admin?: boolean }).is_super_admin)
+      : false
 
     if (!isAdminRole(role)) {
       const url = request.nextUrl.clone()
       url.pathname = '/tables'
+      return NextResponse.redirect(url)
+    }
+
+    // Super-admin-only routes: redirect non-super-admins back to /admin
+    const requiresSuperAdmin = SUPER_ADMIN_PATHS.some((p) => pathname.startsWith(p))
+    if (requiresSuperAdmin && !isSuperAdmin) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/admin'
       return NextResponse.redirect(url)
     }
   }

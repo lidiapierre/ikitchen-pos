@@ -142,7 +142,7 @@ test.describe('KOT reprint button', () => {
     page.on('pageerror', (err) => errors.push(err.message));
 
     await page.goto(`/tables/${TABLE_ID}/order/${ORDER_ID}`);
-    await expect(page.getByText('Test Dish', { exact: true }).first()).toBeVisible();
+    await expect(page.getByText('Test Dish', { exact: true }).last()).toBeVisible();
     await expect(page.getByRole('button', { name: /Reprint KOT/i })).toBeVisible();
 
     expect(errors).toHaveLength(0);
@@ -153,7 +153,7 @@ test.describe('KOT reprint button', () => {
     page.on('pageerror', (err) => errors.push(err.message));
 
     await page.goto(`/tables/${TABLE_ID}/order/${ORDER_ID}`);
-    await expect(page.getByText('Test Dish', { exact: true }).first()).toBeVisible();
+    await expect(page.getByText('Test Dish', { exact: true }).last()).toBeVisible();
 
     const reprintBtn = page.getByRole('button', { name: /Reprint KOT/i });
     await expect(reprintBtn).toBeVisible();
@@ -165,7 +165,7 @@ test.describe('KOT reprint button', () => {
 
   test('Reprint KOT button has at least 48px height (touch target)', async ({ page }) => {
     await page.goto(`/tables/${TABLE_ID}/order/${ORDER_ID}`);
-    await expect(page.getByText('Test Dish', { exact: true }).first()).toBeVisible();
+    await expect(page.getByText('Test Dish', { exact: true }).last()).toBeVisible();
 
     const box = await page.getByRole('button', { name: /Reprint KOT/i }).boundingBox();
     expect(box?.height).toBeGreaterThanOrEqual(48);
@@ -180,7 +180,7 @@ test.describe('KOT reprint button', () => {
     });
 
     await page.goto(`/tables/${TABLE_ID}/order/${ORDER_ID}`);
-    await expect(page.getByText('Test Dish', { exact: true }).first()).toBeVisible();
+    await expect(page.getByText('Test Dish', { exact: true }).last()).toBeVisible();
 
     await page.getByRole('button', { name: /Reprint KOT/i }).click();
     await page.waitForTimeout(600);

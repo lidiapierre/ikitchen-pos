@@ -103,7 +103,7 @@ export async function handler(
     }
     const restaurantId = tables[0].restaurant_id
 
-    // 2. Insert the new order
+    // 2. Insert the new order, capturing the server who created it
     const insertRes = await fetchFn(
       `${supabaseUrl}/rest/v1/orders`,
       {
@@ -113,6 +113,7 @@ export async function handler(
           restaurant_id: restaurantId,
           table_id: tableId,
           status: 'open',
+          server_id: caller.actorId,
         }),
       },
     )

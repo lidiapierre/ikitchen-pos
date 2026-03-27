@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import type { JSX } from 'react'
 import { useUser } from '@/lib/user-context'
 import { callGetReports, callExportOrders } from './reportsApi'
-import type { ReportData, ReportPeriod, CompDetailItem, CompByItem } from './reportsApi'
+import type { ReportData, ReportPeriod, CompDetailItem, CompByItem, StaffPerformanceRow } from './reportsApi'
 import { formatPrice, DEFAULT_CURRENCY_SYMBOL } from '@/lib/formatPrice'
 import {
   exportRevenueByDay,
@@ -212,6 +212,69 @@ function TopCompedItemsTable({ items }: TopCompedItemsTableProps): JSX.Element {
           </div>
         )
       })}
+    </div>
+  )
+}
+
+interface StaffPerformanceTableProps {
+  rows: StaffPerformanceRow[]
+}
+
+function StaffPerformanceTable({ rows }: StaffPerformanceTableProps): JSX.Element {
+  if (rows.length === 0) {
+    return (
+      <p className="text-zinc-500 text-sm">
+        No staff performance data for this period. Orders created during this range will appear here once orders include server assignments.
+      </p>
+    )
+  }
+  const maxRevenue = Math.max(...rows.map(r => r.total_revenue_cents), 1)
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="text-left text-zinc-400 border-b border-zinc-700">
+            <th className="pb-2 pr-3 font-medium">#</th>
+            <th className="pb-2 pr-3 font-medium">Staff</th>
+            <th className="pb-2 pr-3 font-medium">Role</th>
+            <th className="pb-2 pr-3 font-medium text-right">Orders</th>
+            <th className="pb-2 pr-3 font-medium text-right">Revenue</th>
+            <th className="pb-2 pr-3 font-medium text-right">Avg Ticket</th>
+            <th className="pb-2 font-medium">Share</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, idx) => {
+            const pct = Math.round((row.total_revenue_cents / maxRevenue) * 100)
+            return (
+              <tr key={row.server_id} className="border-b border-zinc-700/50">
+                <td className="py-2 pr-3 text-zinc-400">{idx + 1}</td>
+                <td className="py-2 pr-3 text-white font-medium">{row.staff_name}</td>
+                <td className="py-2 pr-3">
+                  <span className="px-2 py-0.5 rounded-full bg-zinc-700 text-zinc-300 text-xs font-medium capitalize">
+                    {row.role}
+                  </span>
+                </td>
+                <td className="py-2 pr-3 text-zinc-300 text-right">{row.total_orders}</td>
+                <td className="py-2 pr-3 text-amber-400 text-right font-medium">
+                  {formatPrice(row.total_revenue_cents, DEFAULT_CURRENCY_SYMBOL)}
+                </td>
+                <td className="py-2 pr-3 text-zinc-300 text-right">
+                  {formatPrice(row.avg_ticket_cents, DEFAULT_CURRENCY_SYMBOL)}
+                </td>
+                <td className="py-2 w-32">
+                  <div className="h-2 bg-zinc-700 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-amber-500 rounded-full transition-all"
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                </td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
     </div>
   )
 }
@@ -536,7 +599,18 @@ export default function ReportsDashboard(): JSX.Element {
             </div>
           )}
 
-          {/* Row 6 — Full Order List Export */}
+          {/* Row 6 — Staff Performance */}
+          <div className="bg-zinc-800 border border-zinc-700 rounded-2xl p-6">
+            <div className="flex items-center justify-between gap-3 mb-4">
+              <div>
+                <h2 className="text-base font-semibold text-white">Staff Performance</h2>
+                <p className="text-sm text-zinc-400 mt-0.5">Orders and revenue per server — sorted by revenue</p>
+              </div>
+            </div>
+            <StaffPerformanceTable rows={data.staff_performance ?? []} />
+          </div>
+
+          {/* Row 7 — Full Order List Export */}
           <div className="bg-zinc-800 border border-zinc-700 rounded-2xl p-6">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div>

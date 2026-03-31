@@ -27,10 +27,12 @@ interface MenuItemCardProps {
   item: MenuItem
   orderId: string
   onItemAdded: (priceCents: number) => void
+  /** Called with the same priceCents if the add API call fails, so the caller can roll back its running total. */
+  onItemFailed?: (priceCents: number) => void
   currencySymbol?: string
 }
 
-export default function MenuItemCard({ item, orderId, onItemAdded, currencySymbol = DEFAULT_CURRENCY_SYMBOL }: MenuItemCardProps): JSX.Element {
+export default function MenuItemCard({ item, orderId, onItemAdded, onItemFailed, currencySymbol = DEFAULT_CURRENCY_SYMBOL }: MenuItemCardProps): JSX.Element {
   const { accessToken } = useUser()
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
@@ -45,8 +47,21 @@ export default function MenuItemCard({ item, orderId, onItemAdded, currencySymbo
 
   async function addItem(modifierIds: string[]): Promise<void> {
     setError(null)
-    setSuccess(false)
+
+    const modifierDeltaCents = item.modifiers
+      .filter((mod) => modifierIds.includes(mod.id))
+      .reduce((sum, mod) => sum + mod.price_delta_cents, 0)
+    const priceDelta = item.price_cents + modifierDeltaCents
+
+    // ── Optimistic update ─────────────────────────────────────────────
+    // Show success state and update the session total immediately (<50ms).
+    // Disable the button immediately to prevent rapid-tap double-adds.
+    // If the API call fails we roll back both.
+    setSuccess(true)
+    onItemAdded(priceDelta)
     setLoading(true)
+    // ─────────────────────────────────────────────────────────────────
+
     try {
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
       if (!supabaseUrl || !accessToken) {
@@ -60,14 +75,16 @@ export default function MenuItemCard({ item, orderId, onItemAdded, currencySymbo
         modifierIds.length > 0 ? modifierIds : undefined,
         selectedCourse,
       )
-      setSuccess(true)
-      const modifierDeltaCents = item.modifiers
-        .filter((mod) => modifierIds.includes(mod.id))
-        .reduce((sum, mod) => sum + mod.price_delta_cents, 0)
-      onItemAdded(item.price_cents + modifierDeltaCents)
-      setTimeout(() => setSuccess(false), 1500)
+      // API confirmed — clear success badge after 1.5 s
+      setTimeout(() => { setSuccess(false) }, 1500)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to add item')
+      // ── Rollback ──────────────────────────────────────────────────
+      setSuccess(false)
+      setLoading(false)
+      const msg = err instanceof Error ? err.message : 'Failed to add item'
+      setError(msg)
+      onItemFailed?.(priceDelta)
+      // ─────────────────────────────────────────────────────────────
     } finally {
       setLoading(false)
     }

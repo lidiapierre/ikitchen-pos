@@ -231,6 +231,8 @@ export default function FloorPlanBuilder(): JSX.Element {
 
   const [restaurantId, setRestaurantId] = useState<string>('')
   const supabaseConfig = useRef<{ url: string; key: string } | null>(null)
+  // Tracks the positions as known by the server (updated only after successful saves)
+  const serverTables = useRef<TablePosition[]>([])
 
   // Grid dimensions — committed (used to render canvas)
   const [gridCols, setGridCols] = useState(DEFAULT_COLS)
@@ -273,6 +275,7 @@ export default function FloorPlanBuilder(): JSX.Element {
     ])
       .then(async ([tableData, rid]) => {
         setTables(tableData)
+        serverTables.current = tableData
         setRestaurantId(rid)
         // Load grid size config
         const [cols, rows] = await Promise.all([
@@ -380,8 +383,10 @@ export default function FloorPlanBuilder(): JSX.Element {
         callUpsertConfig(config.url, config.key, restaurantId, 'floor_plan_cols', String(parsedCols)),
         callUpsertConfig(config.url, config.key, restaurantId, 'floor_plan_rows', String(parsedRows)),
       ])
-      // Persist any out-of-bounds unpositionings to the server
-      const outOfBounds = tables.filter(
+      // Persist any out-of-bounds unpositionings to the server.
+      // Use serverTables.current (not local `tables`) because applyGridDims already
+      // nulled them out in local state — the server still has the old positions.
+      const outOfBounds = serverTables.current.filter(
         (t) =>
           t.grid_x !== null &&
           t.grid_y !== null &&
@@ -396,6 +401,10 @@ export default function FloorPlanBuilder(): JSX.Element {
           ),
         )
       }
+      // Reflect committed state in serverTables ref
+      serverTables.current = serverTables.current.map((t) =>
+        outOfBounds.some((ob) => ob.id === t.id) ? { ...t, grid_x: null, grid_y: null } : t,
+      )
     } catch (err) {
       showGridSizeError(err instanceof Error ? err.message : 'Failed to save grid size')
     } finally {
@@ -442,11 +451,17 @@ export default function FloorPlanBuilder(): JSX.Element {
         prev.map((t) => (t.id === tableId ? { ...t, grid_x: newX, grid_y: newY } : t)),
       )
 
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-      if (!supabaseUrl || !accessToken) return
+      const config = supabaseConfig.current
+      if (!config || !accessToken) return
 
       setSavingId(tableId)
-      saveTablePosition(supabaseUrl, accessToken, tableId, newX, newY)
+      saveTablePosition(config.url, accessToken, tableId, newX, newY)
+        .then(() => {
+          // Update server-known state on success
+          serverTables.current = serverTables.current.map((t) =>
+            t.id === tableId ? { ...t, grid_x: newX, grid_y: newY } : t,
+          )
+        })
         .catch((err: unknown) => {
           setTables(prevTables)
           showSaveError(err instanceof Error ? err.message : 'Failed to save position')
@@ -458,15 +473,16 @@ export default function FloorPlanBuilder(): JSX.Element {
 
   // ── Reset layout ─────────────────────────────────────────────────────────────
   async function handleResetLayout(): Promise<void> {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    if (!supabaseUrl || !accessToken) return
+    const config = supabaseConfig.current
+    if (!config || !accessToken) return
     setResetInProgress(true)
     const positioned = tables.filter((t) => t.grid_x !== null || t.grid_y !== null)
     try {
       await Promise.all(
-        positioned.map((t) => saveTablePosition(supabaseUrl, accessToken, t.id, null, null)),
+        positioned.map((t) => saveTablePosition(config.url, accessToken, t.id, null, null)),
       )
       setTables((prev) => prev.map((t) => ({ ...t, grid_x: null, grid_y: null })))
+      serverTables.current = serverTables.current.map((t) => ({ ...t, grid_x: null, grid_y: null }))
     } catch (err) {
       showSaveError(err instanceof Error ? err.message : 'Failed to reset layout')
     } finally {

@@ -3,7 +3,7 @@ import { verifyAndGetCaller } from '../_shared/auth.ts'
 export const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-demo-staff-id',
-  'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
 export type FetchFn = (input: string, init?: RequestInit) => Promise<Response>
@@ -107,6 +107,14 @@ export async function handler(
   const gridX = (rawX === undefined ? null : rawX) as number | null
   const gridY = (rawY === undefined ? null : rawY) as number | null
 
+  // Atomicity: grid_x and grid_y must be set together (both non-null or both null)
+  if ((gridX === null) !== (gridY === null)) {
+    return new Response(
+      JSON.stringify({ success: false, error: 'grid_x and grid_y must be set together' }),
+      { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    )
+  }
+
   const { supabaseUrl, serviceKey } = env
   const baseHeaders = {
     apikey: serviceKey,
@@ -114,12 +122,69 @@ export async function handler(
     'Content-Type': 'application/json',
   }
 
+  // Resolve restaurant_id from the table and verify caller owns it
+  let restaurantId: string
   try {
-    const patchRes = await fetchFn(`${supabaseUrl}/rest/v1/tables?id=eq.${tableId}`, {
-      method: 'PATCH',
-      headers: { ...baseHeaders, Prefer: 'return=minimal' },
-      body: JSON.stringify({ grid_x: gridX, grid_y: gridY }),
-    })
+    const tableRes = await fetchFn(
+      `${supabaseUrl}/rest/v1/tables?id=eq.${tableId}&select=id,restaurant_id`,
+      { headers: baseHeaders },
+    )
+    if (!tableRes.ok) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Table not found' }),
+        { status: 404, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+      )
+    }
+    const tableRows = await tableRes.json() as Array<{ id: string; restaurant_id: string }>
+    if (!tableRows || tableRows.length === 0) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Table not found' }),
+        { status: 404, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+      )
+    }
+    restaurantId = tableRows[0].restaurant_id
+  } catch {
+    return new Response(
+      JSON.stringify({ success: false, error: 'Failed to resolve table' }),
+      { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    )
+  }
+
+  // Verify caller belongs to that restaurant
+  try {
+    const ownerRes = await fetchFn(
+      `${supabaseUrl}/rest/v1/user_restaurants?user_id=eq.${caller.actorId}&restaurant_id=eq.${restaurantId}&select=user_id`,
+      { headers: baseHeaders },
+    )
+    if (!ownerRes.ok) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Forbidden' }),
+        { status: 403, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+      )
+    }
+    const ownerRows = await ownerRes.json() as Array<unknown>
+    if (!ownerRows || ownerRows.length === 0) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Forbidden' }),
+        { status: 403, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+      )
+    }
+  } catch {
+    return new Response(
+      JSON.stringify({ success: false, error: 'Failed to verify ownership' }),
+      { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    )
+  }
+
+  try {
+    const patchRes = await fetchFn(
+      `${supabaseUrl}/rest/v1/tables?id=eq.${tableId}&restaurant_id=eq.${restaurantId}`,
+      {
+        method: 'PATCH',
+        headers: { ...baseHeaders, Prefer: 'return=minimal' },
+        body: JSON.stringify({ grid_x: gridX, grid_y: gridY }),
+      },
+    )
 
     if (!patchRes.ok) {
       return new Response(

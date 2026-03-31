@@ -30,6 +30,7 @@ export default function RestaurantSettingsPage(): JSX.Element {
   const feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Form state
+  const [restaurantName, setRestaurantName] = useState('')
   const [binNumber, setBinNumber] = useState('')
   const [registerName, setRegisterName] = useState('')
   const [restaurantAddress, setRestaurantAddress] = useState('')
@@ -55,11 +56,13 @@ export default function RestaurantSettingsPage(): JSX.Element {
         if (rows.length === 0) throw new Error('No restaurant found')
         const rid = rows[0].id
         setRestaurantId(rid)
-        const [binVal, regVal, addrVal] = await Promise.all([
+        const [nameVal, binVal, regVal, addrVal] = await Promise.all([
+          fetchConfigValue(supabaseUrl, supabaseKey, rid, 'restaurant_name', ''),
           fetchConfigValue(supabaseUrl, supabaseKey, rid, 'bin_number', ''),
           fetchConfigValue(supabaseUrl, supabaseKey, rid, 'register_name', ''),
           fetchConfigValue(supabaseUrl, supabaseKey, rid, 'restaurant_address', ''),
         ])
+        setRestaurantName(nameVal)
         setBinNumber(binVal)
         setRegisterName(regVal)
         setRestaurantAddress(addrVal)
@@ -88,6 +91,9 @@ export default function RestaurantSettingsPage(): JSX.Element {
     setSubmitting(true)
     try {
       await Promise.all([
+        restaurantName.trim()
+          ? callUpsertConfig(config.url, config.key, restaurantId, 'restaurant_name', restaurantName.trim())
+          : Promise.resolve(),
         binNumber.trim()
           ? callUpsertConfig(config.url, config.key, restaurantId, 'bin_number', binNumber.trim())
           : Promise.resolve(),
@@ -160,6 +166,23 @@ export default function RestaurantSettingsPage(): JSX.Element {
           <p className="text-sm text-zinc-400 mt-1">
             These details appear on every printed bill and receipt.
           </p>
+        </div>
+
+        {/* Restaurant Name */}
+        <div className="flex flex-col gap-1">
+          <label htmlFor="restaurant-name" className="text-sm font-medium text-zinc-300">
+            Restaurant Name
+          </label>
+          <input
+            id="restaurant-name"
+            type="text"
+            value={restaurantName}
+            onChange={(e) => { setRestaurantName(e.target.value) }}
+            disabled={submitting}
+            placeholder="e.g. Lahore by iKitchen"
+            className="min-h-[48px] px-4 py-2 rounded-xl bg-zinc-900 text-white border border-zinc-600 focus:border-indigo-500 focus:outline-none text-base disabled:opacity-50 placeholder-zinc-600"
+          />
+          <p className="text-xs text-zinc-500">Displayed as the header on printed bills and receipts.</p>
         </div>
 
         {/* Restaurant Address */}

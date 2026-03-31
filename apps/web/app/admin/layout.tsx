@@ -1,6 +1,8 @@
 import Link from 'next/link'
 import type { JSX } from 'react'
 import AdminNav from './AdminNav'
+import BranchSwitcher from './BranchSwitcher'
+import BranchLabel from './BranchLabel'
 
 export default function AdminLayout({
   children,
@@ -13,14 +15,20 @@ export default function AdminLayout({
           <span className="text-xs font-bold uppercase tracking-widest text-indigo-300 bg-indigo-800 px-2 py-1 rounded">
             Admin
           </span>
-          <span className="text-xl font-bold text-white">iKitchen</span>
+          <div className="flex flex-col">
+            <span className="text-xl font-bold text-white">iKitchen</span>
+            <BranchLabel />
+          </div>
         </div>
-        <Link
-          href="/tables"
-          className="flex items-center min-h-[48px] px-4 py-2 rounded-xl text-base font-medium text-indigo-200 hover:text-white hover:bg-indigo-700 transition-colors"
-        >
-          ← Back to POS
-        </Link>
+        <div className="flex items-center gap-3">
+          <BranchSwitcher />
+          <Link
+            href="/tables"
+            className="flex items-center min-h-[48px] px-4 py-2 rounded-xl text-base font-medium text-indigo-200 hover:text-white hover:bg-indigo-700 transition-colors"
+          >
+            ← Back to POS
+          </Link>
+        </div>
       </header>
 
       <div className="flex flex-1 overflow-hidden">

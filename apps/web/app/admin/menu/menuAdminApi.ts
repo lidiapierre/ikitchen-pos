@@ -167,7 +167,6 @@ export async function callDeleteMenuItem(
   accessToken: string,
   menuItemId: string,
 ): Promise<void> {
-  const apiKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ''
   const res = await fetch(`${supabaseUrl}/functions/v1/delete_menu_item`, {
     method: 'POST',
     headers: {
@@ -178,4 +177,22 @@ export async function callDeleteMenuItem(
   })
   const json = (await res.json()) as { success: boolean; error?: string }
   if (!json.success) throw new Error(json.error ?? 'Failed to delete menu item')
+}
+
+export async function callToggleItemAvailability(
+  supabaseUrl: string,
+  accessToken: string,
+  menuItemId: string,
+  available: boolean,
+): Promise<void> {
+  const res = await fetch(`${supabaseUrl}/functions/v1/toggle_item_availability`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({ menu_item_id: menuItemId, available }),
+  })
+  const json = (await res.json()) as { success: boolean; error?: string }
+  if (!json.success) throw new Error(json.error ?? 'Failed to toggle item availability')
 }

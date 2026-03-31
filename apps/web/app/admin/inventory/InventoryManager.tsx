@@ -22,8 +22,9 @@ import {
   type MenuItem,
   type WastageReason,
 } from './inventoryApi'
+import AvailabilityPanel from './AvailabilityPanel'
 
-type Tab = 'ingredients' | 'recipes' | 'margins' | 'adjustments' | 'wastage'
+type Tab = 'ingredients' | 'recipes' | 'margins' | 'adjustments' | 'wastage' | 'availability'
 
 type FeedbackType = 'success' | 'error'
 interface Feedback {
@@ -172,6 +173,7 @@ export default function InventoryManager(): JSX.Element {
             { id: 'margins', label: 'Dish Margins' },
             { id: 'adjustments', label: 'Adjustments' },
             { id: 'wastage', label: 'Wastage' },
+            { id: 'availability', label: '86 / Availability' },
           ] as { id: Tab; label: string }[]
         ).map(({ id, label }) => (
           <button
@@ -250,6 +252,8 @@ export default function InventoryManager(): JSX.Element {
           onRefresh={() => { void loadData(restaurantId) }}
         />
       )}
+
+      {tab === 'availability' && <AvailabilityPanel />}
     </div>
   )
 }

@@ -537,6 +537,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
       // correct state even before the DB confirms. Navigation follows right
       // after, so this mainly ensures correctness if navigation is slow or
       // if the page stays open.
+      const kotSnapshot = items
       setItems((prev) =>
         prev.map((i) =>
           unsentItems.some((u) => u.id === i.id) ? { ...i, sent_to_kitchen: true } : i,
@@ -547,7 +548,12 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
       try {
         await markItemsSentToKitchen(supabaseUrl, supabaseKey, orderId, unsentItems.map((i) => i.id))
       } catch {
-        // Non-fatal: navigate anyway so staff are not blocked
+        // ── Rollback ────────────────────────────────────────────────
+        setItems(kotSnapshot)
+        setKotStatus(null)
+        addToast('Failed to send to kitchen — please retry', 'error')
+        return
+        // ────────────────────────────────────────────────────────────
       }
     }
 
@@ -852,6 +858,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
     // Remove the item from local state immediately so the UI reflects the
     // void without waiting for a round-trip.
     const snapshot = items
+    const voidReasonSnapshot = voidReason
     setItems((prev) => prev.filter((i) => i.id !== voidingItem.id))
     setVoidingItem(null)
     setVoidReason('')
@@ -869,6 +876,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
       const msg = err instanceof Error ? err.message : 'Failed to void item'
       setVoidError(msg)
       setVoidingItem(voidingItem)
+      setVoidReason(voidReasonSnapshot)
       addToast(`Failed to void item — please retry`, 'error')
       // ─────────────────────────────────────────────────────────────
     } finally {

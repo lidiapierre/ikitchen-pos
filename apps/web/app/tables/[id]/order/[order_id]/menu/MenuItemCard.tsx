@@ -55,9 +55,11 @@ export default function MenuItemCard({ item, orderId, onItemAdded, onItemFailed,
 
     // ── Optimistic update ─────────────────────────────────────────────
     // Show success state and update the session total immediately (<50ms).
+    // Disable the button immediately to prevent rapid-tap double-adds.
     // If the API call fails we roll back both.
     setSuccess(true)
     onItemAdded(priceDelta)
+    setLoading(true)
     // ─────────────────────────────────────────────────────────────────
 
     try {

@@ -13,15 +13,22 @@ import {
 } from '@dnd-kit/core'
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
-import { fetchTablePositions, saveTablePosition } from './floorPlanApi'
+import { fetchTablePositions, saveTablePosition, fetchRestaurantId } from './floorPlanApi'
 import type { TablePosition } from './floorPlanApi'
+import { fetchConfigValue } from '../pricing/pricingAdminData'
+import { callUpsertConfig } from '../pricing/pricingAdminApi'
 import { useUser } from '@/lib/user-context'
 
-const GRID_COLS = 24
-const GRID_ROWS = 16
+// ─── Grid constants ───────────────────────────────────────────────────────────
 const CELL_SIZE = 72
+const DEFAULT_COLS = 24
+const DEFAULT_ROWS = 16
+const MIN_COLS = 8
+const MAX_COLS = 50
+const MIN_ROWS = 4
+const MAX_ROWS = 30
 
-/** Draggable table block (on canvas or in sidebar) */
+// ─── Draggable table block ────────────────────────────────────────────────────
 function DraggableTable({
   table,
   isDragging,
@@ -29,9 +36,7 @@ function DraggableTable({
   table: TablePosition
   isDragging: boolean
 }): JSX.Element {
-  const { attributes, listeners, setNodeRef, transform } = useDraggable({
-    id: table.id,
-  })
+  const { attributes, listeners, setNodeRef, transform } = useDraggable({ id: table.id })
 
   const style: React.CSSProperties = {
     transform: CSS.Translate.toString(transform),
@@ -52,7 +57,7 @@ function DraggableTable({
         'flex flex-col items-center justify-center rounded-xl border-2 select-none',
         isDragging
           ? 'bg-zinc-700 border-indigo-400'
-          : 'bg-zinc-700 border-zinc-500 hover:border-indigo-400',
+          : 'bg-zinc-700 border-zinc-500 hover:border-indigo-400 transition-colors',
       ].join(' ')}
     >
       <span className="text-white font-bold text-sm text-center leading-tight px-1 truncate max-w-full">
@@ -65,13 +70,13 @@ function DraggableTable({
   )
 }
 
-/** Drag overlay (ghost following cursor) */
+// ─── Drag overlay ghost ───────────────────────────────────────────────────────
 function TableDragOverlay({ table }: { table: TablePosition | null }): JSX.Element {
   if (!table) return <></>
   return (
     <div
       style={{ width: CELL_SIZE, height: CELL_SIZE }}
-      className="flex flex-col items-center justify-center rounded-xl border-2 bg-zinc-700 border-indigo-400 opacity-80 select-none shadow-lg"
+      className="flex flex-col items-center justify-center rounded-xl border-2 bg-zinc-700 border-indigo-400 opacity-80 select-none shadow-lg pointer-events-none"
     >
       <span className="text-white font-bold text-sm text-center leading-tight px-1 truncate max-w-full">
         {table.label}
@@ -83,7 +88,7 @@ function TableDragOverlay({ table }: { table: TablePosition | null }): JSX.Eleme
   )
 }
 
-/** A single droppable grid cell */
+// ─── Single droppable grid cell ───────────────────────────────────────────────
 function GridCell({
   col,
   row,
@@ -108,17 +113,12 @@ function GridCell({
         isOver && table ? 'bg-red-900/20' : '',
       ].join(' ')}
     >
-      {table && (
-        <DraggableTable
-          table={table}
-          isDragging={draggingId === table.id}
-        />
-      )}
+      {table && <DraggableTable table={table} isDragging={draggingId === table.id} />}
     </div>
   )
 }
 
-/** Droppable sidebar for unplaced tables */
+// ─── Unplaced sidebar ─────────────────────────────────────────────────────────
 function UnplacedSidebar({
   tables,
   draggingId,
@@ -133,8 +133,8 @@ function UnplacedSidebar({
       ref={setNodeRef}
       style={{ width: 200, minHeight: CELL_SIZE * 4 }}
       className={[
-        'flex flex-col gap-2 p-3 rounded-xl border border-zinc-700 bg-zinc-800/50 transition-colors',
-        isOver ? 'border-indigo-500 bg-indigo-900/10' : '',
+        'flex-shrink-0 flex flex-col gap-2 p-3 rounded-xl border transition-colors',
+        isOver ? 'border-indigo-500 bg-indigo-900/10' : 'border-zinc-700 bg-zinc-800/50',
       ].join(' ')}
     >
       <div className="flex items-center gap-2 mb-1">
@@ -156,25 +156,107 @@ function UnplacedSidebar({
   )
 }
 
+// ─── Grid size settings bar ───────────────────────────────────────────────────
+function GridSizeBar({
+  colsInput,
+  rowsInput,
+  saving,
+  onColsChange,
+  onRowsChange,
+  onSave,
+}: {
+  colsInput: string
+  rowsInput: string
+  saving: boolean
+  onColsChange: (v: string) => void
+  onRowsChange: (v: string) => void
+  onSave: () => void
+}): JSX.Element {
+  return (
+    <div className="flex items-center gap-3 px-4 py-2.5 rounded-xl bg-zinc-800/60 border border-zinc-700 flex-wrap">
+      <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wide shrink-0">
+        Grid size
+      </span>
+
+      <div className="flex items-center gap-1.5">
+        <label htmlFor="grid-cols-input" className="text-xs text-zinc-400 shrink-0">Cols</label>
+        <input
+          id="grid-cols-input"
+          type="number"
+          min={MIN_COLS}
+          max={MAX_COLS}
+          step={1}
+          value={colsInput}
+          onChange={(e) => onColsChange(e.target.value)}
+          disabled={saving}
+          className="w-16 h-8 px-2 rounded-lg bg-zinc-900 text-white text-sm border border-zinc-600 focus:border-indigo-500 focus:outline-none disabled:opacity-50 text-center"
+        />
+        <span className="text-xs text-zinc-500">({MIN_COLS}–{MAX_COLS})</span>
+      </div>
+
+      <div className="flex items-center gap-1.5">
+        <label htmlFor="grid-rows-input" className="text-xs text-zinc-400 shrink-0">Rows</label>
+        <input
+          id="grid-rows-input"
+          type="number"
+          min={MIN_ROWS}
+          max={MAX_ROWS}
+          step={1}
+          value={rowsInput}
+          onChange={(e) => onRowsChange(e.target.value)}
+          disabled={saving}
+          className="w-16 h-8 px-2 rounded-lg bg-zinc-900 text-white text-sm border border-zinc-600 focus:border-indigo-500 focus:outline-none disabled:opacity-50 text-center"
+        />
+        <span className="text-xs text-zinc-500">({MIN_ROWS}–{MAX_ROWS})</span>
+      </div>
+
+      <button
+        onClick={onSave}
+        disabled={saving}
+        className="h-8 px-3 rounded-lg bg-indigo-600 text-white text-xs font-medium hover:bg-indigo-500 transition-colors disabled:opacity-50 shrink-0"
+      >
+        {saving ? 'Saving…' : 'Save layout size'}
+      </button>
+    </div>
+  )
+}
+
+// ─── Main component ───────────────────────────────────────────────────────────
 export default function FloorPlanBuilder(): JSX.Element {
   const { accessToken } = useUser()
+
   const [tables, setTables] = useState<TablePosition[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  const [restaurantId, setRestaurantId] = useState<string>('')
+  const supabaseConfig = useRef<{ url: string; key: string } | null>(null)
+
+  // Grid dimensions — committed (used to render canvas)
+  const [gridCols, setGridCols] = useState(DEFAULT_COLS)
+  const [gridRows, setGridRows] = useState(DEFAULT_ROWS)
+  // Input strings (live, before save)
+  const [colsInput, setColsInput] = useState(String(DEFAULT_COLS))
+  const [rowsInput, setRowsInput] = useState(String(DEFAULT_ROWS))
+  const [savingGridSize, setSavingGridSize] = useState(false)
+  const [gridSizeError, setGridSizeError] = useState<string | null>(null)
+
+  // DnD state
+  const [draggingId, setDraggingId] = useState<string | null>(null)
   const [savingId, setSavingId] = useState<string | null>(null)
   const [saveError, setSaveError] = useState<string | null>(null)
-  const [draggingId, setDraggingId] = useState<string | null>(null)
+
   const [showResetConfirm, setShowResetConfirm] = useState(false)
   const [resetInProgress, setResetInProgress] = useState(false)
 
   const saveErrorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const gridSizeErrTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: { distance: 4 },
-    }),
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
   )
 
+  // ── Load tables + config on mount ──────────────────────────────────────────
   useEffect(() => {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
     const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
@@ -183,10 +265,29 @@ export default function FloorPlanBuilder(): JSX.Element {
       setLoading(false)
       return
     }
-    fetchTablePositions(supabaseUrl, supabaseKey)
-      .then((data) => setTables(data))
+    supabaseConfig.current = { url: supabaseUrl, key: supabaseKey }
+
+    Promise.all([
+      fetchTablePositions(supabaseUrl, supabaseKey),
+      fetchRestaurantId(supabaseUrl, supabaseKey),
+    ])
+      .then(async ([tableData, rid]) => {
+        setTables(tableData)
+        setRestaurantId(rid)
+        // Load grid size config
+        const [cols, rows] = await Promise.all([
+          fetchConfigValue(supabaseUrl, supabaseKey, rid, 'floor_plan_cols', String(DEFAULT_COLS)),
+          fetchConfigValue(supabaseUrl, supabaseKey, rid, 'floor_plan_rows', String(DEFAULT_ROWS)),
+        ])
+        const parsedCols = clampInt(parseInt(cols, 10), MIN_COLS, MAX_COLS, DEFAULT_COLS)
+        const parsedRows = clampInt(parseInt(rows, 10), MIN_ROWS, MAX_ROWS, DEFAULT_ROWS)
+        setGridCols(parsedCols)
+        setGridRows(parsedRows)
+        setColsInput(String(parsedCols))
+        setRowsInput(String(parsedRows))
+      })
       .catch((err: unknown) => {
-        setError(err instanceof Error ? err.message : 'Failed to load tables')
+        setError(err instanceof Error ? err.message : 'Failed to load floor plan')
       })
       .finally(() => setLoading(false))
   }, [])
@@ -194,8 +295,15 @@ export default function FloorPlanBuilder(): JSX.Element {
   useEffect(() => {
     return () => {
       if (saveErrorTimerRef.current) clearTimeout(saveErrorTimerRef.current)
+      if (gridSizeErrTimerRef.current) clearTimeout(gridSizeErrTimerRef.current)
     }
   }, [])
+
+  // ── Helpers ─────────────────────────────────────────────────────────────────
+  function clampInt(val: number, min: number, max: number, fallback: number): number {
+    if (isNaN(val) || !Number.isInteger(val)) return fallback
+    return Math.min(max, Math.max(min, val))
+  }
 
   function showSaveError(msg: string): void {
     if (saveErrorTimerRef.current) clearTimeout(saveErrorTimerRef.current)
@@ -203,6 +311,99 @@ export default function FloorPlanBuilder(): JSX.Element {
     saveErrorTimerRef.current = setTimeout(() => setSaveError(null), 5000)
   }
 
+  function showGridSizeError(msg: string): void {
+    if (gridSizeErrTimerRef.current) clearTimeout(gridSizeErrTimerRef.current)
+    setGridSizeError(msg)
+    gridSizeErrTimerRef.current = setTimeout(() => setGridSizeError(null), 5000)
+  }
+
+  // ── Apply new grid dims locally — unplace out-of-bounds tables ──────────────
+  function applyGridDims(newCols: number, newRows: number): void {
+    setGridCols(newCols)
+    setGridRows(newRows)
+    // Unposition any tables that are now outside the new bounds
+    setTables((prev) =>
+      prev.map((t) => {
+        if (
+          t.grid_x !== null &&
+          t.grid_y !== null &&
+          (t.grid_x >= newCols || t.grid_y >= newRows)
+        ) {
+          return { ...t, grid_x: null, grid_y: null }
+        }
+        return t
+      }),
+    )
+  }
+
+  // When cols input changes: parse, clamp, update canvas live
+  function handleColsChange(raw: string): void {
+    setColsInput(raw)
+    const parsed = parseInt(raw, 10)
+    if (!isNaN(parsed) && Number.isInteger(parsed)) {
+      const clamped = Math.min(MAX_COLS, Math.max(MIN_COLS, parsed))
+      applyGridDims(clamped, gridRows)
+    }
+  }
+
+  // When rows input changes: parse, clamp, update canvas live
+  function handleRowsChange(raw: string): void {
+    setRowsInput(raw)
+    const parsed = parseInt(raw, 10)
+    if (!isNaN(parsed) && Number.isInteger(parsed)) {
+      const clamped = Math.min(MAX_ROWS, Math.max(MIN_ROWS, parsed))
+      applyGridDims(gridCols, clamped)
+    }
+  }
+
+  // ── Save grid size to config ─────────────────────────────────────────────────
+  async function handleSaveGridSize(): Promise<void> {
+    const config = supabaseConfig.current
+    if (!config || !restaurantId || !accessToken) return
+
+    const parsedCols = parseInt(colsInput, 10)
+    const parsedRows = parseInt(rowsInput, 10)
+
+    if (
+      isNaN(parsedCols) || parsedCols < MIN_COLS || parsedCols > MAX_COLS ||
+      isNaN(parsedRows) || parsedRows < MIN_ROWS || parsedRows > MAX_ROWS
+    ) {
+      showGridSizeError(
+        `Columns must be ${MIN_COLS}–${MAX_COLS}, rows must be ${MIN_ROWS}–${MAX_ROWS}.`,
+      )
+      return
+    }
+
+    setSavingGridSize(true)
+    try {
+      await Promise.all([
+        callUpsertConfig(config.url, config.key, restaurantId, 'floor_plan_cols', String(parsedCols)),
+        callUpsertConfig(config.url, config.key, restaurantId, 'floor_plan_rows', String(parsedRows)),
+      ])
+      // Persist any out-of-bounds unpositionings to the server
+      const outOfBounds = tables.filter(
+        (t) =>
+          t.grid_x !== null &&
+          t.grid_y !== null &&
+          (t.grid_x >= parsedCols || t.grid_y >= parsedRows),
+      )
+      if (outOfBounds.length > 0) {
+        await Promise.all(
+          outOfBounds.map((t) =>
+            saveTablePosition(config.url, accessToken, t.id, null, null).catch(() => {
+              /* non-fatal — table state already updated locally */
+            }),
+          ),
+        )
+      }
+    } catch (err) {
+      showGridSizeError(err instanceof Error ? err.message : 'Failed to save grid size')
+    } finally {
+      setSavingGridSize(false)
+    }
+  }
+
+  // ── DnD handlers ────────────────────────────────────────────────────────────
   function handleDragStart(event: DragStartEvent): void {
     setDraggingId(event.active.id as string)
   }
@@ -212,14 +413,12 @@ export default function FloorPlanBuilder(): JSX.Element {
       setDraggingId(null)
       const tableId = event.active.id as string
       const overId = event.over?.id as string | undefined
-
       if (!overId) return
 
       let newX: number | null = null
       let newY: number | null = null
 
       if (overId === 'sidebar') {
-        // Dropped on sidebar → unset position
         newX = null
         newY = null
       } else if (overId.startsWith('cell-')) {
@@ -230,15 +429,14 @@ export default function FloorPlanBuilder(): JSX.Element {
         return
       }
 
-      // Check if another table is already at this cell
+      // Block if another table occupies the target cell
       if (newX !== null && newY !== null) {
         const occupant = tables.find(
           (t) => t.id !== tableId && t.grid_x === newX && t.grid_y === newY,
         )
-        if (occupant) return // cell is occupied
+        if (occupant) return
       }
 
-      // Optimistic update
       const prevTables = tables
       setTables((prev) =>
         prev.map((t) => (t.id === tableId ? { ...t, grid_x: newX, grid_y: newY } : t)),
@@ -250,7 +448,6 @@ export default function FloorPlanBuilder(): JSX.Element {
       setSavingId(tableId)
       saveTablePosition(supabaseUrl, accessToken, tableId, newX, newY)
         .catch((err: unknown) => {
-          // Revert on failure
           setTables(prevTables)
           showSaveError(err instanceof Error ? err.message : 'Failed to save position')
         })
@@ -259,6 +456,7 @@ export default function FloorPlanBuilder(): JSX.Element {
     [tables, accessToken],
   )
 
+  // ── Reset layout ─────────────────────────────────────────────────────────────
   async function handleResetLayout(): Promise<void> {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
     if (!supabaseUrl || !accessToken) return
@@ -277,17 +475,7 @@ export default function FloorPlanBuilder(): JSX.Element {
     }
   }
 
-  // Build a lookup: "col-row" → table
-  const cellMap = new Map<string, TablePosition>()
-  for (const t of tables) {
-    if (t.grid_x !== null && t.grid_y !== null) {
-      cellMap.set(`${t.grid_x}-${t.grid_y}`, t)
-    }
-  }
-
-  const unplaced = tables.filter((t) => t.grid_x === null || t.grid_y === null)
-  const draggingTable = draggingId ? (tables.find((t) => t.id === draggingId) ?? null) : null
-
+  // ── Render ───────────────────────────────────────────────────────────────────
   if (loading) {
     return (
       <div className="flex flex-col gap-4">
@@ -306,16 +494,25 @@ export default function FloorPlanBuilder(): JSX.Element {
     )
   }
 
+  // Build col-row → table lookup
+  const cellMap = new Map<string, TablePosition>()
+  for (const t of tables) {
+    if (t.grid_x !== null && t.grid_y !== null) {
+      cellMap.set(`${t.grid_x}-${t.grid_y}`, t)
+    }
+  }
+
+  const unplaced = tables.filter((t) => t.grid_x === null || t.grid_y === null)
+  const draggingTable = draggingId ? (tables.find((t) => t.id === draggingId) ?? null) : null
+
   return (
     <div className="flex flex-col gap-4">
-      {/* Header */}
+      {/* ── Page header ── */}
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <h1 className="text-2xl font-bold text-white">Floor Plan</h1>
         <div className="flex items-center gap-3">
           <span className="text-sm text-zinc-500">Positions auto-saved on drop</span>
-          {savingId && (
-            <span className="text-sm text-indigo-400 animate-pulse">Saving…</span>
-          )}
+          {savingId && <span className="text-sm text-indigo-400 animate-pulse">Saving…</span>}
           <button
             onClick={() => setShowResetConfirm(true)}
             disabled={resetInProgress}
@@ -326,17 +523,32 @@ export default function FloorPlanBuilder(): JSX.Element {
         </div>
       </div>
 
-      {/* Save error */}
+      {/* ── Grid size settings bar ── */}
+      <GridSizeBar
+        colsInput={colsInput}
+        rowsInput={rowsInput}
+        saving={savingGridSize}
+        onColsChange={handleColsChange}
+        onRowsChange={handleRowsChange}
+        onSave={() => { void handleSaveGridSize() }}
+      />
+
+      {/* ── Error banners ── */}
+      {gridSizeError !== null && (
+        <div className="px-4 py-3 rounded-xl bg-red-800 text-red-100 text-sm">
+          {gridSizeError}
+        </div>
+      )}
       {saveError !== null && (
         <div className="px-4 py-3 rounded-xl bg-red-800 text-red-100 text-sm">
           {saveError}
         </div>
       )}
 
-      {/* Reset confirm dialog */}
+      {/* ── Reset confirm dialog ── */}
       {showResetConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
-          <div className="bg-zinc-900 rounded-2xl p-6 max-w-sm w-full mx-4 flex flex-col gap-4">
+          <div className="bg-zinc-900 rounded-2xl p-6 max-w-sm w-full mx-4 flex flex-col gap-4 border border-zinc-700">
             <h2 className="text-lg font-semibold text-white">Reset Floor Plan?</h2>
             <p className="text-zinc-400 text-sm">
               This will clear all table positions. Tables will return to the unplaced sidebar.
@@ -361,24 +573,24 @@ export default function FloorPlanBuilder(): JSX.Element {
         </div>
       )}
 
-      {/* Main layout: sidebar + canvas */}
+      {/* ── Main layout: sidebar + canvas ── */}
       <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
         <div className="flex gap-4 items-start">
           {/* Unplaced sidebar */}
           <UnplacedSidebar tables={unplaced} draggingId={draggingId} />
 
-          {/* Canvas */}
+          {/* Scrollable canvas */}
           <div className="overflow-auto flex-1">
             <div
               style={{
                 display: 'grid',
-                gridTemplateColumns: `repeat(${GRID_COLS}, ${CELL_SIZE}px)`,
-                gridTemplateRows: `repeat(${GRID_ROWS}, ${CELL_SIZE}px)`,
-                width: GRID_COLS * CELL_SIZE,
+                gridTemplateColumns: `repeat(${gridCols}, ${CELL_SIZE}px)`,
+                gridTemplateRows: `repeat(${gridRows}, ${CELL_SIZE}px)`,
+                width: gridCols * CELL_SIZE,
               }}
             >
-              {Array.from({ length: GRID_ROWS }, (_, row) =>
-                Array.from({ length: GRID_COLS }, (_, col) => {
+              {Array.from({ length: gridRows }, (_, row) =>
+                Array.from({ length: gridCols }, (_, col) => {
                   const key = `${col}-${row}`
                   const table = cellMap.get(key) ?? null
                   return (

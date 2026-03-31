@@ -43,3 +43,20 @@ export async function saveTablePosition(
     throw new Error(json.error ?? `Failed to save table position: ${res.status}`)
   }
 }
+
+/** Fetch the restaurant id (first restaurant visible to the current key). */
+export async function fetchRestaurantId(
+  supabaseUrl: string,
+  apiKey: string,
+): Promise<string> {
+  const url = new URL(`${supabaseUrl}/rest/v1/restaurants`)
+  url.searchParams.set('select', 'id')
+  url.searchParams.set('limit', '1')
+  const res = await fetch(url.toString(), {
+    headers: { apikey: apiKey, Authorization: `Bearer ${apiKey}` },
+  })
+  if (!res.ok) throw new Error(`Failed to fetch restaurant: ${res.status}`)
+  const rows = (await res.json()) as Array<{ id: string }>
+  if (rows.length === 0) throw new Error('No restaurant found')
+  return rows[0].id
+}

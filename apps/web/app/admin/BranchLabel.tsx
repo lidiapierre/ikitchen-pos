@@ -2,14 +2,14 @@
 
 import type { JSX } from 'react'
 import { Building2 } from 'lucide-react'
-import { useActiveRestaurant } from '@/lib/useActiveRestaurant'
+import { useActiveRestaurantContext } from '@/lib/ActiveRestaurantContext'
 
 /**
  * BranchLabel — shows the current active branch name in the admin header.
  * Rendered below the "iKitchen" title if a branch name is available.
  */
 export default function BranchLabel(): JSX.Element | null {
-  const { restaurantName, loading } = useActiveRestaurant()
+  const { restaurantName, loading } = useActiveRestaurantContext()
 
   if (loading || !restaurantName) return null
 

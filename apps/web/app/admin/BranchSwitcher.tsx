@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import type { JSX } from 'react'
 import { Building2, ChevronDown } from 'lucide-react'
-import { useActiveRestaurant } from '@/lib/useActiveRestaurant'
+import { useActiveRestaurantContext } from '@/lib/ActiveRestaurantContext'
 
 /**
  * BranchSwitcher — shown in the admin header when the user has access to
@@ -11,7 +11,7 @@ import { useActiveRestaurant } from '@/lib/useActiveRestaurant'
  * Hidden when only one restaurant is accessible.
  */
 export default function BranchSwitcher(): JSX.Element | null {
-  const { restaurantId, restaurantName, restaurants, loading, switchRestaurant } = useActiveRestaurant()
+  const { restaurantId, restaurantName, restaurants, loading, switchRestaurant } = useActiveRestaurantContext()
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 

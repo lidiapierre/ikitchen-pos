@@ -96,7 +96,6 @@ export async function handler(
       { status: 200, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } },
     )
   }
-  }
 
   if (req.method !== 'POST') {
     return jsonResponse({ success: false, error: 'Method not allowed' }, 405)

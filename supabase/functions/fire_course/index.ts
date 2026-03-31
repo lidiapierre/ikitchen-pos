@@ -51,7 +51,6 @@ export async function handler(
       { status: 200, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } },
     )
   }
-  }
 
   if (!env) {
     return new Response(

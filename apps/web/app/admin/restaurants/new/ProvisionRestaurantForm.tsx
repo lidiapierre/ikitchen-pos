@@ -1,98 +1,83 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import type { JSX } from 'react'
+import { Eye, EyeOff, Zap, CheckCircle2 } from 'lucide-react'
 import { callProvisionRestaurant } from '../restaurantAdminApi'
 import { fetchIsSuperAdmin } from '../restaurantAdminData'
 import { useUser } from '@/lib/user-context'
-import { Zap, CheckCircle2 } from 'lucide-react'
 
 interface FormValues {
   name: string
-  slug: string
-  timezone: string
-  currency: string
+  branchName: string
   ownerEmail: string
+  ownerPassword: string
+  currencyCode: string
+  currencySymbol: string
+  vatPercentage: string
+  serviceChargePercentage: string
 }
 
 interface FormErrors {
   name?: string
-  slug?: string
-  timezone?: string
-  currency?: string
   ownerEmail?: string
+  ownerPassword?: string
 }
 
 const EMPTY_FORM: FormValues = {
   name: '',
-  slug: '',
-  timezone: 'Asia/Dhaka',
-  currency: 'BDT',
+  branchName: '',
   ownerEmail: '',
+  ownerPassword: '',
+  currencyCode: 'BDT',
+  currencySymbol: '৳',
+  vatPercentage: '0',
+  serviceChargePercentage: '0',
 }
 
-const COMMON_TIMEZONES = [
-  'Asia/Dhaka',
-  'Asia/Kolkata',
-  'Asia/Karachi',
-  'Asia/Dubai',
-  'Asia/Singapore',
-  'Asia/Tokyo',
-  'Europe/London',
-  'Europe/Paris',
-  'America/New_York',
-  'America/Los_Angeles',
-  'UTC',
-]
-
-const CURRENCY_OPTIONS = [
-  { code: 'BDT', label: 'BDT — Bangladeshi Taka (৳)' },
-  { code: 'INR', label: 'INR — Indian Rupee (₹)' },
-  { code: 'USD', label: 'USD — US Dollar ($)' },
-  { code: 'EUR', label: 'EUR — Euro (€)' },
-  { code: 'GBP', label: 'GBP — British Pound (£)' },
-  { code: 'SGD', label: 'SGD — Singapore Dollar (S$)' },
-  { code: 'AED', label: 'AED — UAE Dirham (د.إ)' },
-]
-
-/** Auto-generate a slug from a restaurant name */
-function slugify(name: string): string {
-  return name
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9\s-]/g, '')
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-')
-    .slice(0, 48)
+function validateEmail(email: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
 }
 
 function validate(form: FormValues): FormErrors {
   const errors: FormErrors = {}
-  if (!form.name.trim()) errors.name = 'Restaurant name is required'
-  if (!form.slug.trim()) {
-    errors.slug = 'Slug is required'
-  } else if (!/^[a-z0-9-]+$/.test(form.slug)) {
-    errors.slug = 'Slug must be lowercase letters, numbers, and hyphens only'
+
+  if (!form.name.trim()) {
+    errors.name = 'Restaurant name is required'
+  } else if (form.name.trim().length < 2) {
+    errors.name = 'Restaurant name must be at least 2 characters'
   }
-  if (!form.timezone.trim()) errors.timezone = 'Timezone is required'
-  if (!form.currency.trim()) errors.currency = 'Currency is required'
-  if (!form.ownerEmail.trim() || !form.ownerEmail.includes('@')) {
-    errors.ownerEmail = 'A valid owner email is required'
+
+  if (!form.ownerEmail.trim()) {
+    errors.ownerEmail = 'Owner email is required'
+  } else if (!validateEmail(form.ownerEmail)) {
+    errors.ownerEmail = 'Please enter a valid email address'
   }
+
+  if (!form.ownerPassword) {
+    errors.ownerPassword = 'Owner password is required'
+  } else if (form.ownerPassword.length < 8) {
+    errors.ownerPassword = 'Password must be at least 8 characters'
+  }
+
   return errors
 }
 
+const INPUT_CLASS =
+  'w-full bg-zinc-900 border border-zinc-600 rounded-xl px-4 py-3 text-white placeholder-zinc-500 focus:border-indigo-500 focus:outline-none min-h-[48px]'
+
+const LABEL_CLASS = 'text-sm font-medium text-zinc-300'
+
 export default function ProvisionRestaurantForm(): JSX.Element {
-  const router = useRouter()
   const { accessToken } = useUser()
   const [form, setForm] = useState<FormValues>(EMPTY_FORM)
   const [errors, setErrors] = useState<FormErrors>({})
   const [submitting, setSubmitting] = useState(false)
-  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
+  const [success, setSuccess] = useState<{ restaurantId: string; name: string } | null>(null)
+  const [submitError, setSubmitError] = useState<string | null>(null)
+  const [showPassword, setShowPassword] = useState(false)
   const [isSuperAdmin, setIsSuperAdmin] = useState<boolean | null>(null)
-  const slugAutoRef = useRef(true) // track whether slug was auto-generated
 
   useEffect(() => {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -104,20 +89,11 @@ export default function ProvisionRestaurantForm(): JSX.Element {
       .catch(() => setIsSuperAdmin(false))
   }, [accessToken])
 
-  function handleNameChange(value: string): void {
-    const updated = { ...form, name: value }
-    // Auto-fill slug when it hasn't been manually edited
-    if (slugAutoRef.current) {
-      updated.slug = slugify(value)
+  function setField<K extends keyof FormValues>(key: K, value: FormValues[K]): void {
+    setForm((f) => ({ ...f, [key]: value }))
+    if (key in errors) {
+      setErrors((e) => ({ ...e, [key]: undefined }))
     }
-    setForm(updated)
-    setErrors((e) => ({ ...e, name: undefined, slug: slugAutoRef.current ? undefined : e.slug }))
-  }
-
-  function handleSlugChange(value: string): void {
-    slugAutoRef.current = false // user took manual control
-    setForm((f) => ({ ...f, slug: value }))
-    setErrors((e) => ({ ...e, slug: undefined }))
   }
 
   async function handleSubmit(): Promise<void> {
@@ -129,37 +105,33 @@ export default function ProvisionRestaurantForm(): JSX.Element {
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
     if (!supabaseUrl || !accessToken) {
-      setFeedback({ type: 'error', message: 'Not authenticated. Please refresh.' })
+      setSubmitError('Not authenticated. Please refresh and try again.')
       return
     }
 
     setSubmitting(true)
-    setFeedback(null)
+    setSubmitError(null)
+
     try {
       const result = await callProvisionRestaurant(supabaseUrl, accessToken, {
         name: form.name.trim(),
-        slug: form.slug.trim(),
-        timezone: form.timezone,
-        currency: form.currency,
         ownerEmail: form.ownerEmail.trim().toLowerCase(),
+        ownerPassword: form.ownerPassword,
+        branchName: form.branchName.trim() || undefined,
+        currencyCode: form.currencyCode.trim() || 'BDT',
+        currencySymbol: form.currencySymbol.trim() || '৳',
+        vatPercentage: parseFloat(form.vatPercentage) || 0,
+        serviceChargePercentage: parseFloat(form.serviceChargePercentage) || 0,
       })
-      setFeedback({
-        type: 'success',
-        message: `Restaurant "${result.restaurant.name}" provisioned! Owner invite sent to ${result.owner_email}.`,
-      })
-      // Navigate back to the list after a short delay
-      setTimeout(() => router.push('/admin/restaurants'), 2000)
+      setSuccess({ restaurantId: result.restaurantId, name: form.name.trim() })
     } catch (err) {
-      setFeedback({
-        type: 'error',
-        message: err instanceof Error ? err.message : 'Failed to provision restaurant',
-      })
+      setSubmitError(err instanceof Error ? err.message : 'Failed to provision restaurant')
     } finally {
       setSubmitting(false)
     }
   }
 
-  // Loading state while super-admin check resolves
+  // — Loading while permission check runs —
   if (isSuperAdmin === null) {
     return (
       <div className="flex flex-col gap-6">
@@ -169,19 +141,53 @@ export default function ProvisionRestaurantForm(): JSX.Element {
     )
   }
 
+  // — Access denied —
   if (!isSuperAdmin) {
     return (
       <div className="flex flex-col gap-6">
         <h1 className="text-2xl font-bold text-white">New Restaurant</h1>
-        <div className="bg-red-900/40 border border-red-700 rounded-2xl p-6">
-          <p className="text-red-200 text-base font-medium">Access Denied</p>
-          <p className="text-red-300 text-sm mt-1">
+        <div className="bg-red-900/30 border border-red-700 text-red-300 rounded-xl px-4 py-3">
+          <p className="font-medium">Access denied — super-admin only</p>
+          <p className="text-sm mt-1 text-red-400">
             Only iKitchen super-admins can provision new restaurants.
           </p>
         </div>
         <Link href="/admin/restaurants" className="text-indigo-400 hover:underline text-sm">
           ← Back to Restaurants
         </Link>
+      </div>
+    )
+  }
+
+  // — Success state —
+  if (success) {
+    return (
+      <div className="flex flex-col gap-6 max-w-2xl">
+        <div className="flex items-center gap-3">
+          <Link href="/admin/restaurants" className="text-indigo-400 hover:text-indigo-300 text-sm transition-colors">
+            ← Restaurants
+          </Link>
+          <span className="text-zinc-600">/</span>
+          <h1 className="text-2xl font-bold text-white">New Restaurant</h1>
+        </div>
+
+        <div className="bg-green-900/30 border border-green-700 text-green-300 rounded-xl px-4 py-3 flex flex-col gap-3">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 size={20} className="text-green-400 shrink-0" aria-hidden="true" />
+            <p className="font-medium text-green-200">
+              Restaurant &ldquo;{success.name}&rdquo; has been provisioned successfully!
+            </p>
+          </div>
+          <p className="text-sm text-green-400">
+            The owner account has been created. They can now log in with the credentials you set.
+          </p>
+          <Link
+            href="/admin/restaurants"
+            className="inline-flex items-center gap-1 text-sm font-medium text-indigo-400 hover:text-indigo-300 transition-colors"
+          >
+            View restaurants →
+          </Link>
+        </div>
       </div>
     )
   }
@@ -208,165 +214,201 @@ export default function ProvisionRestaurantForm(): JSX.Element {
         </span>
       </div>
 
-      {/* Feedback banner */}
-      {feedback && (
+      {/* Error banner */}
+      {submitError && (
         <div
-          role="status"
-          className={[
-            'px-5 py-3 rounded-xl text-base font-medium',
-            feedback.type === 'success'
-              ? 'bg-green-800 text-green-100'
-              : 'bg-red-800 text-red-100',
-          ].join(' ')}
+          role="alert"
+          className="bg-red-900/30 border border-red-700 text-red-300 rounded-xl px-4 py-3"
         >
-          {feedback.message}
+          {submitError}
         </div>
       )}
 
-      {/* Form */}
-      <div className="bg-zinc-800 border border-zinc-700 rounded-2xl p-6 flex flex-col gap-5">
+      {/* Form card */}
+      <form
+        onSubmit={(e) => { e.preventDefault(); void handleSubmit() }}
+        className="bg-zinc-800 border border-zinc-700 rounded-2xl p-6 flex flex-col gap-5"
+      >
+
         {/* Restaurant Name */}
         <div className="flex flex-col gap-1.5">
-          <label htmlFor="r-name" className="text-sm font-medium text-zinc-300">
-            Restaurant Name <span className="text-red-400">*</span>
+          <label htmlFor="r-name" className={LABEL_CLASS}>
+            Restaurant name <span className="text-red-400">*</span>
           </label>
           <input
             id="r-name"
             type="text"
             value={form.name}
-            onChange={(e) => handleNameChange(e.target.value)}
+            onChange={(e) => setField('name', e.target.value)}
             disabled={submitting}
-            className="min-h-[48px] px-4 py-2 rounded-xl bg-zinc-900 text-white border border-zinc-600 focus:border-indigo-500 focus:outline-none text-base disabled:opacity-50"
+            className={INPUT_CLASS + (errors.name ? ' border-red-600' : '')}
             placeholder="e.g. Dhaka Kitchen"
           />
           {errors.name && <span className="text-sm text-red-400">{errors.name}</span>}
         </div>
 
-        {/* Slug */}
+        {/* Branch Name */}
         <div className="flex flex-col gap-1.5">
-          <label htmlFor="r-slug" className="text-sm font-medium text-zinc-300">
-            Slug <span className="text-red-400">*</span>
-            <span className="ml-2 text-zinc-500 font-normal text-xs">(URL-safe identifier)</span>
+          <label htmlFor="r-branch" className={LABEL_CLASS}>
+            Branch name
+            <span className="ml-2 text-zinc-500 font-normal text-xs">(optional)</span>
           </label>
-          <div className="flex items-center">
-            <span className="px-3 py-2 min-h-[48px] flex items-center bg-zinc-700 text-zinc-400 border border-r-0 border-zinc-600 rounded-l-xl text-sm">
-              /
-            </span>
-            <input
-              id="r-slug"
-              type="text"
-              value={form.slug}
-              onChange={(e) => handleSlugChange(e.target.value)}
-              disabled={submitting}
-              className="flex-1 min-h-[48px] px-4 py-2 rounded-r-xl bg-zinc-900 text-white border border-zinc-600 focus:border-indigo-500 focus:outline-none text-base font-mono disabled:opacity-50"
-              placeholder="dhaka-kitchen"
-            />
-          </div>
-          {errors.slug && <span className="text-sm text-red-400">{errors.slug}</span>}
-          <p className="text-xs text-zinc-500">Lowercase letters, numbers, and hyphens only. Auto-filled from name.</p>
-        </div>
-
-        {/* Timezone */}
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="r-timezone" className="text-sm font-medium text-zinc-300">
-            Timezone <span className="text-red-400">*</span>
-          </label>
-          <select
-            id="r-timezone"
-            value={form.timezone}
-            onChange={(e) => {
-              setForm((f) => ({ ...f, timezone: e.target.value }))
-              setErrors((err) => ({ ...err, timezone: undefined }))
-            }}
+          <input
+            id="r-branch"
+            type="text"
+            value={form.branchName}
+            onChange={(e) => setField('branchName', e.target.value)}
             disabled={submitting}
-            className="min-h-[48px] px-4 py-2 rounded-xl bg-zinc-900 text-white border border-zinc-600 focus:border-indigo-500 focus:outline-none text-base disabled:opacity-50"
-          >
-            {COMMON_TIMEZONES.map((tz) => (
-              <option key={tz} value={tz}>
-                {tz}
-              </option>
-            ))}
-          </select>
-          {errors.timezone && <span className="text-sm text-red-400">{errors.timezone}</span>}
-        </div>
-
-        {/* Currency */}
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="r-currency" className="text-sm font-medium text-zinc-300">
-            Currency <span className="text-red-400">*</span>
-          </label>
-          <select
-            id="r-currency"
-            value={form.currency}
-            onChange={(e) => {
-              setForm((f) => ({ ...f, currency: e.target.value }))
-              setErrors((err) => ({ ...err, currency: undefined }))
-            }}
-            disabled={submitting}
-            className="min-h-[48px] px-4 py-2 rounded-xl bg-zinc-900 text-white border border-zinc-600 focus:border-indigo-500 focus:outline-none text-base disabled:opacity-50"
-          >
-            {CURRENCY_OPTIONS.map((c) => (
-              <option key={c.code} value={c.code}>
-                {c.label}
-              </option>
-            ))}
-          </select>
-          {errors.currency && <span className="text-sm text-red-400">{errors.currency}</span>}
+            className={INPUT_CLASS}
+            placeholder="e.g. Gulshan, Dhanmondi"
+          />
         </div>
 
         {/* Owner Email */}
         <div className="flex flex-col gap-1.5">
-          <label htmlFor="r-owner-email" className="text-sm font-medium text-zinc-300">
-            Owner Email <span className="text-red-400">*</span>
+          <label htmlFor="r-owner-email" className={LABEL_CLASS}>
+            Owner email <span className="text-red-400">*</span>
           </label>
           <input
             id="r-owner-email"
             type="email"
             value={form.ownerEmail}
-            onChange={(e) => {
-              setForm((f) => ({ ...f, ownerEmail: e.target.value }))
-              setErrors((err) => ({ ...err, ownerEmail: undefined }))
-            }}
+            onChange={(e) => setField('ownerEmail', e.target.value)}
             disabled={submitting}
-            className="min-h-[48px] px-4 py-2 rounded-xl bg-zinc-900 text-white border border-zinc-600 focus:border-indigo-500 focus:outline-none text-base disabled:opacity-50"
+            className={INPUT_CLASS + (errors.ownerEmail ? ' border-red-600' : '')}
             placeholder="owner@restaurant.com"
           />
           {errors.ownerEmail && <span className="text-sm text-red-400">{errors.ownerEmail}</span>}
+        </div>
+
+        {/* Owner Password */}
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="r-owner-password" className={LABEL_CLASS}>
+            Owner password <span className="text-red-400">*</span>
+          </label>
+          <div className="relative">
+            <input
+              id="r-owner-password"
+              type={showPassword ? 'text' : 'password'}
+              value={form.ownerPassword}
+              onChange={(e) => setField('ownerPassword', e.target.value)}
+              disabled={submitting}
+              className={INPUT_CLASS + ' pr-12' + (errors.ownerPassword ? ' border-red-600' : '')}
+              placeholder="Min. 8 characters"
+              autoComplete="new-password"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((v) => !v)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-200 transition-colors"
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
+            >
+              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
+          </div>
+          {errors.ownerPassword && (
+            <span className="text-sm text-red-400">{errors.ownerPassword}</span>
+          )}
           <p className="text-xs text-zinc-500">
-            An invite email will be sent to this address. The owner will set their own password.
+            The owner can change this password after logging in.
           </p>
         </div>
 
-        {/* Default config note */}
-        <div className="bg-zinc-900/60 border border-zinc-700 rounded-xl p-4 text-sm text-zinc-400">
-          <p className="font-medium text-zinc-300 mb-1">Default config seeded automatically:</p>
-          <ul className="list-disc list-inside space-y-0.5">
-            <li>Currency: {form.currency || 'BDT'}</li>
-            <li>VAT: 0%</li>
-            <li>Service charge: 0%</li>
-          </ul>
-          <p className="mt-2 text-xs text-zinc-500">
-            The owner can update these in the Pricing admin after logging in.
-          </p>
+        {/* Currency Code + Symbol — side by side */}
+        <div className="grid grid-cols-2 gap-4">
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="r-currency-code" className={LABEL_CLASS}>
+              Currency code
+              <span className="ml-2 text-zinc-500 font-normal text-xs">(optional)</span>
+            </label>
+            <input
+              id="r-currency-code"
+              type="text"
+              value={form.currencyCode}
+              onChange={(e) => setField('currencyCode', e.target.value.toUpperCase())}
+              disabled={submitting}
+              className={INPUT_CLASS}
+              placeholder="BDT"
+              maxLength={10}
+            />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="r-currency-symbol" className={LABEL_CLASS}>
+              Currency symbol
+              <span className="ml-2 text-zinc-500 font-normal text-xs">(optional)</span>
+            </label>
+            <input
+              id="r-currency-symbol"
+              type="text"
+              value={form.currencySymbol}
+              onChange={(e) => setField('currencySymbol', e.target.value)}
+              disabled={submitting}
+              className={INPUT_CLASS}
+              placeholder="৳"
+              maxLength={8}
+            />
+          </div>
+        </div>
+
+        {/* VAT % + Service Charge % — side by side */}
+        <div className="grid grid-cols-2 gap-4">
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="r-vat" className={LABEL_CLASS}>
+              VAT %
+              <span className="ml-2 text-zinc-500 font-normal text-xs">(optional)</span>
+            </label>
+            <input
+              id="r-vat"
+              type="number"
+              min="0"
+              max="100"
+              step="0.01"
+              value={form.vatPercentage}
+              onChange={(e) => setField('vatPercentage', e.target.value)}
+              disabled={submitting}
+              className={INPUT_CLASS}
+              placeholder="0"
+            />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="r-service-charge" className={LABEL_CLASS}>
+              Service charge %
+              <span className="ml-2 text-zinc-500 font-normal text-xs">(optional)</span>
+            </label>
+            <input
+              id="r-service-charge"
+              type="number"
+              min="0"
+              max="100"
+              step="0.01"
+              value={form.serviceChargePercentage}
+              onChange={(e) => setField('serviceChargePercentage', e.target.value)}
+              disabled={submitting}
+              className={INPUT_CLASS}
+              placeholder="0"
+            />
+          </div>
         </div>
 
         {/* Actions */}
         <div className="flex gap-3 pt-2">
           <button
-            onClick={() => { void handleSubmit() }}
+            type="submit"
             disabled={submitting}
-            className="min-h-[48px] px-6 py-2 rounded-xl bg-indigo-600 text-white text-base font-medium hover:bg-indigo-500 transition-colors disabled:opacity-50"
+            className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-xl min-h-[48px] px-6 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {submitting ? 'Provisioning…' : 'Provision Restaurant'}
           </button>
           <Link
             href="/admin/restaurants"
-            className="min-h-[48px] px-5 py-2 rounded-xl bg-zinc-700 text-white text-base font-medium hover:bg-zinc-600 transition-colors flex items-center"
+            className="min-h-[48px] px-5 rounded-xl bg-zinc-700 text-white font-medium hover:bg-zinc-600 transition-colors flex items-center"
           >
             Cancel
           </Link>
         </div>
-      </div>
+      </form>
     </div>
   )
 }

@@ -3,8 +3,10 @@
  *
  * Creates a new restaurant and its owner account in one atomic-ish operation:
  *   1. Validates slug uniqueness
- *   2. Creates row in `restaurants`
- *   3. Invites the owner via Supabase Auth admin invite
+ *   2. Creates row in `restaurants` (including optional branch_name)
+ *   3. Creates the owner account via Supabase Auth admin API
+ *      - If owner_password is provided: createUser with password (owner can log in immediately)
+ *      - Otherwise: invite (owner receives an email invitation)
  *   4. Creates row in `users` with role = 'owner'
  *   5. Seeds default config (currency_code, currency_symbol, vat_percentage, service_charge)
  *
@@ -15,7 +17,7 @@
 
 export const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-demo-staff-id',
   'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
 }
 
@@ -91,7 +93,7 @@ export async function handler(
   env: HandlerEnv | null = readEnv(),
 ): Promise<Response> {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { status: 200, headers: corsHeaders })
+    return new Response(null, { status: 204, headers: corsHeaders })
   }
 
   // Health check – keeps the function warm (issue #283)
@@ -156,13 +158,30 @@ export async function handler(
   const name = (payload['name'] as string).trim()
   const slug = (payload['slug'] as string).trim().toLowerCase()
   const ownerEmail = (payload['owner_email'] as string).trim().toLowerCase()
+  const branchName = typeof payload['branch_name'] === 'string' && payload['branch_name'].trim()
+    ? (payload['branch_name'] as string).trim()
+    : null
+  const ownerPassword = typeof payload['owner_password'] === 'string' && (payload['owner_password'] as string).length >= 8
+    ? (payload['owner_password'] as string)
+    : null
   const timezone = typeof payload['timezone'] === 'string' && payload['timezone'].trim()
     ? (payload['timezone'] as string).trim()
     : 'Asia/Dhaka'
-  const currencyCode = typeof payload['currency'] === 'string' && payload['currency'].trim()
-    ? (payload['currency'] as string).trim().toUpperCase()
-    : 'BDT'
-  const currencySymbol = currencyCode === 'BDT' ? '৳' : currencyCode
+  const currencyCode = typeof payload['currency_code'] === 'string' && payload['currency_code'].trim()
+    ? (payload['currency_code'] as string).trim().toUpperCase()
+    // legacy field name support
+    : typeof payload['currency'] === 'string' && payload['currency'].trim()
+      ? (payload['currency'] as string).trim().toUpperCase()
+      : 'BDT'
+  const currencySymbol = typeof payload['currency_symbol'] === 'string' && payload['currency_symbol'].trim()
+    ? (payload['currency_symbol'] as string).trim()
+    : currencyCode === 'BDT' ? '৳' : currencyCode
+  const vatPercentage = typeof payload['vat_percentage'] === 'number'
+    ? String(payload['vat_percentage'])
+    : '0'
+  const serviceCharge = typeof payload['service_charge_percentage'] === 'number'
+    ? String(payload['service_charge_percentage'])
+    : '0'
 
   const serviceHeaders = {
     apikey: serviceKey,
@@ -171,10 +190,13 @@ export async function handler(
   }
 
   // --- 1. Create restaurant ---
+  const restaurantBody: Record<string, string | null> = { name, slug, timezone }
+  if (branchName) restaurantBody['branch_name'] = branchName
+
   const restaurantRes = await fetchFn(`${supabaseUrl}/rest/v1/restaurants`, {
     method: 'POST',
     headers: { ...serviceHeaders, Prefer: 'return=representation' },
-    body: JSON.stringify({ name, slug, timezone }),
+    body: JSON.stringify(restaurantBody),
   })
 
   if (!restaurantRes.ok) {
@@ -207,31 +229,62 @@ export async function handler(
     }).catch(() => undefined)
   }
 
-  // --- 2. Invite owner via Supabase Auth admin API ---
-  const inviteRes = await fetchFn(`${supabaseUrl}/auth/v1/invite`, {
-    method: 'POST',
-    headers: serviceHeaders,
-    body: JSON.stringify({ email: ownerEmail, data: { restaurant_id: restaurant.id } }),
-  })
+  // --- 2. Create owner auth account ---
+  let authUserId: string
 
-  if (!inviteRes.ok) {
-    await cleanupRestaurant()
-    const errBody = await inviteRes.json().catch(() => ({})) as Record<string, unknown>
-    const errMsg = String(errBody['msg'] ?? errBody['message'] ?? 'Failed to create owner auth account')
-    return new Response(
-      JSON.stringify({ success: false, error: errMsg }),
-      { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
-    )
+  if (ownerPassword) {
+    // Create user with password via admin API — owner can log in immediately
+    const createRes = await fetchFn(`${supabaseUrl}/auth/v1/admin/users`, {
+      method: 'POST',
+      headers: serviceHeaders,
+      body: JSON.stringify({
+        email: ownerEmail,
+        password: ownerPassword,
+        email_confirm: true,
+        user_metadata: { restaurant_id: restaurant.id },
+      }),
+    })
+
+    if (!createRes.ok) {
+      await cleanupRestaurant()
+      const errBody = await createRes.json().catch(() => ({})) as Record<string, unknown>
+      const errMsg = String(errBody['msg'] ?? errBody['message'] ?? 'Failed to create owner auth account')
+      return new Response(
+        JSON.stringify({ success: false, error: errMsg }),
+        { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+      )
+    }
+
+    const createdUser = (await createRes.json()) as { id: string }
+    authUserId = createdUser.id
+  } else {
+    // Invite owner via Supabase Auth admin invite API — owner receives email
+    const inviteRes = await fetchFn(`${supabaseUrl}/auth/v1/invite`, {
+      method: 'POST',
+      headers: serviceHeaders,
+      body: JSON.stringify({ email: ownerEmail, data: { restaurant_id: restaurant.id } }),
+    })
+
+    if (!inviteRes.ok) {
+      await cleanupRestaurant()
+      const errBody = await inviteRes.json().catch(() => ({})) as Record<string, unknown>
+      const errMsg = String(errBody['msg'] ?? errBody['message'] ?? 'Failed to create owner auth account')
+      return new Response(
+        JSON.stringify({ success: false, error: errMsg }),
+        { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+      )
+    }
+
+    const authUser = (await inviteRes.json()) as { id: string }
+    authUserId = authUser.id
   }
-
-  const authUser = (await inviteRes.json()) as { id: string }
 
   // --- 3. Create user row with role = owner ---
   const userRes = await fetchFn(`${supabaseUrl}/rest/v1/users`, {
     method: 'POST',
     headers: { ...serviceHeaders, Prefer: 'return=minimal' },
     body: JSON.stringify({
-      id: authUser.id,
+      id: authUserId,
       restaurant_id: restaurant.id,
       email: ownerEmail,
       role: 'owner',
@@ -241,7 +294,7 @@ export async function handler(
 
   if (!userRes.ok) {
     // Rollback auth user and restaurant
-    await fetchFn(`${supabaseUrl}/auth/v1/admin/users/${authUser.id}`, {
+    await fetchFn(`${supabaseUrl}/auth/v1/admin/users/${authUserId}`, {
       method: 'DELETE',
       headers: serviceHeaders,
     }).catch(() => undefined)
@@ -256,8 +309,8 @@ export async function handler(
   const defaultConfig = [
     { restaurant_id: restaurant.id, key: 'currency_code', value: currencyCode },
     { restaurant_id: restaurant.id, key: 'currency_symbol', value: currencySymbol },
-    { restaurant_id: restaurant.id, key: 'vat_percentage', value: '0' },
-    { restaurant_id: restaurant.id, key: 'service_charge', value: '0' },
+    { restaurant_id: restaurant.id, key: 'vat_percentage', value: vatPercentage },
+    { restaurant_id: restaurant.id, key: 'service_charge_percent', value: serviceCharge },
   ]
 
   // Best-effort — config seeding failure doesn't abort the provisioning

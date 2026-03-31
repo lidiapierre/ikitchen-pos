@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { handler, corsHeaders, type HandlerEnv } from './index'
 
 const TEST_TABLE_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
+const TEST_RESTAURANT_ID = 'rrrrrrrr-rrrr-rrrr-rrrr-rrrrrrrrrrrr'
 
 const mockEnv: HandlerEnv = {
   supabaseUrl: 'https://test.supabase.co',
@@ -17,11 +18,27 @@ vi.mock('../_shared/auth.ts', () => ({
   verifyAndGetCaller: vi.fn().mockResolvedValue(mockAuth),
 }))
 
-function makePatchFetch(patchStatus = 204): (input: string, init?: RequestInit) => Promise<Response> {
-  return vi.fn().mockImplementation((_url: string, init?: RequestInit) => {
+function makePatchFetch(
+  patchStatus = 204,
+  opts: { tableFound?: boolean; ownershipGranted?: boolean } = {},
+): (input: string, init?: RequestInit) => Promise<Response> {
+  const { tableFound = true, ownershipGranted = true } = opts
+  return vi.fn().mockImplementation((url: string, init?: RequestInit) => {
     const method = (init?.method ?? 'GET').toUpperCase()
     if (method === 'PATCH') {
       return Promise.resolve(new Response(null, { status: patchStatus }))
+    }
+    // Table lookup — GET /rest/v1/tables?id=eq.{tableId}&select=id,restaurant_id
+    if ((url as string).includes('/tables?id=eq.')) {
+      const rows = tableFound
+        ? [{ id: TEST_TABLE_ID, restaurant_id: TEST_RESTAURANT_ID }]
+        : []
+      return Promise.resolve(new Response(JSON.stringify(rows), { status: 200 }))
+    }
+    // Ownership check — GET /rest/v1/user_restaurants?user_id=...&restaurant_id=...
+    if ((url as string).includes('/user_restaurants?')) {
+      const rows = ownershipGranted ? [{ user_id: mockAuth.actorId }] : []
+      return Promise.resolve(new Response(JSON.stringify(rows), { status: 200 }))
     }
     return Promise.resolve(new Response('[]', { status: 200 }))
   })
@@ -128,6 +145,36 @@ describe('update_table_position handler', () => {
       })
       const res = await handler(req, makePatchFetch(), mockEnv)
       expect(res.status).toBe(400)
+    })
+
+    it('returns 400 when grid_x is set without grid_y (atomicity)', async (): Promise<void> => {
+      const req = makeAuthRequest({ table_id: TEST_TABLE_ID, grid_x: 3, grid_y: null })
+      const res = await handler(req, makePatchFetch(), mockEnv)
+      expect(res.status).toBe(400)
+      const body = await res.json() as { error: string }
+      expect(body.error).toContain('grid_x and grid_y must be set together')
+    })
+
+    it('returns 400 when grid_y is set without grid_x (atomicity)', async (): Promise<void> => {
+      const req = makeAuthRequest({ table_id: TEST_TABLE_ID, grid_x: null, grid_y: 5 })
+      const res = await handler(req, makePatchFetch(), mockEnv)
+      expect(res.status).toBe(400)
+      const body = await res.json() as { error: string }
+      expect(body.error).toContain('grid_x and grid_y must be set together')
+    })
+  })
+
+  describe('POST — ownership checks', () => {
+    it('returns 404 when table is not found', async (): Promise<void> => {
+      const req = makeAuthRequest({ table_id: TEST_TABLE_ID, grid_x: 3, grid_y: 5 })
+      const res = await handler(req, makePatchFetch(204, { tableFound: false }), mockEnv)
+      expect(res.status).toBe(404)
+    })
+
+    it('returns 403 when caller does not belong to the restaurant', async (): Promise<void> => {
+      const req = makeAuthRequest({ table_id: TEST_TABLE_ID, grid_x: 3, grid_y: 5 })
+      const res = await handler(req, makePatchFetch(204, { ownershipGranted: false }), mockEnv)
+      expect(res.status).toBe(403)
     })
   })
 

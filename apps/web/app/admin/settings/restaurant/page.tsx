@@ -30,6 +30,7 @@ export default function RestaurantSettingsPage(): JSX.Element {
   const feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Form state
+  const [restaurantName, setRestaurantName] = useState('')
   const [binNumber, setBinNumber] = useState('')
   const [registerName, setRegisterName] = useState('')
   const [restaurantAddress, setRestaurantAddress] = useState('')
@@ -55,11 +56,13 @@ export default function RestaurantSettingsPage(): JSX.Element {
         if (rows.length === 0) throw new Error('No restaurant found')
         const rid = rows[0].id
         setRestaurantId(rid)
-        const [binVal, regVal, addrVal] = await Promise.all([
+        const [nameVal, binVal, regVal, addrVal] = await Promise.all([
+          fetchConfigValue(supabaseUrl, supabaseKey, rid, 'restaurant_name', ''),
           fetchConfigValue(supabaseUrl, supabaseKey, rid, 'bin_number', ''),
           fetchConfigValue(supabaseUrl, supabaseKey, rid, 'register_name', ''),
           fetchConfigValue(supabaseUrl, supabaseKey, rid, 'restaurant_address', ''),
         ])
+        setRestaurantName(nameVal)
         setBinNumber(binVal)
         setRegisterName(regVal)
         setRestaurantAddress(addrVal)

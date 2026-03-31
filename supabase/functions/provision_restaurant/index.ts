@@ -17,7 +17,7 @@
 
 export const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-demo-staff-id',
   'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
 }
 
@@ -93,7 +93,7 @@ export async function handler(
   env: HandlerEnv | null = readEnv(),
 ): Promise<Response> {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { status: 200, headers: corsHeaders })
+    return new Response(null, { status: 204, headers: corsHeaders })
   }
 
   // Health check – keeps the function warm (issue #283)
@@ -310,7 +310,7 @@ export async function handler(
     { restaurant_id: restaurant.id, key: 'currency_code', value: currencyCode },
     { restaurant_id: restaurant.id, key: 'currency_symbol', value: currencySymbol },
     { restaurant_id: restaurant.id, key: 'vat_percentage', value: vatPercentage },
-    { restaurant_id: restaurant.id, key: 'service_charge', value: serviceCharge },
+    { restaurant_id: restaurant.id, key: 'service_charge_percent', value: serviceCharge },
   ]
 
   // Best-effort — config seeding failure doesn't abort the provisioning

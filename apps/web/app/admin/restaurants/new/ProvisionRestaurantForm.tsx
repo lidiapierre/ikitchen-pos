@@ -225,7 +225,10 @@ export default function ProvisionRestaurantForm(): JSX.Element {
       )}
 
       {/* Form card */}
-      <div className="bg-zinc-800 border border-zinc-700 rounded-2xl p-6 flex flex-col gap-5">
+      <form
+        onSubmit={(e) => { e.preventDefault(); void handleSubmit() }}
+        className="bg-zinc-800 border border-zinc-700 rounded-2xl p-6 flex flex-col gap-5"
+      >
 
         {/* Restaurant Name */}
         <div className="flex flex-col gap-1.5">
@@ -392,7 +395,7 @@ export default function ProvisionRestaurantForm(): JSX.Element {
         {/* Actions */}
         <div className="flex gap-3 pt-2">
           <button
-            onClick={() => { void handleSubmit() }}
+            type="submit"
             disabled={submitting}
             className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-xl min-h-[48px] px-6 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
@@ -405,7 +408,7 @@ export default function ProvisionRestaurantForm(): JSX.Element {
             Cancel
           </Link>
         </div>
-      </div>
+      </form>
     </div>
   )
 }

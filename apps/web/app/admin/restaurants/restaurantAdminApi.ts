@@ -39,6 +39,9 @@ export async function callProvisionRestaurant(
   input: ProvisionRestaurantInput,
 ): Promise<{ restaurantId: string }> {
   const slug = slugify(input.name)
+  if (!slug) {
+    throw new Error('Restaurant name must contain at least one letter or number')
+  }
 
   const res = await fetch(`${supabaseUrl}/functions/v1/provision_restaurant`, {
     method: 'POST',

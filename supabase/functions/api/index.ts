@@ -565,6 +565,14 @@ export async function handler(
     return new Response(null, { status: 204, headers: corsHeaders })
   }
 
+  // Health check – keeps the function warm (issue #283)
+  if (req.method === 'GET' && new URL(req.url).pathname.endsWith('/health')) {
+    return new Response(
+      JSON.stringify({ ok: true, function: 'api' }),
+      { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    )
+  }
+
   if (!env) {
     return errorResponse('Server configuration error', 500)
   }

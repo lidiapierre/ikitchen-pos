@@ -8,6 +8,14 @@ const corsHeaders = {
 Deno.serve(async (req: Request): Promise<Response> => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
+  // Health check – keeps the function warm (issue #283)
+  if (req.method === 'GET' && new URL(req.url).pathname.endsWith('/health')) {
+    return new Response(
+      JSON.stringify({ ok: true, function: 'mark-items-sent-to-kitchen' }),
+      { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    )
+  }
+
   try {
     const { order_id, item_ids } = await req.json() as { order_id: string; item_ids: string[] }
 

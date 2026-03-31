@@ -31,6 +31,14 @@ export async function handler(
     return new Response('ok', { status: 200, headers: corsHeaders })
   }
 
+  // Health check – keeps the function warm (issue #283)
+  if (req.method === 'GET' && new URL(req.url).pathname.endsWith('/health')) {
+    return new Response(
+      JSON.stringify({ ok: true, function: 'delete_menu' }),
+      { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    )
+  }
+
   if (!env) {
     return new Response(
       JSON.stringify({ success: false, error: 'Server configuration error' }),

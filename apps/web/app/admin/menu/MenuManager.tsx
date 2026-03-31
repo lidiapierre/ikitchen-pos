@@ -97,7 +97,7 @@ export default function MenuManager(): JSX.Element {
     setSubmitting(true)
     try {
       await callDeleteMenuItem(config.url, accessToken ?? '', deletingItemId)
-      invalidateMenuCache(restaurantId || undefined)
+      invalidateMenuCache(restaurantId !== '' ? restaurantId : undefined)
       setMenus((prev) =>
         prev.map((menu) => ({
           ...menu,
@@ -124,7 +124,7 @@ export default function MenuManager(): JSX.Element {
     setSubmitting(true)
     try {
       const menuId = await callCreateMenu(config.url, config.key, restaurantId, categoryName.trim())
-      invalidateMenuCache(restaurantId || undefined)
+      invalidateMenuCache(restaurantId !== '' ? restaurantId : undefined)
       const newMenu: AdminMenu = {
         id: menuId,
         name: categoryName.trim(),
@@ -163,7 +163,7 @@ export default function MenuManager(): JSX.Element {
     try {
       const newName = editingCategoryName.trim()
       await callUpdateMenu(config.url, config.key, editingCategoryId, newName)
-      invalidateMenuCache(restaurantId || undefined)
+      invalidateMenuCache(restaurantId !== '' ? restaurantId : undefined)
       setMenus((prev) =>
         prev.map((m) => (m.id === editingCategoryId ? { ...m, name: newName } : m)),
       )
@@ -197,7 +197,7 @@ export default function MenuManager(): JSX.Element {
     setSubmitting(true)
     try {
       await callDeleteMenu(config.url, config.key, deletingCategoryId)
-      invalidateMenuCache(restaurantId || undefined)
+      invalidateMenuCache(restaurantId !== '' ? restaurantId : undefined)
       setMenus((prev) => prev.filter((m) => m.id !== deletingCategoryId))
       setDeletingCategoryId(null)
       showFeedback('success', menu ? `Category "${menu.name}" deleted.` : 'Category deleted.')

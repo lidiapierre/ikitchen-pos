@@ -29,7 +29,6 @@ import type { TableRow, TakeawayDeliveryOrder } from '@/app/tables/tablesData'
 interface TablesCacheEntry {
   tables: TableRow[]
   queue: TakeawayDeliveryOrder[]
-  cachedAt: number
 }
 
 // ---------------------------------------------------------------------------
@@ -58,7 +57,7 @@ export function getTablesCache(): { tables: TableRow[]; queue: TakeawayDeliveryO
  * Call this after every successful network fetch.
  */
 export function setTablesCache(tables: TableRow[], queue: TakeawayDeliveryOrder[]): void {
-  memCache = { tables, queue, cachedAt: Date.now() }
+  memCache = { tables, queue }
 }
 
 /**

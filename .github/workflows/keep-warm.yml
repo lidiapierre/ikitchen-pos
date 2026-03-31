@@ -30,7 +30,7 @@ jobs:
         if: steps.hours.outputs.in_hours == 'true'
         env:
           SUPABASE_URL: https://dmaogdwtgohrhbytxjqu.supabase.co/functions/v1
-          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+          SUPABASE_PUBLISHABLE_KEY: sb_publishable_IzsBL3KELStvo6bioFKWhA_dMj81UxH
         run: |
           FUNCTIONS=(
             add_item_to_order

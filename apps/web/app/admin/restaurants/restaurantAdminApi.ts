@@ -11,39 +11,48 @@ function buildHeaders(accessToken: string): Record<string, string> {
   }
 }
 
-export interface ProvisionRestaurantParams {
-  name: string
-  slug: string
-  timezone: string
-  currency: string
-  ownerEmail: string
+/** Auto-generate a URL-safe slug from a restaurant name */
+function slugify(name: string): string {
+  return name
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .slice(0, 48)
 }
 
-export interface ProvisionedRestaurant {
-  restaurant: {
-    id: string
-    name: string
-    slug: string
-    timezone: string
-    created_at: string
-  }
-  owner_email: string
+export interface ProvisionRestaurantInput {
+  name: string
+  ownerEmail: string
+  ownerPassword: string
+  branchName?: string
+  currencyCode?: string
+  currencySymbol?: string
+  vatPercentage?: number
+  serviceChargePercentage?: number
 }
 
 export async function callProvisionRestaurant(
   supabaseUrl: string,
   accessToken: string,
-  params: ProvisionRestaurantParams,
-): Promise<ProvisionedRestaurant> {
+  input: ProvisionRestaurantInput,
+): Promise<{ restaurantId: string }> {
+  const slug = slugify(input.name)
+
   const res = await fetch(`${supabaseUrl}/functions/v1/provision_restaurant`, {
     method: 'POST',
     headers: buildHeaders(accessToken),
     body: JSON.stringify({
-      name: params.name,
-      slug: params.slug,
-      timezone: params.timezone,
-      currency: params.currency,
-      owner_email: params.ownerEmail,
+      name: input.name,
+      slug,
+      owner_email: input.ownerEmail,
+      owner_password: input.ownerPassword,
+      ...(input.branchName ? { branch_name: input.branchName } : {}),
+      currency_code: input.currencyCode ?? 'BDT',
+      currency_symbol: input.currencySymbol ?? '৳',
+      vat_percentage: input.vatPercentage ?? 0,
+      service_charge_percentage: input.serviceChargePercentage ?? 0,
     }),
   })
 
@@ -60,5 +69,6 @@ export async function callProvisionRestaurant(
     throw new Error('Invalid response from provision_restaurant')
   }
 
-  return json.data as unknown as ProvisionedRestaurant
+  const restaurant = json.data['restaurant'] as { id: string }
+  return { restaurantId: restaurant.id }
 }

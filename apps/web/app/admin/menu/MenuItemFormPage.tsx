@@ -8,6 +8,7 @@ import type { AdminMenu, AdminModifier } from './menuAdminData'
 import { fetchConfigValue } from '../pricing/pricingAdminData'
 import { DEFAULT_CURRENCY_SYMBOL } from '@/lib/formatPrice'
 import { callCreateMenuItem, callUpdateMenuItem } from './menuAdminApi'
+import { invalidateMenuCache } from '@/lib/menuCache'
 import type { ModifierInput } from './menuAdminApi'
 import { callExtractMenuItem, uploadMenuFile, fileToBase64 } from './extractMenuItemApi'
 import { useUser } from '@/lib/user-context'
@@ -313,6 +314,8 @@ export default function MenuItemFormPage({ mode, itemId }: MenuItemFormPageProps
         )
       }
 
+      // Invalidate menu cache so POS picks up changes on next load
+      invalidateMenuCache()
       router.push('/admin/menu')
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : 'Failed to save item.')

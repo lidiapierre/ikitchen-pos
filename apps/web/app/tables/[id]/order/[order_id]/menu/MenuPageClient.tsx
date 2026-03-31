@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import type { JSX } from 'react'
-import { fetchMenuCategories } from './menuData'
+import { fetchMenuCategoriesCached } from '@/lib/menuCache'
 import type { MenuCategory } from './menuData'
 import MenuItemCard from './MenuItemCard'
 import { filterMenuItemsWithFilters, hasActiveFilters, EMPTY_FILTERS } from './menuSearch'
@@ -34,7 +34,7 @@ export default function MenuPageClient({ tableId, orderId }: MenuPageClientProps
       return
     }
 
-    fetchMenuCategories(supabaseUrl, supabaseKey, orderId)
+    fetchMenuCategoriesCached(supabaseUrl, supabaseKey, orderId)
       .then((data) => {
         setCategories(data)
       })

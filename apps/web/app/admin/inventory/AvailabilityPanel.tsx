@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import type { JSX } from 'react'
+import { Search } from 'lucide-react'
 import { useUser } from '@/lib/user-context'
 import { invalidateMenuCache } from '@/lib/menuCache'
 import { fetchMenuAvailability, type AvailabilityCategory } from './availabilityApi'
@@ -20,6 +21,7 @@ export default function AvailabilityPanel(): JSX.Element {
   const [fetchError, setFetchError] = useState<string | null>(null)
   const [feedback, setFeedback] = useState<Feedback | null>(null)
   const [togglingIds, setTogglingIds] = useState<Set<string>>(new Set())
+  const [searchQuery, setSearchQuery] = useState('')
   const feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
@@ -124,8 +126,32 @@ export default function AvailabilityPanel(): JSX.Element {
     0,
   )
 
+  // Filter categories/items by search query
+  const filteredCategories = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase()
+    if (!q) return categories
+    return categories
+      .map((cat) => ({
+        ...cat,
+        items: cat.items.filter((item) => item.name.toLowerCase().includes(q)),
+      }))
+      .filter((cat) => cat.items.length > 0)
+  }, [categories, searchQuery])
+
   return (
     <div className="flex flex-col gap-6">
+      {/* Search bar */}
+      <div className="relative">
+        <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" aria-hidden="true" />
+        <input
+          type="search"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search items to 86…"
+          className="w-full min-h-[48px] pl-10 pr-4 py-2 rounded-xl bg-zinc-800 text-white border border-zinc-600 focus:border-indigo-500 focus:outline-none placeholder-zinc-500"
+        />
+      </div>
+
       {/* Header summary */}
       <div className="flex items-center gap-3 flex-wrap">
         <p className="text-sm text-zinc-400">
@@ -152,11 +178,13 @@ export default function AvailabilityPanel(): JSX.Element {
       )}
 
       {/* Categories */}
-      {categories.length === 0 && (
-        <p className="text-zinc-500">No menu categories found.</p>
+      {filteredCategories.length === 0 && (
+        <p className="text-zinc-500">
+          {searchQuery.trim() ? `No items match "${searchQuery.trim()}".` : 'No menu categories found.'}
+        </p>
       )}
 
-      {categories.map((category) => (
+      {filteredCategories.map((category) => (
         <div key={category.id} className="flex flex-col gap-3">
           {/* Category header */}
           <div className="flex items-center gap-3">

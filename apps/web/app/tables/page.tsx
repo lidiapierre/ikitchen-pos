@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation'
 import TableCard from './components/TableCard'
 import { fetchTables, fetchTakeawayDeliveryQueue } from './tablesData'
 import type { TableRow, TakeawayDeliveryOrder } from './tablesData'
+import { getTablesCache, setTablesCache } from '@/lib/tablesCache'
 import { STATUS_CONFIG } from './tableStatus'
 import type { TableStatus } from './tableStatus'
 import { callCreateOrder } from './components/createOrderApi'
@@ -63,7 +64,6 @@ export default function TablesPage(): JSX.Element {
       return
     }
 
-    setLoading(true)
     setError(null)
 
     Promise.all([
@@ -71,6 +71,7 @@ export default function TablesPage(): JSX.Element {
       fetchTakeawayDeliveryQueue(supabaseUrl, supabaseKey),
     ])
       .then(([t, q]) => {
+        setTablesCache(t, q)
         setTables(t)
         setQueue(q)
       })
@@ -80,8 +81,16 @@ export default function TablesPage(): JSX.Element {
       .finally(() => { setLoading(false) })
   }, [])
 
-  // Initial load
+  // Initial load — show cached data immediately (stale-while-revalidate)
   useEffect(() => {
+    const cached = getTablesCache()
+    if (cached !== null) {
+      // Serve stale data instantly so the page is usable right away
+      setTables(cached.tables)
+      setQueue(cached.queue)
+      setLoading(false)
+    }
+    // Always kick off a background (or foreground) refresh
     loadAll()
   }, [loadAll])
 
@@ -97,6 +106,7 @@ export default function TablesPage(): JSX.Element {
         fetchTakeawayDeliveryQueue(supabaseUrl, supabaseKey),
       ])
         .then(([t, q]) => {
+          setTablesCache(t, q)
           setTables(t)
           setQueue(q)
         })

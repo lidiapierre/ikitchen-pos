@@ -4,10 +4,10 @@ import userEvent from '@testing-library/user-event'
 import type { JSX, ReactNode } from 'react'
 import MenuPageClient from './MenuPageClient'
 import type { MenuItem, MenuCategory } from './menuData'
-import { fetchMenuCategories } from './menuData'
+import { fetchMenuCategoriesCached } from '@/lib/menuCache'
 
-vi.mock('./menuData', () => ({
-  fetchMenuCategories: vi.fn(),
+vi.mock('@/lib/menuCache', () => ({
+  fetchMenuCategoriesCached: vi.fn(),
 }))
 
 vi.mock('./MenuItemCard', () => ({
@@ -68,7 +68,7 @@ beforeEach(() => {
     NEXT_PUBLIC_SUPABASE_URL: 'https://test.supabase.co',
     NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: 'test-key',
   }
-  vi.mocked(fetchMenuCategories).mockResolvedValue(MOCK_CATEGORIES)
+  vi.mocked(fetchMenuCategoriesCached).mockResolvedValue(MOCK_CATEGORIES)
 })
 
 afterEach(() => {
@@ -111,7 +111,7 @@ describe('MenuPageClient', () => {
 
   describe('loading state', () => {
     it('shows "Loading menu…" while fetching', () => {
-      vi.mocked(fetchMenuCategories).mockImplementation(() => new Promise(() => {}))
+      vi.mocked(fetchMenuCategoriesCached).mockImplementation(() => new Promise(() => {}))
       render(<MenuPageClient tableId={TABLE_ID} orderId={ORDER_ID} />)
       expect(screen.getByText('Loading menu…')).toBeInTheDocument()
     })
@@ -119,7 +119,7 @@ describe('MenuPageClient', () => {
 
   describe('error state', () => {
     it('shows a generic error message when fetching fails', async () => {
-      vi.mocked(fetchMenuCategories).mockRejectedValue(new Error('Failed to load menu'))
+      vi.mocked(fetchMenuCategoriesCached).mockRejectedValue(new Error('Failed to load menu'))
       render(<MenuPageClient tableId={TABLE_ID} orderId={ORDER_ID} />)
       expect(await screen.findByText('Unable to load menu. Please try again.')).toBeInTheDocument()
     })
@@ -133,7 +133,7 @@ describe('MenuPageClient', () => {
 
   describe('empty state', () => {
     it('shows "No menu items available" when no categories are returned', async () => {
-      vi.mocked(fetchMenuCategories).mockResolvedValue([])
+      vi.mocked(fetchMenuCategoriesCached).mockResolvedValue([])
       render(<MenuPageClient tableId={TABLE_ID} orderId={ORDER_ID} />)
       expect(await screen.findByText('No menu items available')).toBeInTheDocument()
     })

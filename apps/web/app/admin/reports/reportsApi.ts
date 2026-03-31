@@ -105,11 +105,15 @@ export async function callExportOrders(
   period: ReportPeriod,
   from?: string,
   to?: string,
+  restaurantId?: string,
 ): Promise<ExportOrderRow[]> {
-  const body: { period: ReportPeriod; from?: string; to?: string } = { period }
+  const body: { period: ReportPeriod; from?: string; to?: string; restaurant_id?: string } = { period }
   if (period === 'custom' && from && to) {
     body.from = from
     body.to = to
+  }
+  if (restaurantId) {
+    body.restaurant_id = restaurantId
   }
 
   const res = await fetch(`${supabaseUrl}/functions/v1/export_orders`, {
@@ -139,11 +143,15 @@ export async function callGetReports(
   period: ReportPeriod,
   from?: string,
   to?: string,
+  restaurantId?: string,
 ): Promise<ReportData> {
-  const body: { period: ReportPeriod; from?: string; to?: string } = { period }
+  const body: { period: ReportPeriod; from?: string; to?: string; restaurant_id?: string } = { period }
   if (period === 'custom' && from && to) {
     body.from = from
     body.to = to
+  }
+  if (restaurantId) {
+    body.restaurant_id = restaurantId
   }
 
   const res = await fetch(`${supabaseUrl}/functions/v1/get_reports`, {

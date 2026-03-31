@@ -501,6 +501,11 @@ export default function MenuItemFormPage({ mode, itemId }: MenuItemFormPageProps
           </button>
         </div>
 
+        <p className="text-xs text-zinc-500 mt-1">
+          For quick 86 management during service, use the{' '}
+          <a href="/admin/inventory" className="text-indigo-400 hover:underline">Availability panel</a>.
+        </p>
+
         {/* Allergens */}
         <div className="flex flex-col gap-3 border-t border-zinc-700 pt-4">
           <h3 className="text-base font-semibold text-zinc-200">

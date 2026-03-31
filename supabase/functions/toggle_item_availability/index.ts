@@ -96,36 +96,62 @@ export async function handler(
     apikey: serviceKey,
     Authorization: `Bearer ${serviceKey}`,
     'Content-Type': 'application/json',
-    Prefer: 'return=minimal,count=exact',
   }
 
   try {
-    // Ownership check baked into the PATCH filter:
-    // Only patches the row if the menu_item's parent menu belongs to a restaurant
-    // the caller has access to via user_restaurants. If they don't own it, the
-    // filter matches 0 rows → Content-Range returns count 0 → we return 403.
-    const ownedRestaurantFilter = `(select restaurant_id from menus where id=menu_id)=in.(select restaurant_id from user_restaurants where user_id=eq.${caller.actorId})`
-    const patchUrl = `${supabaseUrl}/rest/v1/menu_items?id=eq.${menuItemId}&${ownedRestaurantFilter}`
+    // ── Step 1: resolve the restaurant that owns this menu_item ─────────────
+    const itemRes = await fetchFn(
+      `${supabaseUrl}/rest/v1/menu_items?id=eq.${menuItemId}&select=id,menu:menus!inner(restaurant_id)`,
+      { method: 'GET', headers: dbHeaders },
+    )
+    if (!itemRes.ok) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Failed to resolve menu item' }),
+        { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+      )
+    }
+    const itemRows = await itemRes.json() as Array<{ id: string; menu: { restaurant_id: string } }>
+    if (!Array.isArray(itemRows) || itemRows.length === 0) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Item not found or access denied' }),
+        { status: 403, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+      )
+    }
+    const restaurantId = itemRows[0].menu.restaurant_id
 
-    const patchRes = await fetchFn(patchUrl, {
-      method: 'PATCH',
-      headers: dbHeaders,
-      body: JSON.stringify({ available }),
-    })
+    // ── Step 2: verify the caller has access to that restaurant ─────────────
+    const ownerRes = await fetchFn(
+      `${supabaseUrl}/rest/v1/user_restaurants?user_id=eq.${caller.actorId}&restaurant_id=eq.${restaurantId}&select=user_id`,
+      { method: 'GET', headers: dbHeaders },
+    )
+    if (!ownerRes.ok) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Failed to verify ownership' }),
+        { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+      )
+    }
+    const ownerRows = await ownerRes.json() as Array<{ user_id: string }>
+    if (!Array.isArray(ownerRows) || ownerRows.length === 0) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Item not found or access denied' }),
+        { status: 403, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+      )
+    }
+
+    // ── Step 3: ownership confirmed — apply the update ─────────────────────
+    const patchRes = await fetchFn(
+      `${supabaseUrl}/rest/v1/menu_items?id=eq.${menuItemId}`,
+      {
+        method: 'PATCH',
+        headers: { ...dbHeaders, Prefer: 'return=minimal' },
+        body: JSON.stringify({ available }),
+      },
+    )
 
     if (!patchRes.ok) {
       return new Response(
         JSON.stringify({ success: false, error: 'Failed to update item availability' }),
         { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
-      )
-    }
-
-    // content-range: */0 means the filter matched 0 rows — item not found or caller doesn't own it
-    const contentRange = patchRes.headers.get('content-range') ?? ''
-    if (contentRange.endsWith('/0')) {
-      return new Response(
-        JSON.stringify({ success: false, error: 'Item not found or access denied' }),
-        { status: 403, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
       )
     }
 

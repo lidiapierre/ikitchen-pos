@@ -18,8 +18,42 @@ vi.mock('../_shared/auth.ts', () => ({
   verifyAndGetCaller: vi.fn().mockResolvedValue(mockAuth),
 }))
 
-function makePatchFetch(status = 204, contentRange = '*/1'): (input: string, init?: RequestInit) => Promise<Response> {
-  return vi.fn().mockResolvedValue(new Response(null, { status, headers: { 'content-range': contentRange } }))
+const TEST_RESTAURANT_ID = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'
+
+/** Build a fetch mock that handles the two-step ownership check + PATCH */
+function makeOwnershipFetch(opts: {
+  itemExists?: boolean
+  ownershipGranted?: boolean
+  patchStatus?: number
+} = {}): (input: string, init?: RequestInit) => Promise<Response> {
+  const { itemExists = true, ownershipGranted = true, patchStatus = 204 } = opts
+
+  return vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+    const method = (init?.method ?? 'GET').toUpperCase()
+
+    // Step 1: resolve menu_item → restaurant_id
+    if (method === 'GET' && (url as string).includes('/menu_items')) {
+      const body = itemExists
+        ? JSON.stringify([{ id: TEST_MENU_ITEM_ID, menu: { restaurant_id: TEST_RESTAURANT_ID } }])
+        : JSON.stringify([])
+      return Promise.resolve(new Response(body, { status: 200 }))
+    }
+
+    // Step 2: verify ownership via user_restaurants
+    if (method === 'GET' && (url as string).includes('/user_restaurants')) {
+      const body = ownershipGranted
+        ? JSON.stringify([{ user_id: mockAuth.actorId }])
+        : JSON.stringify([])
+      return Promise.resolve(new Response(body, { status: 200 }))
+    }
+
+    // Step 3: PATCH
+    if (method === 'PATCH') {
+      return Promise.resolve(new Response(null, { status: patchStatus }))
+    }
+
+    return Promise.resolve(new Response('[]', { status: 200 }))
+  })
 }
 
 function makeAuthRequest(body: unknown): Request {
@@ -77,7 +111,7 @@ describe('toggle_item_availability handler', () => {
   describe('POST — validation', () => {
     it('returns 400 when menu_item_id is missing', async (): Promise<void> => {
       const req = makeAuthRequest({ available: true })
-      const res = await handler(req, makePatchFetch(), mockEnv)
+      const res = await handler(req, makeOwnershipFetch(), mockEnv)
       expect(res.status).toBe(400)
       const json = await res.json() as { success: boolean; error: string }
       expect(json.success).toBe(false)
@@ -86,7 +120,7 @@ describe('toggle_item_availability handler', () => {
 
     it('returns 400 when available is not a boolean', async (): Promise<void> => {
       const req = makeAuthRequest({ menu_item_id: TEST_MENU_ITEM_ID, available: 'yes' })
-      const res = await handler(req, makePatchFetch(), mockEnv)
+      const res = await handler(req, makeOwnershipFetch(), mockEnv)
       expect(res.status).toBe(400)
       const json = await res.json() as { success: boolean; error: string }
       expect(json.success).toBe(false)
@@ -99,54 +133,49 @@ describe('toggle_item_availability handler', () => {
         headers: { Authorization: 'Bearer test-jwt' },
         body: 'not json',
       })
-      const res = await handler(req, makePatchFetch(), mockEnv)
+      const res = await handler(req, makeOwnershipFetch(), mockEnv)
       expect(res.status).toBe(400)
     })
   })
 
   describe('POST — happy path', () => {
     it('returns 200 success when marking item as 86\'d', async (): Promise<void> => {
-      const mockFetch = makePatchFetch(204)
       const req = makeAuthRequest({ menu_item_id: TEST_MENU_ITEM_ID, available: false })
-      const res = await handler(req, mockFetch, mockEnv)
+      const res = await handler(req, makeOwnershipFetch(), mockEnv)
       expect(res.status).toBe(200)
       const json = await res.json() as { success: boolean }
       expect(json.success).toBe(true)
     })
 
     it('returns 200 success when restoring item availability', async (): Promise<void> => {
-      const mockFetch = makePatchFetch(204)
       const req = makeAuthRequest({ menu_item_id: TEST_MENU_ITEM_ID, available: true })
-      const res = await handler(req, mockFetch, mockEnv)
+      const res = await handler(req, makeOwnershipFetch(), mockEnv)
       expect(res.status).toBe(200)
       const json = await res.json() as { success: boolean }
       expect(json.success).toBe(true)
     })
 
-    it('PATCHes the correct menu_items endpoint with ownership filter', async (): Promise<void> => {
-      const mockFetch = makePatchFetch(204)
+    it('queries user_restaurants with the caller actorId', async (): Promise<void> => {
+      const mockFetch = makeOwnershipFetch()
       const req = makeAuthRequest({ menu_item_id: TEST_MENU_ITEM_ID, available: false })
       await handler(req, mockFetch, mockEnv)
-      expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining(`/menu_items?id=eq.${TEST_MENU_ITEM_ID}`),
-        expect.objectContaining({ method: 'PATCH' }),
-      )
-      // Ownership filter must reference the caller's actorId
-      const calledUrl = (mockFetch as ReturnType<typeof vi.fn>).mock.calls[0][0] as string
-      expect(calledUrl).toContain(mockAuth.actorId)
-      expect(calledUrl).toContain('user_restaurants')
+      const calls = (mockFetch as ReturnType<typeof vi.fn>).mock.calls as [string, RequestInit][]
+      const ownershipCall = calls.find(([url]) => url.includes('/user_restaurants'))
+      expect(ownershipCall).toBeDefined()
+      expect(ownershipCall![0]).toContain(mockAuth.actorId)
+      expect(ownershipCall![0]).toContain(TEST_RESTAURANT_ID)
     })
 
     it('includes CORS headers in success response', async (): Promise<void> => {
       const req = makeAuthRequest({ menu_item_id: TEST_MENU_ITEM_ID, available: true })
-      const res = await handler(req, makePatchFetch(204), mockEnv)
+      const res = await handler(req, makeOwnershipFetch(), mockEnv)
       expect(res.headers.get('Access-Control-Allow-Origin')).toBe(corsHeaders['Access-Control-Allow-Origin'])
     })
   })
 
   describe('POST — DB failure', () => {
     it('returns 500 when PATCH fails', async (): Promise<void> => {
-      const mockFetch = makePatchFetch(500)
+      const mockFetch = makeOwnershipFetch({ patchStatus: 500 })
       const req = makeAuthRequest({ menu_item_id: TEST_MENU_ITEM_ID, available: false })
       const res = await handler(req, mockFetch, mockEnv)
       expect(res.status).toBe(500)
@@ -156,9 +185,8 @@ describe('toggle_item_availability handler', () => {
   })
 
   describe('POST — ownership check', () => {
-    it('returns 403 when content-range indicates 0 rows matched', async (): Promise<void> => {
-      // 0 rows = item not found or caller doesn't own it
-      const mockFetch = makePatchFetch(204, '*/0')
+    it('returns 403 when menu item does not exist', async (): Promise<void> => {
+      const mockFetch = makeOwnershipFetch({ itemExists: false })
       const req = makeAuthRequest({ menu_item_id: TEST_MENU_ITEM_ID, available: false })
       const res = await handler(req, mockFetch, mockEnv)
       expect(res.status).toBe(403)
@@ -167,9 +195,19 @@ describe('toggle_item_availability handler', () => {
       expect(json.error).toMatch(/access denied/)
     })
 
-    it('returns 200 when caller owns the item (content-range */1)', async (): Promise<void> => {
-      const mockFetch = makePatchFetch(204, '*/1')
+    it('returns 403 when caller does not own the restaurant', async (): Promise<void> => {
+      const mockFetch = makeOwnershipFetch({ ownershipGranted: false })
       const req = makeAuthRequest({ menu_item_id: TEST_MENU_ITEM_ID, available: false })
+      const res = await handler(req, mockFetch, mockEnv)
+      expect(res.status).toBe(403)
+      const json = await res.json() as { success: boolean; error: string }
+      expect(json.success).toBe(false)
+      expect(json.error).toMatch(/access denied/)
+    })
+
+    it('returns 200 when caller owns the restaurant', async (): Promise<void> => {
+      const mockFetch = makeOwnershipFetch({ itemExists: true, ownershipGranted: true })
+      const req = makeAuthRequest({ menu_item_id: TEST_MENU_ITEM_ID, available: true })
       const res = await handler(req, mockFetch, mockEnv)
       expect(res.status).toBe(200)
       const json = await res.json() as { success: boolean }

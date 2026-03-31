@@ -38,7 +38,7 @@ export default function BranchSwitcher(): JSX.Element | null {
       <button
         type="button"
         onClick={() => setOpen(o => !o)}
-        className="flex items-center gap-2 px-3 py-2 rounded-xl bg-indigo-800 hover:bg-indigo-700 border border-indigo-600 text-indigo-100 hover:text-white text-sm font-medium transition-colors min-h-[40px]"
+        className="flex items-center gap-2 px-3 py-2 rounded-xl bg-indigo-800 hover:bg-indigo-700 border border-indigo-600 text-indigo-100 hover:text-white text-sm font-medium transition-colors min-h-[48px] min-w-[48px]"
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-label="Switch branch"

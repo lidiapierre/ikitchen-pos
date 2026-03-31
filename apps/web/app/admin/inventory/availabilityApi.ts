@@ -13,8 +13,9 @@ export interface AvailabilityCategory {
 export async function fetchMenuAvailability(
   supabaseUrl: string,
   apiKey: string,
+  restaurantId: string,
 ): Promise<AvailabilityCategory[]> {
-  const url = `${supabaseUrl}/rest/v1/menus?select=id,name,menu_items(id,name,available)&order=name.asc`
+  const url = `${supabaseUrl}/rest/v1/menus?restaurant_id=eq.${restaurantId}&select=id,name,menu_items(id,name,available)&order=name.asc`
   const res = await fetch(url, {
     headers: { apikey: apiKey, Authorization: `Bearer ${apiKey}` },
   })

@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import type { JSX } from 'react'
 import { Search } from 'lucide-react'
 import { useUser } from '@/lib/user-context'
+import { useActiveRestaurant } from '@/lib/useActiveRestaurant'
 import { invalidateMenuCache } from '@/lib/menuCache'
 import { fetchMenuAvailability, type AvailabilityCategory } from './availabilityApi'
 import { callToggleItemAvailability } from '../menu/menuAdminApi'
@@ -16,6 +17,7 @@ interface Feedback {
 
 export default function AvailabilityPanel(): JSX.Element {
   const { accessToken } = useUser()
+  const { restaurantId } = useActiveRestaurant()
   const [categories, setCategories] = useState<AvailabilityCategory[]>([])
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState<string | null>(null)
@@ -39,7 +41,8 @@ export default function AvailabilityPanel(): JSX.Element {
       setLoading(false)
       return
     }
-    fetchMenuAvailability(supabaseUrl, apiKey)
+    if (!restaurantId) return
+    fetchMenuAvailability(supabaseUrl, apiKey, restaurantId)
       .then((cats) => setCategories(cats))
       .catch((err: unknown) => {
         setFetchError(err instanceof Error ? err.message : 'Failed to load availability data')
@@ -49,7 +52,7 @@ export default function AvailabilityPanel(): JSX.Element {
     return () => {
       if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current)
     }
-  }, [supabaseUrl, apiKey])
+  }, [supabaseUrl, apiKey, restaurantId])
 
   async function handleToggle(categoryId: string, itemId: string, newAvailable: boolean): Promise<void> {
     if (!accessToken) {
@@ -75,7 +78,7 @@ export default function AvailabilityPanel(): JSX.Element {
 
     try {
       await callToggleItemAvailability(supabaseUrl, accessToken, itemId, newAvailable)
-      invalidateMenuCache()
+      invalidateMenuCache(restaurantId ?? undefined)
       showFeedback(
         'success',
         newAvailable ? 'Item marked as available.' : 'Item 86\'d.',

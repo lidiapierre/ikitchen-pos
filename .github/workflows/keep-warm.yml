@@ -1,0 +1,89 @@
+name: Keep Edge Functions Warm
+
+# Pings all Supabase edge functions every 5 minutes during service hours.
+# Service hours: 08:00–23:00 Asia/Dhaka (UTC+6) = 02:00–17:00 UTC.
+# Issue #283
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch: {}
+
+jobs:
+  keep-warm:
+    name: Ping edge functions
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check service hours (02:00–17:00 UTC = 08:00–23:00 Dhaka)
+        id: hours
+        run: |
+          HOUR=$(date -u +%-H)
+          if [ "$HOUR" -ge 2 ] && [ "$HOUR" -lt 17 ]; then
+            echo "in_hours=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "in_hours=false" >> "$GITHUB_OUTPUT"
+            echo "Outside service hours (current UTC hour: $HOUR). Skipping warm-up."
+          fi
+
+      - name: Ping all edge functions
+        if: steps.hours.outputs.in_hours == 'true'
+        env:
+          SUPABASE_URL: https://dmaogdwtgohrhbytxjqu.supabase.co/functions/v1
+          SUPABASE_PUBLISHABLE_KEY: sb_publishable_IzsBL3KELStvo6bioFKWhA_dMj81UxH
+        run: |
+          FUNCTIONS=(
+            add_item_to_order
+            api
+            apply_discount
+            apply_item_discount
+            cancel_order
+            close_order
+            close_shift
+            comp_item
+            create_menu
+            create_menu_item
+            create_order
+            create_table
+            create_user
+            delete_menu
+            delete_menu_item
+            delete_table
+            export_orders
+            extract_menu_bulk
+            extract_menu_item
+            fire_course
+            get_reports
+            mark-items-sent-to-kitchen
+            mark-order-kitchen-done
+            open_shift
+            provision_restaurant
+            record_payment
+            set_covers
+            set_item_seat
+            toggle_user_active
+            transfer_order
+            update_menu
+            update_menu_item
+            update_table
+            void_item
+          )
+
+          FAILED=0
+          for fn in "${FUNCTIONS[@]}"; do
+            URL="${SUPABASE_URL}/${fn}/health"
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+              -H "Authorization: Bearer ${SUPABASE_PUBLISHABLE_KEY}" \
+              --max-time 10 \
+              "$URL")
+            if [ "$HTTP_CODE" = "200" ]; then
+              echo "✅ ${fn} → ${HTTP_CODE}"
+            else
+              echo "⚠️  ${fn} → ${HTTP_CODE}"
+              FAILED=$((FAILED + 1))
+            fi
+          done
+
+          echo ""
+          echo "Done. ${FAILED} function(s) returned non-200."
+          # Don't fail the workflow for cold-start timeouts; the ping itself was the goal.

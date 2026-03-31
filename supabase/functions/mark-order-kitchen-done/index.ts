@@ -14,6 +14,14 @@ const corsHeaders = {
 Deno.serve(async (req: Request): Promise<Response> => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
+  // Health check – keeps the function warm (issue #283)
+  if (req.method === 'GET' && new URL(req.url).pathname.endsWith('/health')) {
+    return new Response(
+      JSON.stringify({ ok: true, function: 'mark-order-kitchen-done' }),
+      { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    )
+  }
+
   try {
     const { order_id } = (await req.json()) as { order_id?: string }
 

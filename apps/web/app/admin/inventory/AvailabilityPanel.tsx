@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import type { JSX } from 'react'
 import { Search } from 'lucide-react'
 import { useUser } from '@/lib/user-context'
-import { useActiveRestaurant } from '@/lib/useActiveRestaurant'
+import { useActiveRestaurantContext } from '@/lib/ActiveRestaurantContext'
 import { invalidateMenuCache } from '@/lib/menuCache'
 import { fetchMenuAvailability, type AvailabilityCategory } from './availabilityApi'
 import { callToggleItemAvailability } from '../menu/menuAdminApi'
@@ -17,7 +17,7 @@ interface Feedback {
 
 export default function AvailabilityPanel(): JSX.Element {
   const { accessToken } = useUser()
-  const { restaurantId } = useActiveRestaurant()
+  const { restaurantId } = useActiveRestaurantContext()
   const [categories, setCategories] = useState<AvailabilityCategory[]>([])
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState<string | null>(null)

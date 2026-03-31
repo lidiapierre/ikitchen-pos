@@ -3,11 +3,13 @@ import type { JSX } from 'react'
 import AdminNav from './AdminNav'
 import BranchSwitcher from './BranchSwitcher'
 import BranchLabel from './BranchLabel'
+import { ActiveRestaurantProvider } from '@/lib/ActiveRestaurantContext'
 
 export default function AdminLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>): JSX.Element {
   return (
+    <ActiveRestaurantProvider>
     <div className="min-h-screen flex flex-col bg-zinc-900">
       {/* Admin header — indigo to distinguish from POS area */}
       <header className="bg-indigo-900 border-b border-indigo-700 px-6 py-4 flex items-center justify-between shrink-0">
@@ -43,5 +45,6 @@ export default function AdminLayout({
         </main>
       </div>
     </div>
+    </ActiveRestaurantProvider>
   )
 }

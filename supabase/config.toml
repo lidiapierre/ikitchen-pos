@@ -413,6 +413,48 @@ verify_jwt = false
 [functions.toggle_item_availability]
 verify_jwt = false
 
+[functions.get_reports]
+verify_jwt = false
+
+[functions.export_orders]
+verify_jwt = false
+
+[functions.apply_discount]
+verify_jwt = false
+
+[functions.apply_item_discount]
+verify_jwt = false
+
+[functions.comp_item]
+verify_jwt = false
+
+[functions.create_user]
+verify_jwt = false
+
+[functions.extract_menu_bulk]
+verify_jwt = false
+
+[functions.mark-items-sent-to-kitchen]
+verify_jwt = false
+
+[functions.mark-order-kitchen-done]
+verify_jwt = false
+
+[functions.provision_restaurant]
+verify_jwt = false
+
+[functions.set_covers]
+verify_jwt = false
+
+[functions.set_item_seat]
+verify_jwt = false
+
+[functions.toggle_user_active]
+verify_jwt = false
+
+[functions.transfer_order]
+verify_jwt = false
+
 [edge_runtime]
 enabled = true
 # Supported request policies: `oneshot`, `per_worker`.

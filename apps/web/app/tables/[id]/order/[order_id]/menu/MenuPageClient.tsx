@@ -10,6 +10,8 @@ import { filterMenuItemsWithFilters, hasActiveFilters, EMPTY_FILTERS } from './m
 import type { MenuFilters } from './menuSearch'
 import { formatPrice, DEFAULT_CURRENCY_SYMBOL } from '@/lib/formatPrice'
 import { X, Check } from 'lucide-react'
+import { useToast } from '@/hooks/useToast'
+import { ToastContainer } from '@/components/ui/Toast'
 
 interface MenuPageClientProps {
   tableId: string
@@ -24,6 +26,7 @@ export default function MenuPageClient({ tableId, orderId }: MenuPageClientProps
   const [searchQuery, setSearchQuery] = useState('')
   const [filters, setFilters] = useState<MenuFilters>(EMPTY_FILTERS)
   const searchInputRef = useRef<HTMLInputElement>(null)
+  const { toasts, addToast, dismissToast } = useToast()
 
   useEffect(() => {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -54,6 +57,12 @@ export default function MenuPageClient({ tableId, orderId }: MenuPageClientProps
 
   function handleItemAdded(priceCents: number): void {
     setOrderTotalCents((prev) => prev + priceCents)
+  }
+
+  /** Called when add-item API fails so we can roll back the optimistic total increment. */
+  function handleItemFailed(priceCents: number): void {
+    setOrderTotalCents((prev) => Math.max(0, prev - priceCents))
+    addToast('Failed to add item — please retry', 'error')
   }
 
   function handleClearSearch(): void {
@@ -101,6 +110,7 @@ export default function MenuPageClient({ tableId, orderId }: MenuPageClientProps
               item={item}
               orderId={orderId}
               onItemAdded={handleItemAdded}
+              onItemFailed={handleItemFailed}
             />
           ))}
         </div>
@@ -119,6 +129,7 @@ export default function MenuPageClient({ tableId, orderId }: MenuPageClientProps
                   item={item}
                   orderId={orderId}
                   onItemAdded={handleItemAdded}
+                  onItemFailed={handleItemFailed}
                 />
               ))}
             </div>
@@ -222,6 +233,8 @@ export default function MenuPageClient({ tableId, orderId }: MenuPageClientProps
           View Order
         </Link>
       </footer>
+
+      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
     </main>
   )
 }

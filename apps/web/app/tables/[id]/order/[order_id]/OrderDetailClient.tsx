@@ -26,6 +26,8 @@ import KotPrintView from '@/components/KotPrintView'
 import BillPrintView from '@/components/BillPrintView'
 import { supabase } from '@/lib/supabase'
 import { useUser } from '@/lib/user-context'
+import { useToast } from '@/hooks/useToast'
+import { ToastContainer } from '@/components/ui/Toast'
 import { callSetCovers, callSetItemSeat } from './splitBillApi'
 import SplitBillPrintView from '@/components/SplitBillPrintView'
 import {
@@ -65,6 +67,7 @@ interface OrderDetailClientProps {
 export default function OrderDetailClient({ tableId, orderId, currencySymbol = DEFAULT_CURRENCY_SYMBOL }: OrderDetailClientProps): JSX.Element {
   const router = useRouter()
   const { accessToken, isAdmin } = useUser()
+  const { toasts, addToast, dismissToast } = useToast()
   const [closing, setClosing] = useState(false)
   const [closeError, setCloseError] = useState<string | null>(null)
   const [items, setItems] = useState<OrderItem[]>([])
@@ -529,6 +532,18 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
         return
       }
 
+      // ── Optimistic update ──────────────────────────────────────────
+      // Mark items as sent in local state immediately so the UI shows the
+      // correct state even before the DB confirms. Navigation follows right
+      // after, so this mainly ensures correctness if navigation is slow or
+      // if the page stays open.
+      setItems((prev) =>
+        prev.map((i) =>
+          unsentItems.some((u) => u.id === i.id) ? { ...i, sent_to_kitchen: true } : i,
+        ),
+      )
+      // ─────────────────────────────────────────────────────────────
+
       try {
         await markItemsSentToKitchen(supabaseUrl, supabaseKey, orderId, unsentItems.map((i) => i.id))
       } catch {
@@ -832,17 +847,30 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
     if (!voidingItem) return
     setVoidError(null)
     setVoidingInProgress(true)
+
+    // ── Optimistic update ────────────────────────────────────────────
+    // Remove the item from local state immediately so the UI reflects the
+    // void without waiting for a round-trip.
+    const snapshot = items
+    setItems((prev) => prev.filter((i) => i.id !== voidingItem.id))
+    setVoidingItem(null)
+    setVoidReason('')
+    // ─────────────────────────────────────────────────────────────────
+
     try {
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
       if (!supabaseUrl || !accessToken) {
         throw new Error('Not authenticated')
       }
       await callVoidItem(supabaseUrl, accessToken, voidingItem.id, voidReason)
-      setVoidingItem(null)
-      setVoidReason('')
-      loadItems()
     } catch (err) {
-      setVoidError(err instanceof Error ? err.message : 'Failed to void item')
+      // ── Rollback ─────────────────────────────────────────────────
+      setItems(snapshot)
+      const msg = err instanceof Error ? err.message : 'Failed to void item'
+      setVoidError(msg)
+      setVoidingItem(voidingItem)
+      addToast(`Failed to void item — please retry`, 'error')
+      // ─────────────────────────────────────────────────────────────
     } finally {
       setVoidingInProgress(false)
     }
@@ -936,12 +964,28 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
     }
     setCompError(null)
     setCompingInProgress(true)
+
+    // ── Optimistic update ────────────────────────────────────────────
+    // Mark item as comped immediately so the UI reflects the change
+    // without waiting for the server.
+    const snapshot = items
+    const targetItem = compingItem
+    setItems((prev) =>
+      prev.map((i) => i.id === targetItem.id ? { ...i, comp: true } : i),
+    )
+    setCompingItem(null)
+    // ─────────────────────────────────────────────────────────────────
+
     try {
-      await callCompItem(supabaseUrl, accessToken, { orderItemId: compingItem.id, reason: compReason })
-      setCompingItem(null)
-      loadItems()
+      await callCompItem(supabaseUrl, accessToken, { orderItemId: targetItem.id, reason: compReason })
     } catch (err) {
-      setCompError(err instanceof Error ? err.message : 'Failed to comp item')
+      // ── Rollback ─────────────────────────────────────────────────
+      setItems(snapshot)
+      const msg = err instanceof Error ? err.message : 'Failed to comp item'
+      setCompError(msg)
+      setCompingItem(targetItem)
+      addToast('Failed to comp item — please retry', 'error')
+      // ─────────────────────────────────────────────────────────────
     } finally {
       setCompingInProgress(false)
     }
@@ -1492,6 +1536,8 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
             Back to tables
           </Link>
         </footer>
+
+        <ToastContainer toasts={toasts} onDismiss={dismissToast} />
       </main>
     )
   }
@@ -2648,6 +2694,9 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
           </div>
         )}
       </footer>
+
+      {/* Error/rollback toast notifications */}
+      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
     </main>
   )
 }

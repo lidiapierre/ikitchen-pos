@@ -17,7 +17,7 @@ interface Feedback {
 
 export default function AvailabilityPanel(): JSX.Element {
   const { accessToken } = useUser()
-  const { restaurantId } = useActiveRestaurantContext()
+  const { restaurantId, loading: restaurantLoading } = useActiveRestaurantContext()
   const [categories, setCategories] = useState<AvailabilityCategory[]>([])
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState<string | null>(null)
@@ -41,7 +41,14 @@ export default function AvailabilityPanel(): JSX.Element {
       setLoading(false)
       return
     }
-    if (!restaurantId) return
+    // Wait for restaurant context to finish loading before concluding no restaurant
+    if (restaurantLoading) return
+    if (!restaurantId) {
+      setFetchError('No restaurant found. Please contact your administrator.')
+      setLoading(false)
+      return
+    }
+    setLoading(true)
     fetchMenuAvailability(supabaseUrl, apiKey, restaurantId)
       .then((cats) => setCategories(cats))
       .catch((err: unknown) => {
@@ -52,7 +59,7 @@ export default function AvailabilityPanel(): JSX.Element {
     return () => {
       if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current)
     }
-  }, [supabaseUrl, apiKey, restaurantId])
+  }, [supabaseUrl, apiKey, restaurantId, restaurantLoading])
 
   async function handleToggle(categoryId: string, itemId: string, newAvailable: boolean): Promise<void> {
     if (!accessToken) {

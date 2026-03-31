@@ -38,6 +38,7 @@ const NAV_SECTIONS: NavSection[] = [
       { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
       { href: '/admin/menu', label: 'Menu', icon: UtensilsCrossed },
       { href: '/admin/tables', label: 'Tables', icon: LayoutGrid },
+      { href: '/admin/floor-plan', label: 'Floor Plan', icon: LayoutDashboard },
       { href: '/admin/pricing', label: 'Pricing', icon: DollarSign },
       { href: '/admin/users', label: 'Users', icon: Users },
       { href: '/admin/inventory', label: 'Inventory', icon: Package },

@@ -30,7 +30,7 @@ jobs:
         if: steps.hours.outputs.in_hours == 'true'
         env:
           SUPABASE_URL: https://dmaogdwtgohrhbytxjqu.supabase.co/functions/v1
-          ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
         run: |
           FUNCTIONS=(
             add_item_to_order
@@ -73,7 +73,7 @@ jobs:
           for fn in "${FUNCTIONS[@]}"; do
             URL="${SUPABASE_URL}/${fn}/health"
             HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
-              -H "Authorization: Bearer ${ANON_KEY}" \
+              -H "Authorization: Bearer ${SUPABASE_PUBLISHABLE_KEY}" \
               --max-time 10 \
               "$URL")
             if [ "$HTTP_CODE" = "200" ]; then

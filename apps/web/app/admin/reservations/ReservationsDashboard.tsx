@@ -107,13 +107,13 @@ function AddModal({ tables, restaurantId, defaultWaitlist = false, onAdd, onClos
   async function handleSubmit(e: React.FormEvent): Promise<void> {
     e.preventDefault()
     if (!name.trim()) { setError('Customer name is required'); return }
+    if (!isWaitlist && (!date || !time)) { setError('Date and time are required for a reservation'); return }
     setSaving(true)
     setError(null)
     try {
-      let reservationTime: string | null = null
-      if (!isWaitlist && date && time) {
-        reservationTime = new Date(`${date}T${time}`).toISOString()
-      }
+      const reservationTime = (!isWaitlist && date && time)
+        ? new Date(`${date}T${time}`).toISOString()
+        : null
       await onAdd({
         restaurant_id: restaurantId,
         customer_name: name.trim(),

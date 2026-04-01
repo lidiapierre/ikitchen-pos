@@ -13,6 +13,7 @@ import {
   callUpsertConfig,
 } from './pricingAdminApi'
 import { formatPrice } from '@/lib/formatPrice'
+import { useUser } from '@/lib/user-context'
 
 interface VatRateForm {
   label: string
@@ -67,6 +68,7 @@ function validateVatRateForm(form: VatRateForm): VatRateFormErrors {
 }
 
 export default function PricingManager(): JSX.Element {
+  const { accessToken: _at } = useUser(); const accessToken = _at ?? ''
   const [restaurantId, setRestaurantId] = useState<string>('')
   const [vatRates, setVatRates] = useState<VatRate[]>([])
   const [categories, setCategories] = useState<PricingCategory[]>([])
@@ -102,15 +104,14 @@ export default function PricingManager(): JSX.Element {
 
   useEffect(() => {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
-    if (!supabaseUrl || !supabaseKey) {
+    if (!supabaseUrl || !accessToken) {
       setFetchError('API not configured')
       setLoading(false)
       return
     }
-    supabaseConfig.current = { url: supabaseUrl, key: supabaseKey }
+    supabaseConfig.current = { url: supabaseUrl, key: accessToken }
 
-    fetchPricingAdminData(supabaseUrl, supabaseKey)
+    fetchPricingAdminData(supabaseUrl, accessToken)
       .then((data) => {
         setRestaurantId(data.restaurantId)
         setVatRates(data.vatRates)
@@ -120,7 +121,7 @@ export default function PricingManager(): JSX.Element {
         setCurrencySymbol(data.currencySymbol)
         setCurrencyCodeInput(data.currencyCode)
         // Fetch service charge config
-        return fetchConfigValue(supabaseUrl, supabaseKey, data.restaurantId, 'service_charge_percent', '0')
+        return fetchConfigValue(supabaseUrl, accessToken, data.restaurantId, 'service_charge_percent', '0')
           .then((scValue) => {
             const parsed = parseFloat(scValue)
             const sc = isNaN(parsed) || parsed < 0 ? 0 : parsed
@@ -135,7 +136,8 @@ export default function PricingManager(): JSX.Element {
       .finally(() => {
         setLoading(false)
       })
-  }, [])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accessToken])
 
   useEffect(() => {
     return () => {

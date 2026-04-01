@@ -3,10 +3,10 @@ export interface ModifierInput {
   price_delta_cents: number
 }
 
-function buildHeaders(apiKey: string, withPreferRepresentation = false): Record<string, string> {
+function buildHeaders(accessToken: string, withPreferRepresentation = false): Record<string, string> {
   const h: Record<string, string> = {
     'Content-Type': 'application/json',
-    Authorization: `Bearer ${apiKey}`,
+    Authorization: `Bearer ${accessToken}`,
   }
   if (withPreferRepresentation) h['Prefer'] = 'return=representation'
   return h
@@ -15,13 +15,13 @@ function buildHeaders(apiKey: string, withPreferRepresentation = false): Record<
 async function postgrestRequest(
   url: string,
   method: string,
-  apiKey: string,
+  accessToken: string,
   body?: unknown,
   returnRepresentation = false,
 ): Promise<unknown> {
   const res = await fetch(url, {
     method,
-    headers: buildHeaders(apiKey, returnRepresentation),
+    headers: buildHeaders(accessToken, returnRepresentation),
     body: body !== undefined ? JSON.stringify(body) : undefined,
   })
   if (!res.ok) {
@@ -34,14 +34,14 @@ async function postgrestRequest(
 
 export async function callCreateMenu(
   supabaseUrl: string,
-  apiKey: string,
+  accessToken: string,
   restaurantId: string,
   name: string,
 ): Promise<string> {
   const rows = (await postgrestRequest(
     `${supabaseUrl}/rest/v1/menus`,
     'POST',
-    apiKey,
+    accessToken,
     { restaurant_id: restaurantId, name },
     true,
   )) as Array<{ id: string }>
@@ -51,36 +51,36 @@ export async function callCreateMenu(
 
 export async function callUpdateMenu(
   supabaseUrl: string,
-  apiKey: string,
+  accessToken: string,
   menuId: string,
   name: string,
 ): Promise<void> {
   await postgrestRequest(
     `${supabaseUrl}/rest/v1/menus?id=eq.${menuId}`,
     'PATCH',
-    apiKey,
+    accessToken,
     { name },
   )
 }
 
 export async function callDeleteMenu(
   supabaseUrl: string,
-  apiKey: string,
+  accessToken: string,
   menuId: string,
 ): Promise<void> {
-  await postgrestRequest(`${supabaseUrl}/rest/v1/menus?id=eq.${menuId}`, 'DELETE', apiKey)
+  await postgrestRequest(`${supabaseUrl}/rest/v1/menus?id=eq.${menuId}`, 'DELETE', accessToken)
 }
 
 export async function callUpdateMenuPrinterType(
   supabaseUrl: string,
-  apiKey: string,
+  accessToken: string,
   menuId: string,
   printerType: 'kitchen' | 'cashier' | 'bar',
 ): Promise<void> {
   await postgrestRequest(
     `${supabaseUrl}/rest/v1/menus?id=eq.${menuId}`,
     'PATCH',
-    apiKey,
+    accessToken,
     { printer_type: printerType },
   )
 }

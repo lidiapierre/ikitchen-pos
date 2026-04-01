@@ -29,8 +29,7 @@ export default function RestaurantList(): JSX.Element {
 
   useEffect(() => {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
-    if (!supabaseUrl || !supabaseKey) {
+        if (!supabaseUrl || !accessToken) {
       setFetchError('API not configured')
       setLoading(false)
       return
@@ -41,8 +40,8 @@ export default function RestaurantList(): JSX.Element {
     }
 
     Promise.all([
-      fetchAdminRestaurants(supabaseUrl, supabaseKey),
-      fetchIsSuperAdmin(supabaseUrl, supabaseKey, accessToken),
+      fetchAdminRestaurants(supabaseUrl, accessToken),
+      fetchIsSuperAdmin(supabaseUrl, accessToken),
     ])
       .then(([data, superAdmin]) => {
         setRestaurants(data)

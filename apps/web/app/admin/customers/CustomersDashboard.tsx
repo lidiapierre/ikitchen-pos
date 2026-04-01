@@ -25,7 +25,6 @@ function ordinalSuffix(n: number): string {
 export default function CustomersDashboard(): JSX.Element {
   const { accessToken: _at } = useUser(); const accessToken = _at ?? ''
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ''
 
   const [restaurantId, setRestaurantId] = useState<string | null>(null)
   const [customers, setCustomers] = useState<Customer[]>([])
@@ -49,17 +48,17 @@ export default function CustomersDashboard(): JSX.Element {
 
   // Load restaurant_id from the user context
   useEffect(() => {
-    if (!supabaseUrl || !supabaseKey) return
+    if (!supabaseUrl || !accessToken) return
     // Fetch via users table to get the restaurant_id
     void fetch(`${supabaseUrl}/rest/v1/users?select=restaurant_id&limit=1`, {
-      headers: { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` },
+      headers: { apikey: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? '', Authorization: `Bearer ${accessToken}` },
     })
       .then((r) => r.json())
       .then((rows: Array<{ restaurant_id: string }>) => {
         if (rows.length > 0) setRestaurantId(rows[0].restaurant_id)
       })
       .catch(() => { /* non-fatal */ })
-  }, [supabaseUrl, supabaseKey])
+  }, [supabaseUrl, accessToken])
 
   // Debounce search input
   useEffect(() => {
@@ -71,13 +70,13 @@ export default function CustomersDashboard(): JSX.Element {
     if (!restaurantId) return
     setLoading(true)
     setError(null)
-    fetchCustomers(supabaseUrl, supabaseKey, restaurantId, debouncedSearch)
+    fetchCustomers(supabaseUrl, accessToken, restaurantId, debouncedSearch)
       .then(setCustomers)
       .catch((err: unknown) => {
         setError(err instanceof Error ? err.message : 'Failed to load customers')
       })
       .finally(() => { setLoading(false) })
-  }, [supabaseUrl, supabaseKey, restaurantId, debouncedSearch])
+  }, [supabaseUrl, accessToken, restaurantId, debouncedSearch])
 
   useEffect(() => {
     loadCustomers()
@@ -88,7 +87,7 @@ export default function CustomersDashboard(): JSX.Element {
     setCustomerOrders([])
     setOrdersError(null)
     setOrdersLoading(true)
-    fetchCustomerOrders(supabaseUrl, supabaseKey, customer.restaurant_id, customer.mobile)
+    fetchCustomerOrders(supabaseUrl, accessToken, customer.restaurant_id, customer.mobile)
       .then(setCustomerOrders)
       .catch((err: unknown) => {
         setOrdersError(err instanceof Error ? err.message : 'Failed to load orders')
@@ -108,7 +107,7 @@ export default function CustomersDashboard(): JSX.Element {
     setSaving(true)
     setSaveError(null)
     try {
-      await updateCustomer(supabaseUrl, supabaseKey, accessToken, customer.id, {
+      await updateCustomer(supabaseUrl, accessToken, customer.id, {
         name: editName.trim() || undefined,
         notes: editNotes.trim() || undefined,
       })

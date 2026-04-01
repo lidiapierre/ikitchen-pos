@@ -1,6 +1,8 @@
+const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ''
+
 export async function markItemsSentToKitchen(
   supabaseUrl: string,
-  apiKey: string,
+  accessToken: string,
   orderId: string,
   itemIds: string[],
 ): Promise<void> {
@@ -10,8 +12,8 @@ export async function markItemsSentToKitchen(
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-      apikey: apiKey,
+      Authorization: `Bearer ${accessToken}`,
+      apikey: publishableKey,
     },
     body: JSON.stringify({ order_id: orderId, item_ids: itemIds }),
   })

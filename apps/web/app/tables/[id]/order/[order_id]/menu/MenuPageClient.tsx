@@ -37,14 +37,17 @@ export default function MenuPageClient({ tableId, orderId }: MenuPageClientProps
 
   useEffect(() => {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
-    if (!supabaseUrl || !supabaseKey) {
+    if (!supabaseUrl) {
       setFetchError('API not configured')
       setLoading(false)
       return
     }
+    // Wait for auth to resolve — accessToken starts as empty string
+    if (!accessToken) return
 
-    fetchMenuCategoriesCached(supabaseUrl, supabaseKey, orderId)
+    setFetchError(null)
+    setLoading(true)
+    fetchMenuCategoriesCached(supabaseUrl, accessToken, orderId)
       .then((data) => {
         setCategories(data)
       })
@@ -54,7 +57,7 @@ export default function MenuPageClient({ tableId, orderId }: MenuPageClientProps
       .finally(() => {
         setLoading(false)
       })
-  }, [orderId])
+  }, [orderId, accessToken])
 
   useEffect(() => {
     if (!loading) {

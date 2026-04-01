@@ -1,3 +1,5 @@
+const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ''
+
 export interface Modifier {
   id: string
   name: string
@@ -49,7 +51,7 @@ interface OrderRow {
 
 export async function fetchMenuCategories(
   supabaseUrl: string,
-  apiKey: string,
+  accessToken: string,
   orderId: string,
 ): Promise<MenuCategory[]> {
   const orderUrl = new URL(`${supabaseUrl}/rest/v1/orders`)
@@ -58,8 +60,8 @@ export async function fetchMenuCategories(
 
   const orderRes = await fetch(orderUrl.toString(), {
     headers: {
-      apikey: apiKey,
-      Authorization: `Bearer ${apiKey}`,
+      apikey: publishableKey,
+      Authorization: `Bearer ${accessToken}`,
     },
   })
 
@@ -84,8 +86,8 @@ export async function fetchMenuCategories(
 
   const menusRes = await fetch(menusUrl.toString(), {
     headers: {
-      apikey: apiKey,
-      Authorization: `Bearer ${apiKey}`,
+      apikey: publishableKey,
+      Authorization: `Bearer ${accessToken}`,
     },
   })
 

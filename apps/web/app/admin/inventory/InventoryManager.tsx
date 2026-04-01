@@ -47,7 +47,7 @@ function formatQty(n: number): string {
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function InventoryManager(): JSX.Element {
-  useUser() // ensures user context is initialized
+  const { accessToken: _at } = useUser(); const accessToken = _at ?? ''
   const [tab, setTab] = useState<Tab>('ingredients')
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState<string | null>(null)
@@ -63,7 +63,6 @@ export default function InventoryManager(): JSX.Element {
   const [wastageRecords, setWastageRecords] = useState<StockAdjustment[]>([])
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ''
 
   function showFeedback(type: FeedbackType, message: string): void {
     if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current)
@@ -76,11 +75,11 @@ export default function InventoryManager(): JSX.Element {
   const loadData = useCallback(
     async (restId: string) => {
       const [ings, recs, adjs, menus, wastage] = await Promise.all([
-        fetchIngredients(supabaseUrl, supabaseKey, restId),
-        fetchAllRecipeItems(supabaseUrl, supabaseKey),
-        fetchStockAdjustments(supabaseUrl, supabaseKey, restId),
-        fetchMenuItems(supabaseUrl, supabaseKey, restId),
-        fetchWastageAdjustments(supabaseUrl, supabaseKey, restId),
+        fetchIngredients(supabaseUrl, accessToken, restId),
+        fetchAllRecipeItems(supabaseUrl, accessToken),
+        fetchStockAdjustments(supabaseUrl, accessToken, restId),
+        fetchMenuItems(supabaseUrl, accessToken, restId),
+        fetchWastageAdjustments(supabaseUrl, accessToken, restId),
       ])
       setIngredients(ings)
       setRecipeItems(recs)
@@ -88,18 +87,18 @@ export default function InventoryManager(): JSX.Element {
       setMenuItems(menus)
       setWastageRecords(wastage)
     },
-    [supabaseUrl, supabaseKey],
+    [supabaseUrl, accessToken],
   )
 
   useEffect(() => {
-    if (!supabaseUrl || !supabaseKey) {
+    if (!supabaseUrl || !accessToken) {
       setFetchError('API not configured')
       setLoading(false)
       return
     }
     // Fetch restaurant id first
     fetch(`${supabaseUrl}/rest/v1/restaurants?select=id&limit=1`, {
-      headers: { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` },
+      headers: { apikey: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? '', Authorization: `Bearer ${accessToken}` },
     })
       .then((r) => r.json() as Promise<Array<{ id: string }>>)
       .then(async (rows) => {
@@ -116,7 +115,7 @@ export default function InventoryManager(): JSX.Element {
     return () => {
       if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current)
     }
-  }, [supabaseUrl, supabaseKey, loadData])
+  }, [supabaseUrl, accessToken, loadData])
 
   if (loading) {
     return (
@@ -196,7 +195,7 @@ export default function InventoryManager(): JSX.Element {
           ingredients={ingredients}
           restaurantId={restaurantId}
           supabaseUrl={supabaseUrl}
-          supabaseKey={supabaseKey}
+          accessToken={accessToken}
           submitting={submitting}
           setSubmitting={setSubmitting}
           showFeedback={showFeedback}
@@ -210,7 +209,7 @@ export default function InventoryManager(): JSX.Element {
           menuItems={menuItems}
           recipeItems={recipeItems}
           supabaseUrl={supabaseUrl}
-          supabaseKey={supabaseKey}
+          accessToken={accessToken}
           submitting={submitting}
           setSubmitting={setSubmitting}
           showFeedback={showFeedback}
@@ -231,7 +230,7 @@ export default function InventoryManager(): JSX.Element {
           adjustments={adjustments}
           restaurantId={restaurantId}
           supabaseUrl={supabaseUrl}
-          supabaseKey={supabaseKey}
+          accessToken={accessToken}
           submitting={submitting}
           setSubmitting={setSubmitting}
           showFeedback={showFeedback}
@@ -245,7 +244,7 @@ export default function InventoryManager(): JSX.Element {
           wastageRecords={wastageRecords}
           restaurantId={restaurantId}
           supabaseUrl={supabaseUrl}
-          supabaseKey={supabaseKey}
+          accessToken={accessToken}
           submitting={submitting}
           setSubmitting={setSubmitting}
           showFeedback={showFeedback}
@@ -264,7 +263,7 @@ interface IngredientsTabProps {
   ingredients: Ingredient[]
   restaurantId: string
   supabaseUrl: string
-  supabaseKey: string
+  accessToken: string
   submitting: boolean
   setSubmitting: (v: boolean) => void
   showFeedback: (type: FeedbackType, msg: string) => void
@@ -275,7 +274,7 @@ function IngredientsTab({
   ingredients,
   restaurantId,
   supabaseUrl,
-  supabaseKey,
+  accessToken,
   submitting,
   setSubmitting,
   showFeedback,
@@ -302,7 +301,7 @@ function IngredientsTab({
     if (!validateForm()) return
     setSubmitting(true)
     try {
-      await createIngredient(supabaseUrl, supabaseKey, {
+      await createIngredient(supabaseUrl, accessToken, {
         restaurant_id: restaurantId,
         name: form.name.trim(),
         unit: form.unit,
@@ -325,7 +324,7 @@ function IngredientsTab({
     if (!editingId || !validateForm()) return
     setSubmitting(true)
     try {
-      await updateIngredient(supabaseUrl, supabaseKey, editingId, {
+      await updateIngredient(supabaseUrl, accessToken, editingId, {
         name: form.name.trim(),
         unit: form.unit,
         current_stock: Number(form.current_stock),
@@ -346,7 +345,7 @@ function IngredientsTab({
     if (!deletingId) return
     setSubmitting(true)
     try {
-      await deleteIngredient(supabaseUrl, supabaseKey, deletingId)
+      await deleteIngredient(supabaseUrl, accessToken, deletingId)
       setDeletingId(null)
       showFeedback('success', 'Ingredient deleted.')
       onRefresh()
@@ -572,7 +571,7 @@ interface RecipesTabProps {
   menuItems: MenuItem[]
   recipeItems: RecipeItem[]
   supabaseUrl: string
-  supabaseKey: string
+  accessToken: string
   submitting: boolean
   setSubmitting: (v: boolean) => void
   showFeedback: (type: FeedbackType, msg: string) => void
@@ -584,7 +583,7 @@ function RecipesTab({
   menuItems,
   recipeItems,
   supabaseUrl,
-  supabaseKey,
+  accessToken,
   submitting,
   setSubmitting,
   showFeedback,
@@ -605,7 +604,7 @@ function RecipesTab({
     setAddError('')
     setSubmitting(true)
     try {
-      await upsertRecipeItem(supabaseUrl, supabaseKey, {
+      await upsertRecipeItem(supabaseUrl, accessToken, {
         menu_item_id: selectedMenuItemId,
         ingredient_id: addIngredientId,
         quantity_used: qty,
@@ -624,7 +623,7 @@ function RecipesTab({
   async function handleRemove(id: string): Promise<void> {
     setSubmitting(true)
     try {
-      await deleteRecipeItem(supabaseUrl, supabaseKey, id)
+      await deleteRecipeItem(supabaseUrl, accessToken, id)
       showFeedback('success', 'Recipe item removed.')
       onRefresh()
     } catch (err) {
@@ -734,7 +733,7 @@ interface AdjustmentsTabProps {
   adjustments: StockAdjustment[]
   restaurantId: string
   supabaseUrl: string
-  supabaseKey: string
+  accessToken: string
   submitting: boolean
   setSubmitting: (v: boolean) => void
   showFeedback: (type: FeedbackType, msg: string) => void
@@ -746,7 +745,7 @@ function AdjustmentsTab({
   adjustments,
   restaurantId,
   supabaseUrl,
-  supabaseKey,
+  accessToken,
   submitting,
   setSubmitting,
   showFeedback,
@@ -766,7 +765,7 @@ function AdjustmentsTab({
     setFormError('')
     setSubmitting(true)
     try {
-      await createStockAdjustment(supabaseUrl, supabaseKey, {
+      await createStockAdjustment(supabaseUrl, accessToken, {
         restaurant_id: restaurantId,
         ingredient_id: form.ingredient_id,
         quantity_delta: delta,
@@ -887,7 +886,7 @@ interface WastageTabProps {
   wastageRecords: StockAdjustment[]
   restaurantId: string
   supabaseUrl: string
-  supabaseKey: string
+  accessToken: string
   submitting: boolean
   setSubmitting: (v: boolean) => void
   showFeedback: (type: FeedbackType, msg: string) => void
@@ -906,7 +905,7 @@ function WastageTab({
   wastageRecords,
   restaurantId,
   supabaseUrl,
-  supabaseKey,
+  accessToken,
   submitting,
   setSubmitting,
   showFeedback,
@@ -937,7 +936,7 @@ function WastageTab({
     setFormError('')
     setSubmitting(true)
     try {
-      await createStockAdjustment(supabaseUrl, supabaseKey, {
+      await createStockAdjustment(supabaseUrl, accessToken, {
         restaurant_id: restaurantId,
         ingredient_id: form.ingredient_id,
         quantity_delta: -qty, // wastage always deducts
@@ -961,7 +960,7 @@ function WastageTab({
     try {
       const records = await fetchWastageAdjustments(
         supabaseUrl,
-        supabaseKey,
+        accessToken,
         restaurantId,
         fromDate ? `${fromDate}T00:00:00` : undefined,
         toDate ? `${toDate}T23:59:59` : undefined,

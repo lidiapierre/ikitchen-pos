@@ -38,7 +38,6 @@ function PdfIcon(): JSX.Element {
 export default function ImportMenuClient(): JSX.Element {
   const { accessToken: _at } = useUser(); const accessToken = _at ?? ''
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ''
 
   const [step, setStep] = useState<Step>('upload')
   const [files, setFiles] = useState<File[]>([])
@@ -57,14 +56,14 @@ export default function ImportMenuClient(): JSX.Element {
 
   // Load menu categories for suggestions
   useEffect(() => {
-    if (!supabaseUrl || !supabaseKey || !accessToken) return
-    fetchMenuAdminData(supabaseUrl, supabaseKey, accessToken)
+    if (!supabaseUrl || !accessToken || !accessToken) return
+    fetchMenuAdminData(supabaseUrl, accessToken)
       .then((data) => {
         setMenus(data.menus)
         setRestaurantId(data.restaurantId)
       })
       .catch(() => {/* ignore, suggestions just won't appear */})
-  }, [supabaseUrl, supabaseKey, accessToken])
+  }, [supabaseUrl, accessToken, accessToken])
 
   const addFiles = useCallback((incoming: File[]) => {
     setFiles((prev) => {
@@ -169,7 +168,7 @@ export default function ImportMenuClient(): JSX.Element {
             menuId = createdMenuIds[categoryName.toLowerCase()]
           } else {
             // Create a new menu/category
-            const newMenuId = await callCreateMenu(supabaseUrl, supabaseKey, restaurantId, categoryName)
+            const newMenuId = await callCreateMenu(supabaseUrl, accessToken, restaurantId, categoryName)
             createdMenuIds[categoryName.toLowerCase()] = newMenuId
             menusCopy.push({ id: newMenuId, name: categoryName, restaurant_id: restaurantId, printer_type: 'kitchen', items: [] })
             menuId = newMenuId
@@ -181,7 +180,7 @@ export default function ImportMenuClient(): JSX.Element {
           if (menusCopy.length > 0) {
             menuId = menusCopy[0].id
           } else {
-            const newMenuId = await callCreateMenu(supabaseUrl, supabaseKey, restaurantId, 'Menu')
+            const newMenuId = await callCreateMenu(supabaseUrl, accessToken, restaurantId, 'Menu')
             menusCopy.push({ id: newMenuId, name: 'Menu', restaurant_id: restaurantId, printer_type: 'kitchen', items: [] })
             menuId = newMenuId
           }

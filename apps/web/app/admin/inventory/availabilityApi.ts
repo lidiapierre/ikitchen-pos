@@ -1,3 +1,5 @@
+const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ''
+
 export interface AvailabilityMenuItem {
   id: string
   name: string
@@ -12,12 +14,12 @@ export interface AvailabilityCategory {
 
 export async function fetchMenuAvailability(
   supabaseUrl: string,
-  apiKey: string,
+  accessToken: string,
   restaurantId: string,
 ): Promise<AvailabilityCategory[]> {
   const url = `${supabaseUrl}/rest/v1/menus?restaurant_id=eq.${restaurantId}&select=id,name,menu_items(id,name,available)&order=name.asc`
   const res = await fetch(url, {
-    headers: { apikey: apiKey, Authorization: `Bearer ${apiKey}` },
+    headers: { apikey: publishableKey, Authorization: `Bearer ${accessToken}` },
   })
   if (!res.ok) throw new Error(`Failed to fetch availability: ${res.status}`)
   const rows = (await res.json()) as Array<{

@@ -1,3 +1,5 @@
+const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ''
+
 export interface AdminModifier {
   id: string
   name: string
@@ -53,8 +55,8 @@ interface RestaurantRow {
   id: string
 }
 
-async function fetchRestaurantId(supabaseUrl: string, apiKey: string, token?: string): Promise<string> {
-  const headers = { apikey: apiKey, Authorization: `Bearer ${token ?? apiKey}` }
+async function fetchRestaurantId(supabaseUrl: string, accessToken: string): Promise<string> {
+  const headers = { apikey: publishableKey, Authorization: `Bearer ${accessToken}` }
   const url = new URL(`${supabaseUrl}/rest/v1/restaurants`)
   url.searchParams.set('select', 'id')
   url.searchParams.set('limit', '1')
@@ -68,8 +70,8 @@ async function fetchRestaurantId(supabaseUrl: string, apiKey: string, token?: st
   return rows[0].id
 }
 
-async function fetchMenus(supabaseUrl: string, apiKey: string, token?: string): Promise<AdminMenu[]> {
-  const headers = { apikey: apiKey, Authorization: `Bearer ${token ?? apiKey}` }
+async function fetchMenus(supabaseUrl: string, accessToken: string): Promise<AdminMenu[]> {
+  const headers = { apikey: publishableKey, Authorization: `Bearer ${accessToken}` }
   const url = new URL(`${supabaseUrl}/rest/v1/menus`)
   url.searchParams.set(
     'select',
@@ -104,12 +106,11 @@ async function fetchMenus(supabaseUrl: string, apiKey: string, token?: string): 
 
 export async function fetchMenuAdminData(
   supabaseUrl: string,
-  apiKey: string,
-  token?: string,
+  accessToken: string,
 ): Promise<MenuAdminData> {
   const [restaurantId, menus] = await Promise.all([
-    fetchRestaurantId(supabaseUrl, apiKey, token),
-    fetchMenus(supabaseUrl, apiKey, token),
+    fetchRestaurantId(supabaseUrl, accessToken),
+    fetchMenus(supabaseUrl, accessToken),
   ])
   return { restaurantId, menus }
 }

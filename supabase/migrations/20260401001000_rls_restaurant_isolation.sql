@@ -5,6 +5,31 @@
 --
 -- Tables NOT touched: customers, reservations (already have correct RLS)
 -- Edge functions use service_role key which BYPASSES RLS — unaffected.
+--
+-- =========================================================================
+-- ROLLBACK
+-- =========================================================================
+-- To reverse this migration, run the following steps:
+--
+-- 1. Drop every "restaurant_isolation*" / "read_own_row" / "read_same_restaurant"
+--    / "update_own_row" / "authenticated_read" policy created below, e.g.:
+--      DROP POLICY IF EXISTS "restaurant_isolation" ON public.tables;
+--      DROP POLICY IF EXISTS "restaurant_isolation_select" ON public.audit_log;
+--      DROP POLICY IF EXISTS "restaurant_isolation_insert" ON public.audit_log;
+--      ... (repeat for every table listed in this migration)
+--
+-- 2. Re-create the original permissive policies that existed before, e.g.:
+--      CREATE POLICY "allow_all_authenticated" ON public.tables FOR ALL
+--        USING (auth.role() = 'authenticated')
+--        WITH CHECK (auth.role() = 'authenticated');
+--      ... (repeat for every table)
+--
+-- 3. Restore PUBLIC EXECUTE on the helper function:
+--      GRANT EXECUTE ON FUNCTION public.get_user_restaurant_id() TO PUBLIC;
+--
+-- 4. Optionally drop the helper function:
+--      DROP FUNCTION IF EXISTS public.get_user_restaurant_id();
+-- =========================================================================
 
 BEGIN;
 
@@ -20,6 +45,10 @@ SET search_path = public
 AS $$
   SELECT restaurant_id FROM public.users WHERE id = auth.uid()
 $$;
+
+-- Restrict EXECUTE to authenticated users only (anon should never call this)
+REVOKE EXECUTE ON FUNCTION public.get_user_restaurant_id() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.get_user_restaurant_id() TO authenticated;
 
 -- =============================================================================
 -- Step 2: Tables with DIRECT restaurant_id column
@@ -149,13 +178,17 @@ CREATE POLICY "restaurant_isolation" ON public.kds_settings
   USING (restaurant_id = public.get_user_restaurant_id())
   WITH CHECK (restaurant_id = public.get_user_restaurant_id());
 
--- ── audit_log ──
+-- ── audit_log (append-only: SELECT + INSERT, no UPDATE/DELETE) ──
 DROP POLICY IF EXISTS "allow_insert_authenticated" ON public.audit_log;
 DROP POLICY IF EXISTS "allow_select_authenticated" ON public.audit_log;
+DROP POLICY IF EXISTS "restaurant_isolation" ON public.audit_log;
 
-CREATE POLICY "restaurant_isolation" ON public.audit_log
-  FOR ALL
-  USING (restaurant_id = public.get_user_restaurant_id())
+CREATE POLICY "restaurant_isolation_select" ON public.audit_log
+  FOR SELECT
+  USING (restaurant_id = public.get_user_restaurant_id());
+
+CREATE POLICY "restaurant_isolation_insert" ON public.audit_log
+  FOR INSERT
   WITH CHECK (restaurant_id = public.get_user_restaurant_id());
 
 -- =============================================================================
@@ -261,7 +294,7 @@ CREATE POLICY "restaurant_isolation" ON public.restaurants
   WITH CHECK (id = public.get_user_restaurant_id());
 
 -- =============================================================================
--- Step 7: Roles table — read-only for authenticated users
+-- Step 6: Roles table — read-only for authenticated users
 -- =============================================================================
 DROP POLICY IF EXISTS "allow_all_authenticated" ON public.roles;
 

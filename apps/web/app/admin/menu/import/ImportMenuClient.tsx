@@ -57,14 +57,14 @@ export default function ImportMenuClient(): JSX.Element {
 
   // Load menu categories for suggestions
   useEffect(() => {
-    if (!supabaseUrl || !supabaseKey) return
-    fetchMenuAdminData(supabaseUrl, supabaseKey)
+    if (!supabaseUrl || !supabaseKey || !accessToken) return
+    fetchMenuAdminData(supabaseUrl, supabaseKey, accessToken)
       .then((data) => {
         setMenus(data.menus)
         setRestaurantId(data.restaurantId)
       })
       .catch(() => {/* ignore, suggestions just won't appear */})
-  }, [supabaseUrl, supabaseKey])
+  }, [supabaseUrl, supabaseKey, accessToken])
 
   const addFiles = useCallback((incoming: File[]) => {
     setFiles((prev) => {

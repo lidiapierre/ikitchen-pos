@@ -14,6 +14,8 @@ const TABLES: TableRow[] = [
     order_status: null,
     order_created_at: null,
     order_item_count: null,
+    grid_x: null,
+    grid_y: null,
   },
   {
     id: 'table-2',
@@ -22,6 +24,8 @@ const TABLES: TableRow[] = [
     order_status: 'open',
     order_created_at: '2026-03-31T05:00:00Z',
     order_item_count: 3,
+    grid_x: null,
+    grid_y: null,
   },
 ]
 

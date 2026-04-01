@@ -10,6 +10,8 @@ function makeTable(overrides: Partial<TableRow> = {}): TableRow {
     order_status: null,
     order_created_at: null,
     order_item_count: null,
+    grid_x: null,
+    grid_y: null,
     ...overrides,
   }
 }

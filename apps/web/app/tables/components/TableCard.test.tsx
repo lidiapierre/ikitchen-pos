@@ -10,7 +10,7 @@ vi.mock('next/navigation', () => ({
   useRouter: (): { push: (url: string) => void } => ({ push: mockPush }),
 }))
 
-const emptyTable: TableRow = { id: 'table-uuid-001', label: '1', open_order_id: null, order_status: null, order_created_at: null, order_item_count: null }
+const emptyTable: TableRow = { id: 'table-uuid-001', label: '1', open_order_id: null, order_status: null, order_created_at: null, order_item_count: null, grid_x: null, grid_y: null }
 // order_created_at is 30 min ago and has items, so resolves to 'ordered' (not overdue)
 const occupiedTable: TableRow = {
   id: 'table-uuid-002',
@@ -19,6 +19,8 @@ const occupiedTable: TableRow = {
   order_status: 'open',
   order_created_at: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
   order_item_count: 2,
+  grid_x: null,
+  grid_y: null,
 }
 
 describe('TableCard', () => {

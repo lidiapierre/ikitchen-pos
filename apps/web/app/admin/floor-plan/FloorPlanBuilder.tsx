@@ -13,9 +13,14 @@ import {
 } from '@dnd-kit/core'
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
-import { fetchTablePositions, saveTablePosition, fetchRestaurantId } from './floorPlanApi'
+import {
+  fetchTablePositions,
+  saveTablePosition,
+  fetchRestaurantId,
+  fetchFloorPlanConfig,
+  invalidateFloorPlanConfigCache,
+} from './floorPlanApi'
 import type { TablePosition } from './floorPlanApi'
-import { fetchConfigValue } from '../pricing/pricingAdminData'
 import { callUpsertConfig } from '../pricing/pricingAdminApi'
 import { useUser } from '@/lib/user-context'
 
@@ -271,13 +276,13 @@ export default function FloorPlanBuilder(): JSX.Element {
         setTables(tableData)
         serverTables.current = tableData
         setRestaurantId(rid)
-        // Load grid size config
-        const [cols, rows] = await Promise.all([
-          fetchConfigValue(supabaseUrl, supabaseKey, rid, 'floor_plan_cols', String(DEFAULT_COLS)),
-          fetchConfigValue(supabaseUrl, supabaseKey, rid, 'floor_plan_rows', String(DEFAULT_ROWS)),
-        ])
-        const parsedCols = clampInt(parseInt(cols, 10), MIN_COLS, MAX_COLS, DEFAULT_COLS)
-        const parsedRows = clampInt(parseInt(rows, 10), MIN_ROWS, MAX_ROWS, DEFAULT_ROWS)
+        // Load grid size config — single batched request
+        const config = await fetchFloorPlanConfig(supabaseUrl, supabaseKey, rid, {
+          cols: DEFAULT_COLS,
+          rows: DEFAULT_ROWS,
+        })
+        const parsedCols = clampInt(config.cols, MIN_COLS, MAX_COLS, DEFAULT_COLS)
+        const parsedRows = clampInt(config.rows, MIN_ROWS, MAX_ROWS, DEFAULT_ROWS)
         setGridCols(parsedCols)
         setGridRows(parsedRows)
         setColsInput(String(parsedCols))
@@ -377,6 +382,7 @@ export default function FloorPlanBuilder(): JSX.Element {
         callUpsertConfig(config.url, config.key, restaurantId, 'floor_plan_cols', String(parsedCols)),
         callUpsertConfig(config.url, config.key, restaurantId, 'floor_plan_rows', String(parsedRows)),
       ])
+      invalidateFloorPlanConfigCache(config.url, restaurantId)
       // Persist any out-of-bounds unpositionings to the server.
       // Use serverTables.current (not local `tables`) because applyGridDims already
       // nulled them out in local state — the server still has the old positions.
@@ -389,7 +395,7 @@ export default function FloorPlanBuilder(): JSX.Element {
       if (outOfBounds.length > 0) {
         await Promise.all(
           outOfBounds.map((t) =>
-            saveTablePosition(config.url, accessToken, t.id, null, null).catch(() => {
+            saveTablePosition(config.url, config.key, accessToken, t.id, null, null).catch(() => {
               /* non-fatal — table state already updated locally */
             }),
           ),
@@ -449,7 +455,7 @@ export default function FloorPlanBuilder(): JSX.Element {
       if (!config || !accessToken) return
 
       setSavingId(tableId)
-      saveTablePosition(config.url, accessToken, tableId, newX, newY)
+      saveTablePosition(config.url, config.key, accessToken, tableId, newX, newY)
         .then(() => {
           // Update server-known state on success
           serverTables.current = serverTables.current.map((t) =>
@@ -473,7 +479,7 @@ export default function FloorPlanBuilder(): JSX.Element {
     const positioned = serverTables.current.filter((t) => t.grid_x !== null || t.grid_y !== null)
     try {
       await Promise.all(
-        positioned.map((t) => saveTablePosition(config.url, accessToken, t.id, null, null)),
+        positioned.map((t) => saveTablePosition(config.url, config.key, accessToken, t.id, null, null)),
       )
       setTables((prev) => prev.map((t) => ({ ...t, grid_x: null, grid_y: null })))
       serverTables.current = serverTables.current.map((t) => ({ ...t, grid_x: null, grid_y: null }))

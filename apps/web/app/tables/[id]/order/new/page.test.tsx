@@ -18,18 +18,6 @@ vi.mock('../../../components/createOrderApi', () => ({
   callCreateOrder: vi.fn(),
 }))
 
-vi.mock('@/hooks/useToast', () => ({
-  useToast: (): { toasts: never[]; addToast: ReturnType<typeof vi.fn>; dismissToast: ReturnType<typeof vi.fn> } => ({
-    toasts: [],
-    addToast: vi.fn(),
-    dismissToast: vi.fn(),
-  }),
-}))
-
-vi.mock('@/components/ui/Toast', () => ({
-  ToastContainer: (): null => null,
-}))
-
 const originalEnv = process.env
 
 describe('NewOrderPage', () => {
@@ -80,6 +68,7 @@ describe('NewOrderPage', () => {
           'https://test.supabase.co',
           'test-token',
           'table-uuid-001',
+          expect.any(AbortSignal),
         )
       })
     })
@@ -123,10 +112,7 @@ describe('NewOrderPage', () => {
         expect(screen.queryByText('Creating order…')).not.toBeInTheDocument()
       })
 
-      // router.replace should NOT have been called with an order path
-      expect(mockReplace).not.toHaveBeenCalledWith(
-        expect.stringMatching(/\/order\/[^n]/),
-      )
+      expect(mockReplace).not.toHaveBeenCalled()
     })
   })
 })

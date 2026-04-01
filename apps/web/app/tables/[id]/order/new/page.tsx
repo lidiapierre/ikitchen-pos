@@ -1,12 +1,10 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import type { JSX } from 'react'
 import { callCreateOrder } from '../../../components/createOrderApi'
 import { useUser } from '@/lib/user-context'
-import { useToast } from '@/hooks/useToast'
-import { ToastContainer } from '@/components/ui/Toast'
 
 /**
  * Optimistic order creation loading page (issue #298).
@@ -20,32 +18,35 @@ export default function NewOrderPage(): JSX.Element {
   const params = useParams<{ id: string }>()
   const tableId = params.id
   const { accessToken } = useUser()
-  const { toasts, addToast, dismissToast } = useToast()
   const [error, setError] = useState<string | null>(null)
+  const hasFired = useRef(false)
 
   useEffect(() => {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    if (!tableId || accessToken === null) return
+    if (hasFired.current) return
+    hasFired.current = true
 
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
     if (!supabaseUrl || !accessToken) {
-      // Wait for accessToken to become available (useUser may still be loading)
-      if (accessToken === null) return
-      setError('Not authenticated')
+      void Promise.resolve().then(() => { setError('Not authenticated') })
       return
     }
 
-    callCreateOrder(supabaseUrl, accessToken, tableId)
+    const controller = new AbortController()
+
+    callCreateOrder(supabaseUrl, accessToken, tableId, controller.signal)
       .then(({ order_id }) => {
+        if (controller.signal.aborted) return
         router.replace(`/tables/${tableId}/order/${order_id}`)
       })
       .catch((err: unknown) => {
+        if (controller.signal.aborted) return
         const message = err instanceof Error ? err.message : 'Failed to create order'
         setError(message)
-        addToast(message, 'error')
       })
-    // accessToken is intentionally excluded from the deps array —
-    // we only want to fire once when both tableId and accessToken are ready.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tableId, accessToken])
+
+    return () => { controller.abort() }
+  }, [tableId, accessToken, router])
 
   if (error !== null) {
     return (
@@ -63,7 +64,6 @@ export default function NewOrderPage(): JSX.Element {
             ← Go back to tables
           </button>
         </div>
-        <ToastContainer toasts={toasts} onDismiss={dismissToast} />
       </main>
     )
   }

@@ -2,7 +2,6 @@
 
 import { useRouter } from 'next/navigation'
 import type { JSX } from 'react'
-import { useUser } from '@/lib/user-context'
 import type { TableRow } from '../tablesData'
 import { getTableStatus, STATUS_CONFIG } from '../tableStatus'
 
@@ -12,9 +11,6 @@ interface TableCardProps {
 
 export default function TableCard({ table }: TableCardProps): JSX.Element {
   const router = useRouter()
-  // useUser is kept here so the context is always available;
-  // accessToken is no longer needed in TableCard — it moved to NewOrderPage.
-  useUser()
 
   const status = getTableStatus(table)
   const { label: statusLabel, cardClass, badgeClass } = STATUS_CONFIG[status]

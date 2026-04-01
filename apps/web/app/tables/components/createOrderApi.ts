@@ -21,6 +21,7 @@ export async function callCreateOrder(
   supabaseUrl: string,
   accessToken: string,
   tableIdOrOptions: string | CreateOrderOptions,
+  signal?: AbortSignal,
 ): Promise<CreateOrderResult> {
   // Support legacy call signature (tableId as string) for backward compatibility
   let opts: CreateOrderOptions
@@ -46,6 +47,7 @@ export async function callCreateOrder(
       Authorization: `Bearer ${accessToken}`,
     },
     body: JSON.stringify(bodyPayload),
+    signal,
   })
   if (!res.ok) {
     const body = await res.text()

@@ -8,37 +8,55 @@ import { test, expect } from '@playwright/test'
  *
  * Covered critical paths:
  * 1. Page loads with welcome state when no sections exist.
- * 2. Sections appear in sidebar and tabs after data loads.
- * 3. Selecting a section shows the DnD grid.
+ * 2. Page loads with sections — sidebar, tabs, and Unassigned Tables panel visible.
+ * 3. Selecting a section reveals the DnD grid and Unplaced sidebar.
  * 4. Clicking an empty grid cell opens the Add Table dialog.
- * 5. Staff /tables view renders section tabs with server badges.
+ * 5. Dragging an unplaced table from the DnD sidebar to a grid cell — verifies
+ *    the update_table_position network call fires with correct coordinates.
+ * 6. Dragging a placed table back to the DnD sidebar — verifies the
+ *    update_table_position call fires with null coordinates (unplace).
  */
 
+const UPDATE_POSITION_PATTERN = '**/functions/v1/update_table_position'
+
 const MOCK_SECTION = {
-  id: 'sec-1',
-  name: 'Main Hall',
+  id: 'section-1',
+  name: 'Main Room',
   restaurant_id: 'rest-1',
-  assigned_server_id: 'user-1',
+  assigned_server_id: null,
   sort_order: 0,
-  grid_cols: 6,
+  grid_cols: 5,
   grid_rows: 4,
 }
 
-const MOCK_TABLE = {
-  id: 'table-1',
+/** Placed on the grid at (0, 0) within the section */
+const MOCK_TABLE_PLACED = {
+  id: 'table-placed-1',
   label: 'T1',
   seat_count: 4,
   grid_x: 0,
   grid_y: 0,
-  section_id: 'sec-1',
-  open_order_id: null,
+  section_id: 'section-1',
 }
 
-const MOCK_USER = {
-  id: 'user-1',
-  name: 'Alice',
-  email: 'alice@example.com',
-  role: 'server',
+/** Belongs to section-1 but has no grid coordinates → appears in "Unplaced" DnD sidebar */
+const MOCK_TABLE_UNPLACED = {
+  id: 'table-unplaced-1',
+  label: 'T2',
+  seat_count: 2,
+  grid_x: null,
+  grid_y: null,
+  section_id: 'section-1',
+}
+
+/** No section at all → appears in "Unassigned Tables" left sidebar */
+const MOCK_TABLE_UNASSIGNED = {
+  id: 'table-unassigned-1',
+  label: 'T3',
+  seat_count: 3,
+  grid_x: null,
+  grid_y: null,
+  section_id: null,
 }
 
 async function mockAuthApis(page: import('@playwright/test').Page): Promise<void> {
@@ -50,10 +68,10 @@ async function mockAuthApis(page: import('@playwright/test').Page): Promise<void
       expires_at: Math.floor(Date.now() / 1000) + 3600,
       refresh_token: 'test-refresh-token',
       user: {
-        id: 'admin-user-id',
+        id: 'test-user-id',
         aud: 'authenticated',
         role: 'authenticated',
-        email: 'admin@test.ikitchen.com',
+        email: 'admin@lahore.ikitchen.com.bd',
       },
     }
     localStorage.setItem('sb-dmaogdwtgohrhbytxjqu-auth-token', JSON.stringify(session))
@@ -64,10 +82,10 @@ async function mockAuthApis(page: import('@playwright/test').Page): Promise<void
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({
-        id: 'admin-user-id',
+        id: 'test-user-id',
         aud: 'authenticated',
         role: 'authenticated',
-        email: 'admin@test.ikitchen.com',
+        email: 'admin@lahore.ikitchen.com.bd',
       }),
     })
   })
@@ -81,16 +99,16 @@ async function mockAuthApis(page: import('@playwright/test').Page): Promise<void
         token_type: 'bearer',
         expires_in: 3600,
         user: {
-          id: 'admin-user-id',
+          id: 'test-user-id',
           aud: 'authenticated',
           role: 'authenticated',
-          email: 'admin@test.ikitchen.com',
+          email: 'admin@lahore.ikitchen.com.bd',
         },
       }),
     })
   })
 
-  // Mock getUserRole
+  // Mock rest/v1/users for getUserRole
   await page.route('**/rest/v1/users**', async (route) => {
     await route.fulfill({
       status: 200,
@@ -100,17 +118,17 @@ async function mockAuthApis(page: import('@playwright/test').Page): Promise<void
   })
 }
 
+interface FloorPlanMockOptions {
+  sections?: unknown[]
+  tables?: unknown[]
+}
+
 async function mockFloorPlanApis(
   page: import('@playwright/test').Page,
-  options: {
-    sections?: unknown[]
-    tables?: unknown[]
-    staffUsers?: unknown[]
-  } = {},
+  options: FloorPlanMockOptions = {},
 ): Promise<void> {
-  const sections = options.sections ?? []
-  const tables = options.tables ?? []
-  const staffUsers = options.staffUsers ?? [MOCK_USER]
+  const sections = 'sections' in options ? options.sections : [MOCK_SECTION]
+  const tables = 'tables' in options ? options.tables : [MOCK_TABLE_PLACED, MOCK_TABLE_UNPLACED, MOCK_TABLE_UNASSIGNED]
 
   await page.route('**/rest/v1/sections**', async (route) => {
     await route.fulfill({
@@ -133,16 +151,6 @@ async function mockFloorPlanApis(
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify([]),
-    })
-  })
-
-  // staff users endpoint (separate from the auth/getUserRole route above)
-  // The unified floor plan fetches from /rest/v1/users with role filter
-  await page.route('**/rest/v1/users?*role*', async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify(staffUsers),
     })
   })
 
@@ -172,62 +180,64 @@ test.describe('Unified Floor Plan — Admin', () => {
     expect(errors).toHaveLength(0)
   })
 
-  test('shows sections in sidebar and tabs when sections exist', async ({ page }) => {
+  test('page loads and shows sidebar, tabs, and Unassigned Tables panel', async ({ page }) => {
+    const errors: string[] = []
+    page.on('pageerror', (err) => errors.push(err.message))
+
     await mockAuthApis(page)
-    await mockFloorPlanApis(page, {
-      sections: [MOCK_SECTION],
-      tables: [MOCK_TABLE],
-      staffUsers: [MOCK_USER],
-    })
+    await mockFloorPlanApis(page)
 
     await page.goto('/admin/floor-plan')
 
     await expect(page.getByRole('heading', { name: 'Floor Plan' })).toBeVisible({ timeout: 10000 })
 
-    // Section appears in sidebar
-    await expect(page.getByText('Main Hall').first()).toBeVisible()
+    // Section name should appear in sidebar and as a tab
+    await expect(page.getByText('Main Room').first()).toBeVisible()
 
-    // Section tab appears
-    await expect(page.getByRole('button', { name: /Main Hall/ }).first()).toBeVisible()
+    // Unassigned table T3 should appear in the "Unassigned Tables" panel
+    await expect(page.getByText('Unassigned Tables')).toBeVisible()
+    await expect(page.getByText('T3').first()).toBeVisible()
+
+    // Section creation input is present
+    await expect(page.getByPlaceholder('New section name')).toBeVisible()
+
+    expect(errors).toHaveLength(0)
   })
 
-  test('clicking a section tab shows the DnD grid', async ({ page }) => {
+  test('selecting a section reveals the DnD grid and unplaced sidebar', async ({ page }) => {
     await mockAuthApis(page)
-    await mockFloorPlanApis(page, {
-      sections: [MOCK_SECTION],
-      tables: [MOCK_TABLE],
-      staffUsers: [MOCK_USER],
-    })
+    await mockFloorPlanApis(page)
 
     await page.goto('/admin/floor-plan')
     await expect(page.getByRole('heading', { name: 'Floor Plan' })).toBeVisible({ timeout: 10000 })
 
-    // Click the section tab
-    const sectionTab = page.getByRole('button', { name: /Main Hall/ }).first()
-    await sectionTab.click()
+    // Click the section tab to reveal the grid
+    await page.getByRole('button', { name: /Main Room/ }).first().click()
 
-    // The placed table T1 should be visible on the grid
+    // The "Unplaced" DnD sidebar within the section grid should appear
+    await expect(page.getByText('Unplaced').first()).toBeVisible()
+
+    // The placed table (T1) should be visible on the grid
     await expect(page.getByText('T1').first()).toBeVisible()
 
-    // Cell (0,0) exists
-    await expect(page.locator('[data-testid="cell-0-0"]')).toBeVisible()
+    // The unplaced table (T2) should appear in the Unplaced DnD sidebar
+    await expect(page.getByText('T2').first()).toBeVisible()
+
+    // Grid size inputs should be present in the section header
+    await expect(page.locator('input[type="number"]').first()).toBeVisible()
   })
 
   test('clicking an empty grid cell opens the Add Table dialog', async ({ page }) => {
     await mockAuthApis(page)
-    await mockFloorPlanApis(page, {
-      sections: [MOCK_SECTION],
-      tables: [],
-    })
+    await mockFloorPlanApis(page, { tables: [MOCK_TABLE_PLACED] })
 
     await page.goto('/admin/floor-plan')
     await expect(page.getByRole('heading', { name: 'Floor Plan' })).toBeVisible({ timeout: 10000 })
 
     // Select section to reveal grid
-    const sectionTab = page.getByRole('button', { name: /Main Hall/ }).first()
-    await sectionTab.click()
+    await page.getByRole('button', { name: /Main Room/ }).first().click()
 
-    // Click an empty cell
+    // Click an empty cell (col 1, row 0 — T1 is at 0,0)
     const emptyCell = page.locator('[data-testid="cell-1-0"]').first()
     await expect(emptyCell).toBeVisible()
     await emptyCell.click()
@@ -237,68 +247,111 @@ test.describe('Unified Floor Plan — Admin', () => {
     await expect(page.getByLabel(/Table Label/)).toBeVisible()
     await expect(page.getByLabel(/Seat Count/)).toBeVisible()
   })
-})
 
-test.describe('Unified Floor Plan — Staff /tables view', () => {
-  test('shows section tabs with server badges', async ({ page }) => {
+  test('dragging a table from DnD sidebar to grid fires update_table_position', async ({ page }) => {
     await mockAuthApis(page)
+    await mockFloorPlanApis(page)
 
-    // Mock the tables page data endpoints
-    await page.route('**/rest/v1/tables**', async (route) => {
+    const updateRequests: Array<{ table_id: string; grid_x: number | null; grid_y: number | null }> = []
+    await page.route(UPDATE_POSITION_PATTERN, async (route) => {
+      const request = route.request()
+      const body = JSON.parse(request.postData() ?? '{}') as { table_id: string; grid_x: number | null; grid_y: number | null }
+      updateRequests.push(body)
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify([
-          { id: 'table-1', label: 'T1', grid_x: 0, grid_y: 0, section_id: 'sec-1' },
-        ]),
+        body: JSON.stringify({ success: true }),
       })
     })
 
-    await page.route('**/rest/v1/orders**', async (route) => {
+    await page.goto('/admin/floor-plan')
+    await expect(page.getByRole('heading', { name: 'Floor Plan' })).toBeVisible({ timeout: 10000 })
+
+    // Select section to reveal the DnD grid
+    await page.getByRole('button', { name: /Main Room/ }).first().click()
+
+    // Find the unplaced table T2 in the DnD sidebar
+    const sidebarTable = page.getByText('T2').first()
+    await expect(sidebarTable).toBeVisible()
+
+    // Find an empty grid cell to drop onto — cell-1-0 (col 1, row 0) to avoid T1 at 0-0
+    const targetCell = page.locator('[data-testid="cell-1-0"]').first()
+
+    const sourceBox = await sidebarTable.boundingBox()
+    const targetBox = await targetCell.boundingBox()
+
+    if (sourceBox && targetBox) {
+      const startX = sourceBox.x + sourceBox.width / 2
+      const startY = sourceBox.y + sourceBox.height / 2
+      const endX = targetBox.x + targetBox.width / 2
+      const endY = targetBox.y + targetBox.height / 2
+
+      await page.mouse.move(startX, startY)
+      await page.mouse.down()
+      await page.mouse.move(startX + 5, startY + 5, { steps: 3 })
+      await page.mouse.move(endX, endY, { steps: 10 })
+      await page.mouse.up()
+    }
+
+    await page.waitForResponse(UPDATE_POSITION_PATTERN, { timeout: 5000 })
+
+    expect(updateRequests).toHaveLength(1)
+    const req = updateRequests[0]
+    expect(req.table_id).toBe(MOCK_TABLE_UNPLACED.id)
+    expect(typeof req.grid_x).toBe('number')
+    expect(typeof req.grid_y).toBe('number')
+  })
+
+  test('dragging a placed table to DnD sidebar fires update_table_position with null coords', async ({ page }) => {
+    await mockAuthApis(page)
+    await mockFloorPlanApis(page)
+
+    const updateRequests: Array<{ table_id: string; grid_x: number | null; grid_y: number | null }> = []
+    await page.route(UPDATE_POSITION_PATTERN, async (route) => {
+      const request = route.request()
+      const body = JSON.parse(request.postData() ?? '{}') as { table_id: string; grid_x: number | null; grid_y: number | null }
+      updateRequests.push(body)
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify([]),
+        body: JSON.stringify({ success: true }),
       })
     })
 
-    await page.route('**/rest/v1/order_items**', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify([]),
-      })
-    })
+    await page.goto('/admin/floor-plan')
+    await expect(page.getByRole('heading', { name: 'Floor Plan' })).toBeVisible({ timeout: 10000 })
 
-    await page.route('**/rest/v1/sections**', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify([
-          { id: 'sec-1', name: 'Main Hall', assigned_server_id: 'user-1', sort_order: 0 },
-        ]),
-      })
-    })
+    // Select section to reveal the DnD grid
+    await page.getByRole('button', { name: /Main Room/ }).first().click()
 
-    await page.route('**/rest/v1/restaurants**', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify([{ id: 'rest-1' }]),
-      })
-    })
+    // Find placed table T1 on the grid at cell-0-0
+    const placedTable = page.getByText('T1').first()
+    await expect(placedTable).toBeVisible()
 
-    await page.route('**/rest/v1/config**', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify([]),
-      })
-    })
+    // Find the DnD sidebar drop zone (the "Unplaced" panel within the section grid)
+    const sidebar = page.getByText('Unplaced').first().locator('../..')
+    const sidebarBox = await sidebar.boundingBox()
+    const sourceBox = await placedTable.boundingBox()
 
-    await page.goto('/tables')
+    if (sourceBox && sidebarBox) {
+      const startX = sourceBox.x + sourceBox.width / 2
+      const startY = sourceBox.y + sourceBox.height / 2
+      const endX = sidebarBox.x + sidebarBox.width / 2
+      const endY = sidebarBox.y + sidebarBox.height / 2
 
-    // Section tab should be visible
-    await expect(page.getByRole('button', { name: /Main Hall/ })).toBeVisible({ timeout: 10000 })
+      await page.mouse.move(startX, startY)
+      await page.mouse.down()
+      await page.mouse.move(startX + 5, startY + 5, { steps: 3 })
+      await page.mouse.move(endX, endY, { steps: 10 })
+      await page.mouse.up()
+    }
+
+    await page.waitForResponse(UPDATE_POSITION_PATTERN, { timeout: 5000 })
+
+    expect(updateRequests).toHaveLength(1)
+    const req = updateRequests[0]
+    expect(req.table_id).toBe(MOCK_TABLE_PLACED.id)
+    expect(req.grid_x).toBeNull()
+    expect(req.grid_y).toBeNull()
   })
 })

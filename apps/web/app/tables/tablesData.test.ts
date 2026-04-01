@@ -33,8 +33,8 @@ describe('fetchTables', () => {
     const result = await fetchTables(BASE_URL, API_KEY)
 
     expect(result).toEqual([
-      { id: 'table-1', label: 'Table 1', open_order_id: 'order-1', order_status: 'open', order_created_at: '2026-03-27T08:00:00Z', order_item_count: 2 },
-      { id: 'table-2', label: 'Table 2', open_order_id: null, order_status: null, order_created_at: null, order_item_count: null },
+      expect.objectContaining({ id: 'table-1', label: 'Table 1', open_order_id: 'order-1', order_status: 'open', order_created_at: '2026-03-27T08:00:00Z', order_item_count: 2 }),
+      expect.objectContaining({ id: 'table-2', label: 'Table 2', open_order_id: null, order_status: null, order_created_at: null, order_item_count: null }),
     ])
   })
 
@@ -59,8 +59,8 @@ describe('fetchTables', () => {
     const result = await fetchTables(BASE_URL, API_KEY)
 
     expect(result).toEqual([
-      { id: 'table-1', label: 'Table 1', open_order_id: null, order_status: null, order_created_at: null, order_item_count: null },
-      { id: 'table-2', label: 'Table 2', open_order_id: null, order_status: null, order_created_at: null, order_item_count: null },
+      expect.objectContaining({ id: 'table-1', label: 'Table 1', open_order_id: null, order_status: null, order_created_at: null, order_item_count: null }),
+      expect.objectContaining({ id: 'table-2', label: 'Table 2', open_order_id: null, order_status: null, order_created_at: null, order_item_count: null }),
     ])
   })
 
@@ -108,7 +108,7 @@ describe('fetchTables', () => {
 
     const tablesCall = fetchMock.mock.calls[0][0]
     expect(tablesCall).toContain('/rest/v1/tables')
-    expect(tablesCall).toContain('select=id%2Clabel')
+    expect(tablesCall).toContain('select=id%2Clabel%2Cgrid_x%2Cgrid_y%2Csection_id')
   })
 
   it('queries orders with status=in.(open,pending_payment)', async (): Promise<void> => {

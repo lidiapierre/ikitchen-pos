@@ -17,7 +17,7 @@ type State = 'idle' | 'recording' | 'processing' | 'confirmation' | 'error'
 const MAX_RECORDING_MS = 30_000
 
 export default function VoiceOrderButton({ orderId, onItemsConfirmed }: VoiceOrderButtonProps): JSX.Element {
-  const { accessToken } = useUser()
+  const { accessToken: _at } = useUser(); const accessToken = _at ?? ''
   const [state, setState] = useState<State>('idle')
   const [errorMessage, setErrorMessage] = useState<string>('')
   const [result, setResult] = useState<VoiceOrderResult | null>(null)

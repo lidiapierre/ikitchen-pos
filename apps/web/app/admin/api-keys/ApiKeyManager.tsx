@@ -64,7 +64,7 @@ function NewKeyBanner({ createdKey }: { createdKey: CreatedApiKey }): JSX.Elemen
 }
 
 export default function ApiKeyManager(): JSX.Element {
-  const { accessToken } = useUser()
+  const { accessToken: _at } = useUser(); const accessToken = _at ?? ''
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
 
   const [keys, setKeys] = useState<ApiKeyRow[]>([])
@@ -100,7 +100,8 @@ export default function ApiKeyManager(): JSX.Element {
     return () => {
       if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current)
     }
-  }, [])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accessToken])
 
   function showFeedback(type: FeedbackType, message: string): void {
     if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current)

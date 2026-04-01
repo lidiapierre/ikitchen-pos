@@ -41,7 +41,7 @@ function validateForm(form: TableFormValues): TableFormErrors {
 }
 
 export default function TableManager(): JSX.Element {
-  const { accessToken } = useUser()
+  const { accessToken: _at } = useUser(); const accessToken = _at ?? ''
   const [tables, setTables] = useState<AdminTable[]>([])
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState<string | null>(null)
@@ -87,7 +87,8 @@ export default function TableManager(): JSX.Element {
       .finally(() => {
         setLoading(false)
       })
-  }, [])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accessToken])
 
   useEffect(() => {
     return () => {

@@ -281,7 +281,7 @@ function StaffPerformanceTable({ rows }: StaffPerformanceTableProps): JSX.Elemen
 }
 
 export default function ReportsDashboard(): JSX.Element {
-  const { accessToken } = useUser()
+  const { accessToken: _at } = useUser(); const accessToken = _at ?? ''
   const [period, setPeriod] = useState<ReportPeriod>('today')
   const [customFrom, setCustomFrom] = useState('')
   const [customTo, setCustomTo] = useState('')

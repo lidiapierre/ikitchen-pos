@@ -16,7 +16,7 @@ interface Feedback {
 }
 
 export default function AvailabilityPanel(): JSX.Element {
-  const { accessToken } = useUser()
+  const { accessToken: _at } = useUser(); const accessToken = _at ?? ''
   const { restaurantId, loading: restaurantLoading } = useActiveRestaurantContext()
   const [categories, setCategories] = useState<AvailabilityCategory[]>([])
   const [loading, setLoading] = useState(true)

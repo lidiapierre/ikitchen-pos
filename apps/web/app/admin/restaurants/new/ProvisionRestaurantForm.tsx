@@ -74,7 +74,7 @@ const INPUT_CLASS =
 const LABEL_CLASS = 'text-sm font-medium text-zinc-300'
 
 export default function ProvisionRestaurantForm({ variant = 'admin' }: ProvisionRestaurantFormProps): JSX.Element {
-  const { accessToken } = useUser()
+  const { accessToken: _at } = useUser(); const accessToken = _at ?? ''
   const [form, setForm] = useState<FormValues>(EMPTY_FORM)
   const [errors, setErrors] = useState<FormErrors>({})
   const [submitting, setSubmitting] = useState(false)

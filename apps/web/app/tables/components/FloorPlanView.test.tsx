@@ -67,7 +67,7 @@ const emptyTable: TableRow = {
   order_created_at: null,
   order_item_count: null,
   grid_x: 0,
-  grid_y: 0,
+  grid_y: 0, section_id: null, section_name: null, assigned_server_name: null,
 }
 
 const occupiedTable: TableRow = {
@@ -78,7 +78,7 @@ const occupiedTable: TableRow = {
   order_created_at: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
   order_item_count: 2,
   grid_x: 0,
-  grid_y: 0,
+  grid_y: 0, section_id: null, section_name: null, assigned_server_name: null,
 }
 
 describe('FloorPlanView', () => {
@@ -135,7 +135,7 @@ describe('FloorPlanView', () => {
         order_created_at: null,
         order_item_count: null,
         grid_x: 2,
-        grid_y: 1,
+        grid_y: 1, section_id: null, section_name: null, assigned_server_name: null,
       }
 
       render(<FloorPlanView tables={[positionedTable]} />)

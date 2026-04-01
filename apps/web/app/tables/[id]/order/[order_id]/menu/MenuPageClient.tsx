@@ -24,7 +24,7 @@ interface MenuPageClientProps {
 
 export default function MenuPageClient({ tableId, orderId }: MenuPageClientProps): JSX.Element {
   const router = useRouter()
-  const { accessToken } = useUser()
+  const { accessToken: _at } = useUser(); const accessToken = _at ?? ''
   const [orderTotalCents, setOrderTotalCents] = useState(0)
   const [categories, setCategories] = useState<MenuCategory[]>([])
   const [loading, setLoading] = useState(true)

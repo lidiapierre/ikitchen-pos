@@ -22,6 +22,7 @@ const MOCK_TABLE_PLACED = {
   seat_count: 4,
   grid_x: 2,
   grid_y: 1,
+  section_id: null,
 }
 
 const MOCK_TABLE_UNPLACED = {
@@ -30,6 +31,7 @@ const MOCK_TABLE_UNPLACED = {
   seat_count: 2,
   grid_x: null,
   grid_y: null,
+  section_id: null,
 }
 
 async function mockAuthApis(page: import('@playwright/test').Page): Promise<void> {
@@ -110,6 +112,15 @@ async function mockFloorPlanApis(page: import('@playwright/test').Page): Promise
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify([{ id: 'rest-1' }]),
+    })
+  })
+
+  // Mock sections endpoint (floor plan sections)
+  await page.route('**/rest/v1/sections**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify([]),
     })
   })
 

@@ -90,13 +90,16 @@ export default function UserManager(): JSX.Element {
 
   useEffect(() => {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    if (!supabaseUrl || !accessToken) {
+    if (!supabaseUrl) {
       setFetchError('API not configured')
       setLoading(false)
       return
     }
-    // Wait for the user's JWT before fetching RLS-protected data
+    // Wait for auth to resolve — accessToken starts as empty string
     if (!accessToken) return
+
+    setFetchError(null)
+    setLoading(true)
     supabaseConfig.current = { url: supabaseUrl }
 
     // Identify caller's role for role-hierarchy enforcement in the UI

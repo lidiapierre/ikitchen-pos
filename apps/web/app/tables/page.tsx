@@ -5,10 +5,10 @@ import type { JSX } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import TableCard from './components/TableCard'
+import FloorPlanView from './components/FloorPlanView'
 import { fetchTables, fetchTakeawayDeliveryQueue } from './tablesData'
 import type { TableRow, TakeawayDeliveryOrder } from './tablesData'
 import { getTablesCache, setTablesCache } from '@/lib/tablesCache'
-import { STATUS_CONFIG } from './tableStatus'
 import type { TableStatus } from './tableStatus'
 import { callCreateOrder } from './components/createOrderApi'
 import { useUser } from '@/lib/user-context'
@@ -245,13 +245,45 @@ export default function TablesPage(): JSX.Element {
       ) : (
         <>
           {/* Dine-in table grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mb-10">
-            {tables.length === 0 ? (
-              <p className="text-zinc-400 text-lg col-span-full">No tables configured.</p>
-            ) : tables.map((table) => (
-              <TableCard key={table.id} table={table} />
-            ))}
-          </div>
+          {(() => {
+            const hasFloorPlan = tables.some(t => t.grid_x !== null && t.grid_y !== null)
+            const unplacedTables = tables.filter(t => t.grid_x === null || t.grid_y === null)
+            return hasFloorPlan ? (
+              <>
+                {/* Floor plan canvas */}
+                <FloorPlanView
+                  tables={tables}
+                  supabaseUrl={process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''}
+                  supabaseKey={process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ''}
+                />
+
+                {/* Unplaced tables strip */}
+                {unplacedTables.length > 0 && (
+                  <div className="mt-4">
+                    <p className="text-sm font-semibold text-zinc-400 mb-2">
+                      Unplaced Tables ({unplacedTables.length})
+                    </p>
+                    <div className="flex gap-3 overflow-x-auto pb-2">
+                      {unplacedTables.map((table) => (
+                        <div key={table.id} className="flex-shrink-0 w-36">
+                          <TableCard table={table} />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : (
+              /* Existing auto-grid — keep exactly as is */
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mb-10">
+                {tables.length === 0 ? (
+                  <p className="text-zinc-400 text-lg col-span-full">No tables configured.</p>
+                ) : tables.map((table) => (
+                  <TableCard key={table.id} table={table} />
+                ))}
+              </div>
+            )
+          })()}
 
           {/* Takeaway / Delivery Queue */}
           <section>

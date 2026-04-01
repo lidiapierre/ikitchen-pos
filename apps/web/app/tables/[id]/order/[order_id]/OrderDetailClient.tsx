@@ -12,6 +12,7 @@ import { callVoidItem } from './voidItemApi'
 import { callCancelOrder } from './cancelOrderApi'
 import { callApplyDiscount } from './applyDiscountApi'
 import { callApplyItemDiscount } from './applyItemDiscountApi'
+import { updateOrderItemNotes } from './orderItemNotesApi'
 import { callCompItem } from './compApi'
 import { callTransferOrder } from './transferOrderApi'
 import { markItemsSentToKitchen } from './kotApi'
@@ -190,6 +191,10 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
   const [itemDiscountValueStr, setItemDiscountValueStr] = useState<string>('')
   const [applyingItemDiscount, setApplyingItemDiscount] = useState(false)
   const [itemDiscountError, setItemDiscountError] = useState<string | null>(null)
+
+  // Per-item note editing state (issue #272)
+  const [editingNoteItemId, setEditingNoteItemId] = useState<string | null>(null)
+  const [noteInputValue, setNoteInputValue] = useState('')
 
   // Comp state
   const [compingItem, setCompingItem] = useState<OrderItem | null>(null)
@@ -1314,6 +1319,82 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
               </li>
             ))}
           </ul>
+        )}
+        {/* Per-item note display (issue #272) */}
+        {editingNoteItemId === item.id ? (
+          <div className="mt-2 flex gap-2 items-center pl-2">
+            <input
+              type="text"
+              className="flex-1 bg-zinc-700 text-white text-sm rounded-lg px-3 py-2 border border-zinc-600 focus:outline-none focus:border-amber-400"
+              placeholder="Add note (e.g. no onions)"
+              value={noteInputValue}
+              autoFocus
+              onChange={(e) => setNoteInputValue(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  const trimmed = noteInputValue.trim()
+                  const noteToSave = trimmed === '' ? null : trimmed
+                  setItems((prev) => prev.map((i) => i.id === item.id ? { ...i, notes: noteToSave } : i))
+                  setEditingNoteItemId(null)
+                  if (accessToken) {
+                    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
+                    updateOrderItemNotes(supabaseUrl, accessToken, item.id, noteToSave).catch(() => {
+                      // Revert optimistic update on failure
+                      setItems((prev) => prev.map((i) => i.id === item.id ? { ...i, notes: item.notes } : i))
+                    })
+                  }
+                } else if (e.key === 'Escape') {
+                  setEditingNoteItemId(null)
+                  setNoteInputValue('')
+                }
+              }}
+              onBlur={() => {
+                const trimmed = noteInputValue.trim()
+                const noteToSave = trimmed === '' ? null : trimmed
+                setItems((prev) => prev.map((i) => i.id === item.id ? { ...i, notes: noteToSave } : i))
+                setEditingNoteItemId(null)
+                if (accessToken) {
+                  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
+                  updateOrderItemNotes(supabaseUrl, accessToken, item.id, noteToSave).catch(() => {
+                    // Revert optimistic update on failure
+                    setItems((prev) => prev.map((i) => i.id === item.id ? { ...i, notes: item.notes } : i))
+                  })
+                }
+              }}
+            />
+            <button
+              type="button"
+              className="text-zinc-400 hover:text-white transition-colors p-1"
+              onMouseDown={(e) => {
+                // Prevent blur from firing before click
+                e.preventDefault()
+                setEditingNoteItemId(null)
+                setNoteInputValue('')
+              }}
+            >
+              <X size={14} aria-hidden="true" />
+            </button>
+          </div>
+        ) : (
+          <div className="mt-1 pl-2 flex items-center gap-2">
+            {item.notes && (
+              <p className="text-sm text-zinc-400 italic">↳ {item.notes}</p>
+            )}
+            {inOrderStep && (
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingNoteItemId(item.id)
+                  setNoteInputValue(item.notes ?? '')
+                }}
+                className="text-zinc-500 hover:text-amber-400 transition-colors p-1"
+                aria-label={item.notes ? 'Edit note' : 'Add note'}
+              >
+                <Pencil size={12} aria-hidden="true" />
+              </button>
+            )}
+          </div>
         )}
       </li>
     )

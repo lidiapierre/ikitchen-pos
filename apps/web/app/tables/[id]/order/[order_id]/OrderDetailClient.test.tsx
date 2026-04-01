@@ -65,15 +65,19 @@ vi.mock('@/components/KotPrintView', () => ({
   default: (): JSX.Element => <div data-testid="kot-print-view" />,
 }))
 
+vi.mock('./orderItemNotesApi', () => ({
+  updateOrderItemNotes: vi.fn().mockResolvedValue(undefined),
+}))
+
 vi.mock('@/lib/fetchVatConfig', () => ({
   fetchOrderVatContext: vi.fn().mockResolvedValue({ restaurantId: 'rest-1', menuId: null }),
   fetchVatConfig: vi.fn().mockResolvedValue({ vatPercent: 15, taxInclusive: false }),
 }))
 
 const mockItems = [
-  { id: '1', name: 'Bruschetta', quantity: 2, price_cents: 850, modifier_ids: [], modifier_names: [], sent_to_kitchen: false, comp: false, comp_reason: null, seat: null, course: 'main' as const, course_status: 'waiting' as const, menuId: null, printerType: 'kitchen' as const, item_discount_type: null, item_discount_value: null },
-  { id: '2', name: 'Grilled Salmon', quantity: 1, price_cents: 1850, modifier_ids: [], modifier_names: [], sent_to_kitchen: false, comp: false, comp_reason: null, seat: null, course: 'main' as const, course_status: 'waiting' as const, menuId: null, printerType: 'kitchen' as const, item_discount_type: null, item_discount_value: null },
-  { id: '3', name: 'House Wine', quantity: 2, price_cents: 950, modifier_ids: [], modifier_names: [], sent_to_kitchen: false, comp: false, comp_reason: null, seat: null, course: 'main' as const, course_status: 'waiting' as const, menuId: null, printerType: 'kitchen' as const, item_discount_type: null, item_discount_value: null },
+  { id: '1', name: 'Bruschetta', quantity: 2, price_cents: 850, modifier_ids: [], modifier_names: [], sent_to_kitchen: false, comp: false, comp_reason: null, seat: null, course: 'main' as const, course_status: 'waiting' as const, menuId: null, printerType: 'kitchen' as const, item_discount_type: null, item_discount_value: null, notes: null },
+  { id: '2', name: 'Grilled Salmon', quantity: 1, price_cents: 1850, modifier_ids: [], modifier_names: [], sent_to_kitchen: false, comp: false, comp_reason: null, seat: null, course: 'main' as const, course_status: 'waiting' as const, menuId: null, printerType: 'kitchen' as const, item_discount_type: null, item_discount_value: null, notes: null },
+  { id: '3', name: 'House Wine', quantity: 2, price_cents: 950, modifier_ids: [], modifier_names: [], sent_to_kitchen: false, comp: false, comp_reason: null, seat: null, course: 'main' as const, course_status: 'waiting' as const, menuId: null, printerType: 'kitchen' as const, item_discount_type: null, item_discount_value: null, notes: null },
 ]
 
 describe('OrderDetailClient', () => {
@@ -888,7 +892,7 @@ describe('OrderDetailClient', () => {
           comp_reason: null,
           seat: null,
           course: 'main' as const,
-          course_status: 'waiting' as const, menuId: null, printerType: 'kitchen' as const, item_discount_type: null, item_discount_value: null,
+          course_status: 'waiting' as const, menuId: null, printerType: 'kitchen' as const, item_discount_type: null, item_discount_value: null, notes: null,
         },
       ])
 
@@ -928,7 +932,7 @@ describe('OrderDetailClient', () => {
           comp_reason: null,
           seat: null,
           course: 'main' as const,
-          course_status: 'waiting' as const, menuId: null, printerType: 'kitchen' as const, item_discount_type: null, item_discount_value: null,
+          course_status: 'waiting' as const, menuId: null, printerType: 'kitchen' as const, item_discount_type: null, item_discount_value: null, notes: null,
         },
       ])
 
@@ -939,6 +943,85 @@ describe('OrderDetailClient', () => {
       })
 
       expect(screen.getByText('+ Extra cheese')).toBeInTheDocument()
+    })
+  })
+
+  describe('per-item notes (issue #272)', () => {
+    it('shows existing note inline below the item name', async (): Promise<void> => {
+      const { fetchOrderItems } = await import('./orderData')
+      vi.mocked(fetchOrderItems).mockResolvedValue([
+        {
+          id: '1',
+          name: 'Burger',
+          quantity: 1,
+          price_cents: 1200,
+          modifier_ids: [],
+          modifier_names: [],
+          sent_to_kitchen: false,
+          comp: false,
+          comp_reason: null,
+          seat: null,
+          course: 'main' as const,
+          course_status: 'waiting' as const,
+          menuId: null,
+          printerType: 'kitchen' as const,
+          item_discount_type: null,
+          item_discount_value: null,
+          notes: 'no onions',
+        },
+      ])
+
+      render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
+
+      await screen.findByText('Burger')
+      expect(screen.getByText('↳ no onions')).toBeInTheDocument()
+    })
+
+    it('does not show note line when notes is null', async (): Promise<void> => {
+      render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
+
+      await screen.findByText('Bruschetta')
+      // No note text should appear for items with null notes
+      expect(screen.queryByText(/^↳/)).not.toBeInTheDocument()
+    })
+
+    it('shows pencil button to add note on unsent items in order step', async (): Promise<void> => {
+      render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
+
+      await screen.findByText('Bruschetta')
+      // Pencil / Add note buttons should appear
+      const addNoteButtons = screen.getAllByRole('button', { name: /Add note|Edit note/i })
+      expect(addNoteButtons.length).toBeGreaterThan(0)
+    })
+
+    it('shows note input when pencil button is clicked', async (): Promise<void> => {
+      render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
+
+      await screen.findByText('Bruschetta')
+      const addNoteButtons = screen.getAllByRole('button', { name: /Add note/i })
+      fireEvent.click(addNoteButtons[0])
+
+      expect(screen.getByPlaceholderText(/Add note/i)).toBeInTheDocument()
+    })
+
+    it('saves note and updates local state on blur', async (): Promise<void> => {
+      vi.mock('./orderItemNotesApi', () => ({
+        updateOrderItemNotes: vi.fn().mockResolvedValue(undefined),
+      }))
+
+      render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
+
+      await screen.findByText('Bruschetta')
+      const addNoteButtons = screen.getAllByRole('button', { name: /Add note/i })
+      fireEvent.click(addNoteButtons[0])
+
+      const input = screen.getByPlaceholderText(/Add note/i)
+      fireEvent.change(input, { target: { value: 'extra spicy' } })
+      fireEvent.blur(input)
+
+      await waitFor((): void => {
+        expect(screen.getByText('↳ extra spicy')).toBeInTheDocument()
+      })
     })
   })
 

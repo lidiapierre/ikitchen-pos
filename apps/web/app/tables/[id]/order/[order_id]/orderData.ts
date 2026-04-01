@@ -26,6 +26,8 @@ export interface OrderItem {
    *   'fixed'   → amount in cents (e.g. ৳50 = 5000)
    */
   item_discount_value: number | null
+  /** Free-text staff note for this item (e.g. "no onions", "extra spicy"). */
+  notes: string | null
 }
 
 /**
@@ -71,6 +73,7 @@ interface OrderItemRow {
   course_status: CourseStatus
   item_discount_type: 'percent' | 'fixed' | null
   item_discount_value: number | null
+  notes: string | null
   menu_items: { name: string; menu_id: string | null }
 }
 
@@ -85,7 +88,7 @@ export async function fetchOrderItems(
   orderId: string,
 ): Promise<OrderItem[]> {
   const url = new URL(`${supabaseUrl}/rest/v1/order_items`)
-  url.searchParams.set('select', 'id,quantity,unit_price_cents,modifier_ids,sent_to_kitchen,comp,comp_reason,seat,course,course_status,item_discount_type,item_discount_value,menu_items(name,menu_id)')
+  url.searchParams.set('select', 'id,quantity,unit_price_cents,modifier_ids,sent_to_kitchen,comp,comp_reason,seat,course,course_status,item_discount_type,item_discount_value,notes,menu_items(name,menu_id)')
   url.searchParams.set('order_id', `eq.${orderId}`)
   url.searchParams.set('voided', 'eq.false')
 
@@ -181,6 +184,7 @@ export async function fetchOrderItems(
       printerType,
       item_discount_type: row.item_discount_type ?? null,
       item_discount_value: row.item_discount_value ?? null,
+      notes: row.notes ?? null,
     }
   })
 }

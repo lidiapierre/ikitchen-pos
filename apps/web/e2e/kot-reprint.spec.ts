@@ -114,6 +114,7 @@ test.describe('KOT reprint button', () => {
             course_status: 'fired',
             item_discount_type: null,
             item_discount_value: null,
+      notes: null,
             menu_items: { name: 'Test Dish', menu_id: null },
           },
         ]),

@@ -25,7 +25,7 @@ describe('callCloseOrder', () => {
     )
   })
 
-  it('sends the apikey and x-demo-staff-id headers', async (): Promise<void> => {
+  it('sends the Authorization header with Bearer token', async (): Promise<void> => {
     const mockFetch = vi.mocked(fetch)
     mockFetch.mockResolvedValue({
       ok: true,
@@ -39,8 +39,7 @@ describe('callCloseOrder', () => {
       expect.objectContaining({
         headers: expect.objectContaining({
           Authorization: 'Bearer my-api-key',
-          apikey: 'my-api-key',
-          'x-demo-staff-id': '00000000-0000-0000-0000-000000000010',
+          'Content-Type': 'application/json',
         }),
       }),
     )
@@ -80,10 +79,28 @@ describe('callCloseOrder', () => {
   })
 
   it('throws on a non-2xx HTTP response', async (): Promise<void> => {
-    vi.mocked(fetch).mockResolvedValue({ ok: false, status: 500 } as Response)
+    vi.mocked(fetch).mockResolvedValue({
+      ok: false,
+      status: 500,
+      json: (): Promise<{ success: boolean; error: string }> =>
+        Promise.resolve({ success: false, error: 'Internal server error' }),
+    } as Response)
 
     await expect(
       callCloseOrder('https://example.supabase.co', 'test-key', 'order-123'),
-    ).rejects.toThrow('HTTP 500')
+    ).rejects.toThrow('Internal server error')
+  })
+
+  it('throws a user-friendly message on HTTP 409 (issue #318)', async (): Promise<void> => {
+    vi.mocked(fetch).mockResolvedValue({
+      ok: false,
+      status: 409,
+      json: (): Promise<{ success: boolean; error: string }> =>
+        Promise.resolve({ success: false, error: 'Order is not open' }),
+    } as Response)
+
+    await expect(
+      callCloseOrder('https://example.supabase.co', 'test-key', 'order-123'),
+    ).rejects.toThrow('Order is no longer open — it may have already been closed')
   })
 })

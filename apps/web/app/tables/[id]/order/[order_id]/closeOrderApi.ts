@@ -17,10 +17,15 @@ export async function callCloseOrder(
     },
     body: JSON.stringify({ order_id: orderId }),
   })
-  if (!res.ok) {
-    throw new Error(`HTTP ${res.status}`)
-  }
   const json = (await res.json()) as CloseOrderResponse
+  // Treat non-OK responses as errors, but 409 with a clear message
+  // gets a user-friendly fallback (issue #318)
+  if (!res.ok) {
+    if (res.status === 409) {
+      throw new Error('Order is no longer open — it may have already been closed')
+    }
+    throw new Error(json.error ?? `HTTP ${res.status}`)
+  }
   if (!json.success) {
     throw new Error(json.error ?? 'Failed to close order')
   }

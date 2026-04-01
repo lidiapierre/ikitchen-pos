@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import type { JSX } from 'react'
 import { fetchMenuCategoriesCached } from '@/lib/menuCache'
 import type { MenuCategory } from './menuData'
@@ -12,6 +13,9 @@ import { formatPrice, DEFAULT_CURRENCY_SYMBOL } from '@/lib/formatPrice'
 import { X, Check } from 'lucide-react'
 import { useToast } from '@/hooks/useToast'
 import { ToastContainer } from '@/components/ui/Toast'
+import VoiceOrderButton from './VoiceOrderButton'
+import { callAddItemToOrder } from './addItemApi'
+import { useUser } from '@/lib/user-context'
 
 interface MenuPageClientProps {
   tableId: string
@@ -19,12 +23,15 @@ interface MenuPageClientProps {
 }
 
 export default function MenuPageClient({ tableId, orderId }: MenuPageClientProps): JSX.Element {
+  const router = useRouter()
+  const { accessToken } = useUser()
   const [orderTotalCents, setOrderTotalCents] = useState(0)
   const [categories, setCategories] = useState<MenuCategory[]>([])
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [filters, setFilters] = useState<MenuFilters>(EMPTY_FILTERS)
+  const [addingVoiceItems, setAddingVoiceItems] = useState(false)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const { toasts, addToast, dismissToast } = useToast()
 
@@ -70,6 +77,29 @@ export default function MenuPageClient({ tableId, orderId }: MenuPageClientProps
     setFilters(EMPTY_FILTERS)
     searchInputRef.current?.focus()
   }
+
+  const handleVoiceItemsConfirmed = useCallback(
+    async (items: Array<{ menu_item_id: string; name: string; quantity: number }>) => {
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+      if (!supabaseUrl || !accessToken) return
+      setAddingVoiceItems(true)
+      try {
+        await Promise.all(
+          items.flatMap((item) =>
+            Array.from({ length: item.quantity }, () =>
+              callAddItemToOrder(supabaseUrl, accessToken, orderId, item.menu_item_id),
+            ),
+          ),
+        )
+      } catch (err) {
+        addToast(err instanceof Error ? err.message : 'Failed to add voice items', 'error')
+      } finally {
+        setAddingVoiceItems(false)
+        router.push(`/tables/${tableId}/order/${orderId}`)
+      }
+    },
+    [accessToken, orderId, tableId, router, addToast],
+  )
 
   function handleSetDietary(value: string): void {
     setFilters((f) => ({ ...f, dietary: f.dietary === value ? '' : value }))
@@ -226,12 +256,21 @@ export default function MenuPageClient({ tableId, orderId }: MenuPageClientProps
           <span className="text-base text-zinc-400">Added this session</span>
           <span className="text-2xl font-bold text-white">{totalFormatted}</span>
         </div>
-        <Link
-          href={`/tables/${tableId}/order/${orderId}`}
-          className="inline-flex items-center justify-center min-h-[48px] min-w-[48px] px-8 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-base font-semibold transition-colors"
-        >
-          View Order
-        </Link>
+        <div className="flex items-center gap-3">
+          <VoiceOrderButton orderId={orderId} onItemsConfirmed={handleVoiceItemsConfirmed} />
+          {addingVoiceItems ? (
+            <span className="inline-flex items-center justify-center min-h-[48px] min-w-[48px] px-8 rounded-xl bg-zinc-700 text-zinc-400 text-base font-semibold cursor-not-allowed">
+              Adding…
+            </span>
+          ) : (
+            <Link
+              href={`/tables/${tableId}/order/${orderId}`}
+              className="inline-flex items-center justify-center min-h-[48px] min-w-[48px] px-8 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-base font-semibold transition-colors"
+            >
+              View Order
+            </Link>
+          )}
+        </div>
       </footer>
 
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />

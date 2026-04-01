@@ -96,14 +96,16 @@ export default function UserManager(): JSX.Element {
       setLoading(false)
       return
     }
+    // Wait for the user's JWT before fetching RLS-protected data
+    if (!accessToken) return
     supabaseConfig.current = { url: supabaseUrl }
 
     // Identify caller's role for role-hierarchy enforcement in the UI
     const supabaseClient = createBrowserClient(supabaseUrl, supabaseKey)
 
     Promise.all([
-      fetchRestaurantId(supabaseUrl, supabaseKey),
-      fetchAdminUsers(supabaseUrl, supabaseKey),
+      fetchRestaurantId(supabaseUrl, supabaseKey, accessToken),
+      fetchAdminUsers(supabaseUrl, supabaseKey, accessToken),
       getUserRole(supabaseClient),
     ])
       .then(([restaurantId, data, role]) => {
@@ -117,7 +119,7 @@ export default function UserManager(): JSX.Element {
       .finally(() => {
         setLoading(false)
       })
-  }, [])
+  }, [accessToken])
 
   useEffect(() => {
     return () => {

@@ -53,8 +53,8 @@ interface RestaurantRow {
   id: string
 }
 
-async function fetchRestaurantId(supabaseUrl: string, apiKey: string): Promise<string> {
-  const headers = { apikey: apiKey, Authorization: `Bearer ${apiKey}` }
+async function fetchRestaurantId(supabaseUrl: string, apiKey: string, token?: string): Promise<string> {
+  const headers = { apikey: apiKey, Authorization: `Bearer ${token ?? apiKey}` }
   const url = new URL(`${supabaseUrl}/rest/v1/restaurants`)
   url.searchParams.set('select', 'id')
   url.searchParams.set('limit', '1')
@@ -68,8 +68,8 @@ async function fetchRestaurantId(supabaseUrl: string, apiKey: string): Promise<s
   return rows[0].id
 }
 
-async function fetchMenus(supabaseUrl: string, apiKey: string): Promise<AdminMenu[]> {
-  const headers = { apikey: apiKey, Authorization: `Bearer ${apiKey}` }
+async function fetchMenus(supabaseUrl: string, apiKey: string, token?: string): Promise<AdminMenu[]> {
+  const headers = { apikey: apiKey, Authorization: `Bearer ${token ?? apiKey}` }
   const url = new URL(`${supabaseUrl}/rest/v1/menus`)
   url.searchParams.set(
     'select',
@@ -105,10 +105,11 @@ async function fetchMenus(supabaseUrl: string, apiKey: string): Promise<AdminMen
 export async function fetchMenuAdminData(
   supabaseUrl: string,
   apiKey: string,
+  token?: string,
 ): Promise<MenuAdminData> {
   const [restaurantId, menus] = await Promise.all([
-    fetchRestaurantId(supabaseUrl, apiKey),
-    fetchMenus(supabaseUrl, apiKey),
+    fetchRestaurantId(supabaseUrl, apiKey, token),
+    fetchMenus(supabaseUrl, apiKey, token),
   ])
   return { restaurantId, menus }
 }

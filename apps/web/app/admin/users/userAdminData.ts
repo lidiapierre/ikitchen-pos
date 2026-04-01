@@ -20,8 +20,8 @@ interface RestaurantRow {
   id: string
 }
 
-export async function fetchRestaurantId(supabaseUrl: string, apiKey: string): Promise<string> {
-  const headers = { apikey: apiKey, Authorization: `Bearer ${apiKey}` }
+export async function fetchRestaurantId(supabaseUrl: string, apiKey: string, token?: string): Promise<string> {
+  const headers = { apikey: apiKey, Authorization: `Bearer ${token ?? apiKey}` }
   const url = new URL(`${supabaseUrl}/rest/v1/restaurants`)
   url.searchParams.set('select', 'id')
   url.searchParams.set('limit', '1')
@@ -38,8 +38,9 @@ export async function fetchRestaurantId(supabaseUrl: string, apiKey: string): Pr
 export async function fetchAdminUsers(
   supabaseUrl: string,
   apiKey: string,
+  token?: string,
 ): Promise<AdminUser[]> {
-  const headers = { apikey: apiKey, Authorization: `Bearer ${apiKey}` }
+  const headers = { apikey: apiKey, Authorization: `Bearer ${token ?? apiKey}` }
   const url = new URL(`${supabaseUrl}/rest/v1/users`)
   url.searchParams.set('select', 'id,email,name,role,is_active,created_at')
   url.searchParams.set('order', 'created_at.asc')

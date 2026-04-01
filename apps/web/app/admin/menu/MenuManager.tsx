@@ -62,9 +62,10 @@ export default function MenuManager(): JSX.Element {
       setLoading(false)
       return
     }
+    if (!accessToken) return
     supabaseConfig.current = { url: supabaseUrl, key: supabaseKey }
 
-    fetchMenuAdminData(supabaseUrl, supabaseKey)
+    fetchMenuAdminData(supabaseUrl, supabaseKey, accessToken)
       .then((data) => {
         setRestaurantId(data.restaurantId)
         setMenus(data.menus)
@@ -75,7 +76,7 @@ export default function MenuManager(): JSX.Element {
       .finally(() => {
         setLoading(false)
       })
-  }, [])
+  }, [accessToken])
 
   useEffect(() => {
     return () => {

@@ -93,8 +93,9 @@ async function fetchMenuItemById(
   supabaseUrl: string,
   apiKey: string,
   itemId: string,
+  token?: string,
 ): Promise<MenuItemRow | null> {
-  const headers = { apikey: apiKey, Authorization: `Bearer ${apiKey}` }
+  const headers = { apikey: apiKey, Authorization: `Bearer ${token ?? apiKey}` }
   const url = new URL(`${supabaseUrl}/rest/v1/menu_items`)
   url.searchParams.set('select', 'id,name,description,price_cents,image_url,menu_id,available,allergens,dietary_badges,spicy_level,modifiers(id,name,price_delta_cents)')
   url.searchParams.set('id', `eq.${itemId}`)
@@ -135,10 +136,12 @@ export default function MenuItemFormPage({ mode, itemId }: MenuItemFormPageProps
       setLoading(false)
       return
     }
+    // Wait for the user's JWT before fetching RLS-protected data
+    if (!accessToken) return
     supabaseConfig.current = { url: supabaseUrl, key: supabaseKey }
 
     const fetches: Promise<void>[] = [
-      fetchMenuAdminData(supabaseUrl, supabaseKey).then((data) => {
+      fetchMenuAdminData(supabaseUrl, supabaseKey, accessToken).then((data) => {
         setMenus(data.menus)
         void fetchConfigValue(supabaseUrl, supabaseKey, data.restaurantId, 'currency_symbol', DEFAULT_CURRENCY_SYMBOL)
           .then((sym) => setCurrencySymbol(sym))
@@ -147,7 +150,7 @@ export default function MenuItemFormPage({ mode, itemId }: MenuItemFormPageProps
 
     if (mode === 'edit' && itemId) {
       fetches.push(
-        fetchMenuItemById(supabaseUrl, supabaseKey, itemId).then((item) => {
+        fetchMenuItemById(supabaseUrl, supabaseKey, itemId, accessToken).then((item) => {
           if (!item) {
             setFetchError('Menu item not found')
             return
@@ -176,7 +179,7 @@ export default function MenuItemFormPage({ mode, itemId }: MenuItemFormPageProps
         setFetchError(err instanceof Error ? err.message : 'Failed to load data')
       })
       .finally(() => setLoading(false))
-  }, [mode, itemId])
+  }, [mode, itemId, accessToken])
 
   const handleFileSelected = useCallback(
     async (file: File): Promise<void> => {

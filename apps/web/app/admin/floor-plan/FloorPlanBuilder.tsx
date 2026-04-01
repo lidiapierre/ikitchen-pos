@@ -395,7 +395,7 @@ export default function FloorPlanBuilder(): JSX.Element {
       if (outOfBounds.length > 0) {
         await Promise.all(
           outOfBounds.map((t) =>
-            saveTablePosition(config.url, accessToken, t.id, null, null).catch(() => {
+            saveTablePosition(config.url, config.key, accessToken, t.id, null, null).catch(() => {
               /* non-fatal — table state already updated locally */
             }),
           ),
@@ -455,7 +455,7 @@ export default function FloorPlanBuilder(): JSX.Element {
       if (!config || !accessToken) return
 
       setSavingId(tableId)
-      saveTablePosition(config.url, accessToken, tableId, newX, newY)
+      saveTablePosition(config.url, config.key, accessToken, tableId, newX, newY)
         .then(() => {
           // Update server-known state on success
           serverTables.current = serverTables.current.map((t) =>
@@ -479,7 +479,7 @@ export default function FloorPlanBuilder(): JSX.Element {
     const positioned = serverTables.current.filter((t) => t.grid_x !== null || t.grid_y !== null)
     try {
       await Promise.all(
-        positioned.map((t) => saveTablePosition(config.url, accessToken, t.id, null, null)),
+        positioned.map((t) => saveTablePosition(config.url, config.key, accessToken, t.id, null, null)),
       )
       setTables((prev) => prev.map((t) => ({ ...t, grid_x: null, grid_y: null })))
       serverTables.current = serverTables.current.map((t) => ({ ...t, grid_x: null, grid_y: null }))

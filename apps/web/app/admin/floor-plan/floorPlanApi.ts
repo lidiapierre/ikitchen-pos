@@ -21,7 +21,7 @@ export async function fetchTablePositions(
   supabaseUrl: string,
   apiKey: string,
 ): Promise<TablePosition[]> {
-  const cacheKey = supabaseUrl
+  const cacheKey = `${supabaseUrl}:${apiKey}`
   const cached = tablePositionsCache.get(cacheKey)
   if (cached && Date.now() < cached.expiresAt) {
     return cached.data
@@ -43,12 +43,13 @@ export async function fetchTablePositions(
 }
 
 /** Invalidate the table positions cache (call after a successful save). */
-export function invalidateTablePositionsCache(supabaseUrl: string): void {
-  tablePositionsCache.delete(supabaseUrl)
+export function invalidateTablePositionsCache(supabaseUrl: string, apiKey: string): void {
+  tablePositionsCache.delete(`${supabaseUrl}:${apiKey}`)
 }
 
 export async function saveTablePosition(
   supabaseUrl: string,
+  apiKey: string,
   accessToken: string,
   tableId: string,
   gridX: number | null,
@@ -67,7 +68,7 @@ export async function saveTablePosition(
     throw new Error(json.error ?? `Failed to save table position: ${res.status}`)
   }
   // Invalidate so the next load reflects the new position
-  invalidateTablePositionsCache(supabaseUrl)
+  invalidateTablePositionsCache(supabaseUrl, apiKey)
 }
 
 /** Fetch the restaurant id (first restaurant visible to the current key). */
@@ -117,9 +118,11 @@ export async function fetchFloorPlanConfig(
   if (!res.ok) return defaults
   const rows = (await res.json()) as Array<{ key: string; value: string }>
   const map = Object.fromEntries(rows.map(r => [r.key, r.value]))
+  const parsedCols = parseInt(map['floor_plan_cols'] ?? '', 10)
+  const parsedRows = parseInt(map['floor_plan_rows'] ?? '', 10)
   const config: FloorPlanConfig = {
-    cols: parseInt(map['floor_plan_cols'] ?? String(defaults.cols), 10) || defaults.cols,
-    rows: parseInt(map['floor_plan_rows'] ?? String(defaults.rows), 10) || defaults.rows,
+    cols: Number.isNaN(parsedCols) ? defaults.cols : parsedCols,
+    rows: Number.isNaN(parsedRows) ? defaults.rows : parsedRows,
   }
   floorPlanConfigCache.set(cacheKey, { data: config, expiresAt: Date.now() + CACHE_TTL_MS })
   return config

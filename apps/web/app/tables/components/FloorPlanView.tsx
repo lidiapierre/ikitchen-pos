@@ -4,14 +4,13 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { JSX } from 'react'
 import { useRouter } from 'next/navigation'
 import { useUser } from '@/lib/user-context'
+import { supabase } from '@/lib/supabase'
 import type { TableRow } from '../tablesData'
 import { getTableStatus, STATUS_CONFIG } from '../tableStatus'
 import { callCreateOrder } from './createOrderApi'
 
 interface Props {
   tables: TableRow[]        // all dine-in tables (placed + unplaced)
-  supabaseUrl: string
-  supabaseKey: string       // NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
 }
 
 const DEFAULT_COLS = 24
@@ -22,7 +21,7 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max)
 }
 
-export default function FloorPlanView({ tables, supabaseUrl, supabaseKey }: Props): JSX.Element {
+export default function FloorPlanView({ tables }: Props): JSX.Element {
   const router = useRouter()
   const { accessToken } = useUser()
 
@@ -33,64 +32,45 @@ export default function FloorPlanView({ tables, supabaseUrl, supabaseKey }: Prop
   const [tapError, setTapError] = useState<string | null>(null)
 
   // Fetch grid dimensions on mount
-  const fetchConfig = useCallback(async (): Promise<void> => {
+  const fetchConfig = useCallback(async (signal: AbortSignal): Promise<void> => {
     try {
-      const headers: Record<string, string> = {
-        apikey: supabaseKey,
-        Authorization: `Bearer ${supabaseKey}`,
-      }
+      // Step 1: get restaurant id
+      const { data: restRows } = await supabase
+        .from('restaurants')
+        .select('id')
+        .limit(1)
+        .abortSignal(signal)
+      const restId = restRows?.[0]?.id ?? ''
 
-      // Step 1: fetch restaurant id
-      let restId = ''
-      try {
-        const restRes = await fetch(
-          `${supabaseUrl}/rest/v1/restaurants?select=id&limit=1`,
-          { headers },
-        )
-        if (restRes.ok) {
-          const restRows = (await restRes.json()) as Array<{ id: string }>
-          restId = restRows[0]?.id ?? ''
-        }
-      } catch {
-        // fall through with empty restId
-      }
+      if (!restId || signal.aborted) return
 
-      // Step 2 & 3: fetch cols and rows in parallel
-      const [colsRes, rowsRes] = await Promise.all([
-        fetch(
-          `${supabaseUrl}/rest/v1/config?select=key,value&restaurant_id=eq.${restId}&key=eq.floor_plan_cols&limit=1`,
-          { headers },
-        ),
-        fetch(
-          `${supabaseUrl}/rest/v1/config?select=key,value&restaurant_id=eq.${restId}&key=eq.floor_plan_rows&limit=1`,
-          { headers },
-        ),
-      ])
+      // Step 2: fetch both config keys in a single query
+      const { data: configRows } = await supabase
+        .from('config')
+        .select('key,value')
+        .eq('restaurant_id', restId)
+        .in('key', ['floor_plan_cols', 'floor_plan_rows'])
+        .abortSignal(signal)
 
-      if (colsRes.ok) {
-        const colsData = (await colsRes.json()) as Array<{ key: string; value: string }>
-        const parsedCols = parseInt(colsData[0]?.value ?? '', 10)
-        if (!isNaN(parsedCols)) {
-          setCols(clamp(parsedCols, 8, 50))
-        }
-      }
+      if (signal.aborted) return
 
-      if (rowsRes.ok) {
-        const rowsData = (await rowsRes.json()) as Array<{ key: string; value: string }>
-        const parsedRows = parseInt(rowsData[0]?.value ?? '', 10)
-        if (!isNaN(parsedRows)) {
-          setRows(clamp(parsedRows, 4, 30))
-        }
+      for (const row of configRows ?? []) {
+        const parsed = parseInt(row.value, 10)
+        if (isNaN(parsed)) continue
+        if (row.key === 'floor_plan_cols') setCols(clamp(parsed, 8, 50))
+        if (row.key === 'floor_plan_rows') setRows(clamp(parsed, 4, 30))
       }
     } catch {
-      // use defaults
+      // use defaults on any error (includes AbortError)
     } finally {
-      setConfigLoading(false)
+      if (!signal.aborted) setConfigLoading(false)
     }
-  }, [supabaseUrl, supabaseKey])
+  }, [])  // no deps — supabase client is a module-level singleton
 
   useEffect(() => {
-    void fetchConfig()
+    const controller = new AbortController()
+    void fetchConfig(controller.signal)
+    return () => { controller.abort() }
   }, [fetchConfig])
 
   // Build a lookup map: "x-y" → TableRow
@@ -109,12 +89,14 @@ export default function FloorPlanView({ tables, supabaseUrl, supabaseKey }: Prop
     setTappingTableId(table.id)
     try {
       if (table.open_order_id !== null) {
+        setTappingTableId(null)
         router.push(`/tables/${table.id}/order/${table.open_order_id}`)
         return
       }
       const url = process.env.NEXT_PUBLIC_SUPABASE_URL
       if (!url || !accessToken) throw new Error('Not authenticated')
       const result = await callCreateOrder(url, accessToken, table.id)
+      setTappingTableId(null)
       router.push(`/tables/${table.id}/order/${result.order_id}`)
     } catch (err) {
       setTapError(err instanceof Error ? err.message : 'Failed to open table')
@@ -178,6 +160,7 @@ export default function FloorPlanView({ tables, supabaseUrl, supabaseKey }: Prop
         <p className="text-red-400 text-sm mb-3">{tapError}</p>
       )}
       <div className="overflow-auto">
+        {/* Inline styles required — Tailwind cannot generate arbitrary repeat() values at runtime */}
         <div
           style={{
             display: 'grid',

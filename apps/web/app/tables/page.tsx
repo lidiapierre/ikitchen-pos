@@ -253,8 +253,6 @@ export default function TablesPage(): JSX.Element {
                 {/* Floor plan canvas */}
                 <FloorPlanView
                   tables={tables}
-                  supabaseUrl={process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''}
-                  supabaseKey={process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ''}
                 />
 
                 {/* Unplaced tables strip */}

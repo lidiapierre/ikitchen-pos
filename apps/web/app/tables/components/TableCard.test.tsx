@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import TableCard from './TableCard'
 import type { TableRow } from '../tablesData'
@@ -10,8 +10,12 @@ vi.mock('next/navigation', () => ({
   useRouter: (): { push: (url: string) => void } => ({ push: mockPush }),
 }))
 
+// useUser is still imported by TableCard (to ensure context availability)
+vi.mock('@/lib/user-context', () => ({
+  useUser: (): { accessToken: string | null } => ({ accessToken: 'test-token' }),
+}))
+
 const emptyTable: TableRow = { id: 'table-uuid-001', label: '1', open_order_id: null, order_status: null, order_created_at: null, order_item_count: null, grid_x: null, grid_y: null }
-// order_created_at is 30 min ago and has items, so resolves to 'ordered' (not overdue)
 const occupiedTable: TableRow = {
   id: 'table-uuid-002',
   label: '2',
@@ -24,153 +28,52 @@ const occupiedTable: TableRow = {
 }
 
 describe('TableCard', () => {
-  const originalFetch = global.fetch
-  const originalEnv = process.env
-
   beforeEach(() => {
     vi.clearAllMocks()
-    process.env = {
-      ...originalEnv,
-      NEXT_PUBLIC_SUPABASE_URL: 'https://test.supabase.co',
-      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: 'test-anon-key',
-    }
-  })
-
-  afterEach(() => {
-    global.fetch = originalFetch
-    process.env = originalEnv
   })
 
   describe('when table is occupied with an open order', () => {
-    it('navigates directly to the existing order without calling the API', async () => {
-      const fetchSpy = vi.fn()
-      global.fetch = fetchSpy
-
+    it('navigates directly to the existing order without any loading state', async () => {
       render(<TableCard table={occupiedTable} />)
       await userEvent.click(screen.getByRole('button'))
 
       expect(mockPush).toHaveBeenCalledWith('/tables/table-uuid-002/order/order-abc-123')
-      expect(fetchSpy).not.toHaveBeenCalled()
     })
   })
 
-  describe('when table is empty', () => {
-    it('calls create_order API with the correct table_id and navigates on success', async () => {
-      global.fetch = vi.fn().mockResolvedValueOnce({
-        ok: true,
-        json: (): Promise<{ success: boolean; data: { order_id: string; status: string } }> =>
-          Promise.resolve({ success: true, data: { order_id: 'new-order-xyz', status: 'open' } }),
-      })
-
+  describe('when table is empty (optimistic navigation — issue #298)', () => {
+    it('navigates immediately to /tables/[id]/order/new without async wait', async () => {
       render(<TableCard table={emptyTable} />)
       await userEvent.click(screen.getByRole('button'))
 
-      await waitFor(() => {
-        expect(mockPush).toHaveBeenCalledWith('/tables/table-uuid-001/order/new-order-xyz')
-      })
-
-      expect(global.fetch).toHaveBeenCalledWith(
-        'https://test.supabase.co/functions/v1/create_order',
-        expect.objectContaining({
-          method: 'POST',
-          body: JSON.stringify({ table_id: 'table-uuid-001', staff_id: 'placeholder-staff' }),
-        }),
-      )
+      // Navigation happens synchronously — no API call, no loading state
+      expect(mockPush).toHaveBeenCalledWith('/tables/table-uuid-001/order/new')
     })
 
-    it('shows the API error message when create_order returns success: false', async () => {
-      global.fetch = vi.fn().mockResolvedValueOnce({
-        ok: true,
-        json: (): Promise<{ success: boolean; error: string }> =>
-          Promise.resolve({ success: false, error: 'Table already has an open order' }),
-      })
-
-      render(<TableCard table={emptyTable} />)
-      await userEvent.click(screen.getByRole('button'))
-
-      await waitFor(() => {
-        expect(screen.getByText('Table already has an open order')).toBeInTheDocument()
-      })
-      expect(mockPush).not.toHaveBeenCalled()
-    })
-
-    it('shows a generic error message when the fetch throws a network error', async () => {
-      global.fetch = vi.fn().mockRejectedValueOnce(new Error('Network error'))
-
-      render(<TableCard table={emptyTable} />)
-      await userEvent.click(screen.getByRole('button'))
-
-      await waitFor(() => {
-        expect(screen.getByText('Network error')).toBeInTheDocument()
-      })
-      expect(mockPush).not.toHaveBeenCalled()
-    })
-
-    it('shows "API not configured" when NEXT_PUBLIC_SUPABASE_URL is missing', async () => {
-      process.env.NEXT_PUBLIC_SUPABASE_URL = ''
-
-      render(<TableCard table={emptyTable} />)
-      await userEvent.click(screen.getByRole('button'))
-
-      await waitFor(() => {
-        expect(screen.getByText('API not configured')).toBeInTheDocument()
-      })
-    })
-
-    it('shows "API not configured" when NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY is missing', async () => {
-      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = ''
-
-      render(<TableCard table={emptyTable} />)
-      await userEvent.click(screen.getByRole('button'))
-
-      await waitFor(() => {
-        expect(screen.getByText('API not configured')).toBeInTheDocument()
-      })
-    })
-  })
-
-  describe('loading state', () => {
-    it('shows "Creating…" label while the API call is in flight', async () => {
-      let resolveJson!: (value: unknown) => void
-      global.fetch = vi.fn().mockResolvedValueOnce({
-        ok: true,
-        json: (): Promise<unknown> =>
-          new Promise((resolve) => {
-            resolveJson = resolve
-          }),
-      })
-
-      render(<TableCard table={emptyTable} />)
-      await userEvent.click(screen.getByRole('button'))
-
-      expect(screen.getByText('Creating…')).toBeInTheDocument()
-
-      resolveJson({ success: true, data: { order_id: 'order-id', status: 'open' } })
-      await waitFor(() => {
-        expect(screen.queryByText('Creating…')).not.toBeInTheDocument()
-      })
-    })
-
-    it('disables the button while the API call is in flight', async () => {
-      let resolveJson!: (value: unknown) => void
-      global.fetch = vi.fn().mockResolvedValueOnce({
-        ok: true,
-        json: (): Promise<unknown> =>
-          new Promise((resolve) => {
-            resolveJson = resolve
-          }),
-      })
-
+    it('does not disable the button after tapping', async () => {
       render(<TableCard table={emptyTable} />)
       const button = screen.getByRole('button')
       await userEvent.click(button)
 
-      expect(button).toBeDisabled()
+      // Button is never disabled — no more loading state on the card
+      expect(button).not.toBeDisabled()
+    })
 
-      resolveJson({ success: true, data: { order_id: 'order-id', status: 'open' } })
-      await waitFor(() => {
-        expect(button).not.toBeDisabled()
-      })
+    it('does not show a "Creating…" label', async () => {
+      render(<TableCard table={emptyTable} />)
+      await userEvent.click(screen.getByRole('button'))
+
+      expect(screen.queryByText('Creating…')).not.toBeInTheDocument()
+    })
+
+    it('does not make any fetch calls', async () => {
+      const fetchSpy = vi.fn()
+      global.fetch = fetchSpy
+
+      render(<TableCard table={emptyTable} />)
+      await userEvent.click(screen.getByRole('button'))
+
+      expect(fetchSpy).not.toHaveBeenCalled()
     })
   })
 

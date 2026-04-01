@@ -72,7 +72,8 @@ export default function RestaurantSettingsPage(): JSX.Element {
         setFetchError(err instanceof Error ? err.message : 'Failed to load settings')
       })
       .finally(() => { setLoading(false) })
-  }, [])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accessToken])
 
   useEffect(() => {
     return () => {

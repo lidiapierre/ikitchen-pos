@@ -136,7 +136,8 @@ export default function PricingManager(): JSX.Element {
       .finally(() => {
         setLoading(false)
       })
-  }, [])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accessToken])
 
   useEffect(() => {
     return () => {

@@ -32,6 +32,68 @@ const MOCK_TABLE_UNPLACED = {
   grid_y: null,
 }
 
+async function mockAuthApis(page: import('@playwright/test').Page): Promise<void> {
+  // Inject a fake Supabase session into localStorage before the page loads
+  await page.addInitScript(() => {
+    const session = {
+      access_token: 'test-access-token-floor-plan',
+      token_type: 'bearer',
+      expires_in: 3600,
+      expires_at: Math.floor(Date.now() / 1000) + 3600,
+      refresh_token: 'test-refresh-token',
+      user: {
+        id: 'test-user-id',
+        aud: 'authenticated',
+        role: 'authenticated',
+        email: 'admin@lahore.ikitchen.com.bd',
+      },
+    }
+    localStorage.setItem('sb-dmaogdwtgohrhbytxjqu-auth-token', JSON.stringify(session))
+  })
+
+  // Mock Supabase auth/v1/user
+  await page.route('**/auth/v1/user**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        id: 'test-user-id',
+        aud: 'authenticated',
+        role: 'authenticated',
+        email: 'admin@lahore.ikitchen.com.bd',
+      }),
+    })
+  })
+
+  // Mock Supabase auth/v1/token (refresh)
+  await page.route('**/auth/v1/token**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        access_token: 'test-access-token-floor-plan',
+        token_type: 'bearer',
+        expires_in: 3600,
+        user: {
+          id: 'test-user-id',
+          aud: 'authenticated',
+          role: 'authenticated',
+          email: 'admin@lahore.ikitchen.com.bd',
+        },
+      }),
+    })
+  })
+
+  // Mock rest/v1/users for getUserRole
+  await page.route('**/rest/v1/users**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify([{ role: 'owner' }]),
+    })
+  })
+}
+
 async function mockFloorPlanApis(page: import('@playwright/test').Page): Promise<void> {
   // Mock tables endpoint
   await page.route('**/rest/v1/tables**', async (route) => {
@@ -93,6 +155,7 @@ test.describe('Floor Plan Builder', () => {
   })
 
   test('dragging a table from sidebar to grid fires update_table_position', async ({ page }) => {
+    await mockAuthApis(page)
     await mockFloorPlanApis(page)
 
     // Track the update_table_position request
@@ -138,8 +201,8 @@ test.describe('Floor Plan Builder', () => {
       await page.mouse.up()
     }
 
-    // Wait for the network call to fire
-    await page.waitForRequest(UPDATE_POSITION_PATTERN, { timeout: 5000 })
+    // Wait for the network call to fire and complete
+    await page.waitForResponse(UPDATE_POSITION_PATTERN, { timeout: 5000 })
 
     // Verify the request was made with grid coordinates (non-null x and y)
     expect(updateRequests).toHaveLength(1)
@@ -150,6 +213,7 @@ test.describe('Floor Plan Builder', () => {
   })
 
   test('dragging a placed table to sidebar fires update_table_position with null coords', async ({ page }) => {
+    await mockAuthApis(page)
     await mockFloorPlanApis(page)
 
     // Track the update_table_position request
@@ -190,8 +254,8 @@ test.describe('Floor Plan Builder', () => {
       await page.mouse.up()
     }
 
-    // Wait for the network call to fire
-    await page.waitForRequest(UPDATE_POSITION_PATTERN, { timeout: 5000 })
+    // Wait for the network call to fire and complete
+    await page.waitForResponse(UPDATE_POSITION_PATTERN, { timeout: 5000 })
 
     // Verify the request was made with null coordinates (unplace)
     expect(updateRequests).toHaveLength(1)

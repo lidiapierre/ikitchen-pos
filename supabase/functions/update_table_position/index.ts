@@ -150,10 +150,12 @@ export async function handler(
     )
   }
 
-  // Verify caller belongs to that restaurant
+  // Verify caller belongs to that restaurant via the users table
+  // (users.restaurant_id is the primary user-restaurant link; user_restaurants
+  //  is the multi-location junction table which is not yet populated for MVP)
   try {
     const ownerRes = await fetchFn(
-      `${supabaseUrl}/rest/v1/user_restaurants?user_id=eq.${caller.actorId}&restaurant_id=eq.${restaurantId}&select=user_id`,
+      `${supabaseUrl}/rest/v1/users?id=eq.${encodeURIComponent(caller.actorId)}&restaurant_id=eq.${encodeURIComponent(restaurantId)}&select=id&limit=1`,
       { headers: baseHeaders },
     )
     if (!ownerRes.ok) {

@@ -139,15 +139,14 @@ test.describe('Floor Plan Builder', () => {
     }
 
     // Wait for the network call to fire
-    await page.waitForRequest(UPDATE_POSITION_PATTERN, { timeout: 5000 }).catch(() => null)
+    await page.waitForRequest(UPDATE_POSITION_PATTERN, { timeout: 5000 })
 
     // Verify the request was made with grid coordinates (non-null x and y)
-    if (updateRequests.length > 0) {
-      const req = updateRequests[0]
-      expect(req.table_id).toBe(MOCK_TABLE_UNPLACED.id)
-      expect(typeof req.grid_x).toBe('number')
-      expect(typeof req.grid_y).toBe('number')
-    }
+    expect(updateRequests).toHaveLength(1)
+    const req = updateRequests[0]
+    expect(req.table_id).toBe(MOCK_TABLE_UNPLACED.id)
+    expect(typeof req.grid_x).toBe('number')
+    expect(typeof req.grid_y).toBe('number')
   })
 
   test('dragging a placed table to sidebar fires update_table_position with null coords', async ({ page }) => {
@@ -192,14 +191,13 @@ test.describe('Floor Plan Builder', () => {
     }
 
     // Wait for the network call to fire
-    await page.waitForRequest(UPDATE_POSITION_PATTERN, { timeout: 5000 }).catch(() => null)
+    await page.waitForRequest(UPDATE_POSITION_PATTERN, { timeout: 5000 })
 
     // Verify the request was made with null coordinates (unplace)
-    if (updateRequests.length > 0) {
-      const req = updateRequests[0]
-      expect(req.table_id).toBe(MOCK_TABLE_PLACED.id)
-      expect(req.grid_x).toBeNull()
-      expect(req.grid_y).toBeNull()
-    }
+    expect(updateRequests).toHaveLength(1)
+    const req = updateRequests[0]
+    expect(req.table_id).toBe(MOCK_TABLE_PLACED.id)
+    expect(req.grid_x).toBeNull()
+    expect(req.grid_y).toBeNull()
   })
 })

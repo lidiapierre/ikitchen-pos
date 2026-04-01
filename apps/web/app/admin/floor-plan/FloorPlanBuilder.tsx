@@ -101,6 +101,7 @@ function GridCell({
   return (
     <div
       ref={setNodeRef}
+      data-testid={`cell-${col}-${row}`}
       className={[
         'relative border border-zinc-700/30 w-[72px] h-[72px]',
         isOver && !table ? 'bg-indigo-900/30' : '',

@@ -89,6 +89,14 @@ export async function handler(
     )
   }
 
+  // notes length limit
+  if (typeof payload['notes'] === 'string' && payload['notes'].length > 500) {
+    return new Response(
+      JSON.stringify({ success: false, error: 'Notes must be 500 characters or fewer' }),
+      { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    )
+  }
+
   const orderItemId = payload['order_item_id'] as string
   const notes = payload['notes'] as string | null
 
@@ -102,7 +110,7 @@ export async function handler(
   try {
     // ── Step 1: resolve the restaurant that owns this order_item ────────────
     const itemRes = await fetchFn(
-      `${supabaseUrl}/rest/v1/order_items?id=eq.${orderItemId}&select=id,order:orders!inner(restaurant_id)`,
+      `${supabaseUrl}/rest/v1/order_items?id=eq.${orderItemId}&select=id,sent_to_kitchen,order:orders!inner(restaurant_id)`,
       { method: 'GET', headers: dbHeaders },
     )
     if (!itemRes.ok) {
@@ -111,14 +119,21 @@ export async function handler(
         { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
       )
     }
-    const itemRows = await itemRes.json() as Array<{ id: string; order: { restaurant_id: string } }>
+    const itemRows = await itemRes.json() as Array<{ id: string; sent_to_kitchen: boolean; order: { restaurant_id: string } }>
     if (!Array.isArray(itemRows) || itemRows.length === 0) {
       return new Response(
         JSON.stringify({ success: false, error: 'Order item not found or access denied' }),
         { status: 403, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
       )
     }
-    const restaurantId = itemRows[0].order.restaurant_id
+    const itemData = itemRows[0]
+    if (itemData.sent_to_kitchen) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Item already sent to kitchen' }),
+        { status: 422, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+      )
+    }
+    const restaurantId = itemData.order.restaurant_id
 
     // ── Step 2: verify the caller has access to that restaurant ─────────────
     const accessRes = await fetchFn(

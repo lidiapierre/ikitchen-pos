@@ -15,8 +15,9 @@ const mockAuth = {
 }
 
 // Mock verifyAndGetCaller to avoid real auth
+// NOTE: vi.mock is hoisted — cannot reference const mockAuth here, must inline the value
 vi.mock('../_shared/auth.ts', () => ({
-  verifyAndGetCaller: vi.fn().mockResolvedValue(mockAuth),
+  verifyAndGetCaller: vi.fn().mockResolvedValue({ actorId: 'user-123', role: 'server' }),
 }))
 
 /** Build a fetch mock that handles the two-step ownership check + PATCH */
@@ -24,8 +25,9 @@ function makeAccessFetch(opts: {
   itemExists?: boolean
   accessGranted?: boolean
   patchStatus?: number
+  sentToKitchen?: boolean
 } = {}): (input: string, init?: RequestInit) => Promise<Response> {
-  const { itemExists = true, accessGranted = true, patchStatus = 204 } = opts
+  const { itemExists = true, accessGranted = true, patchStatus = 204, sentToKitchen = false } = opts
 
   return vi.fn().mockImplementation((url: string, init?: RequestInit) => {
     const method = (init?.method ?? 'GET').toUpperCase()
@@ -33,7 +35,7 @@ function makeAccessFetch(opts: {
     // Step 1: resolve order_item → restaurant_id via order
     if (method === 'GET' && (url as string).includes('/order_items')) {
       const body = itemExists
-        ? JSON.stringify([{ id: TEST_ORDER_ITEM_ID, order: { restaurant_id: TEST_RESTAURANT_ID } }])
+        ? JSON.stringify([{ id: TEST_ORDER_ITEM_ID, sent_to_kitchen: sentToKitchen, order: { restaurant_id: TEST_RESTAURANT_ID } }])
         : JSON.stringify([])
       return Promise.resolve(new Response(body, { status: 200 }))
     }
@@ -211,6 +213,37 @@ describe('update_order_item_notes handler', () => {
       const json = await res.json() as { success: boolean; error: string }
       expect(json.success).toBe(false)
       expect(json.error).toMatch(/access denied/)
+    })
+
+    it('returns 422 when item is already sent to kitchen', async (): Promise<void> => {
+      const mockFetch = makeAccessFetch({ sentToKitchen: true })
+      const req = makeAuthRequest({ order_item_id: TEST_ORDER_ITEM_ID, notes: 'no onions' })
+      const res = await handler(req, mockFetch, mockEnv)
+      expect(res.status).toBe(422)
+      const json = await res.json() as { success: boolean; error: string }
+      expect(json.success).toBe(false)
+      expect(json.error).toMatch(/sent to kitchen/)
+    })
+  })
+
+  describe('PATCH — notes length limit', () => {
+    it('returns 400 when notes exceeds 500 characters', async (): Promise<void> => {
+      const longNote = 'a'.repeat(501)
+      const req = makeAuthRequest({ order_item_id: TEST_ORDER_ITEM_ID, notes: longNote })
+      const res = await handler(req, makeAccessFetch(), mockEnv)
+      expect(res.status).toBe(400)
+      const json = await res.json() as { success: boolean; error: string }
+      expect(json.success).toBe(false)
+      expect(json.error).toMatch(/500 characters/)
+    })
+
+    it('returns 200 when notes is exactly 500 characters', async (): Promise<void> => {
+      const maxNote = 'a'.repeat(500)
+      const req = makeAuthRequest({ order_item_id: TEST_ORDER_ITEM_ID, notes: maxNote })
+      const res = await handler(req, makeAccessFetch(), mockEnv)
+      expect(res.status).toBe(200)
+      const json = await res.json() as { success: boolean }
+      expect(json.success).toBe(true)
     })
   })
 })

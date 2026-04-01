@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import type { JSX } from 'react'
@@ -195,6 +195,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
   // Per-item note editing state (issue #272)
   const [editingNoteItemId, setEditingNoteItemId] = useState<string | null>(null)
   const [noteInputValue, setNoteInputValue] = useState('')
+  const noteCommittingRef = useRef(false)
 
   // Comp state
   const [compingItem, setCompingItem] = useState<OrderItem | null>(null)
@@ -1222,6 +1223,24 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
   }
   // ─────────────────────────────────────────────────────────────────────────
 
+  // Shared note commit — guards against double-fire when Enter unmounts the input and triggers onBlur
+  function commitNote(itemId: string, value: string, originalNotes: string | null): void {
+    if (noteCommittingRef.current) return
+    noteCommittingRef.current = true
+    setEditingNoteItemId(null)
+    const trimmed = value.trim() || null
+    // optimistic update
+    setItems((prev) => prev.map((i) => i.id === itemId ? { ...i, notes: trimmed } : i))
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    if (!supabaseUrl || !accessToken) { noteCommittingRef.current = false; return }
+    updateOrderItemNotes(supabaseUrl, accessToken, itemId, trimmed)
+      .catch(() => {
+        // revert on failure
+        setItems((prev) => prev.map((i) => i.id === itemId ? { ...i, notes: originalNotes } : i))
+      })
+      .finally(() => { noteCommittingRef.current = false })
+  }
+
   // Render a single item row (shared between course view and read-only view)
   function renderItemRow(item: OrderItem, inOrderStep: boolean): JSX.Element {
     const isComp = item.comp || orderIsComp
@@ -1328,39 +1347,20 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
               className="flex-1 bg-zinc-700 text-white text-sm rounded-lg px-3 py-2 border border-zinc-600 focus:outline-none focus:border-amber-400"
               placeholder="Add note (e.g. no onions)"
               value={noteInputValue}
+              maxLength={500}
               autoFocus
               onChange={(e) => setNoteInputValue(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                   e.preventDefault()
-                  const trimmed = noteInputValue.trim()
-                  const noteToSave = trimmed === '' ? null : trimmed
-                  setItems((prev) => prev.map((i) => i.id === item.id ? { ...i, notes: noteToSave } : i))
-                  setEditingNoteItemId(null)
-                  if (accessToken) {
-                    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
-                    updateOrderItemNotes(supabaseUrl, accessToken, item.id, noteToSave).catch(() => {
-                      // Revert optimistic update on failure
-                      setItems((prev) => prev.map((i) => i.id === item.id ? { ...i, notes: item.notes } : i))
-                    })
-                  }
+                  commitNote(item.id, noteInputValue, item.notes)
                 } else if (e.key === 'Escape') {
                   setEditingNoteItemId(null)
                   setNoteInputValue('')
                 }
               }}
               onBlur={() => {
-                const trimmed = noteInputValue.trim()
-                const noteToSave = trimmed === '' ? null : trimmed
-                setItems((prev) => prev.map((i) => i.id === item.id ? { ...i, notes: noteToSave } : i))
-                setEditingNoteItemId(null)
-                if (accessToken) {
-                  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
-                  updateOrderItemNotes(supabaseUrl, accessToken, item.id, noteToSave).catch(() => {
-                    // Revert optimistic update on failure
-                    setItems((prev) => prev.map((i) => i.id === item.id ? { ...i, notes: item.notes } : i))
-                  })
-                }
+                commitNote(item.id, noteInputValue, item.notes)
               }}
             />
             <button

@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import type { JSX } from 'react'
+import { useUser } from '@/lib/user-context'
 import {
   fetchKdsOrders,
   fetchKdsSettings,
@@ -250,8 +251,9 @@ function OrderCard({ order, onDone, doneLoading }: OrderCardProps): JSX.Element 
 // ── Main KDS Display ───────────────────────────────────────────────────────
 
 export default function KitchenDisplay(): JSX.Element {
+  const { accessToken: _at } = useUser(); const accessToken = _at ?? ''
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
-  const apiKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ''
+
 
   const [settings, setSettings] = useState<KdsSettings | null>(null)
   const [unlocked, setUnlocked] = useState(false)
@@ -264,7 +266,7 @@ export default function KitchenDisplay(): JSX.Element {
 
   // Load settings on mount
   useEffect(() => {
-    fetchKdsSettings(supabaseUrl, apiKey)
+    fetchKdsSettings(supabaseUrl, accessToken ?? "")
       .then((s) => {
         setSettings(s)
         // If PIN not enabled or already unlocked from localStorage, skip PIN screen
@@ -280,11 +282,11 @@ export default function KitchenDisplay(): JSX.Element {
         setSettings({ pinEnabled: false, pin: null, refreshIntervalSeconds: 15 })
         setUnlocked(true)
       })
-  }, [supabaseUrl, apiKey])
+  }, [supabaseUrl, accessToken])
 
   const loadOrders = useCallback(async () => {
     try {
-      const data = await fetchKdsOrders(supabaseUrl, apiKey)
+      const data = await fetchKdsOrders(supabaseUrl, accessToken ?? "")
       setOrders(data)
       setLastRefresh(new Date())
       setError(null)
@@ -293,7 +295,7 @@ export default function KitchenDisplay(): JSX.Element {
     } finally {
       setLoading(false)
     }
-  }, [supabaseUrl, apiKey])
+  }, [supabaseUrl, accessToken])
 
   // Start polling once unlocked
   useEffect(() => {
@@ -311,7 +313,7 @@ export default function KitchenDisplay(): JSX.Element {
   async function handleDone(orderId: string): Promise<void> {
     setDoneLoading(orderId)
     try {
-      await markOrderKitchenDone(supabaseUrl, apiKey, orderId)
+      await markOrderKitchenDone(supabaseUrl, accessToken ?? "", orderId)
       setOrders((prev) => prev.filter((o) => o.id !== orderId))
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to mark done')

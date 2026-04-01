@@ -107,7 +107,7 @@ async function fetchMenuItemById(
 
 export default function MenuItemFormPage({ mode, itemId }: MenuItemFormPageProps): JSX.Element {
   const router = useRouter()
-  const { accessToken } = useUser()
+  const { accessToken: _at } = useUser(); const accessToken = _at ?? ''
   const supabaseConfig = useRef<{ url: string; key: string } | null>(null)
 
   const [menus, setMenus] = useState<AdminMenu[]>([])
@@ -130,27 +130,26 @@ export default function MenuItemFormPage({ mode, itemId }: MenuItemFormPageProps
 
   useEffect(() => {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
-    if (!supabaseUrl || !supabaseKey) {
+    if (!supabaseUrl || !accessToken) {
       setFetchError('API not configured')
       setLoading(false)
       return
     }
     // Wait for the user's JWT before fetching RLS-protected data
     if (!accessToken) return
-    supabaseConfig.current = { url: supabaseUrl, key: supabaseKey }
+    supabaseConfig.current = { url: supabaseUrl, key: accessToken }
 
     const fetches: Promise<void>[] = [
-      fetchMenuAdminData(supabaseUrl, supabaseKey, accessToken).then((data) => {
+      fetchMenuAdminData(supabaseUrl, accessToken).then((data) => {
         setMenus(data.menus)
-        void fetchConfigValue(supabaseUrl, supabaseKey, data.restaurantId, 'currency_symbol', DEFAULT_CURRENCY_SYMBOL)
+        void fetchConfigValue(supabaseUrl, accessToken, data.restaurantId, 'currency_symbol', DEFAULT_CURRENCY_SYMBOL)
           .then((sym) => setCurrencySymbol(sym))
       }),
     ]
 
     if (mode === 'edit' && itemId) {
       fetches.push(
-        fetchMenuItemById(supabaseUrl, supabaseKey, itemId, accessToken).then((item) => {
+        fetchMenuItemById(supabaseUrl, accessToken ?? '', itemId).then((item) => {
           if (!item) {
             setFetchError('Menu item not found')
             return

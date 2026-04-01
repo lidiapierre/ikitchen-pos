@@ -9,6 +9,10 @@ export interface TableRow {
   /** Floor plan grid position (null = unplaced) */
   grid_x: number | null
   grid_y: number | null
+  /** Section assignment (null = unsectioned) */
+  section_id: string | null
+  section_name: string | null
+  assigned_server_name: string | null
 }
 
 export interface TakeawayDeliveryOrder {
@@ -26,6 +30,19 @@ interface TableApiRow {
   label: string
   grid_x: number | null
   grid_y: number | null
+  section_id: string | null
+}
+
+interface SectionApiRow {
+  id: string
+  name: string
+  assigned_server_id: string | null
+}
+
+interface UserApiRow {
+  id: string
+  name: string | null
+  email: string
 }
 
 interface OrderApiRow {
@@ -46,15 +63,16 @@ interface TakeawayDeliveryApiRow {
 
 export async function fetchTables(
   supabaseUrl: string,
-  apiKey: string,
+  accessToken: string,
 ): Promise<TableRow[]> {
+  const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ''
   const headers = {
-    apikey: apiKey,
-    Authorization: `Bearer ${apiKey}`,
+    apikey: publishableKey,
+    Authorization: `Bearer ${accessToken}`,
   }
 
   const tablesUrl = new URL(`${supabaseUrl}/rest/v1/tables`)
-  tablesUrl.searchParams.set('select', 'id,label,grid_x,grid_y')
+  tablesUrl.searchParams.set('select', 'id,label,grid_x,grid_y,section_id')
 
   const tablesRes = await fetch(tablesUrl.toString(), { headers })
 
@@ -77,6 +95,37 @@ export async function fetchTables(
 
   const tables = (await tablesRes.json()) as TableApiRow[]
   const orders = (await ordersRes.json()) as OrderApiRow[]
+
+  // Fetch sections for section names + assigned server info
+  const sectionIds = [...new Set(tables.map(t => t.section_id).filter(Boolean))] as string[]
+  const sectionMap = new Map<string, { name: string; assigned_server_id: string | null }>()
+  const serverNameMap = new Map<string, string>()
+
+  if (sectionIds.length > 0) {
+    const sectionsUrl = new URL(`${supabaseUrl}/rest/v1/sections`)
+    sectionsUrl.searchParams.set('select', 'id,name,assigned_server_id')
+    sectionsUrl.searchParams.set('id', `in.(${sectionIds.join(',')})`)
+    const sectionsRes = await fetch(sectionsUrl.toString(), { headers })
+    if (sectionsRes.ok) {
+      const secs = (await sectionsRes.json()) as SectionApiRow[]
+      for (const s of secs) {
+        sectionMap.set(s.id, { name: s.name, assigned_server_id: s.assigned_server_id })
+      }
+      const serverIds = [...new Set(secs.map(s => s.assigned_server_id).filter(Boolean))] as string[]
+      if (serverIds.length > 0) {
+        const usersUrl = new URL(`${supabaseUrl}/rest/v1/users`)
+        usersUrl.searchParams.set('select', 'id,name,email')
+        usersUrl.searchParams.set('id', `in.(${serverIds.join(',')})`)
+        const usersRes = await fetch(usersUrl.toString(), { headers })
+        if (usersRes.ok) {
+          const users = (await usersRes.json()) as UserApiRow[]
+          for (const u of users) {
+            serverNameMap.set(u.id, u.name ?? u.email)
+          }
+        }
+      }
+    }
+  }
 
   const openOrderByTable = new Map<string, OrderApiRow>()
   for (const order of orders) {
@@ -108,6 +157,8 @@ export async function fetchTables(
 
   return tables.map((table) => {
     const order = openOrderByTable.get(table.id)
+    const sec = table.section_id ? sectionMap.get(table.section_id) : null
+    const serverName = sec?.assigned_server_id ? serverNameMap.get(sec.assigned_server_id) ?? null : null
     return {
       id: table.id,
       label: table.label,
@@ -117,6 +168,9 @@ export async function fetchTables(
       order_item_count: order !== undefined ? (itemCountByOrder.get(order.id) ?? 0) : null,
       grid_x: table.grid_x ?? null,
       grid_y: table.grid_y ?? null,
+      section_id: table.section_id ?? null,
+      section_name: sec?.name ?? null,
+      assigned_server_name: serverName,
     }
   })
 }
@@ -126,11 +180,12 @@ export async function fetchTables(
  */
 export async function fetchTakeawayDeliveryQueue(
   supabaseUrl: string,
-  apiKey: string,
+  accessToken: string,
 ): Promise<TakeawayDeliveryOrder[]> {
+  const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ''
   const headers = {
-    apikey: apiKey,
-    Authorization: `Bearer ${apiKey}`,
+    apikey: publishableKey,
+    Authorization: `Bearer ${accessToken}`,
   }
 
   const ordersUrl = new URL(`${supabaseUrl}/rest/v1/orders`)

@@ -412,9 +412,9 @@ function ActionButtons({ reservation, onSeatClick, onCancel, onNoShow, busy }: A
 // ─── Main Dashboard ──────────────────────────────────────────────────────────
 
 export default function ReservationsDashboard(): JSX.Element {
-  const { accessToken } = useUser()
+  const { accessToken: _at } = useUser(); const accessToken = _at ?? ''
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ''
+  
 
   const [restaurantId, setRestaurantId] = useState<string | null>(null)
   const [reservations, setReservations] = useState<Reservation[]>([])
@@ -429,25 +429,26 @@ export default function ReservationsDashboard(): JSX.Element {
   const [busyIds, setBusyIds] = useState<Set<string>>(new Set())
 
   // Load restaurant_id
+  const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ''
   useEffect(() => {
-    if (!supabaseUrl || !supabaseKey) return
+    if (!supabaseUrl || !accessToken) return
     void fetch(`${supabaseUrl}/rest/v1/restaurants?select=id&limit=1`, {
-      headers: { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` },
+      headers: { apikey: publishableKey, Authorization: `Bearer ${accessToken}` },
     })
       .then((r) => r.json())
       .then((rows: Array<{ id: string }>) => {
         if (rows.length > 0) setRestaurantId(rows[0].id)
       })
       .catch(() => { /* non-fatal */ })
-  }, [supabaseUrl, supabaseKey])
+  }, [supabaseUrl, accessToken])
 
   const loadData = useCallback(() => {
     if (!restaurantId) return
     setLoading(true)
     setError(null)
     Promise.all([
-      fetchReservations(supabaseUrl, supabaseKey, restaurantId, accessToken ?? undefined),
-      fetchTables(supabaseUrl, supabaseKey, restaurantId),
+      fetchReservations(supabaseUrl, accessToken, restaurantId, accessToken ?? undefined),
+      fetchTables(supabaseUrl, accessToken, restaurantId),
     ])
       .then(([res, tbl]) => {
         setReservations(res)
@@ -457,7 +458,7 @@ export default function ReservationsDashboard(): JSX.Element {
         setError(err instanceof Error ? err.message : 'Failed to load data')
       })
       .finally(() => { setLoading(false) })
-  }, [supabaseUrl, supabaseKey, restaurantId, accessToken])
+  }, [supabaseUrl, accessToken, restaurantId, accessToken])
 
   useEffect(() => { loadData() }, [loadData])
 
@@ -472,7 +473,7 @@ export default function ReservationsDashboard(): JSX.Element {
 
   async function handleAdd(input: CreateReservationInput): Promise<void> {
     if (!accessToken) throw new Error('Not authenticated')
-    const created = await createReservation(supabaseUrl, supabaseKey, accessToken, input)
+    const created = await createReservation(supabaseUrl, accessToken, accessToken, input)
     setReservations((prev) => [created, ...prev].sort((a, b) => {
       if (a.reservation_time && b.reservation_time) {
         return new Date(a.reservation_time).getTime() - new Date(b.reservation_time).getTime()
@@ -489,7 +490,7 @@ export default function ReservationsDashboard(): JSX.Element {
     if (!accessToken) return
     setBusyIds((prev) => new Set(prev).add(id))
     try {
-      await updateReservationStatus(supabaseUrl, supabaseKey, accessToken, id, status, tableId)
+      await updateReservationStatus(supabaseUrl, accessToken, accessToken, id, status, tableId)
       setReservations((prev) =>
         prev.map((r) =>
           r.id === id

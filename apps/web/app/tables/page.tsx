@@ -37,7 +37,7 @@ function orderAge(createdAt: string): string {
 
 export default function TablesPage(): JSX.Element {
   const router = useRouter()
-  const { accessToken } = useUser()
+  const { accessToken: _at } = useUser(); const accessToken = _at ?? ''
 
   const [tables, setTables] = useState<TableRow[]>([])
   const [loading, setLoading] = useState(true)
@@ -56,9 +56,8 @@ export default function TablesPage(): JSX.Element {
 
   const loadAll = useCallback((): void => {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
 
-    if (!supabaseUrl || !supabaseKey) {
+    if (!supabaseUrl || !accessToken) {
       setError('Supabase is not configured')
       setLoading(false)
       return
@@ -67,8 +66,8 @@ export default function TablesPage(): JSX.Element {
     setError(null)
 
     Promise.all([
-      fetchTables(supabaseUrl, supabaseKey),
-      fetchTakeawayDeliveryQueue(supabaseUrl, supabaseKey),
+      fetchTables(supabaseUrl, accessToken),
+      fetchTakeawayDeliveryQueue(supabaseUrl, accessToken),
     ])
       .then(([t, q]) => {
         setTablesCache(t, q)
@@ -98,12 +97,11 @@ export default function TablesPage(): JSX.Element {
   useEffect(() => {
     intervalRef.current = setInterval(() => {
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
-      if (!supabaseUrl || !supabaseKey) return
+      if (!supabaseUrl || !accessToken) return
 
       Promise.all([
-        fetchTables(supabaseUrl, supabaseKey),
-        fetchTakeawayDeliveryQueue(supabaseUrl, supabaseKey),
+        fetchTables(supabaseUrl, accessToken),
+        fetchTakeawayDeliveryQueue(supabaseUrl, accessToken),
       ])
         .then(([t, q]) => {
           setTablesCache(t, q)
@@ -272,13 +270,44 @@ export default function TablesPage(): JSX.Element {
                 )}
               </>
             ) : (
-              /* Existing auto-grid — keep exactly as is */
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mb-10">
+              /* Tables grouped by section */
+              <div className="space-y-8 mb-10">
                 {tables.length === 0 ? (
-                  <p className="text-zinc-400 text-lg col-span-full">No tables configured.</p>
-                ) : tables.map((table) => (
-                  <TableCard key={table.id} table={table} />
-                ))}
+                  <p className="text-zinc-400 text-lg">No tables configured.</p>
+                ) : (() => {
+                  const sectionGroups = new Map<string | null, TableRow[]>()
+                  for (const t of tables) {
+                    const key = t.section_id
+                    if (!sectionGroups.has(key)) sectionGroups.set(key, [])
+                    sectionGroups.get(key)!.push(t)
+                  }
+                  const sectionEntries = [...sectionGroups.entries()].sort((a, b) => {
+                    if (a[0] === null && b[0] !== null) return 1
+                    if (a[0] !== null && b[0] === null) return -1
+                    const nameA = a[1][0]?.section_name ?? ''
+                    const nameB = b[1][0]?.section_name ?? ''
+                    return nameA.localeCompare(nameB)
+                  })
+                  return sectionEntries.map(([sectionId, sectionTables]) => {
+                    const sectionName = sectionTables[0]?.section_name ?? null
+                    const serverName = sectionTables[0]?.assigned_server_name ?? null
+                    return (
+                      <div key={sectionId ?? 'unsectioned'}>
+                        <div className="flex items-center gap-3 mb-3">
+                          <h2 className="text-lg font-bold text-white">{sectionName ?? 'Unsectioned'}</h2>
+                          {serverName && (
+                            <span className="text-sm bg-indigo-600/30 text-indigo-300 border border-indigo-700 rounded-full px-2.5 py-0.5">{serverName}</span>
+                          )}
+                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                          {sectionTables.map(table => (
+                            <TableCard key={table.id} table={table} />
+                          ))}
+                        </div>
+                      </div>
+                    )
+                  })
+                })()}
               </div>
             )
           })()}

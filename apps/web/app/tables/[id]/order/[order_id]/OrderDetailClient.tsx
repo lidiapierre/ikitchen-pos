@@ -15,6 +15,8 @@ import { callApplyItemDiscount } from './applyItemDiscountApi'
 import { updateOrderItemNotes } from './orderItemNotesApi'
 import { callCompItem } from './compApi'
 import { callTransferOrder } from './transferOrderApi'
+import { fetchServerList, callReassignOrderServer } from './reassignServerApi'
+import type { ServerOption } from './reassignServerApi'
 import { markItemsSentToKitchen } from './kotApi'
 import { callFireCourse, callServeCourse } from './fireCourseApi'
 import { formatPrice, DEFAULT_CURRENCY_SYMBOL } from '@/lib/formatPrice'
@@ -133,6 +135,14 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
   const [transferTarget, setTransferTarget] = useState<AvailableTable | null>(null)
   const [transferring, setTransferring] = useState(false)
   const [transferError, setTransferError] = useState<string | null>(null)
+
+  // Reassign server state
+  const [showReassignModal, setShowReassignModal] = useState(false)
+  const [serverOptions, setServerOptions] = useState<ServerOption[]>([])
+  const [reassignTarget, setReassignTarget] = useState<string>('')
+  const [reassigning, setReassigning] = useState(false)
+  const [reassignError, setReassignError] = useState<string | null>(null)
+  const [reassignServersLoading, setReassignServersLoading] = useState(false)
 
   // Printer config state (legacy single-printer — kept for backward compat)
   const [printerConfig, setPrinterConfig] = useState<PrinterConfig | null>(null)
@@ -1101,6 +1111,39 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
       setTransferError(err instanceof Error ? err.message : 'Failed to transfer order')
     } finally {
       setTransferring(false)
+    }
+  }
+
+  // ─── Reassign Server (issue #275) ─────────────────────────────────────────
+  async function openReassignModal(): Promise<void> {
+    setReassignTarget('')
+    setReassignError(null)
+    setShowReassignModal(true)
+    setReassignServersLoading(true)
+    try {
+      if (!accessToken) throw new Error('Not authenticated')
+      const servers = await fetchServerList(accessToken)
+      setServerOptions(servers)
+    } catch (err) {
+      setReassignError(err instanceof Error ? err.message : 'Failed to load servers')
+    } finally {
+      setReassignServersLoading(false)
+    }
+  }
+
+  async function handleReassignServer(): Promise<void> {
+    if (!reassignTarget) return
+    setReassignError(null)
+    setReassigning(true)
+    try {
+      if (!accessToken) throw new Error('Not authenticated')
+      await callReassignOrderServer(accessToken, orderId, reassignTarget)
+      setShowReassignModal(false)
+      addToast('Server reassigned successfully', 'success')
+    } catch (err) {
+      setReassignError(err instanceof Error ? err.message : 'Failed to reassign server')
+    } finally {
+      setReassigning(false)
     }
   }
 
@@ -2106,6 +2149,40 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
         </div>
       )}
 
+      {/* Reassign server modal */}
+      {showReassignModal && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70">
+          <div className="w-full max-w-lg bg-zinc-800 rounded-t-2xl p-6 space-y-4 max-h-[80vh] overflow-y-auto">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold text-white">Reassign Server</h2>
+              <button type="button" onClick={() => { setShowReassignModal(false) }} className="text-zinc-400 hover:text-white px-3 py-2 min-h-[48px] min-w-[48px] flex items-center justify-center" aria-label="Close">
+                <X size={20} aria-hidden="true" />
+              </button>
+            </div>
+            <p className="text-zinc-400 text-base">Select a server to reassign this order to:</p>
+            {reassignServersLoading && <p className="text-zinc-400 text-base">Loading servers…</p>}
+            {reassignError !== null && <p className="text-red-400 text-base">{reassignError}</p>}
+            {!reassignServersLoading && serverOptions.length > 0 && (
+              <div className="space-y-2">
+                {serverOptions.map(s => (
+                  <button key={s.id} type="button" onClick={() => setReassignTarget(s.id)} className={['w-full min-h-[56px] rounded-xl px-4 py-3 text-left transition-colors border-2', reassignTarget === s.id ? 'bg-indigo-900/40 border-indigo-500 text-white' : 'bg-zinc-700 border-zinc-600 hover:border-indigo-400 text-zinc-200'].join(' ')}>
+                    <span className="font-medium">{s.name ?? s.email}</span>
+                    {s.name && <span className="text-zinc-400 text-sm ml-2">{s.email}</span>}
+                  </button>
+                ))}
+              </div>
+            )}
+            {!reassignServersLoading && serverOptions.length === 0 && !reassignError && (
+              <p className="text-zinc-500 text-base">No servers found.</p>
+            )}
+            <div className="flex gap-3 pt-2">
+              <button type="button" onClick={() => { setShowReassignModal(false) }} disabled={reassigning} className="flex-1 min-h-[48px] px-6 rounded-xl text-base font-semibold border-2 border-zinc-600 text-zinc-300 hover:border-zinc-400 transition-colors disabled:opacity-50">Cancel</button>
+              <button type="button" onClick={() => { void handleReassignServer() }} disabled={reassigning || !reassignTarget} className={['flex-1 min-h-[48px] px-6 rounded-xl text-base font-semibold transition-colors', reassigning || !reassignTarget ? 'bg-zinc-700 text-zinc-400 cursor-wait' : 'bg-indigo-600 hover:bg-indigo-500 text-white'].join(' ')}>{reassigning ? 'Reassigning…' : 'Confirm'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Cancel order dialog */}
       {showCancelDialog && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70">
@@ -2516,6 +2593,16 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
                 className="w-full min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold text-zinc-400 hover:text-amber-400 border-2 border-zinc-700 hover:border-amber-600 transition-colors mb-3"
               >
                 ↔ Move Table
+              </button>
+            )}
+
+            {isAdmin && (
+              <button
+                type="button"
+                onClick={() => { void openReassignModal() }}
+                className="w-full min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold text-zinc-400 hover:text-indigo-400 border-2 border-zinc-700 hover:border-indigo-600 transition-colors mb-3"
+              >
+                👤 Reassign Server
               </button>
             )}
 

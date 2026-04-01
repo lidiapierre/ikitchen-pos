@@ -33,7 +33,7 @@ interface MenuItemCardProps {
 }
 
 export default function MenuItemCard({ item, orderId, onItemAdded, onItemFailed, currencySymbol = DEFAULT_CURRENCY_SYMBOL }: MenuItemCardProps): JSX.Element {
-  const { accessToken } = useUser()
+  const { accessToken: _at } = useUser(); const accessToken = _at ?? ''
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState<string | null>(null)

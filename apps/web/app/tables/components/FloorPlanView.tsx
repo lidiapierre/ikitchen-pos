@@ -22,7 +22,7 @@ function clamp(value: number, min: number, max: number): number {
 
 export default function FloorPlanView({ tables }: Props): JSX.Element {
   const router = useRouter()
-  const { accessToken } = useUser()
+  const { accessToken: _at } = useUser(); const accessToken = _at ?? ''
 
   const [cols, setCols] = useState<number>(DEFAULT_COLS)
   const [rows, setRows] = useState<number>(DEFAULT_ROWS)

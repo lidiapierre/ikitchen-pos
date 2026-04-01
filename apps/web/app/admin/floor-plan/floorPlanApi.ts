@@ -13,25 +13,37 @@ export interface TablePosition {
   seat_count: number
   grid_x: number | null
   grid_y: number | null
+  section_id: string | null
+}
+
+export interface FloorPlanSection {
+  id: string
+  name: string
+  grid_cols: number
+  grid_rows: number
+  sort_order: number
+  assigned_server_id: string | null
+  table_count: number
 }
 
 const tablePositionsCache = new Map<string, CacheEntry<TablePosition[]>>()
 
 export async function fetchTablePositions(
   supabaseUrl: string,
-  apiKey: string,
+  accessToken: string,
 ): Promise<TablePosition[]> {
-  const cacheKey = `${supabaseUrl}:${apiKey}`
+  const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ''
+  const cacheKey = `${supabaseUrl}:positions`
   const cached = tablePositionsCache.get(cacheKey)
   if (cached && Date.now() < cached.expiresAt) {
     return cached.data
   }
 
-  const url = `${supabaseUrl}/rest/v1/tables?select=id,label,seat_count,grid_x,grid_y&order=label.asc`
+  const url = `${supabaseUrl}/rest/v1/tables?select=id,label,seat_count,grid_x,grid_y,section_id&order=label.asc`
   const res = await fetch(url, {
     headers: {
-      apikey: apiKey,
-      Authorization: `Bearer ${apiKey}`,
+      apikey: publishableKey,
+      Authorization: `Bearer ${accessToken}`,
     },
   })
   if (!res.ok) {
@@ -43,13 +55,12 @@ export async function fetchTablePositions(
 }
 
 /** Invalidate the table positions cache (call after a successful save). */
-export function invalidateTablePositionsCache(supabaseUrl: string, apiKey: string): void {
-  tablePositionsCache.delete(`${supabaseUrl}:${apiKey}`)
+export function invalidateTablePositionsCache(supabaseUrl: string): void {
+  tablePositionsCache.delete(`${supabaseUrl}:positions`)
 }
 
 export async function saveTablePosition(
   supabaseUrl: string,
-  apiKey: string,
   accessToken: string,
   tableId: string,
   gridX: number | null,
@@ -68,19 +79,20 @@ export async function saveTablePosition(
     throw new Error(json.error ?? `Failed to save table position: ${res.status}`)
   }
   // Invalidate so the next load reflects the new position
-  invalidateTablePositionsCache(supabaseUrl, apiKey)
+  invalidateTablePositionsCache(supabaseUrl)
 }
 
 /** Fetch the restaurant id (first restaurant visible to the current key). */
 export async function fetchRestaurantId(
   supabaseUrl: string,
-  apiKey: string,
+  accessToken: string,
 ): Promise<string> {
+  const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ''
   const url = new URL(`${supabaseUrl}/rest/v1/restaurants`)
   url.searchParams.set('select', 'id')
   url.searchParams.set('limit', '1')
   const res = await fetch(url.toString(), {
-    headers: { apikey: apiKey, Authorization: `Bearer ${apiKey}` },
+    headers: { apikey: publishableKey, Authorization: `Bearer ${accessToken}` },
   })
   if (!res.ok) throw new Error(`Failed to fetch restaurant: ${res.status}`)
   const rows = (await res.json()) as Array<{ id: string }>
@@ -98,10 +110,11 @@ const floorPlanConfigCache = new Map<string, CacheEntry<FloorPlanConfig>>()
 
 export async function fetchFloorPlanConfig(
   supabaseUrl: string,
-  apiKey: string,
+  accessToken: string,
   restaurantId: string,
   defaults: { cols: number; rows: number },
 ): Promise<FloorPlanConfig> {
+  const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ''
   const cacheKey = `${supabaseUrl}:${restaurantId}`
   const cached = floorPlanConfigCache.get(cacheKey)
   if (cached && Date.now() < cached.expiresAt) {
@@ -113,7 +126,7 @@ export async function fetchFloorPlanConfig(
   url.searchParams.set('restaurant_id', `eq.${restaurantId}`)
   url.searchParams.set('key', `in.(floor_plan_cols,floor_plan_rows)`)
   const res = await fetch(url.toString(), {
-    headers: { apikey: apiKey, Authorization: `Bearer ${apiKey}` },
+    headers: { apikey: publishableKey, Authorization: `Bearer ${accessToken}` },
   })
   if (!res.ok) return defaults
   const rows = (await res.json()) as Array<{ key: string; value: string }>
@@ -131,4 +144,21 @@ export async function fetchFloorPlanConfig(
 /** Invalidate the floor plan config cache (call after saving grid size). */
 export function invalidateFloorPlanConfigCache(supabaseUrl: string, restaurantId: string): void {
   floorPlanConfigCache.delete(`${supabaseUrl}:${restaurantId}`)
+}
+
+// ─── Sections for floor plan ──────────────────────────────────────────────────
+export async function fetchFloorPlanSections(
+  supabaseUrl: string,
+  accessToken: string,
+): Promise<FloorPlanSection[]> {
+  const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ''
+  const url = new URL(`${supabaseUrl}/rest/v1/sections`)
+  url.searchParams.set('select', 'id,name,grid_cols,grid_rows,sort_order,assigned_server_id')
+  url.searchParams.set('order', 'sort_order.asc,name.asc')
+  const res = await fetch(url.toString(), {
+    headers: { apikey: publishableKey, Authorization: `Bearer ${accessToken}` },
+  })
+  if (!res.ok) return []
+  const rows = (await res.json()) as FloorPlanSection[]
+  return rows.map(r => ({ ...r, table_count: 0 }))
 }

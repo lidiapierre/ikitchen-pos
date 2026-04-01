@@ -19,8 +19,9 @@ import {
   fetchRestaurantId,
   fetchFloorPlanConfig,
   invalidateFloorPlanConfigCache,
+  fetchFloorPlanSections,
 } from './floorPlanApi'
-import type { TablePosition } from './floorPlanApi'
+import type { TablePosition, FloorPlanSection } from './floorPlanApi'
 import { callUpsertConfig } from '../pricing/pricingAdminApi'
 import { useUser } from '@/lib/user-context'
 
@@ -228,6 +229,9 @@ export default function FloorPlanBuilder(): JSX.Element {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  const [sections, setSections] = useState<FloorPlanSection[]>([])
+  const [selectedSectionId, setSelectedSectionId] = useState<string | null>(null)
+
   const [restaurantId, setRestaurantId] = useState<string>('')
   const supabaseConfig = useRef<{ url: string; key: string } | null>(null)
   // Tracks the positions as known by the server (updated only after successful saves)
@@ -260,24 +264,26 @@ export default function FloorPlanBuilder(): JSX.Element {
   // ── Load tables + config on mount ──────────────────────────────────────────
   useEffect(() => {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
-    if (!supabaseUrl || !supabaseKey) {
+    
+    if (!supabaseUrl || !accessToken) {
       setError('API not configured')
       setLoading(false)
       return
     }
-    supabaseConfig.current = { url: supabaseUrl, key: supabaseKey }
+    supabaseConfig.current = { url: supabaseUrl, key: accessToken ?? "" }
 
     Promise.all([
-      fetchTablePositions(supabaseUrl, supabaseKey),
-      fetchRestaurantId(supabaseUrl, supabaseKey),
+      fetchTablePositions(supabaseUrl, accessToken ?? ""),
+      fetchRestaurantId(supabaseUrl, accessToken ?? ""),
+      fetchFloorPlanSections(supabaseUrl, accessToken ?? ""),
     ])
-      .then(async ([tableData, rid]) => {
+      .then(async ([tableData, rid, secs]) => {
         setTables(tableData)
         serverTables.current = tableData
         setRestaurantId(rid)
+        setSections(secs)
         // Load grid size config — single batched request
-        const config = await fetchFloorPlanConfig(supabaseUrl, supabaseKey, rid, {
+        const config = await fetchFloorPlanConfig(supabaseUrl, accessToken ?? "", rid, {
           cols: DEFAULT_COLS,
           rows: DEFAULT_ROWS,
         })
@@ -395,7 +401,7 @@ export default function FloorPlanBuilder(): JSX.Element {
       if (outOfBounds.length > 0) {
         await Promise.all(
           outOfBounds.map((t) =>
-            saveTablePosition(config.url, config.key, accessToken, t.id, null, null).catch(() => {
+            saveTablePosition(config.url, accessToken, t.id, null, null).catch(() => {
               /* non-fatal — table state already updated locally */
             }),
           ),
@@ -455,7 +461,7 @@ export default function FloorPlanBuilder(): JSX.Element {
       if (!config || !accessToken) return
 
       setSavingId(tableId)
-      saveTablePosition(config.url, config.key, accessToken, tableId, newX, newY)
+      saveTablePosition(config.url, accessToken, tableId, newX, newY)
         .then(() => {
           // Update server-known state on success
           serverTables.current = serverTables.current.map((t) =>
@@ -479,7 +485,7 @@ export default function FloorPlanBuilder(): JSX.Element {
     const positioned = serverTables.current.filter((t) => t.grid_x !== null || t.grid_y !== null)
     try {
       await Promise.all(
-        positioned.map((t) => saveTablePosition(config.url, config.key, accessToken, t.id, null, null)),
+        positioned.map((t) => saveTablePosition(config.url, accessToken, t.id, null, null)),
       )
       setTables((prev) => prev.map((t) => ({ ...t, grid_x: null, grid_y: null })))
       serverTables.current = serverTables.current.map((t) => ({ ...t, grid_x: null, grid_y: null }))
@@ -510,15 +516,24 @@ export default function FloorPlanBuilder(): JSX.Element {
     )
   }
 
+  const filteredTables = selectedSectionId
+    ? tables.filter(t => t.section_id === selectedSectionId)
+    : tables
+  const activeSection = selectedSectionId
+    ? sections.find(s => s.id === selectedSectionId) ?? null
+    : null
+  const displayCols = activeSection ? activeSection.grid_cols : gridCols
+  const displayRows = activeSection ? activeSection.grid_rows : gridRows
+
   // Build col-row → table lookup
   const cellMap = new Map<string, TablePosition>()
-  for (const t of tables) {
+  for (const t of filteredTables) {
     if (t.grid_x !== null && t.grid_y !== null) {
       cellMap.set(`${t.grid_x}-${t.grid_y}`, t)
     }
   }
 
-  const unplaced = tables.filter((t) => t.grid_x === null || t.grid_y === null)
+  const unplaced = filteredTables.filter((t) => t.grid_x === null || t.grid_y === null)
   const draggingTable = draggingId ? (tables.find((t) => t.id === draggingId) ?? null) : null
 
   return (

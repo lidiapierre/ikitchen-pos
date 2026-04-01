@@ -21,7 +21,7 @@ function formatDate(iso: string): string {
 }
 
 export default function RestaurantList(): JSX.Element {
-  const { accessToken } = useUser()
+  const { accessToken: _at } = useUser(); const accessToken = _at ?? ''
   const [restaurants, setRestaurants] = useState<AdminRestaurant[]>([])
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState<string | null>(null)

@@ -31,7 +31,7 @@ export function generateId(): string {
 
 
 export default function MenuManager(): JSX.Element {
-  const { accessToken } = useUser()
+  const { accessToken: _at } = useUser(); const accessToken = _at ?? ''
   const [menus, setMenus] = useState<AdminMenu[]>([])
   const [restaurantId, setRestaurantId] = useState<string>('')
   const [loading, setLoading] = useState(true)

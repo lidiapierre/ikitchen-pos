@@ -17,7 +17,7 @@ export default function NewOrderPage(): JSX.Element {
   const router = useRouter()
   const params = useParams<{ id: string }>()
   const tableId = params.id
-  const { accessToken } = useUser()
+  const { accessToken: _at } = useUser(); const accessToken = _at ?? ''
   const [error, setError] = useState<string | null>(null)
   const hasFired = useRef(false)
 

@@ -464,6 +464,15 @@ verify_jwt = false
 [functions.update_order_item_notes]
 verify_jwt = false
 
+[functions.manage_sections]
+verify_jwt = false
+
+[functions.assign_table_section]
+verify_jwt = false
+
+[functions.reassign_order_server]
+verify_jwt = false
+
 [edge_runtime]
 enabled = true
 # Supported request policies: `oneshot`, `per_worker`.

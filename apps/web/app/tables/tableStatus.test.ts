@@ -12,6 +12,9 @@ function makeTable(overrides: Partial<TableRow> = {}): TableRow {
     order_item_count: null,
     grid_x: null,
     grid_y: null,
+    section_id: null,
+    section_name: null,
+    assigned_server_name: null,
     ...overrides,
   }
 }

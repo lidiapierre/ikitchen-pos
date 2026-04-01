@@ -61,7 +61,7 @@ function getDuration(start: string, end: string): string {
 }
 
 export default function ShiftsClient(): JSX.Element {
-  const { accessToken } = useUser()
+  const { accessToken: _at } = useUser(); const accessToken = _at ?? ''
   const [activeShift, setActiveShift] = useState<ActiveShift | null>(null)
   const [closedSummary, setClosedSummary] = useState<ShiftSummary | null>(null)
   const [loading, setLoading] = useState(false)

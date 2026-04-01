@@ -8,6 +8,10 @@ import { callProvisionRestaurant } from '../restaurantAdminApi'
 import { fetchIsSuperAdmin } from '../restaurantAdminData'
 import { useUser } from '@/lib/user-context'
 
+interface ProvisionRestaurantFormProps {
+  variant?: 'admin' | 'public'
+}
+
 interface FormValues {
   name: string
   branchName: string
@@ -69,7 +73,7 @@ const INPUT_CLASS =
 
 const LABEL_CLASS = 'text-sm font-medium text-zinc-300'
 
-export default function ProvisionRestaurantForm(): JSX.Element {
+export default function ProvisionRestaurantForm({ variant = 'admin' }: ProvisionRestaurantFormProps): JSX.Element {
   const { accessToken } = useUser()
   const [form, setForm] = useState<FormValues>(EMPTY_FORM)
   const [errors, setErrors] = useState<FormErrors>({})
@@ -77,9 +81,12 @@ export default function ProvisionRestaurantForm(): JSX.Element {
   const [success, setSuccess] = useState<{ restaurantId: string; name: string } | null>(null)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [showPassword, setShowPassword] = useState(false)
-  const [isSuperAdmin, setIsSuperAdmin] = useState<boolean | null>(null)
+  const [isSuperAdmin, setIsSuperAdmin] = useState<boolean | null>(variant === 'public' ? true : null)
 
   useEffect(() => {
+    // In public variant, skip super-admin check — show form directly
+    if (variant === 'public') return
+
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
     const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
     if (!supabaseUrl || !supabaseKey || !accessToken) return
@@ -87,7 +94,7 @@ export default function ProvisionRestaurantForm(): JSX.Element {
     fetchIsSuperAdmin(supabaseUrl, supabaseKey, accessToken)
       .then((val) => setIsSuperAdmin(val))
       .catch(() => setIsSuperAdmin(false))
-  }, [accessToken])
+  }, [accessToken, variant])
 
   function setField<K extends keyof FormValues>(key: K, value: FormValues[K]): void {
     setForm((f) => ({ ...f, [key]: value }))
@@ -131,7 +138,24 @@ export default function ProvisionRestaurantForm(): JSX.Element {
     }
   }
 
-  // — Loading while permission check runs —
+  // — Public variant: no token means user isn't logged in —
+  if (variant === 'public' && !accessToken) {
+    return (
+      <div className="flex flex-col gap-6">
+        <div className="bg-yellow-900/30 border border-yellow-700 text-yellow-300 rounded-xl px-4 py-3">
+          <p className="font-medium">Please log in to complete registration.</p>
+          <p className="text-sm mt-1 text-yellow-400">
+            You need to be authenticated as a super-admin to set up a restaurant.
+          </p>
+        </div>
+        <Link href="/login" className="text-indigo-400 hover:underline text-sm">
+          Go to login →
+        </Link>
+      </div>
+    )
+  }
+
+  // — Loading while permission check runs (admin variant only) —
   if (isSuperAdmin === null) {
     return (
       <div className="flex flex-col gap-6">
@@ -141,7 +165,7 @@ export default function ProvisionRestaurantForm(): JSX.Element {
     )
   }
 
-  // — Access denied —
+  // — Access denied (admin variant only) —
   if (!isSuperAdmin) {
     return (
       <div className="flex flex-col gap-6">
@@ -161,6 +185,30 @@ export default function ProvisionRestaurantForm(): JSX.Element {
 
   // — Success state —
   if (success) {
+    if (variant === 'public') {
+      return (
+        <div className="flex flex-col gap-6 max-w-2xl">
+          <div className="bg-green-900/30 border border-green-700 text-green-300 rounded-xl px-4 py-3 flex flex-col gap-3">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 size={20} className="text-green-400 shrink-0" aria-hidden="true" />
+              <p className="font-medium text-green-200">
+                Restaurant &ldquo;{success.name}&rdquo; has been set up!
+              </p>
+            </div>
+            <p className="text-sm text-green-400">
+              Your restaurant has been set up! You can now log in with the credentials you provided.
+            </p>
+            <Link
+              href="/login"
+              className="inline-flex items-center gap-1 text-sm font-medium text-indigo-400 hover:text-indigo-300 transition-colors"
+            >
+              Go to login →
+            </Link>
+          </div>
+        </div>
+      )
+    }
+
     return (
       <div className="flex flex-col gap-6 max-w-2xl">
         <div className="flex items-center gap-3">
@@ -194,25 +242,29 @@ export default function ProvisionRestaurantForm(): JSX.Element {
 
   return (
     <div className="flex flex-col gap-6 max-w-2xl">
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <Link
-          href="/admin/restaurants"
-          className="text-indigo-400 hover:text-indigo-300 transition-colors text-sm"
-        >
-          ← Restaurants
-        </Link>
-        <span className="text-zinc-600">/</span>
-        <h1 className="text-2xl font-bold text-white">New Restaurant</h1>
-      </div>
+      {/* Header — admin variant only */}
+      {variant === 'admin' && (
+        <div className="flex items-center gap-3">
+          <Link
+            href="/admin/restaurants"
+            className="text-indigo-400 hover:text-indigo-300 transition-colors text-sm"
+          >
+            ← Restaurants
+          </Link>
+          <span className="text-zinc-600">/</span>
+          <h1 className="text-2xl font-bold text-white">New Restaurant</h1>
+        </div>
+      )}
 
-      {/* Super-admin badge */}
-      <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-purple-900/50 border border-purple-700 w-fit">
-        <Zap size={14} className="text-purple-300" aria-hidden="true" />
-        <span className="text-xs font-bold uppercase tracking-wider text-purple-300">
-          Super Admin — Provisioning
-        </span>
-      </div>
+      {/* Super-admin badge — admin variant only */}
+      {variant === 'admin' && (
+        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-purple-900/50 border border-purple-700 w-fit">
+          <Zap size={14} className="text-purple-300" aria-hidden="true" />
+          <span className="text-xs font-bold uppercase tracking-wider text-purple-300">
+            Super Admin — Provisioning
+          </span>
+        </div>
+      )}
 
       {/* Error banner */}
       {submitError && (
@@ -402,7 +454,7 @@ export default function ProvisionRestaurantForm(): JSX.Element {
             {submitting ? 'Provisioning…' : 'Provision Restaurant'}
           </button>
           <Link
-            href="/admin/restaurants"
+            href={variant === 'public' ? '/login' : '/admin/restaurants'}
             className="min-h-[48px] px-5 rounded-xl bg-zinc-700 text-white font-medium hover:bg-zinc-600 transition-colors flex items-center"
           >
             Cancel

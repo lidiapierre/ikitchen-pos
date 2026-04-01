@@ -37,7 +37,9 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
 
   // /kitchen is a PIN-protected (or open) display page for kitchen devices.
   // It handles its own lightweight auth so the standard JWT middleware is skipped.
-  if (pathname.startsWith('/kitchen')) {
+  // /register is a publicly accessible restaurant onboarding page — no auth required
+  // to view it (though the form still needs a super-admin token to submit).
+  if (pathname.startsWith('/kitchen') || pathname.startsWith('/register')) {
     return supabaseResponse
   }
 

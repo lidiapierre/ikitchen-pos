@@ -126,7 +126,7 @@ export async function handler(
   let restaurantId: string
   try {
     const tableRes = await fetchFn(
-      `${supabaseUrl}/rest/v1/tables?id=eq.${tableId}&select=id,restaurant_id`,
+      `${supabaseUrl}/rest/v1/tables?id=eq.${encodeURIComponent(tableId)}&select=id,restaurant_id`,
       { headers: baseHeaders },
     )
     if (!tableRes.ok) {
@@ -180,7 +180,7 @@ export async function handler(
 
   try {
     const patchRes = await fetchFn(
-      `${supabaseUrl}/rest/v1/tables?id=eq.${tableId}&restaurant_id=eq.${restaurantId}`,
+      `${supabaseUrl}/rest/v1/tables?id=eq.${encodeURIComponent(tableId)}&restaurant_id=eq.${encodeURIComponent(restaurantId)}`,
       {
         method: 'PATCH',
         headers: { ...baseHeaders, Prefer: 'return=minimal' },

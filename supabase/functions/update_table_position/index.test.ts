@@ -36,7 +36,7 @@ function makePatchFetch(
       return Promise.resolve(new Response(JSON.stringify(rows), { status: 200 }))
     }
     // Ownership check — GET /rest/v1/users?id=eq.{actorId}&restaurant_id=eq.{restaurantId}
-    if ((url as string).includes('/users?id=eq.')) {
+    if ((url as string).includes('/users?id=eq.') && (url as string).includes('restaurant_id=eq.')) {
       const rows = ownershipGranted ? [{ id: mockAuth.actorId }] : []
       return Promise.resolve(new Response(JSON.stringify(rows), { status: 200 }))
     }

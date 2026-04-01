@@ -40,11 +40,6 @@ function DraggableTable({
 
   const style: React.CSSProperties = {
     transform: CSS.Translate.toString(transform),
-    width: CELL_SIZE,
-    height: CELL_SIZE,
-    cursor: 'grab',
-    touchAction: 'none',
-    opacity: isDragging ? 0.5 : 1,
   }
 
   return (
@@ -55,9 +50,10 @@ function DraggableTable({
       {...attributes}
       className={[
         'flex flex-col items-center justify-center rounded-xl border-2 select-none',
+        'w-[72px] h-[72px] cursor-grab touch-none',
         isDragging
-          ? 'bg-zinc-700 border-indigo-400'
-          : 'bg-zinc-700 border-zinc-500 hover:border-indigo-400 transition-colors',
+          ? 'bg-zinc-700 border-indigo-400 opacity-50'
+          : 'bg-zinc-700 border-zinc-500 hover:border-indigo-400 transition-colors opacity-100',
       ].join(' ')}
     >
       <span className="text-white font-bold text-sm text-center leading-tight px-1 truncate max-w-full">
@@ -75,8 +71,7 @@ function TableDragOverlay({ table }: { table: TablePosition | null }): JSX.Eleme
   if (!table) return <></>
   return (
     <div
-      style={{ width: CELL_SIZE, height: CELL_SIZE }}
-      className="flex flex-col items-center justify-center rounded-xl border-2 bg-zinc-700 border-indigo-400 opacity-80 select-none shadow-lg pointer-events-none"
+      className="flex flex-col items-center justify-center rounded-xl border-2 bg-zinc-700 border-indigo-400 opacity-80 select-none shadow-lg pointer-events-none w-[72px] h-[72px]"
     >
       <span className="text-white font-bold text-sm text-center leading-tight px-1 truncate max-w-full">
         {table.label}
@@ -106,9 +101,8 @@ function GridCell({
   return (
     <div
       ref={setNodeRef}
-      style={{ width: CELL_SIZE, height: CELL_SIZE }}
       className={[
-        'relative border border-zinc-700/30',
+        'relative border border-zinc-700/30 w-[72px] h-[72px]',
         isOver && !table ? 'bg-indigo-900/30' : '',
         isOver && table ? 'bg-red-900/20' : '',
       ].join(' ')}
@@ -131,9 +125,8 @@ function UnplacedSidebar({
   return (
     <div
       ref={setNodeRef}
-      style={{ width: 200, minHeight: CELL_SIZE * 4 }}
       className={[
-        'flex-shrink-0 flex flex-col gap-2 p-3 rounded-xl border transition-colors',
+        'flex-shrink-0 flex flex-col gap-2 p-3 rounded-xl border transition-colors w-[200px] min-h-[288px]',
         isOver ? 'border-indigo-500 bg-indigo-900/10' : 'border-zinc-700 bg-zinc-800/50',
       ].join(' ')}
     >
@@ -476,7 +469,7 @@ export default function FloorPlanBuilder(): JSX.Element {
     const config = supabaseConfig.current
     if (!config || !accessToken) return
     setResetInProgress(true)
-    const positioned = tables.filter((t) => t.grid_x !== null || t.grid_y !== null)
+    const positioned = serverTables.current.filter((t) => t.grid_x !== null || t.grid_y !== null)
     try {
       await Promise.all(
         positioned.map((t) => saveTablePosition(config.url, accessToken, t.id, null, null)),

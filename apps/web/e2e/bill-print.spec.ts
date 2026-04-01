@@ -114,6 +114,7 @@ test.describe('Print Bill button', () => {
             course_status: 'fired',
             item_discount_type: null,
             item_discount_value: null,
+      notes: null,
             menu_items: { name: 'Chicken Karahi', menu_id: null },
           },
         ]),

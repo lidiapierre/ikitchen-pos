@@ -1,0 +1,189 @@
+import { verifyAndGetCaller } from '../_shared/auth.ts'
+
+export const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-demo-staff-id',
+  'Access-Control-Allow-Methods': 'PATCH, GET, OPTIONS',
+}
+
+export type FetchFn = (input: string, init?: RequestInit) => Promise<Response>
+
+export interface HandlerEnv {
+  supabaseUrl: string
+  serviceKey: string
+}
+
+function readEnv(): HandlerEnv | null {
+  const g = globalThis as { Deno?: { env: { get: (key: string) => string | undefined } } }
+  if (!g.Deno) return null
+  const supabaseUrl = g.Deno.env.get('SUPABASE_URL') ?? ''
+  const serviceKey = g.Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+  if (!supabaseUrl || !serviceKey) return null
+  return { supabaseUrl, serviceKey }
+}
+
+export async function handler(
+  req: Request,
+  fetchFn: FetchFn = fetch,
+  env: HandlerEnv | null = readEnv(),
+): Promise<Response> {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers: corsHeaders })
+  }
+
+  // Health check – keeps the function warm
+  if (req.method === 'GET' && new URL(req.url).pathname.endsWith('/health')) {
+    return new Response(
+      JSON.stringify({ ok: true, function: 'update_order_item_notes' }),
+      { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    )
+  }
+
+  if (!env) {
+    return new Response(
+      JSON.stringify({ success: false, error: 'Server configuration error' }),
+      { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    )
+  }
+
+  // Verify JWT and check minimum role (server+ required for note editing)
+  const caller = await verifyAndGetCaller(req, env.supabaseUrl, env.serviceKey, 'server', fetchFn)
+  if ('error' in caller) {
+    return new Response(
+      JSON.stringify({ success: false, error: caller.error }),
+      { status: caller.status, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    )
+  }
+
+  let body: unknown
+  try {
+    body = await req.json()
+  } catch {
+    return new Response(
+      JSON.stringify({ success: false, error: 'Invalid or missing request body' }),
+      { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    )
+  }
+
+  if (!body) {
+    return new Response(
+      JSON.stringify({ success: false, error: 'Missing request body' }),
+      { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    )
+  }
+
+  const payload = body as Record<string, unknown>
+
+  if (typeof payload['order_item_id'] !== 'string' || payload['order_item_id'] === '') {
+    return new Response(
+      JSON.stringify({ success: false, error: 'order_item_id is required' }),
+      { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    )
+  }
+
+  // notes must be string or null (not undefined, not other types)
+  if (payload['notes'] !== null && typeof payload['notes'] !== 'string') {
+    return new Response(
+      JSON.stringify({ success: false, error: 'notes must be a string or null' }),
+      { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    )
+  }
+
+  // notes length limit
+  if (typeof payload['notes'] === 'string' && payload['notes'].length > 500) {
+    return new Response(
+      JSON.stringify({ success: false, error: 'Notes must be 500 characters or fewer' }),
+      { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    )
+  }
+
+  const orderItemId = payload['order_item_id'] as string
+  const notes = payload['notes'] as string | null
+
+  const { supabaseUrl, serviceKey } = env
+  const dbHeaders = {
+    apikey: serviceKey,
+    Authorization: `Bearer ${serviceKey}`,
+    'Content-Type': 'application/json',
+  }
+
+  try {
+    // ── Step 1: resolve the restaurant that owns this order_item ────────────
+    const itemRes = await fetchFn(
+      `${supabaseUrl}/rest/v1/order_items?id=eq.${orderItemId}&select=id,sent_to_kitchen,order:orders!inner(restaurant_id)`,
+      { method: 'GET', headers: dbHeaders },
+    )
+    if (!itemRes.ok) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Failed to resolve order item' }),
+        { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+      )
+    }
+    const itemRows = await itemRes.json() as Array<{ id: string; sent_to_kitchen: boolean; order: { restaurant_id: string } }>
+    if (!Array.isArray(itemRows) || itemRows.length === 0) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Order item not found or access denied' }),
+        { status: 403, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+      )
+    }
+    const itemData = itemRows[0]
+    if (itemData.sent_to_kitchen) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Item already sent to kitchen' }),
+        { status: 422, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+      )
+    }
+    const restaurantId = itemData.order.restaurant_id
+
+    // ── Step 2: verify the caller has access to that restaurant ─────────────
+    const accessRes = await fetchFn(
+      `${supabaseUrl}/rest/v1/user_restaurants?user_id=eq.${caller.actorId}&restaurant_id=eq.${restaurantId}&select=user_id`,
+      { method: 'GET', headers: dbHeaders },
+    )
+    if (!accessRes.ok) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Failed to verify restaurant access' }),
+        { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+      )
+    }
+    const accessRows = await accessRes.json() as Array<{ user_id: string }>
+    if (!Array.isArray(accessRows) || accessRows.length === 0) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Order item not found or access denied' }),
+        { status: 403, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+      )
+    }
+
+    // ── Step 3: access confirmed — update the notes ────────────────────────
+    const patchRes = await fetchFn(
+      `${supabaseUrl}/rest/v1/order_items?id=eq.${orderItemId}`,
+      {
+        method: 'PATCH',
+        headers: { ...dbHeaders, Prefer: 'return=minimal' },
+        body: JSON.stringify({ notes }),
+      },
+    )
+
+    if (!patchRes.ok) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Failed to update order item notes' }),
+        { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+      )
+    }
+
+    return new Response(
+      JSON.stringify({ success: true }),
+      { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    )
+  } catch {
+    return new Response(
+      JSON.stringify({ success: false, error: 'Internal server error' }),
+      { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    )
+  }
+}
+
+if (typeof (globalThis as { Deno?: unknown }).Deno !== 'undefined') {
+  const g = globalThis as { Deno: { serve: (h: (req: Request) => Promise<Response>) => void } }
+  g.Deno.serve((req: Request) => handler(req))
+}

@@ -105,6 +105,9 @@ export default function KotPrintView({
                   : '[disc: flat]'}
               </p>
             )}
+            {item.notes && (
+              <p className="pl-3 text-sm italic">↳ {item.notes}</p>
+            )}
           </li>
         ))}
       </ul>

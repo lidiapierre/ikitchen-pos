@@ -12,6 +12,7 @@ const mockItems: OrderItem[] = [
     modifier_ids: [],
     modifier_names: [],
     sent_to_kitchen: true, comp: false, comp_reason: null, seat: null, course: 'main' as const, course_status: 'waiting' as const, menuId: null, printerType: 'kitchen' as const, item_discount_type: null, item_discount_value: null,
+      notes: null,
   },
   {
     id: '2',
@@ -21,6 +22,7 @@ const mockItems: OrderItem[] = [
     modifier_ids: [],
     modifier_names: [],
     sent_to_kitchen: true, comp: false, comp_reason: null, seat: null, course: 'main' as const, course_status: 'waiting' as const, menuId: null, printerType: 'kitchen' as const, item_discount_type: null, item_discount_value: null,
+      notes: null,
   },
 ]
 

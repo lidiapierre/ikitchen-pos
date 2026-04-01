@@ -130,13 +130,16 @@ export default function MenuItemFormPage({ mode, itemId }: MenuItemFormPageProps
 
   useEffect(() => {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    if (!supabaseUrl || !accessToken) {
+    if (!supabaseUrl) {
       setFetchError('API not configured')
       setLoading(false)
       return
     }
     // Wait for the user's JWT before fetching RLS-protected data
     if (!accessToken) return
+
+    setFetchError(null)
+    setLoading(true)
     supabaseConfig.current = { url: supabaseUrl, key: accessToken }
 
     const fetches: Promise<void>[] = [

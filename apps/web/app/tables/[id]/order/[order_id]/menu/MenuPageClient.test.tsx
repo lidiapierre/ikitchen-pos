@@ -35,6 +35,22 @@ vi.mock('next/link', () => ({
   ),
 }))
 
+vi.mock('next/navigation', () => ({
+  useRouter: (): { push: (url: string) => void } => ({ push: vi.fn() }),
+}))
+
+vi.mock('@/lib/user-context', () => ({
+  useUser: (): { accessToken: string | null } => ({ accessToken: 'test-token' }),
+}))
+
+vi.mock('./VoiceOrderButton', () => ({
+  default: (): JSX.Element => <button type="button">Voice Order</button>,
+}))
+
+vi.mock('./addItemApi', () => ({
+  callAddItemToOrder: vi.fn(),
+}))
+
 const TABLE_ID = '5'
 const ORDER_ID = 'order-abc-123'
 

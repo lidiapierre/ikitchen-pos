@@ -12,12 +12,15 @@ vi.mock('../restaurantAdminApi', () => ({
   callProvisionRestaurant: vi.fn(),
 }))
 
+let mockAccessToken: string | null = 'test-token'
+
 vi.mock('@/lib/user-context', () => ({
-  useUser: () => ({ accessToken: 'test-token' }),
+  useUser: () => ({ accessToken: mockAccessToken }),
 }))
 
 beforeEach(() => {
   vi.clearAllMocks()
+  mockAccessToken = 'test-token'
   process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://test.supabase.co'
   process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = 'test-key'
   vi.mocked(fetchIsSuperAdmin).mockResolvedValue(true)
@@ -153,6 +156,30 @@ describe('ProvisionRestaurantForm — submission', () => {
     await waitFor(() =>
       expect(screen.getByRole('alert')).toHaveTextContent('Slug already taken'),
     )
+  })
+})
+
+describe('ProvisionRestaurantForm — public variant', () => {
+  it('shows the form directly without a super-admin loading state', () => {
+    render(<ProvisionRestaurantForm variant="public" />)
+    // Should never show "Checking permissions…"
+    expect(screen.queryByText('Checking permissions…')).not.toBeInTheDocument()
+    // Form should be visible immediately
+    expect(screen.getByLabelText(/restaurant name/i)).toBeInTheDocument()
+    // fetchIsSuperAdmin should never be called
+    expect(fetchIsSuperAdmin).not.toHaveBeenCalled()
+  })
+
+  it('does not show the Super Admin — Provisioning badge', () => {
+    render(<ProvisionRestaurantForm variant="public" />)
+    expect(screen.queryByText(/super admin — provisioning/i)).not.toBeInTheDocument()
+  })
+
+  it('shows "Please log in" message when accessToken is null', () => {
+    mockAccessToken = null
+    render(<ProvisionRestaurantForm variant="public" />)
+    expect(screen.getByText(/please log in to complete registration/i)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /go to login/i })).toBeInTheDocument()
   })
 })
 

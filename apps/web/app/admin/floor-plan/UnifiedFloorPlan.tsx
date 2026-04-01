@@ -34,6 +34,7 @@ export default function UnifiedFloorPlan(): JSX.Element {
   const [staffUsers, setStaffUsers] = useState<StaffUser[]>([])
   const [restaurantId, setRestaurantId] = useState<string>('')
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [feedback, setFeedback] = useState<Feedback | null>(null)
 
@@ -51,10 +52,11 @@ export default function UnifiedFloorPlan(): JSX.Element {
   }
 
   const loadData = useCallback(async (): Promise<void> => {
-    if (!accessToken || !supabaseUrl) return
+    if (!accessToken) return
     setError(null)
+    setRefreshing(true)
     try {
-      const data = await fetchUnifiedFloorPlanData(supabaseUrl, accessToken)
+      const data = await fetchUnifiedFloorPlanData()
       setSections(data.sections)
       setTables(data.tables)
       setStaffUsers(data.staffUsers)
@@ -63,8 +65,9 @@ export default function UnifiedFloorPlan(): JSX.Element {
       setError(err instanceof Error ? err.message : 'Failed to load floor plan')
     } finally {
       setLoading(false)
+      setRefreshing(false)
     }
-  }, [accessToken, supabaseUrl])
+  }, [accessToken])
 
   useEffect(() => {
     void loadData()
@@ -232,7 +235,12 @@ export default function UnifiedFloorPlan(): JSX.Element {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-white">Floor Plan</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold text-white">Floor Plan</h1>
+          {refreshing && (
+            <span className="text-xs text-zinc-500 animate-pulse">Refreshing…</span>
+          )}
+        </div>
         <span className="text-sm text-zinc-500">Drag tables to arrange • Click empty cell to add</span>
       </div>
 

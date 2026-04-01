@@ -19,9 +19,11 @@ function validateForm(form: TableFormValues): TableFormErrors {
   if (!form.label.trim()) errors.label = 'Table label is required'
   if (!form.seatCount.trim()) {
     errors.seatCount = 'Seat count is required'
+  } else if (!/^\d+$/.test(form.seatCount.trim())) {
+    errors.seatCount = 'Enter a valid seat count (1 or more)'
   } else {
-    const n = parseInt(form.seatCount, 10)
-    if (isNaN(n) || n < 1 || !Number.isInteger(n)) {
+    const n = parseInt(form.seatCount.trim(), 10)
+    if (n < 1) {
       errors.seatCount = 'Enter a valid seat count (1 or more)'
     }
   }

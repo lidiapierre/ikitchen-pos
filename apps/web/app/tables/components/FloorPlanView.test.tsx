@@ -26,6 +26,9 @@ vi.mock('./createOrderApi', () => ({
 vi.mock('@/lib/supabase', () => ({
   supabase: {
     from: vi.fn(),
+    auth: {
+      getUser: vi.fn().mockResolvedValue({ data: { user: { id: 'test-user-id' } }, error: null }),
+    },
   },
 }))
 

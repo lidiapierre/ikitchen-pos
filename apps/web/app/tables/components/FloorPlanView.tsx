@@ -15,6 +15,7 @@ interface SectionInfo {
   grid_cols: number
   grid_rows: number
   sort_order: number
+  assigned_server_id: string | null
   assigned_server_name: string | null
 }
 
@@ -42,6 +43,7 @@ export default function FloorPlanView({ tables }: Props): JSX.Element {
   const [sections, setSections] = useState<SectionInfo[]>([])
   const [selectedSectionId, setSelectedSectionId] = useState<string | null>(null)
   const [myTablesOnly, setMyTablesOnly] = useState(false)
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
 
   // Fetch grid dimensions and sections on mount
   const fetchConfig = useCallback(async (signal: AbortSignal): Promise<void> => {
@@ -54,8 +56,8 @@ export default function FloorPlanView({ tables }: Props): JSX.Element {
       const restId = restRows?.[0]?.id ?? ''
       if (!restId || signal.aborted) return
 
-      // Fetch grid config and sections in parallel
-      const [configResult, sectionsResult] = await Promise.all([
+      // Fetch grid config, sections, and current user in parallel
+      const [configResult, sectionsResult, { data: authData }] = await Promise.all([
         supabase
           .from('config')
           .select('key,value')
@@ -68,6 +70,7 @@ export default function FloorPlanView({ tables }: Props): JSX.Element {
           .order('sort_order', { ascending: true })
           .order('name', { ascending: true })
           .abortSignal(signal),
+        supabase.auth.getUser(),
       ])
 
       if (signal.aborted) return
@@ -104,8 +107,10 @@ export default function FloorPlanView({ tables }: Props): JSX.Element {
           grid_cols: s.grid_cols,
           grid_rows: s.grid_rows,
           sort_order: s.sort_order,
+          assigned_server_id: s.assigned_server_id,
           assigned_server_name: s.assigned_server_id ? serverNameMap.get(s.assigned_server_id) ?? null : null,
         })))
+        setCurrentUserId(authData?.user?.id ?? null)
       }
     } catch {
       // use defaults on any error
@@ -130,13 +135,14 @@ export default function FloorPlanView({ tables }: Props): JSX.Element {
     if (selectedSectionId) {
       result = result.filter((t) => t.section_id === selectedSectionId)
     }
-    if (myTablesOnly) {
-      // Filter to tables in sections assigned to current user's server name
-      // (uses section-level assigned_server_name from tables data)
-      result = result.filter((t) => t.assigned_server_name !== null)
+    if (myTablesOnly && currentUserId) {
+      const mySectionIds = new Set(
+        sections.filter((s) => s.assigned_server_id === currentUserId).map((s) => s.id),
+      )
+      result = result.filter((t) => t.section_id !== null && mySectionIds.has(t.section_id))
     }
     return result
-  }, [tables, selectedSectionId, myTablesOnly])
+  }, [tables, selectedSectionId, myTablesOnly, sections, currentUserId])
 
   // Build a lookup map: "x-y" → TableRow
   const tableMap = useMemo(() => {

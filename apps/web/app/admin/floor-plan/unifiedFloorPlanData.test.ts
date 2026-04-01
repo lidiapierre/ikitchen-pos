@@ -1,8 +1,29 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { fetchUnifiedFloorPlanData } from './unifiedFloorPlanData'
+import { supabase } from '@/lib/supabase'
 
-const SUPABASE_URL = 'https://test.supabase.co'
-const ACCESS_TOKEN = 'test-access-token'
+vi.mock('@/lib/supabase', () => ({
+  supabase: { from: vi.fn() },
+}))
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnyChain = any
+
+/** Build a thenable query mock that resolves with { data, error } */
+function makeQuery(data: unknown, error: unknown = null): AnyChain {
+  const builder: AnyChain = {
+    select: () => builder,
+    order: () => builder,
+    in: () => builder,
+    eq: () => builder,
+    limit: () => builder,
+    then: (onFulfilled: (v: { data: unknown; error: unknown }) => unknown) =>
+      Promise.resolve({ data, error }).then(onFulfilled),
+    catch: (onRejected: (e: unknown) => unknown) =>
+      Promise.resolve({ data, error }).catch(onRejected),
+  }
+  return builder
+}
 
 const mockSections = [
   { id: 'sec-1', name: 'Main Hall', restaurant_id: 'rest-1', assigned_server_id: null, sort_order: 0, grid_cols: 8, grid_rows: 6 },
@@ -21,22 +42,29 @@ const mockRestaurants = [
   { id: 'rest-1' },
 ]
 
+function setupMock(overrides: Partial<Record<string, unknown>> = {}): void {
+  vi.mocked(supabase.from).mockImplementation((table: string): AnyChain => {
+    const defaults: Record<string, unknown> = {
+      sections: mockSections,
+      tables: mockTables,
+      orders: mockOrders,
+      users: mockUsers,
+      restaurants: mockRestaurants,
+    }
+    const data = table in overrides ? overrides[table] : defaults[table] ?? []
+    return makeQuery(data)
+  })
+}
+
 beforeEach(() => {
   vi.restoreAllMocks()
-  vi.stubEnv('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY', 'test-key')
 })
 
 describe('fetchUnifiedFloorPlanData', () => {
   it('returns sections, tables with open orders, staff, and restaurant id', async (): Promise<void> => {
-    let callIndex = 0
-    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => {
-      const responses = [mockSections, mockTables, mockOrders, mockUsers, mockRestaurants]
-      const data = responses[callIndex] ?? []
-      callIndex++
-      return Promise.resolve(new Response(JSON.stringify(data), { status: 200 }))
-    }))
+    setupMock()
 
-    const result = await fetchUnifiedFloorPlanData(SUPABASE_URL, ACCESS_TOKEN)
+    const result = await fetchUnifiedFloorPlanData()
 
     expect(result.sections).toHaveLength(1)
     expect(result.sections[0].name).toBe('Main Hall')
@@ -48,38 +76,27 @@ describe('fetchUnifiedFloorPlanData', () => {
   })
 
   it('throws when no restaurant found', async (): Promise<void> => {
-    let callIndex = 0
-    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => {
-      const responses = [mockSections, mockTables, mockOrders, mockUsers, []]
-      const data = responses[callIndex] ?? []
-      callIndex++
-      return Promise.resolve(new Response(JSON.stringify(data), { status: 200 }))
-    }))
+    setupMock({ restaurants: [] })
 
-    await expect(fetchUnifiedFloorPlanData(SUPABASE_URL, ACCESS_TOKEN)).rejects.toThrow('No restaurant found')
+    await expect(fetchUnifiedFloorPlanData()).rejects.toThrow('No restaurant found')
   })
 
-  it('throws on non-ok section response', async (): Promise<void> => {
-    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => {
-      return Promise.resolve(new Response('Forbidden', { status: 403 }))
-    }))
-
-    await expect(fetchUnifiedFloorPlanData(SUPABASE_URL, ACCESS_TOKEN)).rejects.toThrow('403')
-  })
-
-  it('uses accessToken as Bearer header', async (): Promise<void> => {
-    const mockFetch = vi.fn().mockImplementation(() => {
-      return Promise.resolve(new Response(JSON.stringify([]), { status: 200 }))
+  it('throws on section query error', async (): Promise<void> => {
+    vi.mocked(supabase.from).mockImplementation((table: string): AnyChain => {
+      if (table === 'sections') return makeQuery(null, { message: 'permission denied' })
+      return makeQuery([])
     })
-    vi.stubGlobal('fetch', mockFetch)
 
-    // Will throw because restaurants is empty, but we can still check the calls
-    try { await fetchUnifiedFloorPlanData(SUPABASE_URL, ACCESS_TOKEN) } catch { /* expected */ }
+    await expect(fetchUnifiedFloorPlanData()).rejects.toThrow('permission denied')
+  })
 
-    const calls = mockFetch.mock.calls as Array<[string, RequestInit]>
-    for (const [, init] of calls) {
-      const h = init.headers as Record<string, string>
-      expect(h['Authorization']).toBe(`Bearer ${ACCESS_TOKEN}`)
-    }
+  it('throws on tables query error', async (): Promise<void> => {
+    vi.mocked(supabase.from).mockImplementation((table: string): AnyChain => {
+      if (table === 'tables') return makeQuery(null, { message: 'tables fetch failed' })
+      if (table === 'sections') return makeQuery(mockSections)
+      return makeQuery([])
+    })
+
+    await expect(fetchUnifiedFloorPlanData()).rejects.toThrow('tables fetch failed')
   })
 })

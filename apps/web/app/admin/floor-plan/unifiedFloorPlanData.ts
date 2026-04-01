@@ -1,4 +1,4 @@
-const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ''
+import { supabase } from '@/lib/supabase'
 
 export interface UnifiedSection {
   id: string
@@ -39,63 +39,47 @@ export interface UnifiedFloorPlanData {
   restaurantId: string
 }
 
-function headers(accessToken: string): Record<string, string> {
-  return {
-    apikey: publishableKey,
-    Authorization: `Bearer ${accessToken}`,
-  }
-}
-
-export async function fetchUnifiedFloorPlanData(
-  supabaseUrl: string,
-  accessToken: string,
-): Promise<UnifiedFloorPlanData> {
-  const h = headers(accessToken)
-
-  const sectionsUrl = new URL(`${supabaseUrl}/rest/v1/sections`)
-  sectionsUrl.searchParams.set('select', 'id,name,restaurant_id,assigned_server_id,sort_order,grid_cols,grid_rows')
-  sectionsUrl.searchParams.set('order', 'sort_order.asc,name.asc')
-
-  const tablesUrl = new URL(`${supabaseUrl}/rest/v1/tables`)
-  tablesUrl.searchParams.set('select', 'id,label,seat_count,grid_x,grid_y,section_id')
-  tablesUrl.searchParams.set('order', 'label.asc')
-
-  const ordersUrl = new URL(`${supabaseUrl}/rest/v1/orders`)
-  ordersUrl.searchParams.set('select', 'id,table_id')
-  ordersUrl.searchParams.set('status', 'in.(open,pending_payment)')
-  ordersUrl.searchParams.set('order_type', 'eq.dine_in')
-
-  const usersUrl = new URL(`${supabaseUrl}/rest/v1/users`)
-  usersUrl.searchParams.set('select', 'id,name,email,role')
-  usersUrl.searchParams.set('is_active', 'eq.true')
-  usersUrl.searchParams.set('role', 'in.(server,manager,owner)')
-  usersUrl.searchParams.set('order', 'name.asc')
-
-  const restaurantUrl = new URL(`${supabaseUrl}/rest/v1/restaurants`)
-  restaurantUrl.searchParams.set('select', 'id')
-  restaurantUrl.searchParams.set('limit', '1')
-
-  const [sectionsRes, tablesRes, ordersRes, usersRes, restRes] = await Promise.all([
-    fetch(sectionsUrl.toString(), { headers: h }),
-    fetch(tablesUrl.toString(), { headers: h }),
-    fetch(ordersUrl.toString(), { headers: h }),
-    fetch(usersUrl.toString(), { headers: h }),
-    fetch(restaurantUrl.toString(), { headers: h }),
+export async function fetchUnifiedFloorPlanData(): Promise<UnifiedFloorPlanData> {
+  const [sectionsResult, tablesResult, ordersResult, usersResult, restResult] = await Promise.all([
+    supabase
+      .from('sections')
+      .select('id,name,restaurant_id,assigned_server_id,sort_order,grid_cols,grid_rows')
+      .order('sort_order', { ascending: true })
+      .order('name', { ascending: true }),
+    supabase
+      .from('tables')
+      .select('id,label,seat_count,grid_x,grid_y,section_id')
+      .order('label', { ascending: true }),
+    supabase
+      .from('orders')
+      .select('id,table_id')
+      .in('status', ['open', 'pending_payment'])
+      .eq('order_type', 'dine_in'),
+    supabase
+      .from('users')
+      .select('id,name,email,role')
+      .eq('is_active', true)
+      .in('role', ['server', 'manager', 'owner'])
+      .order('name', { ascending: true }),
+    supabase
+      .from('restaurants')
+      .select('id')
+      .limit(1),
   ])
 
-  if (!sectionsRes.ok) throw new Error(`Failed to fetch sections: ${sectionsRes.status}`)
-  if (!tablesRes.ok) throw new Error(`Failed to fetch tables: ${tablesRes.status}`)
-  if (!ordersRes.ok) throw new Error(`Failed to fetch orders: ${ordersRes.status}`)
-  if (!usersRes.ok) throw new Error(`Failed to fetch users: ${usersRes.status}`)
-  if (!restRes.ok) throw new Error(`Failed to fetch restaurant: ${restRes.status}`)
+  if (sectionsResult.error) throw new Error(`Failed to fetch sections: ${sectionsResult.error.message}`)
+  if (tablesResult.error) throw new Error(`Failed to fetch tables: ${tablesResult.error.message}`)
+  if (ordersResult.error) throw new Error(`Failed to fetch orders: ${ordersResult.error.message}`)
+  if (usersResult.error) throw new Error(`Failed to fetch users: ${usersResult.error.message}`)
+  if (restResult.error) throw new Error(`Failed to fetch restaurant: ${restResult.error.message}`)
 
-  const sections = (await sectionsRes.json()) as UnifiedSection[]
-  const rawTables = (await tablesRes.json()) as Array<{
+  const sections = (sectionsResult.data ?? []) as UnifiedSection[]
+  const rawTables = (tablesResult.data ?? []) as Array<{
     id: string; label: string; seat_count: number; grid_x: number | null; grid_y: number | null; section_id: string | null
   }>
-  const orders = (await ordersRes.json()) as OrderApiRow[]
-  const staffUsers = (await usersRes.json()) as StaffUser[]
-  const restaurants = (await restRes.json()) as Array<{ id: string }>
+  const orders = (ordersResult.data ?? []) as OrderApiRow[]
+  const staffUsers = (usersResult.data ?? []) as StaffUser[]
+  const restaurants = (restResult.data ?? []) as Array<{ id: string }>
 
   if (restaurants.length === 0) throw new Error('No restaurant found')
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import type { JSX } from 'react'
 import {
   DndContext,
@@ -285,14 +285,20 @@ export default function SectionGrid({
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
   )
 
-  const cellMap = new Map<string, UnifiedTable>()
-  for (const t of allSectionTables) {
-    if (t.grid_x !== null && t.grid_y !== null) {
-      cellMap.set(`${t.grid_x}-${t.grid_y}`, t)
+  const cellMap = useMemo(() => {
+    const map = new Map<string, UnifiedTable>()
+    for (const t of allSectionTables) {
+      if (t.grid_x !== null && t.grid_y !== null) {
+        map.set(`${t.grid_x}-${t.grid_y}`, t)
+      }
     }
-  }
+    return map
+  }, [allSectionTables])
 
-  const unplaced = allSectionTables.filter((t) => t.grid_x === null || t.grid_y === null)
+  const unplaced = useMemo(
+    () => allSectionTables.filter((t) => t.grid_x === null || t.grid_y === null),
+    [allSectionTables],
+  )
   const draggingTable = draggingId ? (allSectionTables.find((t) => t.id === draggingId) ?? null) : null
 
   function handleDragStart(event: DragStartEvent): void {

@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import type { JSX } from 'react'
-import { Plus, Trash2, GripVertical } from 'lucide-react'
+import { Plus, Trash2 } from 'lucide-react'
 import type { UnifiedSection, UnifiedTable, StaffUser } from './unifiedFloorPlanData'
 
 /** Section tint colors for visual distinction */
@@ -119,7 +119,6 @@ export default function SectionSidebar({
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <GripVertical size={14} className="text-zinc-600" aria-hidden="true" />
                   <span className="text-white font-semibold text-sm">{section.name}</span>
                 </div>
                 {deletingSectionId === section.id ? (

@@ -1,3 +1,5 @@
+const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ''
+
 export interface AdminUser {
   id: string
   email: string
@@ -20,8 +22,8 @@ interface RestaurantRow {
   id: string
 }
 
-export async function fetchRestaurantId(supabaseUrl: string, apiKey: string, token?: string): Promise<string> {
-  const headers = { apikey: apiKey, Authorization: `Bearer ${token ?? apiKey}` }
+export async function fetchRestaurantId(supabaseUrl: string, accessToken: string): Promise<string> {
+  const headers = { apikey: publishableKey, Authorization: `Bearer ${accessToken}` }
   const url = new URL(`${supabaseUrl}/rest/v1/restaurants`)
   url.searchParams.set('select', 'id')
   url.searchParams.set('limit', '1')
@@ -37,10 +39,9 @@ export async function fetchRestaurantId(supabaseUrl: string, apiKey: string, tok
 
 export async function fetchAdminUsers(
   supabaseUrl: string,
-  apiKey: string,
-  token?: string,
+  accessToken: string,
 ): Promise<AdminUser[]> {
-  const headers = { apikey: apiKey, Authorization: `Bearer ${token ?? apiKey}` }
+  const headers = { apikey: publishableKey, Authorization: `Bearer ${accessToken}` }
   const url = new URL(`${supabaseUrl}/rest/v1/users`)
   url.searchParams.set('select', 'id,email,name,role,is_active,created_at')
   url.searchParams.set('order', 'created_at.asc')

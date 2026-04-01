@@ -3,6 +3,8 @@
  * All calls use the anon/publishable key; no user JWT required.
  */
 
+const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ''
+
 export interface KdsOrderItem {
   id: string
   name: string
@@ -48,9 +50,9 @@ interface ModifierRow {
 
 export async function fetchKdsOrders(
   supabaseUrl: string,
-  apiKey: string,
+  accessToken: string,
 ): Promise<KdsOrder[]> {
-  const headers = { apikey: apiKey, Authorization: `Bearer ${apiKey}` }
+  const headers = { apikey: publishableKey, Authorization: `Bearer ${accessToken}` }
 
   // Fetch open orders that have NOT been marked done by the kitchen
   const ordersUrl = new URL(`${supabaseUrl}/rest/v1/orders`)
@@ -146,15 +148,15 @@ export async function fetchKdsOrders(
 
 export async function markOrderKitchenDone(
   supabaseUrl: string,
-  apiKey: string,
+  accessToken: string,
   orderId: string,
 ): Promise<void> {
   const res = await fetch(`${supabaseUrl}/functions/v1/mark-order-kitchen-done`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-      apikey: apiKey,
+      Authorization: `Bearer ${accessToken}`,
+      apikey: publishableKey,
     },
     body: JSON.stringify({ order_id: orderId }),
   })
@@ -175,14 +177,14 @@ interface KdsSettingsRow {
 
 export async function fetchKdsSettings(
   supabaseUrl: string,
-  apiKey: string,
+  accessToken: string,
 ): Promise<KdsSettings> {
   const url = new URL(`${supabaseUrl}/rest/v1/kds_settings`)
   url.searchParams.set('select', 'pin_enabled,pin,refresh_interval_seconds')
   url.searchParams.set('limit', '1')
 
   const res = await fetch(url.toString(), {
-    headers: { apikey: apiKey, Authorization: `Bearer ${apiKey}` },
+    headers: { apikey: publishableKey, Authorization: `Bearer ${accessToken}` },
   })
 
   if (!res.ok) {

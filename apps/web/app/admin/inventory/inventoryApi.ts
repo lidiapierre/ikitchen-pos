@@ -1,5 +1,7 @@
 // Inventory API — direct PostgREST calls (no new edge functions needed)
 
+const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ''
+
 export interface Ingredient {
   id: string
   restaurant_id: string
@@ -45,22 +47,22 @@ export interface MenuItem {
   price_cents: number
 }
 
-function buildHeaders(apiKey: string): Record<string, string> {
+function buildHeaders(accessToken: string): Record<string, string> {
   return {
     'Content-Type': 'application/json',
-    apikey: apiKey,
-    Authorization: `Bearer ${apiKey}`,
+    apikey: publishableKey,
+    Authorization: `Bearer ${accessToken}`,
   }
 }
 
 async function req<T>(
   url: string,
   method: string,
-  apiKey: string,
+  accessToken: string,
   body?: unknown,
   prefer?: string,
 ): Promise<T> {
-  const headers: Record<string, string> = buildHeaders(apiKey)
+  const headers: Record<string, string> = buildHeaders(accessToken)
   if (prefer) headers['Prefer'] = prefer
   const res = await fetch(url, {
     method,
@@ -79,16 +81,16 @@ async function req<T>(
 
 export async function fetchIngredients(
   supabaseUrl: string,
-  apiKey: string,
+  accessToken: string,
   restaurantId: string,
 ): Promise<Ingredient[]> {
   const url = `${supabaseUrl}/rest/v1/ingredients?restaurant_id=eq.${restaurantId}&order=name.asc`
-  return req<Ingredient[]>(url, 'GET', apiKey)
+  return req<Ingredient[]>(url, 'GET', accessToken)
 }
 
 export async function createIngredient(
   supabaseUrl: string,
-  apiKey: string,
+  accessToken: string,
   data: {
     restaurant_id: string
     name: string
@@ -99,35 +101,35 @@ export async function createIngredient(
   },
 ): Promise<Ingredient> {
   const url = `${supabaseUrl}/rest/v1/ingredients`
-  const rows = await req<Ingredient[]>(url, 'POST', apiKey, data, 'return=representation')
+  const rows = await req<Ingredient[]>(url, 'POST', accessToken, data, 'return=representation')
   if (!rows || rows.length === 0) throw new Error('No data returned from ingredient creation')
   return rows[0]
 }
 
 export async function updateIngredient(
   supabaseUrl: string,
-  apiKey: string,
+  accessToken: string,
   id: string,
   data: Partial<Omit<Ingredient, 'id' | 'restaurant_id' | 'created_at'>>,
 ): Promise<void> {
   const url = `${supabaseUrl}/rest/v1/ingredients?id=eq.${id}`
-  await req<void>(url, 'PATCH', apiKey, data)
+  await req<void>(url, 'PATCH', accessToken, data)
 }
 
 export async function deleteIngredient(
   supabaseUrl: string,
-  apiKey: string,
+  accessToken: string,
   id: string,
 ): Promise<void> {
   const url = `${supabaseUrl}/rest/v1/ingredients?id=eq.${id}`
-  await req<void>(url, 'DELETE', apiKey)
+  await req<void>(url, 'DELETE', accessToken)
 }
 
 // ── Recipe Items ───────────────────────────────────────────────────────────────
 
 export async function fetchRecipeItemsForMenuItem(
   supabaseUrl: string,
-  apiKey: string,
+  accessToken: string,
   menuItemId: string,
 ): Promise<RecipeItem[]> {
   const url = `${supabaseUrl}/rest/v1/recipe_items?menu_item_id=eq.${menuItemId}&select=id,menu_item_id,ingredient_id,quantity_used,ingredients(name,unit)`
@@ -139,7 +141,7 @@ export async function fetchRecipeItemsForMenuItem(
       quantity_used: number
       ingredients: { name: string; unit: string } | null
     }>
-  >(url, 'GET', apiKey)
+  >(url, 'GET', accessToken)
   return raw.map((r) => ({
     id: r.id,
     menu_item_id: r.menu_item_id,
@@ -152,7 +154,7 @@ export async function fetchRecipeItemsForMenuItem(
 
 export async function fetchAllRecipeItems(
   supabaseUrl: string,
-  apiKey: string,
+  accessToken: string,
 ): Promise<RecipeItem[]> {
   const url = `${supabaseUrl}/rest/v1/recipe_items?select=id,menu_item_id,ingredient_id,quantity_used,ingredients(name,unit,cost_per_unit)`
   const raw = await req<
@@ -163,7 +165,7 @@ export async function fetchAllRecipeItems(
       quantity_used: number
       ingredients: { name: string; unit: string; cost_per_unit: number | null } | null
     }>
-  >(url, 'GET', apiKey)
+  >(url, 'GET', accessToken)
   return raw.map((r) => ({
     id: r.id,
     menu_item_id: r.menu_item_id,
@@ -177,7 +179,7 @@ export async function fetchAllRecipeItems(
 
 export async function upsertRecipeItem(
   supabaseUrl: string,
-  apiKey: string,
+  accessToken: string,
   data: {
     menu_item_id: string
     ingredient_id: string
@@ -185,23 +187,23 @@ export async function upsertRecipeItem(
   },
 ): Promise<void> {
   const url = `${supabaseUrl}/rest/v1/recipe_items`
-  await req<void>(url, 'POST', apiKey, data, 'resolution=merge-duplicates,return=minimal')
+  await req<void>(url, 'POST', accessToken, data, 'resolution=merge-duplicates,return=minimal')
 }
 
 export async function deleteRecipeItem(
   supabaseUrl: string,
-  apiKey: string,
+  accessToken: string,
   id: string,
 ): Promise<void> {
   const url = `${supabaseUrl}/rest/v1/recipe_items?id=eq.${id}`
-  await req<void>(url, 'DELETE', apiKey)
+  await req<void>(url, 'DELETE', accessToken)
 }
 
 // ── Stock Adjustments ──────────────────────────────────────────────────────────
 
 export async function fetchStockAdjustments(
   supabaseUrl: string,
-  apiKey: string,
+  accessToken: string,
   restaurantId: string,
 ): Promise<StockAdjustment[]> {
   const url = `${supabaseUrl}/rest/v1/stock_adjustments?restaurant_id=eq.${restaurantId}&select=id,restaurant_id,ingredient_id,quantity_delta,reason,wastage_reason,created_by,created_at,ingredients(name,unit,cost_per_unit)&order=created_at.desc&limit=200`
@@ -217,7 +219,7 @@ export async function fetchStockAdjustments(
       created_at: string
       ingredients: { name: string; unit: string; cost_per_unit: number | null } | null
     }>
-  >(url, 'GET', apiKey)
+  >(url, 'GET', accessToken)
   return raw.map((r) => ({
     ...r,
     reason: r.reason as StockAdjustment['reason'],
@@ -230,7 +232,7 @@ export async function fetchStockAdjustments(
 
 export async function fetchWastageAdjustments(
   supabaseUrl: string,
-  apiKey: string,
+  accessToken: string,
   restaurantId: string,
   fromDate?: string,
   toDate?: string,
@@ -250,7 +252,7 @@ export async function fetchWastageAdjustments(
       created_at: string
       ingredients: { name: string; unit: string; cost_per_unit: number | null } | null
     }>
-  >(url, 'GET', apiKey)
+  >(url, 'GET', accessToken)
   return raw.map((r) => ({
     ...r,
     reason: r.reason as StockAdjustment['reason'],
@@ -263,7 +265,7 @@ export async function fetchWastageAdjustments(
 
 export async function createStockAdjustment(
   supabaseUrl: string,
-  apiKey: string,
+  accessToken: string,
   data: {
     restaurant_id: string
     ingredient_id: string
@@ -277,14 +279,14 @@ export async function createStockAdjustment(
   const { wastage_reason, ...rest } = data
   const payload: Record<string, unknown> = { ...rest }
   if (wastage_reason) payload.wastage_reason = wastage_reason
-  await req<void>(`${supabaseUrl}/rest/v1/stock_adjustments`, 'POST', apiKey, payload, 'return=minimal')
+  await req<void>(`${supabaseUrl}/rest/v1/stock_adjustments`, 'POST', accessToken, payload, 'return=minimal')
   // Atomically apply delta to current_stock via RPC.
   // decrement_ingredient_stock does: current_stock = current_stock - p_amount
   // So to apply quantity_delta (positive=add, negative=deduct) we pass p_amount = -quantity_delta
   await req<void>(
     `${supabaseUrl}/rest/v1/rpc/decrement_ingredient_stock`,
     'POST',
-    apiKey,
+    accessToken,
     { p_ingredient_id: data.ingredient_id, p_amount: -data.quantity_delta },
   )
 }
@@ -293,11 +295,11 @@ export async function createStockAdjustment(
 
 export async function fetchMenuItems(
   supabaseUrl: string,
-  apiKey: string,
+  accessToken: string,
   restaurantId: string,
 ): Promise<MenuItem[]> {
   // menu_items are linked via menus → restaurant_id; use embedded filter syntax
   const url = `${supabaseUrl}/rest/v1/menu_items?select=id,name,price_cents,menus!inner(restaurant_id)&menus.restaurant_id=eq.${restaurantId}&order=name.asc`
-  const raw = await req<Array<{ id: string; name: string; price_cents: number; menus?: unknown }>>(url, 'GET', apiKey)
+  const raw = await req<Array<{ id: string; name: string; price_cents: number; menus?: unknown }>>(url, 'GET', accessToken)
   return raw.map((r) => ({ id: r.id, name: r.name, price_cents: r.price_cents }))
 }

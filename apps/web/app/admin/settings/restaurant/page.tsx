@@ -14,6 +14,7 @@ import type { JSX } from 'react'
 import Link from 'next/link'
 import { callUpsertConfig } from '@/app/admin/pricing/pricingAdminApi'
 import { fetchConfigValue } from '@/app/admin/pricing/pricingAdminData'
+import { useUser } from '@/lib/user-context'
 
 type FeedbackType = 'success' | 'error'
 interface Feedback {
@@ -22,6 +23,7 @@ interface Feedback {
 }
 
 export default function RestaurantSettingsPage(): JSX.Element {
+  const { accessToken: _at } = useUser(); const accessToken = _at ?? ''
   const [loading, setLoading] = useState(true)
   const [restaurantId, setRestaurantId] = useState<string>('')
   const [fetchError, setFetchError] = useState<string | null>(null)
@@ -40,16 +42,15 @@ export default function RestaurantSettingsPage(): JSX.Element {
 
   useEffect(() => {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
-    if (!supabaseUrl || !supabaseKey) {
+    if (!supabaseUrl || !accessToken) {
       setFetchError('API not configured')
       setLoading(false)
       return
     }
-    supabaseConfig.current = { url: supabaseUrl, key: supabaseKey }
+    supabaseConfig.current = { url: supabaseUrl, key: accessToken }
 
     // Fetch restaurant id then load config keys
-    const headers = { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` }
+    const headers = { apikey: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? '', Authorization: `Bearer ${accessToken}` }
     fetch(`${supabaseUrl}/rest/v1/restaurants?select=id&limit=1`, { headers })
       .then((r) => r.json() as Promise<Array<{ id: string }>>)
       .then(async (rows) => {
@@ -57,10 +58,10 @@ export default function RestaurantSettingsPage(): JSX.Element {
         const rid = rows[0].id
         setRestaurantId(rid)
         const [nameVal, binVal, regVal, addrVal] = await Promise.all([
-          fetchConfigValue(supabaseUrl, supabaseKey, rid, 'restaurant_name', ''),
-          fetchConfigValue(supabaseUrl, supabaseKey, rid, 'bin_number', ''),
-          fetchConfigValue(supabaseUrl, supabaseKey, rid, 'register_name', ''),
-          fetchConfigValue(supabaseUrl, supabaseKey, rid, 'restaurant_address', ''),
+          fetchConfigValue(supabaseUrl, accessToken, rid, 'restaurant_name', ''),
+          fetchConfigValue(supabaseUrl, accessToken, rid, 'bin_number', ''),
+          fetchConfigValue(supabaseUrl, accessToken, rid, 'register_name', ''),
+          fetchConfigValue(supabaseUrl, accessToken, rid, 'restaurant_address', ''),
         ])
         setRestaurantName(nameVal)
         setBinNumber(binVal)

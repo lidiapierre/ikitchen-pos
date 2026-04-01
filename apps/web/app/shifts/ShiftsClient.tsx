@@ -176,7 +176,7 @@ export default function ShiftsClient(): JSX.Element {
 
       let revenue: ShiftRevenue = { orderCount: 0, totalCents: 0, cashCents: 0, cardCents: 0 }
       try {
-        revenue = await fetchShiftRevenue(startedAt, endedAt)
+        revenue = await fetchShiftRevenue(startedAt, endedAt, accessToken)
       } catch (err: unknown) {
         setError(`Revenue fetch failed: ${err instanceof Error ? err.message : 'unknown error'}`)
       }

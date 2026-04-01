@@ -217,8 +217,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
 
   function loadItems(): void {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
-    if (!supabaseUrl || !supabaseKey) {
+    if (!supabaseUrl || !accessToken) {
       setFetchError('API not configured')
       setLoading(false)
       return
@@ -226,7 +225,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
 
     setLoading(true)
     setFetchError(null)
-    fetchOrderItems(supabaseUrl, supabaseKey, orderId)
+    fetchOrderItems(supabaseUrl, accessToken, orderId)
       .then((data) => {
         setItems(data)
       })
@@ -240,13 +239,12 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
 
   function loadOrderStatus(): void {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
-    if (!supabaseUrl || !supabaseKey) {
+    if (!supabaseUrl || !accessToken) {
       setStatusLoading(false)
       return
     }
 
-    fetchOrderSummary(supabaseUrl, supabaseKey, orderId)
+    fetchOrderSummary(supabaseUrl, accessToken, orderId)
       .then((summary) => {
         if (summary.status === 'paid') {
           setOrderIsPaid(true)
@@ -268,27 +266,26 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
 
   function loadVatConfig(): void {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
-    if (!supabaseUrl || !supabaseKey) {
+    if (!supabaseUrl || !accessToken) {
       setVatConfigLoading(false)
       return
     }
 
     setVatConfigLoading(true)
-    fetchOrderVatContext(supabaseUrl, supabaseKey, orderId)
+    fetchOrderVatContext(supabaseUrl, accessToken, orderId)
       .then(({ restaurantId, menuId }) =>
         Promise.all([
-          fetchVatConfig(supabaseUrl, supabaseKey, restaurantId, menuId),
-          fetchServiceChargePercent(supabaseUrl, supabaseKey, restaurantId),
+          fetchVatConfig(supabaseUrl, accessToken, restaurantId, menuId),
+          fetchServiceChargePercent(supabaseUrl, accessToken, restaurantId),
           // Fetch restaurant name
           fetch(
             `${supabaseUrl}/rest/v1/restaurants?id=eq.${restaurantId}&select=name&limit=1`,
-            { headers: { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` } },
+            { headers: { apikey: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? '', Authorization: `Bearer ${accessToken}` } },
           ).then((r) => r.ok ? r.json() as Promise<Array<{ name: string }>> : Promise.resolve([])),
           // Fetch enhanced bill config keys in a single request
           fetch(
             `${supabaseUrl}/rest/v1/config?restaurant_id=eq.${restaurantId}&key=in.(bin_number,register_name,restaurant_address)&select=key,value`,
-            { headers: { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` } },
+            { headers: { apikey: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? '', Authorization: `Bearer ${accessToken}` } },
           ).then((r) => r.ok ? r.json() as Promise<Array<{ key: string; value: string }>> : Promise.resolve([])),
         ]),
       )
@@ -364,13 +361,12 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
 
   function loadCovers(): void {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
-    if (!supabaseUrl || !supabaseKey) return
+    if (!supabaseUrl || !accessToken) return
     const url = new URL(`${supabaseUrl}/rest/v1/orders`)
     url.searchParams.set('id', `eq.${orderId}`)
     url.searchParams.set('select', 'covers')
     void fetch(url.toString(), {
-      headers: { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` },
+      headers: { apikey: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? '', Authorization: `Bearer ${accessToken}` },
     })
       .then((r) => r.json())
       .then((rows: Array<{ covers: number | null }>) => {
@@ -388,13 +384,12 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
       return
     }
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
-    if (!supabaseUrl || !supabaseKey) return
+    if (!supabaseUrl || !accessToken) return
     const url = new URL(`${supabaseUrl}/rest/v1/tables`)
     url.searchParams.set('id', `eq.${tableId}`)
     url.searchParams.set('select', 'label')
     void fetch(url.toString(), {
-      headers: { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` },
+      headers: { apikey: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? '', Authorization: `Bearer ${accessToken}` },
     })
       .then((r) => r.json())
       .then((rows: Array<{ label: string }>) => {
@@ -492,7 +487,6 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
   // KOT: send kitchen ticket for unsent items, then navigate back to tables
   async function handleBackToTables(): Promise<void> {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
 
     // Empty order — just navigate back, keep the order open so the table stays occupied.
     // (Auto-cancel only happens on explicit "Close Order" — see handleCloseOrder)
@@ -503,7 +497,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
 
     const unsentItems = items.filter((item) => !item.sent_to_kitchen)
 
-    if (step === 'order' && unsentItems.length > 0 && supabaseUrl && supabaseKey) {
+    if (step === 'order' && unsentItems.length > 0 && supabaseUrl && accessToken) {
       const ts = new Date().toLocaleString()
       setKotTimestamp(ts)
       setKotPrintError(null)
@@ -569,7 +563,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
         // Browser print path: navigate immediately — no UI delay.
         // markItemsSentToKitchen is fire-and-forget; we don't await or roll back
         // since we're navigating away immediately.
-        markItemsSentToKitchen(supabaseUrl, supabaseKey, orderId, unsentItems.map((i) => i.id)).catch(() => {
+        markItemsSentToKitchen(supabaseUrl, accessToken, orderId, unsentItems.map((i) => i.id)).catch(() => {
           // Fire-and-forget: we've already navigated away so we can't show a toast.
           // If this call fails, the items will remain sent_to_kitchen: false in the DB.
           // The next time staff open this order, those items will reappear as unsent
@@ -580,7 +574,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
         // TCP/IP (network) print path: await DB confirmation before navigating.
         setKotStatus('Sending to kitchen…')
         try {
-          await markItemsSentToKitchen(supabaseUrl, supabaseKey, orderId, unsentItems.map((i) => i.id))
+          await markItemsSentToKitchen(supabaseUrl, accessToken, orderId, unsentItems.map((i) => i.id))
         } catch {
           // ── Rollback ──────────────────────────────────────────────
           setItems(kotSnapshot)
@@ -669,8 +663,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
   // Fire a specific course: print course KOT, then mark items as sent + fired
   async function handleFireCourse(course: CourseType): Promise<void> {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
-    if (!supabaseUrl || !supabaseKey || !accessToken) return
+    if (!supabaseUrl || !accessToken || !accessToken) return
 
     const courseItems = items.filter((i) => i.course === course && !i.sent_to_kitchen && !i.comp)
     if (courseItems.length === 0) return
@@ -1062,15 +1055,14 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
 
     try {
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
-      if (!supabaseUrl || !supabaseKey) throw new Error('API not configured')
+      if (!supabaseUrl || !accessToken) throw new Error('API not configured')
 
       // Fetch all tables
       const tablesUrl = new URL(`${supabaseUrl}/rest/v1/tables`)
       tablesUrl.searchParams.set('select', 'id,label')
       tablesUrl.searchParams.set('order', 'label')
       const tablesRes = await fetch(tablesUrl.toString(), {
-        headers: { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` },
+        headers: { apikey: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? '', Authorization: `Bearer ${accessToken}` },
       })
       if (!tablesRes.ok) throw new Error('Failed to fetch tables')
       const allTables = (await tablesRes.json()) as AvailableTable[]
@@ -1080,7 +1072,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
       ordersUrl.searchParams.set('select', 'table_id')
       ordersUrl.searchParams.set('status', 'eq.open')
       const ordersRes = await fetch(ordersUrl.toString(), {
-        headers: { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` },
+        headers: { apikey: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? '', Authorization: `Bearer ${accessToken}` },
       })
       if (!ordersRes.ok) throw new Error('Failed to fetch orders')
       const openOrders = (await ordersRes.json()) as Array<{ table_id: string | null }>
@@ -1195,11 +1187,10 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
     }
     customerLookupDebounceRef.current = setTimeout(() => {
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
-      if (!supabaseUrl || !supabaseKey) return
+      if (!supabaseUrl || !accessToken) return
       void fetch(
         `${supabaseUrl}/rest/v1/customers?mobile=eq.${encodeURIComponent(mobile.trim())}&select=visit_count,total_spend_cents&limit=1`,
-        { headers: { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` } },
+        { headers: { apikey: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? '', Authorization: `Bearer ${accessToken}` } },
       )
         .then((r) => r.ok ? r.json() as Promise<Array<CustomerLookup>> : Promise.resolve([]))
         .then((rows) => {
@@ -1229,13 +1220,12 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
       setSavingMobile(true)
       try {
         const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-        const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
-        if (supabaseUrl && supabaseKey) {
+        if (supabaseUrl && accessToken) {
           await fetch(`${supabaseUrl}/rest/v1/orders?id=eq.${orderId}`, {
             method: 'PATCH',
             headers: {
-              apikey: supabaseKey,
-              Authorization: `Bearer ${supabaseKey}`,
+              apikey: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? '',
+              Authorization: `Bearer ${accessToken}`,
               'Content-Type': 'application/json',
               Prefer: 'return=minimal',
             },

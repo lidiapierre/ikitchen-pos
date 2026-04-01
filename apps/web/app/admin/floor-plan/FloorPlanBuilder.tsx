@@ -264,7 +264,6 @@ export default function FloorPlanBuilder(): JSX.Element {
   // ── Load tables + config on mount ──────────────────────────────────────────
   useEffect(() => {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    
     if (!supabaseUrl) {
       setError('API not configured')
       setLoading(false)
@@ -272,12 +271,12 @@ export default function FloorPlanBuilder(): JSX.Element {
     }
     // Wait for auth to resolve — accessToken starts null
     if (!accessToken) return
-    supabaseConfig.current = { url: supabaseUrl, key: accessToken ?? "" }
+    supabaseConfig.current = { url: supabaseUrl, key: accessToken }
 
     Promise.all([
-      fetchTablePositions(supabaseUrl, accessToken ?? ""),
-      fetchRestaurantId(supabaseUrl, accessToken ?? ""),
-      fetchFloorPlanSections(supabaseUrl, accessToken ?? ""),
+      fetchTablePositions(supabaseUrl, accessToken),
+      fetchRestaurantId(supabaseUrl, accessToken),
+      fetchFloorPlanSections(supabaseUrl, accessToken),
     ])
       .then(async ([tableData, rid, secs]) => {
         setTables(tableData)
@@ -285,7 +284,7 @@ export default function FloorPlanBuilder(): JSX.Element {
         setRestaurantId(rid)
         setSections(secs)
         // Load grid size config — single batched request
-        const config = await fetchFloorPlanConfig(supabaseUrl, accessToken ?? "", rid, {
+        const config = await fetchFloorPlanConfig(supabaseUrl, accessToken, rid, {
           cols: DEFAULT_COLS,
           rows: DEFAULT_ROWS,
         })

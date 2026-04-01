@@ -29,7 +29,6 @@ export function generateId(): string {
   return `id-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
 }
 
-
 export default function MenuManager(): JSX.Element {
   const { accessToken: _at } = useUser(); const accessToken = _at ?? ''
   const [menus, setMenus] = useState<AdminMenu[]>([])
@@ -56,16 +55,15 @@ export default function MenuManager(): JSX.Element {
 
   useEffect(() => {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
-    if (!supabaseUrl || !supabaseKey) {
+    if (!supabaseUrl || !accessToken) {
       setFetchError('API not configured')
       setLoading(false)
       return
     }
     if (!accessToken) return
-    supabaseConfig.current = { url: supabaseUrl, key: supabaseKey }
+    supabaseConfig.current = { url: supabaseUrl, key: accessToken }
 
-    fetchMenuAdminData(supabaseUrl, supabaseKey, accessToken)
+    fetchMenuAdminData(supabaseUrl, accessToken)
       .then((data) => {
         setRestaurantId(data.restaurantId)
         setMenus(data.menus)

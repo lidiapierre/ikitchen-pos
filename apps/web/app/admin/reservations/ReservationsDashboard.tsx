@@ -414,7 +414,6 @@ function ActionButtons({ reservation, onSeatClick, onCancel, onNoShow, busy }: A
 export default function ReservationsDashboard(): JSX.Element {
   const { accessToken: _at } = useUser(); const accessToken = _at ?? ''
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
-  
 
   const [restaurantId, setRestaurantId] = useState<string | null>(null)
   const [reservations, setReservations] = useState<Reservation[]>([])

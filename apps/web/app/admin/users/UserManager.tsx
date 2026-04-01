@@ -90,8 +90,7 @@ export default function UserManager(): JSX.Element {
 
   useEffect(() => {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
-    if (!supabaseUrl || !supabaseKey) {
+    if (!supabaseUrl || !accessToken) {
       setFetchError('API not configured')
       setLoading(false)
       return
@@ -101,11 +100,11 @@ export default function UserManager(): JSX.Element {
     supabaseConfig.current = { url: supabaseUrl }
 
     // Identify caller's role for role-hierarchy enforcement in the UI
-    const supabaseClient = createBrowserClient(supabaseUrl, supabaseKey)
+    const supabaseClient = createBrowserClient(supabaseUrl, accessToken)
 
     Promise.all([
-      fetchRestaurantId(supabaseUrl, supabaseKey, accessToken),
-      fetchAdminUsers(supabaseUrl, supabaseKey, accessToken),
+      fetchRestaurantId(supabaseUrl, accessToken),
+      fetchAdminUsers(supabaseUrl, accessToken),
       getUserRole(supabaseClient),
     ])
       .then(([restaurantId, data, role]) => {

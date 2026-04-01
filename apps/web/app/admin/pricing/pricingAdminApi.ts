@@ -1,11 +1,13 @@
+const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ''
+
 function buildHeaders(
-  apiKey: string,
+  accessToken: string,
   extraHeaders?: Record<string, string>,
 ): Record<string, string> {
   return {
     'Content-Type': 'application/json',
-    apikey: apiKey,
-    Authorization: `Bearer ${apiKey}`,
+    apikey: publishableKey,
+    Authorization: `Bearer ${accessToken}`,
     ...extraHeaders,
   }
 }
@@ -13,13 +15,13 @@ function buildHeaders(
 async function postgrestRequest(
   url: string,
   method: string,
-  apiKey: string,
+  accessToken: string,
   body?: unknown,
   extraHeaders?: Record<string, string>,
 ): Promise<unknown> {
   const res = await fetch(url, {
     method,
-    headers: buildHeaders(apiKey, extraHeaders),
+    headers: buildHeaders(accessToken, extraHeaders),
     body: body !== undefined ? JSON.stringify(body) : undefined,
   })
   if (!res.ok) {
@@ -32,7 +34,7 @@ async function postgrestRequest(
 
 export async function callCreateVatRate(
   supabaseUrl: string,
-  apiKey: string,
+  accessToken: string,
   restaurantId: string,
   label: string,
   percentage: number,
@@ -41,7 +43,7 @@ export async function callCreateVatRate(
   const rows = (await postgrestRequest(
     `${supabaseUrl}/rest/v1/vat_rates`,
     'POST',
-    apiKey,
+    accessToken,
     { restaurant_id: restaurantId, label, percentage, menu_id: menuId },
     { Prefer: 'return=representation' },
   )) as Array<{ id: string }>
@@ -51,7 +53,7 @@ export async function callCreateVatRate(
 
 export async function callUpdateVatRate(
   supabaseUrl: string,
-  apiKey: string,
+  accessToken: string,
   vatRateId: string,
   label: string,
   percentage: number,
@@ -60,40 +62,40 @@ export async function callUpdateVatRate(
   await postgrestRequest(
     `${supabaseUrl}/rest/v1/vat_rates?id=eq.${vatRateId}`,
     'PATCH',
-    apiKey,
+    accessToken,
     { label, percentage, menu_id: menuId },
   )
 }
 
 export async function callDeleteVatRate(
   supabaseUrl: string,
-  apiKey: string,
+  accessToken: string,
   vatRateId: string,
 ): Promise<void> {
   await postgrestRequest(
     `${supabaseUrl}/rest/v1/vat_rates?id=eq.${vatRateId}`,
     'DELETE',
-    apiKey,
+    accessToken,
   )
 }
 
 export async function callUpdateItemPrice(
   supabaseUrl: string,
-  apiKey: string,
+  accessToken: string,
   menuItemId: string,
   priceCents: number,
 ): Promise<void> {
   await postgrestRequest(
     `${supabaseUrl}/rest/v1/menu_items?id=eq.${menuItemId}`,
     'PATCH',
-    apiKey,
+    accessToken,
     { price_cents: priceCents },
   )
 }
 
 export async function callUpsertConfig(
   supabaseUrl: string,
-  apiKey: string,
+  accessToken: string,
   restaurantId: string,
   key: string,
   value: string,
@@ -101,7 +103,7 @@ export async function callUpsertConfig(
   await postgrestRequest(
     `${supabaseUrl}/rest/v1/config?on_conflict=restaurant_id,key`,
     'POST',
-    apiKey,
+    accessToken,
     { restaurant_id: restaurantId, key, value },
     { Prefer: 'resolution=merge-duplicates' },
   )

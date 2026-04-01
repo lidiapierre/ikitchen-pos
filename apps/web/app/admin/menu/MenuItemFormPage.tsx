@@ -91,11 +91,10 @@ function validateForm(form: ItemFormValues): ItemFormErrors {
 
 async function fetchMenuItemById(
   supabaseUrl: string,
-  apiKey: string,
+  accessToken: string,
   itemId: string,
-  token?: string,
 ): Promise<MenuItemRow | null> {
-  const headers = { apikey: apiKey, Authorization: `Bearer ${token ?? apiKey}` }
+  const headers = { apikey: (process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ''), Authorization: `Bearer ${accessToken}` }
   const url = new URL(`${supabaseUrl}/rest/v1/menu_items`)
   url.searchParams.set('select', 'id,name,description,price_cents,image_url,menu_id,available,allergens,dietary_badges,spicy_level,modifiers(id,name,price_delta_cents)')
   url.searchParams.set('id', `eq.${itemId}`)
@@ -152,7 +151,7 @@ export default function MenuItemFormPage({ mode, itemId }: MenuItemFormPageProps
 
     if (mode === 'edit' && itemId) {
       fetches.push(
-        fetchMenuItemById(supabaseUrl, accessToken ?? '', itemId).then((item) => {
+        fetchMenuItemById(supabaseUrl, accessToken, itemId).then((item) => {
           if (!item) {
             setFetchError('Menu item not found')
             return

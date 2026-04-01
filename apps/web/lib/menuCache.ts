@@ -17,6 +17,8 @@ import type { MenuCategory, MenuItem } from '@/app/tables/[id]/order/[order_id]/
 // Constants
 // ---------------------------------------------------------------------------
 
+const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ''
+
 export const MENU_CACHE_TTL_MS = 5 * 60 * 1000 // 5 minutes
 const LS_KEY_PREFIX = 'ikitchen_menu_v1_'
 
@@ -91,7 +93,7 @@ function writeLS(restaurantId: string, entry: CacheEntry): void {
  */
 export async function fetchFreshAvailability(
   supabaseUrl: string,
-  apiKey: string,
+  accessToken: string,
   restaurantId: string,
 ): Promise<Map<string, boolean>> {
   const url = new URL(`${supabaseUrl}/rest/v1/menus`)
@@ -99,7 +101,7 @@ export async function fetchFreshAvailability(
   url.searchParams.set('select', 'menu_items(id,available)')
 
   const res = await fetch(url.toString(), {
-    headers: { apikey: apiKey, Authorization: `Bearer ${apiKey}` },
+    headers: { apikey: publishableKey, Authorization: `Bearer ${accessToken}` },
   })
 
   if (!res.ok) {
@@ -137,7 +139,7 @@ function applyAvailability(
 
 async function resolveRestaurantId(
   supabaseUrl: string,
-  apiKey: string,
+  accessToken: string,
   orderId: string,
 ): Promise<string> {
   // Use session-level cache for order→restaurant mapping
@@ -149,7 +151,7 @@ async function resolveRestaurantId(
   url.searchParams.set('select', 'restaurant_id')
 
   const res = await fetch(url.toString(), {
-    headers: { apikey: apiKey, Authorization: `Bearer ${apiKey}` },
+    headers: { apikey: publishableKey, Authorization: `Bearer ${accessToken}` },
   })
 
   if (!res.ok) {
@@ -187,7 +189,7 @@ interface MenuRow {
 
 async function fetchMenuFromNetwork(
   supabaseUrl: string,
-  apiKey: string,
+  accessToken: string,
   restaurantId: string,
 ): Promise<MenuCategory[]> {
   const url = new URL(`${supabaseUrl}/rest/v1/menus`)
@@ -198,7 +200,7 @@ async function fetchMenuFromNetwork(
   )
 
   const res = await fetch(url.toString(), {
-    headers: { apikey: apiKey, Authorization: `Bearer ${apiKey}` },
+    headers: { apikey: publishableKey, Authorization: `Bearer ${accessToken}` },
   })
 
   if (!res.ok) {
@@ -241,15 +243,15 @@ async function fetchMenuFromNetwork(
  *   overlays fresh availability.
  *
  * @param supabaseUrl   NEXT_PUBLIC_SUPABASE_URL
- * @param apiKey        NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+ * @param accessToken        NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
  * @param orderId       The active order UUID (used to resolve restaurant_id)
  */
 export async function fetchMenuCategoriesCached(
   supabaseUrl: string,
-  apiKey: string,
+  accessToken: string,
   orderId: string,
 ): Promise<MenuCategory[]> {
-  const restaurantId = await resolveRestaurantId(supabaseUrl, apiKey, orderId)
+  const restaurantId = await resolveRestaurantId(supabaseUrl, accessToken, orderId)
 
   // Check in-memory cache first, then localStorage
   let entry = memCache.get(restaurantId) ?? null
@@ -265,7 +267,7 @@ export async function fetchMenuCategoriesCached(
     categories = entry.categories
   } else {
     // Cache miss or stale: fetch from network and cache
-    categories = await fetchMenuFromNetwork(supabaseUrl, apiKey, restaurantId)
+    categories = await fetchMenuFromNetwork(supabaseUrl, accessToken, restaurantId)
     const newEntry: CacheEntry = { categories, cachedAt: Date.now() }
     memCache.set(restaurantId, newEntry)
     writeLS(restaurantId, newEntry)
@@ -273,7 +275,7 @@ export async function fetchMenuCategoriesCached(
 
   // Always overlay fresh availability — item availability (86'd status)
   // is NEVER served from cache
-  const availMap = await fetchFreshAvailability(supabaseUrl, apiKey, restaurantId)
+  const availMap = await fetchFreshAvailability(supabaseUrl, accessToken, restaurantId)
   return applyAvailability(categories, availMap)
 }
 

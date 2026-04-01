@@ -6,6 +6,8 @@
  * - vat_rates (menu-specific first, then restaurant default)
  */
 
+const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ''
+
 export interface VatConfig {
   /** VAT rate in percent (e.g. 15 for 15%). 0 means no VAT. */
   vatPercent: number
@@ -20,13 +22,13 @@ export interface VatConfig {
  */
 export async function fetchVatConfig(
   supabaseUrl: string,
-  apiKey: string,
+  accessToken: string,
   restaurantId: string,
   menuId?: string | null,
 ): Promise<VatConfig> {
   const headers = {
-    apikey: apiKey,
-    Authorization: `Bearer ${apiKey}`,
+    apikey: publishableKey,
+    Authorization: `Bearer ${accessToken}`,
   }
 
   // ── 1. Fetch tax_inclusive from config table ──────────────────────────────
@@ -92,12 +94,12 @@ export async function fetchVatConfig(
  */
 export async function fetchServiceChargePercent(
   supabaseUrl: string,
-  apiKey: string,
+  accessToken: string,
   restaurantId: string,
 ): Promise<number> {
   const headers = {
-    apikey: apiKey,
-    Authorization: `Bearer ${apiKey}`,
+    apikey: publishableKey,
+    Authorization: `Bearer ${accessToken}`,
   }
   try {
     const configUrl = new URL(`${supabaseUrl}/rest/v1/config`)
@@ -126,12 +128,12 @@ export async function fetchServiceChargePercent(
  */
 export async function fetchOrderVatContext(
   supabaseUrl: string,
-  apiKey: string,
+  accessToken: string,
   orderId: string,
 ): Promise<{ restaurantId: string; menuId: string | null }> {
   const headers = {
-    apikey: apiKey,
-    Authorization: `Bearer ${apiKey}`,
+    apikey: publishableKey,
+    Authorization: `Bearer ${accessToken}`,
   }
 
   // Fetch restaurant_id from orders

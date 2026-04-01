@@ -1,3 +1,5 @@
+const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ''
+
 export type CourseType = 'starter' | 'main' | 'dessert'
 export type CourseStatus = 'waiting' | 'fired' | 'served'
 
@@ -84,7 +86,7 @@ interface ModifierRow {
 
 export async function fetchOrderItems(
   supabaseUrl: string,
-  apiKey: string,
+  accessToken: string,
   orderId: string,
 ): Promise<OrderItem[]> {
   const url = new URL(`${supabaseUrl}/rest/v1/order_items`)
@@ -94,8 +96,8 @@ export async function fetchOrderItems(
 
   const res = await fetch(url.toString(), {
     headers: {
-      apikey: apiKey,
-      Authorization: `Bearer ${apiKey}`,
+      apikey: publishableKey,
+      Authorization: `Bearer ${accessToken}`,
     },
   })
 
@@ -119,8 +121,8 @@ export async function fetchOrderItems(
 
       const modRes = await fetch(modUrl.toString(), {
         headers: {
-          apikey: apiKey,
-          Authorization: `Bearer ${apiKey}`,
+          apikey: publishableKey,
+          Authorization: `Bearer ${accessToken}`,
         },
       })
 
@@ -146,8 +148,8 @@ export async function fetchOrderItems(
 
       const menuRes = await fetch(menuUrl.toString(), {
         headers: {
-          apikey: apiKey,
-          Authorization: `Bearer ${apiKey}`,
+          apikey: publishableKey,
+          Authorization: `Bearer ${accessToken}`,
         },
       })
 
@@ -191,12 +193,12 @@ export async function fetchOrderItems(
 
 export async function fetchOrderSummary(
   supabaseUrl: string,
-  apiKey: string,
+  accessToken: string,
   orderId: string,
 ): Promise<OrderSummary> {
   const headers = {
-    apikey: apiKey,
-    Authorization: `Bearer ${apiKey}`,
+    apikey: publishableKey,
+    Authorization: `Bearer ${accessToken}`,
   }
 
   const orderUrl = new URL(`${supabaseUrl}/rest/v1/orders`)

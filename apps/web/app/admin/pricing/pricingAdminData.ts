@@ -1,3 +1,5 @@
+const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ''
+
 export interface VatRate {
   id: string
   restaurant_id: string
@@ -56,8 +58,8 @@ interface RestaurantRow {
   id: string
 }
 
-async function fetchRestaurantId(supabaseUrl: string, apiKey: string): Promise<string> {
-  const headers = { apikey: apiKey, Authorization: `Bearer ${apiKey}` }
+async function fetchRestaurantId(supabaseUrl: string, accessToken: string): Promise<string> {
+  const headers = { apikey: publishableKey, Authorization: `Bearer ${accessToken}` }
   const url = new URL(`${supabaseUrl}/rest/v1/restaurants`)
   url.searchParams.set('select', 'id')
   url.searchParams.set('limit', '1')
@@ -73,10 +75,10 @@ async function fetchRestaurantId(supabaseUrl: string, apiKey: string): Promise<s
 
 async function fetchVatRates(
   supabaseUrl: string,
-  apiKey: string,
+  accessToken: string,
   restaurantId: string,
 ): Promise<VatRate[]> {
-  const headers = { apikey: apiKey, Authorization: `Bearer ${apiKey}` }
+  const headers = { apikey: publishableKey, Authorization: `Bearer ${accessToken}` }
   const url = new URL(`${supabaseUrl}/rest/v1/vat_rates`)
   url.searchParams.set('select', 'id,restaurant_id,label,percentage,menu_id')
   url.searchParams.set('restaurant_id', `eq.${restaurantId}`)
@@ -97,9 +99,9 @@ async function fetchVatRates(
 
 async function fetchCategories(
   supabaseUrl: string,
-  apiKey: string,
+  accessToken: string,
 ): Promise<PricingCategory[]> {
-  const headers = { apikey: apiKey, Authorization: `Bearer ${apiKey}` }
+  const headers = { apikey: publishableKey, Authorization: `Bearer ${accessToken}` }
   const url = new URL(`${supabaseUrl}/rest/v1/menus`)
   url.searchParams.set('select', 'id,name,menu_items(id,name,price_cents)')
   const res = await fetch(url.toString(), { headers })
@@ -121,10 +123,10 @@ async function fetchCategories(
 
 async function fetchTaxInclusive(
   supabaseUrl: string,
-  apiKey: string,
+  accessToken: string,
   restaurantId: string,
 ): Promise<boolean> {
-  const headers = { apikey: apiKey, Authorization: `Bearer ${apiKey}` }
+  const headers = { apikey: publishableKey, Authorization: `Bearer ${accessToken}` }
   const url = new URL(`${supabaseUrl}/rest/v1/config`)
   url.searchParams.set('select', 'key,value')
   url.searchParams.set('restaurant_id', `eq.${restaurantId}`)
@@ -141,12 +143,12 @@ async function fetchTaxInclusive(
 
 export async function fetchConfigValue(
   supabaseUrl: string,
-  apiKey: string,
+  accessToken: string,
   restaurantId: string,
   key: string,
   fallback: string,
 ): Promise<string> {
-  const headers = { apikey: apiKey, Authorization: `Bearer ${apiKey}` }
+  const headers = { apikey: publishableKey, Authorization: `Bearer ${accessToken}` }
   const url = new URL(`${supabaseUrl}/rest/v1/config`)
   url.searchParams.set('select', 'key,value')
   url.searchParams.set('restaurant_id', `eq.${restaurantId}`)
@@ -161,15 +163,15 @@ export async function fetchConfigValue(
 
 export async function fetchPricingAdminData(
   supabaseUrl: string,
-  apiKey: string,
+  accessToken: string,
 ): Promise<PricingAdminData> {
-  const restaurantId = await fetchRestaurantId(supabaseUrl, apiKey)
+  const restaurantId = await fetchRestaurantId(supabaseUrl, accessToken)
   const [vatRates, categories, taxInclusive, currencyCode, currencySymbol] = await Promise.all([
-    fetchVatRates(supabaseUrl, apiKey, restaurantId),
-    fetchCategories(supabaseUrl, apiKey),
-    fetchTaxInclusive(supabaseUrl, apiKey, restaurantId),
-    fetchConfigValue(supabaseUrl, apiKey, restaurantId, 'currency_code', 'BDT'),
-    fetchConfigValue(supabaseUrl, apiKey, restaurantId, 'currency_symbol', '৳'),
+    fetchVatRates(supabaseUrl, accessToken, restaurantId),
+    fetchCategories(supabaseUrl, accessToken),
+    fetchTaxInclusive(supabaseUrl, accessToken, restaurantId),
+    fetchConfigValue(supabaseUrl, accessToken, restaurantId, 'currency_code', 'BDT'),
+    fetchConfigValue(supabaseUrl, accessToken, restaurantId, 'currency_symbol', '৳'),
   ])
   return { restaurantId, vatRates, categories, taxInclusive, currencyCode, currencySymbol }
 }

@@ -11,9 +11,9 @@ type PaymentRow = {
   amount_cents: number
 }
 
-export async function fetchShiftRevenue(openedAt: string, closedAt: string): Promise<ShiftRevenue> {
+export async function fetchShiftRevenue(openedAt: string, closedAt: string, accessToken?: string): Promise<ShiftRevenue> {
   const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+  const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ''
   const url =
     `${baseUrl}/rest/v1/payments` +
     `?select=order_id,method,amount_cents,orders!inner(status)` +
@@ -22,9 +22,9 @@ export async function fetchShiftRevenue(openedAt: string, closedAt: string): Pro
     `&created_at=lte.${encodeURIComponent(closedAt)}`
 
   const headers: Record<string, string> = {}
-  if (anonKey) {
-    headers['apikey'] = anonKey
-    headers['Authorization'] = `Bearer ${anonKey}`
+  if (publishableKey) {
+    headers['apikey'] = publishableKey
+    headers['Authorization'] = `Bearer ${accessToken ?? publishableKey}`
   }
 
   const res = await fetch(url, { headers })

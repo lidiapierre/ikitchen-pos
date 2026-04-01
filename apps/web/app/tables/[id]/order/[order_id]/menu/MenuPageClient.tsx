@@ -37,14 +37,13 @@ export default function MenuPageClient({ tableId, orderId }: MenuPageClientProps
 
   useEffect(() => {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
-    if (!supabaseUrl || !supabaseKey) {
+    if (!supabaseUrl || !accessToken) {
       setFetchError('API not configured')
       setLoading(false)
       return
     }
 
-    fetchMenuCategoriesCached(supabaseUrl, supabaseKey, orderId)
+    fetchMenuCategoriesCached(supabaseUrl, accessToken, orderId)
       .then((data) => {
         setCategories(data)
       })

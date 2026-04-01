@@ -1,3 +1,5 @@
+const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ''
+
 export interface AdminRestaurant {
   id: string
   name: string
@@ -21,17 +23,12 @@ interface UserRow {
   role: string
 }
 
-/**
- * Fetches all restaurants with their owner email.
- * Uses the publishable (anon) key — RLS allows authenticated reads on both tables.
- */
 export async function fetchAdminRestaurants(
   supabaseUrl: string,
-  apiKey: string,
+  accessToken: string,
 ): Promise<AdminRestaurant[]> {
-  const headers = { apikey: apiKey, Authorization: `Bearer ${apiKey}` }
+  const headers = { apikey: publishableKey, Authorization: `Bearer ${accessToken}` }
 
-  // Fetch all restaurants
   const restUrl = new URL(`${supabaseUrl}/rest/v1/restaurants`)
   restUrl.searchParams.set('select', 'id,name,slug,timezone,created_at')
   restUrl.searchParams.set('order', 'created_at.asc')
@@ -45,7 +42,6 @@ export async function fetchAdminRestaurants(
 
   if (restaurants.length === 0) return []
 
-  // Fetch owners (role = 'owner') for these restaurants
   const ids = restaurants.map((r) => r.id)
   const usersUrl = new URL(`${supabaseUrl}/rest/v1/users`)
   usersUrl.searchParams.set('select', 'restaurant_id,email,role')
@@ -73,19 +69,14 @@ export async function fetchAdminRestaurants(
   }))
 }
 
-/**
- * Checks whether the current user is a super-admin.
- */
 export async function fetchIsSuperAdmin(
   supabaseUrl: string,
-  apiKey: string,
   accessToken: string,
 ): Promise<boolean> {
-  const headers = { apikey: apiKey, Authorization: `Bearer ${accessToken}` }
+  const headers = { apikey: publishableKey, Authorization: `Bearer ${accessToken}` }
 
-  // Get the current user ID from the session
   const userRes = await fetch(`${supabaseUrl}/auth/v1/user`, {
-    headers: { apikey: apiKey, Authorization: `Bearer ${accessToken}` },
+    headers: { apikey: publishableKey, Authorization: `Bearer ${accessToken}` },
   })
   if (!userRes.ok) return false
   const user = (await userRes.json()) as { id?: string }

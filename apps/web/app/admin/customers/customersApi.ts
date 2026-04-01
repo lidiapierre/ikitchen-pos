@@ -1,3 +1,5 @@
+const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ''
+
 export interface Customer {
   id: string
   restaurant_id: string
@@ -22,7 +24,7 @@ export interface CustomerOrder {
 
 export async function fetchCustomers(
   supabaseUrl: string,
-  supabaseKey: string,
+  accessToken: string,
   restaurantId: string,
   search: string = '',
 ): Promise<Customer[]> {
@@ -32,7 +34,7 @@ export async function fetchCustomers(
     url += `&or=(mobile.ilike.${s},name.ilike.${s})`
   }
   const res = await fetch(url, {
-    headers: { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` },
+    headers: { apikey: publishableKey, Authorization: `Bearer ${accessToken}` },
   })
   if (!res.ok) throw new Error('Failed to fetch customers')
   return res.json() as Promise<Customer[]>
@@ -40,13 +42,13 @@ export async function fetchCustomers(
 
 export async function fetchCustomerOrders(
   supabaseUrl: string,
-  supabaseKey: string,
+  accessToken: string,
   restaurantId: string,
   mobile: string,
 ): Promise<CustomerOrder[]> {
   const url = `${supabaseUrl}/rest/v1/orders?restaurant_id=eq.${encodeURIComponent(restaurantId)}&customer_mobile=eq.${encodeURIComponent(mobile)}&status=in.(paid,pending_payment)&order=created_at.desc&select=id,created_at,status,final_total_cents,bill_number,order_type,table_id`
   const res = await fetch(url, {
-    headers: { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` },
+    headers: { apikey: publishableKey, Authorization: `Bearer ${accessToken}` },
   })
   if (!res.ok) throw new Error('Failed to fetch customer orders')
   return res.json() as Promise<CustomerOrder[]>
@@ -54,7 +56,6 @@ export async function fetchCustomerOrders(
 
 export async function updateCustomer(
   supabaseUrl: string,
-  supabaseKey: string,
   accessToken: string,
   customerId: string,
   data: { name?: string; notes?: string },
@@ -64,7 +65,7 @@ export async function updateCustomer(
     {
       method: 'PATCH',
       headers: {
-        apikey: supabaseKey,
+        apikey: publishableKey,
         Authorization: `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
         Prefer: 'return=minimal',

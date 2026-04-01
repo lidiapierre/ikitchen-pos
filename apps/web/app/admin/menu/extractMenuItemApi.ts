@@ -11,7 +11,7 @@ export async function callExtractMenuItem(
   fileData: string,
   mediaType: string,
 ): Promise<ExtractedMenuItem> {
-  const apiKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ''
+  const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ''
   const url = `${supabaseUrl}/functions/v1/extract_menu_item`
   const res = await fetch(url, {
     method: 'POST',
@@ -31,7 +31,7 @@ export async function callExtractMenuItem(
 
 export async function uploadMenuFile(
   supabaseUrl: string,
-  apiKey: string,
+  accessToken: string,
   file: File,
 ): Promise<string> {
   const ext = file.name.split('.').pop() ?? 'bin'
@@ -41,7 +41,7 @@ export async function uploadMenuFile(
   const res = await fetch(uploadUrl, {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${apiKey}`,
+      Authorization: `Bearer ${accessToken}`,
       'Content-Type': file.type,
     },
     body: file,

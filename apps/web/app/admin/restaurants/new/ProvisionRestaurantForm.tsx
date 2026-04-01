@@ -92,10 +92,9 @@ export default function ProvisionRestaurantForm({ variant = 'admin' }: Provision
     if (variant === 'public') return
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
-    if (!supabaseUrl || !supabaseKey || !accessToken) return
+        if (!supabaseUrl || !accessToken) return
 
-    fetchIsSuperAdmin(supabaseUrl, supabaseKey, accessToken)
+    fetchIsSuperAdmin(supabaseUrl, accessToken)
       .then((val) => setIsSuperAdmin(val))
       .catch(() => setIsSuperAdmin(false))
   }, [accessToken, variant])

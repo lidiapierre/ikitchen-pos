@@ -9,8 +9,17 @@ import type { TableRow } from '../tablesData'
 import { getTableStatus, STATUS_CONFIG } from '../tableStatus'
 import { callCreateOrder } from './createOrderApi'
 
+interface SectionInfo {
+  id: string
+  name: string
+  grid_cols: number
+  grid_rows: number
+  sort_order: number
+  assigned_server_name: string | null
+}
+
 interface Props {
-  tables: TableRow[]        // all dine-in tables (placed + unplaced)
+  tables: TableRow[]
 }
 
 const DEFAULT_COLS = 24
@@ -30,41 +39,80 @@ export default function FloorPlanView({ tables }: Props): JSX.Element {
   const [tappingTableId, setTappingTableId] = useState<string | null>(null)
   const [tapError, setTapError] = useState<string | null>(null)
 
-  // Fetch grid dimensions on mount
+  const [sections, setSections] = useState<SectionInfo[]>([])
+  const [selectedSectionId, setSelectedSectionId] = useState<string | null>(null)
+  const [myTablesOnly, setMyTablesOnly] = useState(false)
+
+  // Fetch grid dimensions and sections on mount
   const fetchConfig = useCallback(async (signal: AbortSignal): Promise<void> => {
     try {
-      // Step 1: get restaurant id
       const { data: restRows } = await supabase
         .from('restaurants')
         .select('id')
         .limit(1)
         .abortSignal(signal)
       const restId = restRows?.[0]?.id ?? ''
-
       if (!restId || signal.aborted) return
 
-      // Step 2: fetch both config keys in a single query
-      const { data: configRows } = await supabase
-        .from('config')
-        .select('key,value')
-        .eq('restaurant_id', restId)
-        .in('key', ['floor_plan_cols', 'floor_plan_rows'])
-        .abortSignal(signal)
+      // Fetch grid config and sections in parallel
+      const [configResult, sectionsResult] = await Promise.all([
+        supabase
+          .from('config')
+          .select('key,value')
+          .eq('restaurant_id', restId)
+          .in('key', ['floor_plan_cols', 'floor_plan_rows'])
+          .abortSignal(signal),
+        supabase
+          .from('sections')
+          .select('id,name,grid_cols,grid_rows,sort_order,assigned_server_id')
+          .order('sort_order', { ascending: true })
+          .order('name', { ascending: true })
+          .abortSignal(signal),
+      ])
 
       if (signal.aborted) return
 
-      for (const row of configRows ?? []) {
+      for (const row of configResult.data ?? []) {
         const parsed = parseInt(row.value, 10)
         if (isNaN(parsed)) continue
         if (row.key === 'floor_plan_cols') setCols(clamp(parsed, 8, 50))
         if (row.key === 'floor_plan_rows') setRows(clamp(parsed, 4, 30))
       }
+
+      // Resolve server names for sections
+      const rawSections = sectionsResult.data ?? []
+      const serverIds = [...new Set(rawSections.map((s: { assigned_server_id: string | null }) => s.assigned_server_id).filter(Boolean))] as string[]
+      const serverNameMap = new Map<string, string>()
+
+      if (serverIds.length > 0) {
+        const { data: users } = await supabase
+          .from('users')
+          .select('id,name,email')
+          .in('id', serverIds)
+          .abortSignal(signal)
+        if (!signal.aborted) {
+          for (const u of users ?? []) {
+            serverNameMap.set(u.id, u.name ?? u.email)
+          }
+        }
+      }
+
+      if (!signal.aborted) {
+        setSections(rawSections.map((s: { id: string; name: string; grid_cols: number; grid_rows: number; sort_order: number; assigned_server_id: string | null }) => ({
+          id: s.id,
+          name: s.name,
+          grid_cols: s.grid_cols,
+          grid_rows: s.grid_rows,
+          sort_order: s.sort_order,
+          assigned_server_name: s.assigned_server_id ? serverNameMap.get(s.assigned_server_id) ?? null : null,
+        })))
+      }
     } catch {
-      // use defaults on any error (includes AbortError)
+      // use defaults on any error
     } finally {
       if (!signal.aborted) setConfigLoading(false)
     }
-  }, [])  // no deps — supabase client is a module-level singleton
+  }, [])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -72,16 +120,34 @@ export default function FloorPlanView({ tables }: Props): JSX.Element {
     return () => { controller.abort() }
   }, [fetchConfig])
 
+  // Determine which tables and grid dims to show
+  const activeSection = selectedSectionId ? sections.find((s) => s.id === selectedSectionId) ?? null : null
+  const displayCols = activeSection ? activeSection.grid_cols : cols
+  const displayRows = activeSection ? activeSection.grid_rows : rows
+
+  const filteredTables = useMemo(() => {
+    let result = tables
+    if (selectedSectionId) {
+      result = result.filter((t) => t.section_id === selectedSectionId)
+    }
+    if (myTablesOnly) {
+      // Filter to tables in sections assigned to current user's server name
+      // (uses section-level assigned_server_name from tables data)
+      result = result.filter((t) => t.assigned_server_name !== null)
+    }
+    return result
+  }, [tables, selectedSectionId, myTablesOnly])
+
   // Build a lookup map: "x-y" → TableRow
   const tableMap = useMemo(() => {
     const map = new Map<string, TableRow>()
-    for (const table of tables) {
+    for (const table of filteredTables) {
       if (table.grid_x !== null && table.grid_y !== null) {
         map.set(`${table.grid_x}-${table.grid_y}`, table)
       }
     }
     return map
-  }, [tables])
+  }, [filteredTables])
 
   async function handleTableTap(table: TableRow): Promise<void> {
     setTapError(null)
@@ -111,9 +177,61 @@ export default function FloorPlanView({ tables }: Props): JSX.Element {
     )
   }
 
+  // Section tabs bar
+  const sectionTabs = sections.length > 0 ? (
+    <div className="flex gap-2 overflow-x-auto pb-2 mb-3 scrollbar-thin">
+      <button
+        type="button"
+        onClick={() => setSelectedSectionId(null)}
+        className={[
+          'flex-shrink-0 min-h-[40px] px-4 rounded-xl text-sm font-medium transition-colors border',
+          selectedSectionId === null
+            ? 'bg-indigo-600 text-white border-indigo-500'
+            : 'bg-zinc-800 text-zinc-300 border-zinc-700 hover:bg-zinc-700',
+        ].join(' ')}
+      >
+        All
+      </button>
+      {sections.map((section) => {
+        const isActive = selectedSectionId === section.id
+        return (
+          <button
+            key={section.id}
+            type="button"
+            onClick={() => setSelectedSectionId(isActive ? null : section.id)}
+            className={[
+              'flex-shrink-0 min-h-[40px] px-4 rounded-xl text-sm font-medium transition-colors border',
+              isActive
+                ? 'bg-indigo-600 text-white border-indigo-500'
+                : 'bg-zinc-800 text-zinc-300 border-zinc-700 hover:bg-zinc-700',
+            ].join(' ')}
+          >
+            {section.name}
+            {section.assigned_server_name && (
+              <span className="ml-1.5 text-xs opacity-70">• {section.assigned_server_name}</span>
+            )}
+          </button>
+        )
+      })}
+      <button
+        type="button"
+        onClick={() => setMyTablesOnly(!myTablesOnly)}
+        className={[
+          'flex-shrink-0 min-h-[40px] px-4 rounded-xl text-sm font-medium transition-colors border ml-auto',
+          myTablesOnly
+            ? 'bg-amber-600 text-white border-amber-500'
+            : 'bg-zinc-800 text-zinc-300 border-zinc-700 hover:bg-zinc-700',
+        ].join(' ')}
+      >
+        My Tables
+      </button>
+    </div>
+  ) : null
+
+  // Grid cells
   const cells: JSX.Element[] = []
-  for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < cols; c++) {
+  for (let r = 0; r < displayRows; r++) {
+    for (let c = 0; c < displayCols; c++) {
       const table = tableMap.get(`${c}-${r}`)
       if (!table) {
         cells.push(
@@ -128,7 +246,6 @@ export default function FloorPlanView({ tables }: Props): JSX.Element {
         const isLoading = tappingTableId === table.id
 
         cells.push(
-          // Wrapper gives the cell its square dimensions; button fills it with inset padding
           <div key={table.id} className="aspect-square p-[3px] min-w-12">
             <button
               type="button"
@@ -157,17 +274,29 @@ export default function FloorPlanView({ tables }: Props): JSX.Element {
 
   return (
     <div>
+      {sectionTabs}
+
+      {/* Section header when filtered */}
+      {activeSection && (
+        <div className="flex items-center gap-3 mb-3">
+          <h2 className="text-lg font-bold text-white">{activeSection.name}</h2>
+          {activeSection.assigned_server_name && (
+            <span className="text-sm bg-indigo-600/30 text-indigo-300 border border-indigo-700 rounded-full px-2.5 py-0.5">
+              {activeSection.assigned_server_name}
+            </span>
+          )}
+          <span className="text-xs text-zinc-500">{activeSection.grid_cols}×{activeSection.grid_rows}</span>
+        </div>
+      )}
+
       {tapError !== null && (
         <p className="text-red-400 text-sm mb-3">{tapError}</p>
       )}
-      {/* overflow-x-auto: if cols×min-cell-width (cols×48px) exceeds the container,
-          the grid scrolls horizontally rather than shrinking cells below 48px touch targets.
-          gridTemplateColumns inline style is required — Tailwind cannot generate arbitrary
-          repeat() values at runtime. */}
+
       <div className="overflow-x-auto">
         <div
           className="grid"
-          style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}
+          style={{ gridTemplateColumns: `repeat(${displayCols}, 1fr)` }}
         >
           {cells}
         </div>

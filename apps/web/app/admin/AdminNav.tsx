@@ -7,8 +7,6 @@ import {
   LayoutDashboard,
   Map,
   UtensilsCrossed,
-  LayoutGrid,
-  Columns3,
   DollarSign,
   Users,
   Package,
@@ -39,8 +37,6 @@ const NAV_SECTIONS: NavSection[] = [
     links: [
       { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
       { href: '/admin/menu', label: 'Menu', icon: UtensilsCrossed },
-      { href: '/admin/tables', label: 'Tables', icon: LayoutGrid },
-      { href: '/admin/sections', label: 'Sections', icon: Columns3 },
       { href: '/admin/floor-plan', label: 'Floor Plan', icon: Map },
       { href: '/admin/pricing', label: 'Pricing', icon: DollarSign },
       { href: '/admin/users', label: 'Users', icon: Users },

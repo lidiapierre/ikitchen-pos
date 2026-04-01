@@ -78,7 +78,7 @@ export async function fetchStaffUsers(
       Authorization: `Bearer ${accessToken}`,
     },
   })
-  if (!res.ok) return []
+  if (!res.ok) throw new Error('Failed to fetch staff users')
   return (await res.json()) as StaffUser[]
 }
 

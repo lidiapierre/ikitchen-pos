@@ -284,6 +284,9 @@ export default function TablesPage(): JSX.Element {
                   const sectionEntries = [...sectionGroups.entries()].sort((a, b) => {
                     if (a[0] === null && b[0] !== null) return 1
                     if (a[0] !== null && b[0] === null) return -1
+                    const sortA = a[1][0]?.section_sort_order ?? 0
+                    const sortB = b[1][0]?.section_sort_order ?? 0
+                    if (sortA !== sortB) return sortA - sortB
                     const nameA = a[1][0]?.section_name ?? ''
                     const nameB = b[1][0]?.section_name ?? ''
                     return nameA.localeCompare(nameB)

@@ -2,7 +2,7 @@ import { verifyAndGetCaller } from '../_shared/auth.ts'
 
 export const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-demo-staff-id',
   'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
 }
 
@@ -35,7 +35,7 @@ export async function handler(
   env: HandlerEnv | null = readEnv(),
 ): Promise<Response> {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { status: 200, headers: corsHeaders })
+    return new Response(null, { status: 204, headers: corsHeaders })
   }
   if (req.method === 'GET' && new URL(req.url).pathname.endsWith('/health')) {
     return jsonRes({ ok: true, function: 'assign_table_section' }, 200)
@@ -73,12 +73,35 @@ export async function handler(
   }
 
   try {
+    // Look up caller's restaurant_id
+    const userRes = await fetchFn(
+      `${supabaseUrl}/rest/v1/users?select=restaurant_id&id=eq.${encodeURIComponent(caller.actorId)}&limit=1`,
+      { headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` } },
+    )
+    if (!userRes.ok) return jsonRes({ success: false, error: 'Failed to fetch user' }, 500)
+    const users = (await userRes.json()) as Array<{ restaurant_id: string }>
+    if (users.length === 0) return jsonRes({ success: false, error: 'User not found' }, 404)
+    const callerRestaurantId = users[0].restaurant_id
+
+    // If section_id is non-null, verify section belongs to caller's restaurant
+    if (sectionId) {
+      const secRes = await fetchFn(
+        `${supabaseUrl}/rest/v1/sections?select=id&id=eq.${encodeURIComponent(sectionId)}&restaurant_id=eq.${encodeURIComponent(callerRestaurantId)}&limit=1`,
+        { headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` } },
+      )
+      if (!secRes.ok) return jsonRes({ success: false, error: 'Failed to verify section' }, 500)
+      const sections = (await secRes.json()) as Array<{ id: string }>
+      if (sections.length === 0) return jsonRes({ success: false, error: 'Section not found or access denied' }, 404)
+    }
+
+    // Update table — scoped to caller's restaurant
     const res = await fetchFn(
-      `${supabaseUrl}/rest/v1/tables?id=eq.${encodeURIComponent(tableId)}`,
+      `${supabaseUrl}/rest/v1/tables?id=eq.${encodeURIComponent(tableId)}&restaurant_id=eq.${encodeURIComponent(callerRestaurantId)}`,
       { method: 'PATCH', headers: dbHeaders, body: JSON.stringify({ section_id: sectionId }) },
     )
     if (!res.ok) return jsonRes({ success: false, error: 'Failed to assign table to section' }, 500)
     const rows = (await res.json()) as Array<Record<string, unknown>>
+    if (rows.length === 0) return jsonRes({ success: false, error: 'Table not found or access denied' }, 404)
     return jsonRes({ success: true, data: rows[0] ?? null }, 200)
   } catch {
     return jsonRes({ success: false, error: 'Internal server error' }, 500)

@@ -13,6 +13,8 @@ export interface TableRow {
   section_id: string | null
   section_name: string | null
   assigned_server_name: string | null
+  /** Section sort_order for ordering in card grid view */
+  section_sort_order: number | null
 }
 
 export interface TakeawayDeliveryOrder {
@@ -37,6 +39,7 @@ interface SectionApiRow {
   id: string
   name: string
   assigned_server_id: string | null
+  sort_order: number
 }
 
 interface UserApiRow {
@@ -98,18 +101,18 @@ export async function fetchTables(
 
   // Fetch sections for section names + assigned server info
   const sectionIds = [...new Set(tables.map(t => t.section_id).filter(Boolean))] as string[]
-  const sectionMap = new Map<string, { name: string; assigned_server_id: string | null }>()
+  const sectionMap = new Map<string, { name: string; assigned_server_id: string | null; sort_order: number }>()
   const serverNameMap = new Map<string, string>()
 
   if (sectionIds.length > 0) {
     const sectionsUrl = new URL(`${supabaseUrl}/rest/v1/sections`)
-    sectionsUrl.searchParams.set('select', 'id,name,assigned_server_id')
+    sectionsUrl.searchParams.set('select', 'id,name,assigned_server_id,sort_order')
     sectionsUrl.searchParams.set('id', `in.(${sectionIds.join(',')})`)
     const sectionsRes = await fetch(sectionsUrl.toString(), { headers })
     if (sectionsRes.ok) {
       const secs = (await sectionsRes.json()) as SectionApiRow[]
       for (const s of secs) {
-        sectionMap.set(s.id, { name: s.name, assigned_server_id: s.assigned_server_id })
+        sectionMap.set(s.id, { name: s.name, assigned_server_id: s.assigned_server_id, sort_order: s.sort_order })
       }
       const serverIds = [...new Set(secs.map(s => s.assigned_server_id).filter(Boolean))] as string[]
       if (serverIds.length > 0) {
@@ -171,6 +174,7 @@ export async function fetchTables(
       section_id: table.section_id ?? null,
       section_name: sec?.name ?? null,
       assigned_server_name: serverName,
+      section_sort_order: sec?.sort_order ?? null,
     }
   })
 }

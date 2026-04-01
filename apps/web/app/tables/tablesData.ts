@@ -6,6 +6,9 @@ export interface TableRow {
   order_created_at: string | null
   /** Count of non-voided items on the active order; null when no active order. */
   order_item_count: number | null
+  /** Floor plan grid position (null = unplaced) */
+  grid_x: number | null
+  grid_y: number | null
 }
 
 export interface TakeawayDeliveryOrder {
@@ -21,6 +24,8 @@ export interface TakeawayDeliveryOrder {
 interface TableApiRow {
   id: string
   label: string
+  grid_x: number | null
+  grid_y: number | null
 }
 
 interface OrderApiRow {
@@ -49,7 +54,7 @@ export async function fetchTables(
   }
 
   const tablesUrl = new URL(`${supabaseUrl}/rest/v1/tables`)
-  tablesUrl.searchParams.set('select', 'id,label')
+  tablesUrl.searchParams.set('select', 'id,label,grid_x,grid_y')
 
   const tablesRes = await fetch(tablesUrl.toString(), { headers })
 
@@ -110,6 +115,8 @@ export async function fetchTables(
       order_status: order?.status ?? null,
       order_created_at: order?.created_at ?? null,
       order_item_count: order !== undefined ? (itemCountByOrder.get(order.id) ?? 0) : null,
+      grid_x: table.grid_x ?? null,
+      grid_y: table.grid_y ?? null,
     }
   })
 }

@@ -1,0 +1,5 @@
+{
+  "imports": {
+    "../_shared/auth.ts": "../_shared/auth.ts"
+  }
+}

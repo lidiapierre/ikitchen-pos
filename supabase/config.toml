@@ -413,6 +413,9 @@ verify_jwt = false
 [functions.toggle_item_availability]
 verify_jwt = false
 
+[functions.update_table_position]
+verify_jwt = false
+
 [functions.get_reports]
 verify_jwt = false
 

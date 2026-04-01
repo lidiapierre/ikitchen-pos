@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation'
 import type { JSX } from 'react'
 import {
   LayoutDashboard,
+  Map,
   UtensilsCrossed,
   LayoutGrid,
   DollarSign,
@@ -38,6 +39,7 @@ const NAV_SECTIONS: NavSection[] = [
       { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
       { href: '/admin/menu', label: 'Menu', icon: UtensilsCrossed },
       { href: '/admin/tables', label: 'Tables', icon: LayoutGrid },
+      { href: '/admin/floor-plan', label: 'Floor Plan', icon: Map },
       { href: '/admin/pricing', label: 'Pricing', icon: DollarSign },
       { href: '/admin/users', label: 'Users', icon: Users },
       { href: '/admin/inventory', label: 'Inventory', icon: Package },

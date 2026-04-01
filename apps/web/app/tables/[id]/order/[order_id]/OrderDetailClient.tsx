@@ -406,6 +406,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
   }
 
   useEffect(() => {
+    if (!accessToken) return
     loadItems()
     loadOrderStatus()
     loadVatConfig()
@@ -413,7 +414,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
     loadCovers()
     loadTableLabel()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [orderId])
+  }, [orderId, accessToken])
 
   // Auto-navigate to /tables after success state is shown for 1.5s
   // Paused while bill is printing (printingBill) to avoid tearing down page during print dialog

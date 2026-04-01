@@ -100,7 +100,8 @@ export default function ApiKeyManager(): JSX.Element {
     return () => {
       if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current)
     }
-  }, [])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accessToken])
 
   function showFeedback(type: FeedbackType, message: string): void {
     if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current)

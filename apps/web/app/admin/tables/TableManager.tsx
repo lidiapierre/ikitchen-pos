@@ -87,7 +87,8 @@ export default function TableManager(): JSX.Element {
       .finally(() => {
         setLoading(false)
       })
-  }, [])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accessToken])
 
   useEffect(() => {
     return () => {

@@ -78,7 +78,8 @@ export default function TablesPage(): JSX.Element {
         setError(err instanceof Error ? err.message : 'Failed to load tables')
       })
       .finally(() => { setLoading(false) })
-  }, [])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accessToken])
 
   // Initial load — show cached data immediately (stale-while-revalidate)
   useEffect(() => {

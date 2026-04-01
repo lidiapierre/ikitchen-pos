@@ -265,11 +265,13 @@ export default function FloorPlanBuilder(): JSX.Element {
   useEffect(() => {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
     
-    if (!supabaseUrl || !accessToken) {
+    if (!supabaseUrl) {
       setError('API not configured')
       setLoading(false)
       return
     }
+    // Wait for auth to resolve — accessToken starts null
+    if (!accessToken) return
     supabaseConfig.current = { url: supabaseUrl, key: accessToken ?? "" }
 
     Promise.all([
@@ -298,14 +300,16 @@ export default function FloorPlanBuilder(): JSX.Element {
         setError(err instanceof Error ? err.message : 'Failed to load floor plan')
       })
       .finally(() => setLoading(false))
-  }, [])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accessToken])
 
   useEffect(() => {
     return () => {
       if (saveErrorTimerRef.current) clearTimeout(saveErrorTimerRef.current)
       if (gridSizeErrTimerRef.current) clearTimeout(gridSizeErrTimerRef.current)
     }
-  }, [])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accessToken])
 
   // ── Helpers ─────────────────────────────────────────────────────────────────
   function clampInt(val: number, min: number, max: number, fallback: number): number {

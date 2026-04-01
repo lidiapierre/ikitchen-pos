@@ -1,10 +1,7 @@
 'use client'
 
-import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { JSX } from 'react'
-import { callCreateOrder } from './createOrderApi'
-import { useUser } from '@/lib/user-context'
 import type { TableRow } from '../tablesData'
 import { getTableStatus, STATUS_CONFIG } from '../tableStatus'
 
@@ -14,47 +11,29 @@ interface TableCardProps {
 
 export default function TableCard({ table }: TableCardProps): JSX.Element {
   const router = useRouter()
-  const { accessToken } = useUser()
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
 
   const status = getTableStatus(table)
   const { label: statusLabel, cardClass, badgeClass } = STATUS_CONFIG[status]
   const isOccupied = table.open_order_id !== null
 
-  async function handleTap(): Promise<void> {
-    setError(null)
-
+  function handleTap(): void {
     if (isOccupied && table.open_order_id) {
       router.push(`/tables/${table.id}/order/${table.open_order_id}`)
       return
     }
 
-    setLoading(true)
-    try {
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-      if (!supabaseUrl || !accessToken) {
-        throw new Error('Not authenticated')
-      }
-      const result = await callCreateOrder(supabaseUrl, accessToken, table.id)
-      router.push(`/tables/${table.id}/order/${result.order_id}`)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create order')
-    } finally {
-      setLoading(false)
-    }
+    // Optimistic navigation — order is created on the loading page (issue #298)
+    router.push(`/tables/${table.id}/order/new`)
   }
 
   return (
     <button
       type="button"
-      onClick={() => { void handleTap() }}
-      disabled={loading}
+      onClick={handleTap}
       className={[
         'flex flex-col items-center justify-center gap-3',
         'min-h-[160px] p-6 rounded-2xl border-2',
         'transition-colors select-none w-full',
-        loading ? 'opacity-60 cursor-wait' : '',
         cardClass,
       ].join(' ')}
     >
@@ -67,11 +46,8 @@ export default function TableCard({ table }: TableCardProps): JSX.Element {
           badgeClass,
         ].join(' ')}
       >
-        {loading ? 'Creating…' : statusLabel}
+        {statusLabel}
       </span>
-      {error !== null && (
-        <span className="text-xs text-red-400 text-center break-words max-w-full">{error}</span>
-      )}
     </button>
   )
 }

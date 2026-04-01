@@ -26,6 +26,9 @@ vi.mock('./createOrderApi', () => ({
 vi.mock('@/lib/supabase', () => ({
   supabase: {
     from: vi.fn(),
+    auth: {
+      getUser: vi.fn().mockResolvedValue({ data: { user: { id: 'test-user-id' } }, error: null }),
+    },
   },
 }))
 
@@ -34,20 +37,28 @@ vi.mock('@/lib/supabase', () => ({
 type AnyChain = any
 
 function makeSupabaseChain(resolvedValue: { data: unknown; error: null }): AnyChain {
-  return {
+  const chain: AnyChain = {
     select: vi.fn().mockReturnThis(),
     limit: vi.fn().mockReturnThis(),
     eq: vi.fn().mockReturnThis(),
     in: vi.fn().mockReturnThis(),
+    order: vi.fn().mockReturnThis(),
     abortSignal: vi.fn().mockResolvedValue(resolvedValue),
   }
+  return chain
 }
 
-// Default: restaurants → rest-id-1, config → 4 cols / 3 rows
+// Default: restaurants → rest-id-1, config → 10 cols / 4 rows, sections → [], users → []
 function setupDefaultSupabaseMock(): void {
   vi.mocked(supabase.from).mockImplementation((table: string): AnyChain => {
     if (table === 'restaurants') {
       return makeSupabaseChain({ data: [{ id: 'rest-id-1' }], error: null })
+    }
+    if (table === 'sections') {
+      return makeSupabaseChain({ data: [], error: null })
+    }
+    if (table === 'users') {
+      return makeSupabaseChain({ data: [], error: null })
     }
     return makeSupabaseChain({
       data: [
@@ -67,7 +78,11 @@ const emptyTable: TableRow = {
   order_created_at: null,
   order_item_count: null,
   grid_x: 0,
-  grid_y: 0, section_id: null, section_name: null, assigned_server_name: null,
+  grid_y: 0,
+  section_id: null,
+  section_name: null,
+  assigned_server_name: null,
+  section_sort_order: null,
 }
 
 const occupiedTable: TableRow = {
@@ -78,7 +93,11 @@ const occupiedTable: TableRow = {
   order_created_at: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
   order_item_count: 2,
   grid_x: 0,
-  grid_y: 0, section_id: null, section_name: null, assigned_server_name: null,
+  grid_y: 0,
+  section_id: null,
+  section_name: null,
+  assigned_server_name: null,
+  section_sort_order: null,
 }
 
 describe('FloorPlanView', () => {
@@ -96,12 +115,12 @@ describe('FloorPlanView', () => {
   // ── a) Loading state ────────────────────────────────────────────────────────
   describe('loading state', () => {
     it('shows "Loading floor plan…" while config is being fetched', () => {
-      // Override: make supabase never resolve so configLoading stays true
-      vi.mocked(supabase.from).mockImplementation((_table: string): AnyChain => ({
+      vi.mocked(supabase.from).mockImplementation((): AnyChain => ({
         select: vi.fn().mockReturnThis(),
         limit: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
         in: vi.fn().mockReturnThis(),
+        order: vi.fn().mockReturnThis(),
         abortSignal: vi.fn().mockReturnValue(new Promise(() => { /* never resolves */ })),
       }))
 
@@ -119,14 +138,12 @@ describe('FloorPlanView', () => {
         expect(screen.queryByText('Loading floor plan…')).not.toBeInTheDocument()
       })
 
-      // The inline-styled grid div is the direct parent of cells
       const grid = container.querySelector<HTMLElement>('[style*="grid-template-columns"]')
       expect(grid).not.toBeNull()
       expect(grid!.children.length).toBe(40)
     })
 
-    // ── c) Table at correct grid position ─────────────────────────────────────
-    it('renders a table button at its declared grid position (grid_x=2, grid_y=1)', async () => {
+    it('renders a table button at its declared grid position', async () => {
       const positionedTable: TableRow = {
         id: 'table-positioned',
         label: 'T99',
@@ -135,7 +152,11 @@ describe('FloorPlanView', () => {
         order_created_at: null,
         order_item_count: null,
         grid_x: 2,
-        grid_y: 1, section_id: null, section_name: null, assigned_server_name: null,
+        grid_y: 1,
+        section_id: null,
+        section_name: null,
+        assigned_server_name: null,
+        section_sort_order: null,
       }
 
       render(<FloorPlanView tables={[positionedTable]} />)
@@ -144,7 +165,6 @@ describe('FloorPlanView', () => {
         expect(screen.queryByText('Loading floor plan…')).not.toBeInTheDocument()
       })
 
-      // The button for the table should be visible with its label text
       expect(screen.getByRole('button', { name: /T99/ })).toBeInTheDocument()
     })
   })

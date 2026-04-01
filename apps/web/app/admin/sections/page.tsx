@@ -1,13 +1,5 @@
-import type { Metadata, NextPage } from 'next'
-import type { JSX } from 'react'
-import SectionManager from './SectionManager'
+import { redirect } from 'next/navigation'
 
-export const metadata: Metadata = {
-  title: 'Sections — Admin',
+export default function AdminSectionsPage(): never {
+  redirect('/admin/floor-plan')
 }
-
-const SectionsPage: NextPage = (): JSX.Element => {
-  return <SectionManager />
-}
-
-export default SectionsPage

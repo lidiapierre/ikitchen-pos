@@ -47,7 +47,7 @@ export async function callUpdateSection(
   supabaseUrl: string,
   accessToken: string,
   sectionId: string,
-  updates: { name?: string; assigned_server_id?: string | null; sort_order?: number },
+  updates: { name?: string; assigned_server_id?: string | null; sort_order?: number; grid_cols?: number; grid_rows?: number },
 ): Promise<void> {
   await callFunction(supabaseUrl, accessToken, 'manage_sections', 'PATCH', {
     section_id: sectionId,

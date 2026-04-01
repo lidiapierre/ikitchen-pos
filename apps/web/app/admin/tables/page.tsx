@@ -1,6 +1,5 @@
-import type { JSX } from 'react'
-import TableManager from './TableManager'
+import { redirect } from 'next/navigation'
 
-export default function AdminTablesPage(): JSX.Element {
-  return <TableManager />
+export default function AdminTablesPage(): never {
+  redirect('/admin/floor-plan')
 }

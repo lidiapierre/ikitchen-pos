@@ -1,8 +1,8 @@
 import type { JSX } from 'react'
-import FloorPlanBuilder from './FloorPlanBuilder'
+import UnifiedFloorPlan from './UnifiedFloorPlan'
 
 export const metadata = { title: 'Floor Plan — iKitchen Admin' }
 
 export default function FloorPlanPage(): JSX.Element {
-  return <FloorPlanBuilder />
+  return <UnifiedFloorPlan />
 }

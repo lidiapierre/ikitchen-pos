@@ -14,7 +14,17 @@ describe('AdminNav', () => {
     render(<AdminNav />)
     expect(screen.getByText('Dashboard')).toBeInTheDocument()
     expect(screen.getByText('Menu')).toBeInTheDocument()
-    expect(screen.getByText('Tables')).toBeInTheDocument()
+    expect(screen.getByText('Floor Plan')).toBeInTheDocument()
+  })
+
+  it('does not render separate Tables or Sections links', () => {
+    vi.mocked(usePathname).mockReturnValue('/admin')
+    render(<AdminNav />)
+    // "Tables" and "Sections" are merged into "Floor Plan"
+    const links = screen.getAllByRole('link')
+    const labels = links.map((l) => l.textContent)
+    expect(labels).not.toContain('Tables')
+    expect(labels).not.toContain('Sections')
   })
 
   it('highlights the active Dashboard link when on /admin', () => {
@@ -24,18 +34,18 @@ describe('AdminNav', () => {
     expect(dashboardLink?.className).toMatch(/bg-indigo-600/)
   })
 
+  it('highlights the active Floor Plan link when on /admin/floor-plan', () => {
+    vi.mocked(usePathname).mockReturnValue('/admin/floor-plan')
+    render(<AdminNav />)
+    const floorPlanLink = screen.getByText('Floor Plan').closest('a')
+    expect(floorPlanLink?.className).toMatch(/bg-indigo-600/)
+  })
+
   it('highlights the active Menu link when on /admin/menu', () => {
     vi.mocked(usePathname).mockReturnValue('/admin/menu')
     render(<AdminNav />)
     const menuLink = screen.getByText('Menu').closest('a')
     expect(menuLink?.className).toMatch(/bg-indigo-600/)
-  })
-
-  it('highlights the active Tables link when on /admin/tables', () => {
-    vi.mocked(usePathname).mockReturnValue('/admin/tables')
-    render(<AdminNav />)
-    const tablesLink = screen.getByText('Tables').closest('a')
-    expect(tablesLink?.className).toMatch(/bg-indigo-600/)
   })
 
   it('does not highlight Dashboard when on /admin/menu', () => {

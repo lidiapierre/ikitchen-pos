@@ -35,9 +35,9 @@ function makePatchFetch(
         : []
       return Promise.resolve(new Response(JSON.stringify(rows), { status: 200 }))
     }
-    // Ownership check — GET /rest/v1/user_restaurants?user_id=...&restaurant_id=...
-    if ((url as string).includes('/user_restaurants?')) {
-      const rows = ownershipGranted ? [{ user_id: mockAuth.actorId }] : []
+    // Ownership check — GET /rest/v1/users?id=eq.{actorId}&restaurant_id=eq.{restaurantId}
+    if ((url as string).includes('/users?id=eq.')) {
+      const rows = ownershipGranted ? [{ id: mockAuth.actorId }] : []
       return Promise.resolve(new Response(JSON.stringify(rows), { status: 200 }))
     }
     return Promise.resolve(new Response('[]', { status: 200 }))

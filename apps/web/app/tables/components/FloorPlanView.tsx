@@ -15,7 +15,6 @@ interface Props {
 
 const DEFAULT_COLS = 24
 const DEFAULT_ROWS = 16
-const CELL_SIZE = 72
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max)
@@ -120,7 +119,7 @@ export default function FloorPlanView({ tables }: Props): JSX.Element {
         cells.push(
           <div
             key={`empty-${c}-${r}`}
-            className="border border-zinc-800/40 w-[72px] h-[72px]"
+            className="border border-zinc-800/40 aspect-square min-w-12"
           />,
         )
       } else {
@@ -129,26 +128,28 @@ export default function FloorPlanView({ tables }: Props): JSX.Element {
         const isLoading = tappingTableId === table.id
 
         cells.push(
-          <button
-            key={table.id}
-            type="button"
-            disabled={isLoading}
-            onClick={() => { void handleTableTap(table) }}
-            className={[
-              'rounded-xl border-2 w-[66px] h-[66px] m-[3px]',
-              'flex flex-col items-center justify-center',
-              'transition-colors select-none',
-              isLoading ? 'opacity-60 cursor-wait' : '',
-              cardClass,
-            ].join(' ')}
-          >
-            <span className="text-white font-bold text-sm leading-tight">
-              {table.label}
-            </span>
-            <span className="text-white text-xs mt-0.5 opacity-80">
-              {isLoading ? '…' : statusLabel}
-            </span>
-          </button>,
+          // Wrapper gives the cell its square dimensions; button fills it with inset padding
+          <div key={table.id} className="aspect-square p-[3px] min-w-12">
+            <button
+              type="button"
+              disabled={isLoading}
+              onClick={() => { void handleTableTap(table) }}
+              className={[
+                'rounded-xl border-2 w-full h-full',
+                'flex flex-col items-center justify-center',
+                'transition-colors select-none',
+                isLoading ? 'opacity-60 cursor-wait' : '',
+                cardClass,
+              ].join(' ')}
+            >
+              <span className="text-white font-bold text-sm leading-tight">
+                {table.label}
+              </span>
+              <span className="text-white text-xs mt-0.5 opacity-80">
+                {isLoading ? '…' : statusLabel}
+              </span>
+            </button>
+          </div>,
         )
       }
     }
@@ -159,15 +160,14 @@ export default function FloorPlanView({ tables }: Props): JSX.Element {
       {tapError !== null && (
         <p className="text-red-400 text-sm mb-3">{tapError}</p>
       )}
-      <div className="overflow-auto">
-        {/* Inline styles required — Tailwind cannot generate arbitrary repeat() values at runtime */}
+      {/* overflow-x-auto: if cols×min-cell-width (cols×48px) exceeds the container,
+          the grid scrolls horizontally rather than shrinking cells below 48px touch targets.
+          gridTemplateColumns inline style is required — Tailwind cannot generate arbitrary
+          repeat() values at runtime. */}
+      <div className="overflow-x-auto">
         <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: `repeat(${cols}, ${CELL_SIZE}px)`,
-            gridTemplateRows: `repeat(${rows}, ${CELL_SIZE}px)`,
-            width: cols * CELL_SIZE,
-          }}
+          className="grid"
+          style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}
         >
           {cells}
         </div>

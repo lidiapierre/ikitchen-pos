@@ -58,7 +58,7 @@ export default function TablesPage(): JSX.Element {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
     const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
 
-    if (!supabaseUrl || !supabaseKey) {
+    if (!supabaseUrl || !supabaseKey || !accessToken) {
       setError('Supabase is not configured')
       setLoading(false)
       return
@@ -67,8 +67,8 @@ export default function TablesPage(): JSX.Element {
     setError(null)
 
     Promise.all([
-      fetchTables(supabaseUrl, supabaseKey),
-      fetchTakeawayDeliveryQueue(supabaseUrl, supabaseKey),
+      fetchTables(supabaseUrl, supabaseKey, accessToken),
+      fetchTakeawayDeliveryQueue(supabaseUrl, supabaseKey, accessToken),
     ])
       .then(([t, q]) => {
         setTablesCache(t, q)
@@ -99,11 +99,11 @@ export default function TablesPage(): JSX.Element {
     intervalRef.current = setInterval(() => {
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
       const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
-      if (!supabaseUrl || !supabaseKey) return
+      if (!supabaseUrl || !supabaseKey || !accessToken) return
 
       Promise.all([
-        fetchTables(supabaseUrl, supabaseKey),
-        fetchTakeawayDeliveryQueue(supabaseUrl, supabaseKey),
+        fetchTables(supabaseUrl, supabaseKey, accessToken),
+        fetchTakeawayDeliveryQueue(supabaseUrl, supabaseKey, accessToken),
       ])
         .then(([t, q]) => {
           setTablesCache(t, q)

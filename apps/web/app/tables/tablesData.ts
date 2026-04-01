@@ -47,10 +47,11 @@ interface TakeawayDeliveryApiRow {
 export async function fetchTables(
   supabaseUrl: string,
   apiKey: string,
+  token?: string,
 ): Promise<TableRow[]> {
   const headers = {
     apikey: apiKey,
-    Authorization: `Bearer ${apiKey}`,
+    Authorization: `Bearer ${token ?? apiKey}`,
   }
 
   const tablesUrl = new URL(`${supabaseUrl}/rest/v1/tables`)
@@ -127,10 +128,11 @@ export async function fetchTables(
 export async function fetchTakeawayDeliveryQueue(
   supabaseUrl: string,
   apiKey: string,
+  token?: string,
 ): Promise<TakeawayDeliveryOrder[]> {
   const headers = {
     apikey: apiKey,
-    Authorization: `Bearer ${apiKey}`,
+    Authorization: `Bearer ${token ?? apiKey}`,
   }
 
   const ordersUrl = new URL(`${supabaseUrl}/rest/v1/orders`)

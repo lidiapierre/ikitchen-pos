@@ -164,11 +164,18 @@ describe('voice_order handler', () => {
       expect(res.status).toBe(401)
     })
 
-    it('returns 403 when caller role is insufficient (kitchen role is ok, check below)', async () => {
-      // 'server' role should pass — checking that it works fine
+    it('returns 200 when caller role is server (minimum required role)', async () => {
       const req = makeAuthMultipartRequest()
       const res = await handler(req, makeAuthFetch({ role: 'server' }) as typeof fetch, TEST_ENV)
       expect(res.status).toBe(200)
+    })
+
+    it('returns 403 when caller role is insufficient', async () => {
+      const req = makeMultipartRequest(ORDER_ID, true, 'valid-token')
+      const res = await handler(req, makeAuthFetch({ role: 'guest' }) as typeof fetch, TEST_ENV)
+      expect(res.status).toBe(403)
+      const json = await res.json() as { success: boolean; error: string }
+      expect(json.success).toBe(false)
     })
   })
 

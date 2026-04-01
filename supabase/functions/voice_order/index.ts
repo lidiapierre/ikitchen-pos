@@ -1,8 +1,9 @@
 import { verifyAndGetCaller } from '../_shared/auth.ts'
+import { validateVoiceOrderInput } from './validator.ts'
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-demo-staff-id',
   'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
 }
 
@@ -100,15 +101,11 @@ export async function handler(
     return jsonResponse({ success: false, error: 'Invalid multipart form data' }, 400)
   }
 
-  const audioEntry = formData.get('audio')
-  const orderId = formData.get('order_id')
-
-  if (!audioEntry || !(audioEntry instanceof Blob)) {
-    return jsonResponse({ success: false, error: 'audio is required' }, 400)
+  const validation = validateVoiceOrderInput(formData)
+  if ('error' in validation) {
+    return jsonResponse({ success: false, error: validation.error }, validation.status)
   }
-  if (typeof orderId !== 'string' || orderId.trim() === '') {
-    return jsonResponse({ success: false, error: 'order_id is required' }, 400)
-  }
+  const { audioBlob: audioEntry, orderId } = validation
 
   // Step 1: Transcribe audio with OpenAI Whisper
   const whisperForm = new FormData()
@@ -127,8 +124,6 @@ export async function handler(
     })
 
     if (!whisperRes.ok) {
-      const errText = await whisperRes.text()
-      console.error('Whisper API error:', whisperRes.status, errText)
       return jsonResponse(
         { success: false, error: `Transcription failed (status ${whisperRes.status})` },
         502,
@@ -137,8 +132,7 @@ export async function handler(
 
     const whisperData = (await whisperRes.json()) as { text?: string }
     transcript = (whisperData.text ?? '').trim()
-  } catch (err) {
-    console.error('Whisper fetch error:', err)
+  } catch {
     return jsonResponse({ success: false, error: 'Transcription service unavailable' }, 502)
   }
 
@@ -189,8 +183,7 @@ export async function handler(
     }
 
     menuItems = (await menuRes.json()) as Array<{ id: string; name: string }>
-  } catch (err) {
-    console.error('Menu fetch error:', err)
+  } catch {
     return jsonResponse({ success: false, error: 'Failed to fetch menu data' }, 502)
   }
 
@@ -199,9 +192,10 @@ export async function handler(
   }
 
   // Step 3: Parse transcript with Claude
-  const menuList = menuItems.map((item) => `{"id":"${item.id}","name":"${item.name}"}`).join(', ')
+  const menuList = menuItems.map((item) => JSON.stringify({ id: item.id, name: item.name })).join(', ')
   const prompt =
-    `Given this list of menu items: [${menuList}], and this spoken order transcript: '${transcript}', ` +
+    `Given this list of menu items: [${menuList}], and this spoken order transcript:\n` +
+    `<transcript>${transcript}</transcript>\n` +
     'return a JSON array of matched items with quantities. Use fuzzy matching for item names. ' +
     'Format: [{"menu_item_id": "...", "name": "...", "quantity": N}]. ' +
     'Only include items that clearly match something in the menu. ' +
@@ -229,8 +223,6 @@ export async function handler(
     })
 
     if (!claudeRes.ok) {
-      const errText = await claudeRes.text()
-      console.error('Claude API error:', claudeRes.status, errText)
       return jsonResponse(
         { success: false, error: `Item parsing failed (status ${claudeRes.status})` },
         502,
@@ -247,8 +239,7 @@ export async function handler(
     }
 
     parsedItems = parseClaudeJson(textBlock.text)
-  } catch (err) {
-    console.error('Claude error:', err)
+  } catch {
     return jsonResponse({ success: false, error: 'Failed to parse order items' }, 502)
   }
 

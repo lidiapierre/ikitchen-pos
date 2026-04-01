@@ -27,6 +27,15 @@ export async function callVoiceOrder(
     body: formData,
   })
 
+  if (!res.ok) {
+    let errorMsg = `Voice order failed: ${res.status}`
+    try {
+      const errJson = await res.json() as { error?: string }
+      if (errJson.error) errorMsg = errJson.error
+    } catch { /* ignore */ }
+    throw new Error(errorMsg)
+  }
+
   const json = (await res.json()) as VoiceOrderResponse
 
   if (!json.success || !json.data) {

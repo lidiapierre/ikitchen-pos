@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import type { JSX } from 'react'
 import { Mic, MicOff, Loader2, X } from 'lucide-react'
 import { useUser } from '@/lib/user-context'
@@ -14,6 +14,8 @@ export interface VoiceOrderButtonProps {
 
 type State = 'idle' | 'recording' | 'processing' | 'confirmation' | 'error'
 
+const MAX_RECORDING_MS = 30_000
+
 export default function VoiceOrderButton({ orderId, onItemsConfirmed }: VoiceOrderButtonProps): JSX.Element {
   const { accessToken } = useUser()
   const [state, setState] = useState<State>('idle')
@@ -22,13 +24,59 @@ export default function VoiceOrderButton({ orderId, onItemsConfirmed }: VoiceOrd
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioChunksRef = useRef<Blob[]>([])
+  const mountedRef = useRef(true)
+  const maxDurationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Track mount state for async safety
+  useEffect(() => {
+    mountedRef.current = true
+    return () => {
+      mountedRef.current = false
+    }
+  }, [])
+
+  // Cleanup on unmount: stop MediaRecorder and clear timer
+  useEffect(() => {
+    return () => {
+      if (maxDurationTimerRef.current !== null) {
+        clearTimeout(maxDurationTimerRef.current)
+        maxDurationTimerRef.current = null
+      }
+      if (mediaRecorderRef.current?.state !== 'inactive') {
+        mediaRecorderRef.current?.stop()
+      }
+    }
+  }, [])
+
+  const stopRecording = useCallback(() => {
+    if (maxDurationTimerRef.current !== null) {
+      clearTimeout(maxDurationTimerRef.current)
+      maxDurationTimerRef.current = null
+    }
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop()
+    }
+  }, [])
 
   const startRecording = useCallback(async () => {
+    // Auth check before requesting microphone access — fail fast if not authenticated
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    if (!supabaseUrl || !accessToken) {
+      setState('error')
+      setErrorMessage('Not authenticated. Please reload and try again.')
+      return
+    }
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       const mediaRecorder = new MediaRecorder(stream)
       mediaRecorderRef.current = mediaRecorder
       audioChunksRef.current = []
+
+      // Auto-stop after MAX_RECORDING_MS to prevent runaway recordings
+      maxDurationTimerRef.current = setTimeout(() => {
+        stopRecording()
+      }, MAX_RECORDING_MS)
 
       mediaRecorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
@@ -40,21 +88,17 @@ export default function VoiceOrderButton({ orderId, onItemsConfirmed }: VoiceOrd
         // Stop all tracks to release the microphone
         stream.getTracks().forEach((track) => track.stop())
 
+        if (!mountedRef.current) return
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' })
         setState('processing')
 
-        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-        if (!supabaseUrl || !accessToken) {
-          setState('error')
-          setErrorMessage('Not authenticated. Please reload and try again.')
-          return
-        }
-
         try {
           const voiceResult = await callVoiceOrder(supabaseUrl, accessToken, orderId, audioBlob)
+          if (!mountedRef.current) return
           setResult(voiceResult)
           setState('confirmation')
         } catch (err) {
+          if (!mountedRef.current) return
           setState('error')
           setErrorMessage(err instanceof Error ? err.message : 'Voice order failed. Please try again.')
         }
@@ -66,13 +110,7 @@ export default function VoiceOrderButton({ orderId, onItemsConfirmed }: VoiceOrd
       setState('error')
       setErrorMessage('Microphone access denied. Please allow microphone access and try again.')
     }
-  }, [accessToken, orderId])
-
-  const stopRecording = useCallback(() => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-      mediaRecorderRef.current.stop()
-    }
-  }, [])
+  }, [accessToken, orderId, stopRecording])
 
   const handleMicButton = useCallback(() => {
     if (state === 'idle' || state === 'error') {

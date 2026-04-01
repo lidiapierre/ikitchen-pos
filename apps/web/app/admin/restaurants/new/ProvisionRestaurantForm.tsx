@@ -81,6 +81,10 @@ export default function ProvisionRestaurantForm({ variant = 'admin' }: Provision
   const [success, setSuccess] = useState<{ restaurantId: string; name: string } | null>(null)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [showPassword, setShowPassword] = useState(false)
+  // public variant: skip the client-side super-admin check.
+  // Security is enforced server-side — the provision_restaurant edge function
+  // calls verifySuperAdmin() which requires is_super_admin = true in the users
+  // table. Any non-super-admin token will get a 403 from the edge function.
   const [isSuperAdmin, setIsSuperAdmin] = useState<boolean | null>(variant === 'public' ? true : null)
 
   useEffect(() => {

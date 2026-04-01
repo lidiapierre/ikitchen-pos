@@ -8,10 +8,6 @@ vi.mock('@/app/admin/restaurants/new/ProvisionRestaurantForm', () => ({
   ),
 }))
 
-vi.mock('@/lib/user-context', () => ({
-  useUser: () => ({ accessToken: 'test-token' }),
-}))
-
 beforeEach(() => {
   process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://test.supabase.co'
   process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = 'test-key'
@@ -30,8 +26,8 @@ describe('RegisterPage', () => {
     expect(form).toHaveAttribute('data-variant', 'public')
   })
 
-  it('shows the "Powered by iKitchen POS" tagline', () => {
+  it('shows the super-admin provisioning tagline', () => {
     render(<RegisterPage />)
-    expect(screen.getByText(/powered by ikitchen pos/i)).toBeInTheDocument()
+    expect(screen.getByText(/ikitchen pos.*super-admin provisioning/i)).toBeInTheDocument()
   })
 })

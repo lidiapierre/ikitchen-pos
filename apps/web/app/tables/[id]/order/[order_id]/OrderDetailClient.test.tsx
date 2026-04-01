@@ -40,6 +40,27 @@ vi.mock('./kotApi', () => ({
   markItemsSentToKitchen: vi.fn(),
 }))
 
+vi.mock('@/lib/kotPrint', () => ({
+  printKot: vi.fn(),
+  printBill: vi.fn(),
+  findPrinter: vi.fn().mockReturnValue(null),
+}))
+
+vi.mock('@/lib/supabase', () => ({
+  supabase: {
+    from: vi.fn().mockReturnValue({
+      select: vi.fn().mockReturnThis(),
+      single: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      then: vi.fn().mockResolvedValue({ data: null }),
+    }),
+  },
+}))
+
+vi.mock('@/lib/user-context', () => ({
+  useUser: vi.fn().mockReturnValue({ accessToken: null, isAdmin: false, role: null, loading: false }),
+}))
+
 vi.mock('@/components/KotPrintView', () => ({
   default: (): JSX.Element => <div data-testid="kot-print-view" />,
 }))
@@ -1169,6 +1190,61 @@ describe('OrderDetailClient', () => {
       })
 
       expect(markItemsSentToKitchen).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('KOT send — browser vs network print path', () => {
+    it('navigates to /tables immediately for browser print without awaiting markItemsSentToKitchen', async (): Promise<void> => {
+      const { printKot } = await import('@/lib/kotPrint')
+      const { markItemsSentToKitchen } = await import('./kotApi')
+
+      // printKot returns browser method
+      vi.mocked(printKot).mockResolvedValue({ method: 'browser', success: true })
+
+      // markItemsSentToKitchen never resolves — to prove we don't await it
+      vi.mocked(markItemsSentToKitchen).mockReturnValue(new Promise(() => {}))
+
+      render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
+      await screen.findByText('Bruschetta')
+
+      fireEvent.click(screen.getByRole('button', { name: /← Back to tables/i }))
+
+      await waitFor((): void => {
+        expect(mockPush).toHaveBeenCalledWith('/tables')
+      })
+
+      // markItemsSentToKitchen was called (fire-and-forget) but we didn't await it
+      expect(markItemsSentToKitchen).toHaveBeenCalled()
+    })
+
+    it('awaits markItemsSentToKitchen before navigating for TCP/IP (network) print', async (): Promise<void> => {
+      const { printKot } = await import('@/lib/kotPrint')
+      const { markItemsSentToKitchen } = await import('./kotApi')
+
+      // printKot returns network method
+      vi.mocked(printKot).mockResolvedValue({ method: 'network', success: true })
+
+      // markItemsSentToKitchen: controllable promise
+      let resolveMarkItems!: () => void
+      vi.mocked(markItemsSentToKitchen).mockReturnValue(
+        new Promise<void>((resolve) => { resolveMarkItems = resolve }),
+      )
+
+      render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
+      await screen.findByText('Bruschetta')
+
+      fireEvent.click(screen.getByRole('button', { name: /← Back to tables/i }))
+
+      // Should NOT have navigated yet — waiting for markItemsSentToKitchen
+      await act(async (): Promise<void> => { await Promise.resolve() })
+      expect(mockPush).not.toHaveBeenCalled()
+
+      // Resolve markItemsSentToKitchen — now it should navigate
+      await act(async (): Promise<void> => { resolveMarkItems() })
+
+      await waitFor((): void => {
+        expect(mockPush).toHaveBeenCalledWith('/tables')
+      })
     })
   })
 })

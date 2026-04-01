@@ -21,7 +21,7 @@ import { calcVat } from '@/lib/vatCalc'
 import { calcServiceCharge } from '@/lib/serviceChargeCalc'
 import { fetchVatConfig, fetchOrderVatContext, fetchServiceChargePercent } from '@/lib/fetchVatConfig'
 import { printKot, printBill, findPrinter } from '@/lib/kotPrint'
-import type { PrinterConfig, PrinterProfile } from '@/lib/kotPrint'
+import type { PrinterConfig, PrinterProfile, PrintResult } from '@/lib/kotPrint'
 import KotPrintView from '@/components/KotPrintView'
 import BillPrintView from '@/components/BillPrintView'
 import { supabase } from '@/lib/supabase'
@@ -489,7 +489,6 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
     if (step === 'order' && unsentItems.length > 0 && supabaseUrl && supabaseKey) {
       const ts = new Date().toLocaleString()
       setKotTimestamp(ts)
-      setKotStatus('Sending to kitchen…')
       setKotPrintError(null)
 
       // Group unsent items by their printer type (kitchen vs bar)
@@ -501,8 +500,9 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
         itemsByPrinterType.set(pt, group)
       }
 
-      // Send each group to the correct printer
-      let printErrors: string[] = []
+      // Send each group to the correct printer — collect results to detect print method
+      const printResults: PrintResult[] = []
+      const printErrors: string[] = []
       for (const [printerType, groupItems] of itemsByPrinterType) {
         const profile = printers.length > 0
           ? findPrinter(printers, printerType)
@@ -521,6 +521,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
           },
         })
 
+        printResults.push(result)
         if (result.errorMessage) {
           printErrors.push(`[${printerType}] ${result.errorMessage}`)
         }
@@ -545,15 +546,32 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
       )
       // ─────────────────────────────────────────────────────────────
 
-      try {
-        await markItemsSentToKitchen(supabaseUrl, supabaseKey, orderId, unsentItems.map((i) => i.id))
-      } catch {
-        // ── Rollback ────────────────────────────────────────────────
-        setItems(kotSnapshot)
-        setKotStatus(null)
-        addToast('Failed to send to kitchen — please retry', 'error')
-        return
-        // ────────────────────────────────────────────────────────────
+      const allBrowser = printResults.length > 0 && printResults.every((r) => r.method === 'browser')
+
+      if (allBrowser) {
+        // Browser print path: navigate immediately — no UI delay.
+        // markItemsSentToKitchen is fire-and-forget; we don't await or roll back
+        // since we're navigating away immediately.
+        markItemsSentToKitchen(supabaseUrl, supabaseKey, orderId, unsentItems.map((i) => i.id)).catch(() => {
+          // Fire-and-forget: we've already navigated away so we can't show a toast.
+          // If this call fails, the items will remain sent_to_kitchen: false in the DB.
+          // The next time staff open this order, those items will reappear as unsent
+          // and could be reprinted. Accepted risk for browser print path — TCP/IP path
+          // uses the blocking flow with rollback instead.
+        })
+      } else {
+        // TCP/IP (network) print path: await DB confirmation before navigating.
+        setKotStatus('Sending to kitchen…')
+        try {
+          await markItemsSentToKitchen(supabaseUrl, supabaseKey, orderId, unsentItems.map((i) => i.id))
+        } catch {
+          // ── Rollback ──────────────────────────────────────────────
+          setItems(kotSnapshot)
+          setKotStatus(null)
+          addToast('Failed to send to kitchen — please retry', 'error')
+          return
+          // ──────────────────────────────────────────────────────────
+        }
       }
     }
 
@@ -604,7 +622,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
     }
 
     // Network or multi-printer: send to each group
-    let printErrors: string[] = []
+    const printErrors: string[] = []
     for (const [printerType, groupItems] of itemsByPrinterType) {
       const profile = printers.length > 0 ? findPrinter(printers, printerType) : null
       const legacyConfig = printers.length === 0 ? printerConfig : null
@@ -657,7 +675,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
         courseItemsByPrinterType.set(pt, group)
       }
 
-      let firePrintErrors: string[] = []
+      const firePrintErrors: string[] = []
       for (const [printerType, groupItems] of courseItemsByPrinterType) {
         const profile = printers.length > 0 ? findPrinter(printers, printerType) : null
         const legacyConfig = printers.length === 0 ? printerConfig : null

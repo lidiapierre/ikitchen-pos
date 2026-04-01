@@ -16,11 +16,100 @@ import { test, expect } from '@playwright/test'
  * tests that require a live Supabase instance.
  */
 
+async function mockAdminAuth(page: import('@playwright/test').Page): Promise<void> {
+  // Inject a fake Supabase session into localStorage before the page loads so
+  // useUser() resolves immediately and MenuItemFormPage doesn't short-circuit
+  // with "API not configured" before the toggle renders.
+  await page.addInitScript(() => {
+    const session = {
+      access_token: 'test-access-token-availability',
+      token_type: 'bearer',
+      expires_in: 3600,
+      expires_at: Math.floor(Date.now() / 1000) + 3600,
+      refresh_token: 'test-refresh-token',
+      user: {
+        id: 'test-user-id',
+        aud: 'authenticated',
+        role: 'authenticated',
+        email: 'admin@lahore.ikitchen.com.bd',
+      },
+    }
+    localStorage.setItem('sb-dmaogdwtgohrhbytxjqu-auth-token', JSON.stringify(session))
+  })
+
+  await page.route('**/auth/v1/user**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        id: 'test-user-id',
+        aud: 'authenticated',
+        role: 'authenticated',
+        email: 'admin@lahore.ikitchen.com.bd',
+      }),
+    })
+  })
+
+  await page.route('**/auth/v1/token**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        access_token: 'test-access-token-availability',
+        token_type: 'bearer',
+        expires_in: 3600,
+        user: {
+          id: 'test-user-id',
+          aud: 'authenticated',
+          role: 'authenticated',
+          email: 'admin@lahore.ikitchen.com.bd',
+        },
+      }),
+    })
+  })
+
+  await page.route('**/rest/v1/users**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify([{ role: 'owner' }]),
+    })
+  })
+}
+
+async function mockMenuAdminApis(page: import('@playwright/test').Page): Promise<void> {
+  await page.route('**/rest/v1/restaurants**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify([{ id: 'rest-1' }]),
+    })
+  })
+
+  await page.route('**/rest/v1/menus**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify([{ id: 'menu-1', name: 'Mains', menu_items: [] }]),
+    })
+  })
+
+  await page.route('**/rest/v1/configs**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify([]),
+    })
+  })
+}
+
 test.describe('item availability — admin toggle UI', () => {
   test('availability switch is present on the edit form', async ({ page }) => {
     const errors: string[] = []
     page.on('pageerror', (err) => errors.push(err.message))
 
+    await mockAdminAuth(page)
+    await mockMenuAdminApis(page)
     await page.goto('/admin/menu/new')
 
     // The toggle should be rendered (even while the form loads)
@@ -31,6 +120,8 @@ test.describe('item availability — admin toggle UI', () => {
   })
 
   test('availability switch defaults to "on" (available)', async ({ page }) => {
+    await mockAdminAuth(page)
+    await mockMenuAdminApis(page)
     await page.goto('/admin/menu/new')
 
     const toggle = page.getByRole('switch', { name: /toggle item availability/i })
@@ -40,6 +131,8 @@ test.describe('item availability — admin toggle UI', () => {
   })
 
   test('clicking availability switch toggles its state', async ({ page }) => {
+    await mockAdminAuth(page)
+    await mockMenuAdminApis(page)
     await page.goto('/admin/menu/new')
 
     const toggle = page.getByRole('switch', { name: /toggle item availability/i })

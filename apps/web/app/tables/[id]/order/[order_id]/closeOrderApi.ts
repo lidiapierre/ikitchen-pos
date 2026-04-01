@@ -1,6 +1,6 @@
 export interface CloseOrderResponse {
   success: boolean
-  data?: { success: boolean; final_total: number }
+  data?: { final_total_cents: number; service_charge_cents: number; bill_number: string | null }
   error?: string
 }
 
@@ -17,15 +17,17 @@ export async function callCloseOrder(
     },
     body: JSON.stringify({ order_id: orderId }),
   })
-  const json = (await res.json()) as CloseOrderResponse
-  // Treat non-OK responses as errors, but 409 with a clear message
-  // gets a user-friendly fallback (issue #318)
   if (!res.ok) {
+    let errMsg = `HTTP ${res.status}`
+    try {
+      errMsg = ((await res.json()) as { error?: string }).error ?? errMsg
+    } catch { /* ignore non-JSON error bodies */ }
     if (res.status === 409) {
       throw new Error('Order is no longer open — it may have already been closed')
     }
-    throw new Error(json.error ?? `HTTP ${res.status}`)
+    throw new Error(errMsg)
   }
+  const json = (await res.json()) as CloseOrderResponse
   if (!json.success) {
     throw new Error(json.error ?? 'Failed to close order')
   }

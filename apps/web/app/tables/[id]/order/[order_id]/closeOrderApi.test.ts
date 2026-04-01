@@ -10,8 +10,8 @@ describe('callCloseOrder', () => {
     const mockFetch = vi.mocked(fetch)
     mockFetch.mockResolvedValue({
       ok: true,
-      json: (): Promise<{ success: boolean; data: { success: boolean; final_total: number } }> =>
-        Promise.resolve({ success: true, data: { success: true, final_total: 5450 } }),
+      json: (): Promise<{ success: boolean; data: { final_total_cents: number; service_charge_cents: number; bill_number: string | null } }> =>
+        Promise.resolve({ success: true, data: { final_total_cents: 5450, service_charge_cents: 0, bill_number: null } }),
     } as Response)
 
     await callCloseOrder('https://example.supabase.co', 'test-key', 'order-123')

@@ -148,6 +148,37 @@ describe('close_order handler', () => {
       const res = await handler(req)
       expect(res.status).toBe(204)
       expect(res.headers.get('Access-Control-Allow-Origin')).toBe(corsHeaders['Access-Control-Allow-Origin'])
+      expect(res.headers.get('Access-Control-Allow-Headers')).toContain('x-demo-staff-id')
+    })
+  })
+
+  describe('CORS headers', () => {
+    it('includes CORS headers in success responses', async (): Promise<void> => {
+      const mockFetch = buildMockFetch('open')
+      const req = makeRequest({ order_id: VALID_ORDER_ID })
+      const res = await handler(req, mockFetch, TEST_ENV)
+      expect(res.status).toBe(200)
+      expect(res.headers.get('Access-Control-Allow-Origin')).toBe(corsHeaders['Access-Control-Allow-Origin'])
+    })
+
+    it('includes CORS headers in error responses', async (): Promise<void> => {
+      const mockFetch = buildMockFetch('open')
+      const req = makeRequest({ order_id: 'not-a-uuid' })
+      const res = await handler(req, mockFetch, TEST_ENV)
+      expect(res.status).toBe(400)
+      expect(res.headers.get('Access-Control-Allow-Origin')).toBe(corsHeaders['Access-Control-Allow-Origin'])
+    })
+  })
+
+  describe('non-health GET requests', () => {
+    it('returns 400 for GET requests that are not health checks', async (): Promise<void> => {
+      const req = new Request('http://localhost/functions/v1/close_order', {
+        method: 'GET',
+        headers: { Authorization: 'Bearer test-jwt' },
+      })
+      const mockFetch = buildMockFetch('open')
+      const res = await handler(req, mockFetch, TEST_ENV)
+      expect(res.status).toBe(400)
     })
   })
 
@@ -163,8 +194,39 @@ describe('close_order handler', () => {
       expect(res.status).toBe(400)
     })
 
+    it('returns 400 when body is null', async (): Promise<void> => {
+      const req = new Request('http://localhost/functions/v1/close_order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer test-jwt' },
+        body: 'null',
+      })
+      const mockFetch = buildMockFetch('open')
+      const res = await handler(req, mockFetch, TEST_ENV)
+      expect(res.status).toBe(400)
+      const json = (await res.json()) as { error: string }
+      expect(json.error).toBe('Invalid request body')
+    })
+
     it('returns 400 when order_id is missing', async (): Promise<void> => {
       const req = makeRequest({})
+      const mockFetch = buildMockFetch('open')
+      const res = await handler(req, mockFetch, TEST_ENV)
+      expect(res.status).toBe(400)
+      const json = (await res.json()) as { error: string }
+      expect(json.error).toBe('order_id is required')
+    })
+
+    it('returns 400 when order_id is an empty string', async (): Promise<void> => {
+      const req = makeRequest({ order_id: '' })
+      const mockFetch = buildMockFetch('open')
+      const res = await handler(req, mockFetch, TEST_ENV)
+      expect(res.status).toBe(400)
+      const json = (await res.json()) as { error: string }
+      expect(json.error).toBe('order_id is required')
+    })
+
+    it('returns 400 when order_id is a number', async (): Promise<void> => {
+      const req = makeRequest({ order_id: 123 })
       const mockFetch = buildMockFetch('open')
       const res = await handler(req, mockFetch, TEST_ENV)
       expect(res.status).toBe(400)
@@ -231,6 +293,22 @@ describe('close_order handler', () => {
       )
       expect(patchCalls.length).toBe(0)
       expect(auditCalls.length).toBe(0)
+    })
+
+    it('returns 0 for null stored final_total_cents and service_charge_cents', async (): Promise<void> => {
+      // buildMockFetch with no extras → DB row has null for both fields
+      const mockFetch = buildMockFetch('pending_payment')
+      const req = makeRequest({ order_id: VALID_ORDER_ID })
+      const res = await handler(req, mockFetch, TEST_ENV)
+      expect(res.status).toBe(200)
+      const json = (await res.json()) as {
+        success: boolean
+        data: { final_total_cents: number; service_charge_cents: number; bill_number: string | null }
+      }
+      expect(json.success).toBe(true)
+      expect(json.data.final_total_cents).toBe(0)
+      expect(json.data.service_charge_cents).toBe(0)
+      expect(json.data.bill_number).toBeNull()
     })
   })
 

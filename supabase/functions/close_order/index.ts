@@ -2,7 +2,7 @@ import { verifyAndGetCaller } from '../_shared/auth.ts'
 
 export const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-demo-staff-id',
   'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
 }
 
@@ -103,7 +103,7 @@ export async function handler(
   try {
     // 1. Fetch the order to verify it exists and is open (also get discount & comp info)
     const orderRes = await fetchFn(
-      `${supabaseUrl}/rest/v1/orders?select=id,restaurant_id,status,discount_amount_cents,order_comp&id=eq.${orderId}`,
+      `${supabaseUrl}/rest/v1/orders?select=id,restaurant_id,status,discount_amount_cents,order_comp,final_total_cents,service_charge_cents,bill_number&id=eq.${orderId}`,
       { headers: dbHeaders },
     )
     if (!orderRes.ok) {
@@ -118,11 +118,28 @@ export async function handler(
       status: string
       discount_amount_cents: number | null
       order_comp: boolean | null
+      final_total_cents: number | null
+      service_charge_cents: number | null
+      bill_number: string | null
     }>
     if (orders.length === 0) {
       return new Response(
         JSON.stringify({ success: false, error: 'Order not found' }),
         { status: 404, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+      )
+    }
+    // Idempotent: if already pending_payment, return existing data (issue #318)
+    if (orders[0].status === 'pending_payment') {
+      return new Response(
+        JSON.stringify({
+          success: true,
+          data: {
+            final_total_cents: orders[0].final_total_cents ?? 0,
+            service_charge_cents: orders[0].service_charge_cents ?? 0,
+            bill_number: orders[0].bill_number ?? null,
+          },
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
       )
     }
     if (orders[0].status !== 'open') {

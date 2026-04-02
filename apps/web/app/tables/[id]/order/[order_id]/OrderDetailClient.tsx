@@ -250,6 +250,11 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
           setOrderIsPaid(true)
           setPaidPaymentMethod(summary.payment_method)
         }
+        // If order is already pending_payment (e.g. user navigated back without paying),
+        // skip directly to the payment step (issue #318)
+        if (summary.status === 'pending_payment') {
+          setStep('payment')
+        }
         setOrderType(summary.order_type)
         setOrderCustomerName(summary.customer_name)
         setOrderDeliveryNote(summary.delivery_note)

@@ -271,7 +271,7 @@ export default function UnifiedFloorPlan(): JSX.Element {
                   'flex-shrink-0 min-h-[40px] px-4 rounded-xl text-sm font-medium transition-colors border',
                   isActive
                     ? 'bg-brand-navy text-white border-brand-blue'
-                    : 'bg-white text-brand-navy/80 border-brand-grey hover:bg-brand-offwhite hover:border-zinc-500',
+                    : 'bg-white text-brand-navy/80 border-brand-grey hover:bg-brand-offwhite hover:border-brand-grey',
                 ].join(' ')}
               >
                 {section.name}
@@ -314,7 +314,7 @@ export default function UnifiedFloorPlan(): JSX.Element {
               {sections.length === 0 ? (
                 <>
                   <p className="text-brand-navy/60 text-lg font-medium mb-2">Welcome to Floor Plan</p>
-                  <p className="text-zinc-600 text-sm max-w-xs">
+                  <p className="text-brand-navy/60 text-sm max-w-xs">
                     Create your first section in the sidebar to start building your restaurant layout.
                     Sections represent rooms or zones like &quot;Main Hall&quot;, &quot;Patio&quot;, or &quot;VIP&quot;.
                   </p>
@@ -322,7 +322,7 @@ export default function UnifiedFloorPlan(): JSX.Element {
               ) : (
                 <>
                   <p className="text-brand-navy/60 text-lg font-medium mb-2">Select a section</p>
-                  <p className="text-zinc-600 text-sm">
+                  <p className="text-brand-navy/60 text-sm">
                     Click a section in the sidebar or tabs above to view and edit its grid.
                   </p>
                 </>

@@ -257,7 +257,7 @@ export default function TablesPage(): JSX.Element {
                 {/* Unplaced tables strip */}
                 {unplacedTables.length > 0 && (
                   <div className="mt-4">
-                    <p className="text-sm font-semibold text-zinc-400 mb-2">
+                    <p className="text-sm font-semibold text-brand-navy/60 mb-2">
                       Unplaced Tables ({unplacedTables.length})
                     </p>
                     <div className="flex gap-3 overflow-x-auto pb-2">
@@ -274,7 +274,7 @@ export default function TablesPage(): JSX.Element {
               /* Tables grouped by section */
               <div className="space-y-8 mb-10">
                 {tables.length === 0 ? (
-                  <p className="text-zinc-400 text-lg">No tables configured.</p>
+                  <p className="text-brand-navy/60 text-lg">No tables configured.</p>
                 ) : (() => {
                   const sectionGroups = new Map<string | null, TableRow[]>()
                   for (const t of tables) {
@@ -341,8 +341,8 @@ export default function TablesPage(): JSX.Element {
                       className={[
                         'flex flex-col gap-2 p-4 rounded-xl border-2 text-left transition-colors',
                         isDelivery
-                          ? 'border-blue-700 bg-blue-900/20 hover:bg-blue-900/40 hover:border-blue-500'
-                          : 'border-amber-700 bg-amber-900/20 hover:bg-amber-900/40 hover:border-amber-500',
+                          ? 'border-brand-blue bg-brand-blue/20 hover:bg-brand-blue/40 hover:border-brand-navy'
+                          : 'border-brand-gold bg-brand-gold/20 hover:bg-brand-gold/30 hover:border-brand-gold',
                       ].join(' ')}
                     >
                       {/* Type badge + age */}
@@ -350,12 +350,12 @@ export default function TablesPage(): JSX.Element {
                         <span className={[
                           'text-xs font-bold px-2 py-0.5 rounded-full',
                           isDelivery
-                            ? 'bg-blue-900/60 text-blue-300'
-                            : 'bg-amber-900/60 text-amber-300',
+                            ? 'bg-brand-blue/60 text-white'
+                            : 'bg-brand-gold/60 text-brand-navy',
                         ].join(' ')}>
                           {isDelivery ? <span className='inline-flex items-center gap-1'><Bike size={12} aria-hidden='true' />DELIVERY</span> : <span className='inline-flex items-center gap-1'><ShoppingBag size={12} aria-hidden='true' />TAKEAWAY</span>}
                         </span>
-                        <span className="text-xs text-zinc-500">{orderAge(order.created_at)}</span>
+                        <span className="text-xs text-brand-navy/60">{orderAge(order.created_at)}</span>
                       </div>
 
                       {/* Customer name (delivery only) */}
@@ -364,12 +364,12 @@ export default function TablesPage(): JSX.Element {
                       )}
 
                       {/* Item count */}
-                      <p className="text-zinc-400 text-sm">
+                      <p className="text-brand-navy/60 text-sm">
                         {order.item_count} item{order.item_count !== 1 ? 's' : ''}
                       </p>
 
                       {/* Order ID snippet */}
-                      <p className="text-zinc-600 text-xs font-mono">{order.id.slice(0, 8)}</p>
+                      <p className="text-brand-navy/60 text-xs font-mono">{order.id.slice(0, 8)}</p>
                     </button>
                   )
                 })}

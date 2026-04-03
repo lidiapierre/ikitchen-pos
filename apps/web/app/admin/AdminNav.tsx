@@ -81,7 +81,7 @@ export default function AdminNav(): JSX.Element {
                 className={[
                   'flex items-center gap-3 px-4 py-3 rounded-xl text-lg font-medium transition-colors min-h-[48px]',
                   isActive
-                    ? 'bg-brand-gold text-brand-navy border-l-4 border-brand-gold'
+                    ? 'bg-brand-gold text-brand-navy border-l-4 border-brand-navy'
                     : 'text-white/80 hover:bg-brand-blue hover:text-white',
                 ].join(' ')}
               >

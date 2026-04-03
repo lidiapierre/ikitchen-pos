@@ -556,7 +556,7 @@ export default function PricingManager(): JSX.Element {
             'min-h-[48px] px-6 py-2 rounded-xl text-base font-medium transition-colors shrink-0 disabled:opacity-50',
             taxInclusive
               ? 'bg-brand-navy text-white hover:bg-brand-blue'
-              : 'bg-brand-offwhite text-brand-navy/80 hover:bg-zinc-600',
+              : 'bg-white border border-brand-grey text-brand-navy hover:bg-brand-offwhite',
           ].join(' ')}
         >
           {taxInclusive ? 'Tax-inclusive' : 'Tax-exclusive'}
@@ -727,7 +727,7 @@ export default function PricingManager(): JSX.Element {
                 setAddForm(EMPTY_VAT_RATE_FORM)
                 setAddFormErrors({})
               }}
-              className="min-h-[48px] px-5 py-2 rounded-xl bg-brand-offwhite text-white text-base font-medium hover:bg-zinc-600 transition-colors"
+              className="min-h-[48px] px-5 py-2 rounded-xl bg-white border border-brand-grey text-brand-navy text-base font-medium hover:bg-brand-offwhite transition-colors"
             >
               Cancel
             </button>
@@ -841,7 +841,7 @@ export default function PricingManager(): JSX.Element {
                       </button>
                       <button
                         onClick={handleCancelEditVatRate}
-                        className="min-h-[48px] px-5 py-2 rounded-xl bg-brand-offwhite text-white text-base font-medium hover:bg-zinc-600 transition-colors"
+                        className="min-h-[48px] px-5 py-2 rounded-xl bg-white border border-brand-grey text-brand-navy text-base font-medium hover:bg-brand-offwhite transition-colors"
                       >
                         Cancel
                       </button>
@@ -870,7 +870,7 @@ export default function PricingManager(): JSX.Element {
                   <button
                     onClick={() => handleStartEditVatRate(rate)}
                     aria-label={`Edit VAT rate ${rate.label}`}
-                    className="min-h-[48px] min-w-[48px] px-4 py-2 rounded-xl bg-brand-offwhite text-white text-base font-medium hover:bg-zinc-600 transition-colors shrink-0"
+                    className="min-h-[48px] min-w-[48px] px-4 py-2 rounded-xl bg-white border border-brand-grey text-brand-navy text-base font-medium hover:bg-brand-offwhite transition-colors shrink-0"
                   >
                     Edit
                   </button>
@@ -888,7 +888,7 @@ export default function PricingManager(): JSX.Element {
                       <button
                         onClick={() => setDeletingVatRateId(null)}
                         aria-label="Cancel delete"
-                        className="min-h-[48px] min-w-[48px] px-4 py-2 rounded-xl bg-brand-offwhite text-white text-base font-medium hover:bg-zinc-600 transition-colors"
+                        className="min-h-[48px] min-w-[48px] px-4 py-2 rounded-xl bg-white border border-brand-grey text-brand-navy text-base font-medium hover:bg-brand-offwhite transition-colors"
                       >
                         No
                       </button>
@@ -953,7 +953,7 @@ export default function PricingManager(): JSX.Element {
                     )}
                   </h3>
                   {category.items.length === 0 ? (
-                    <p className="text-zinc-600 text-sm px-2">No items in this category.</p>
+                    <p className="text-brand-navy/60 text-sm px-2">No items in this category.</p>
                   ) : (
                     <div className="flex flex-col gap-2">
                       {category.items.map((item) => {
@@ -1059,7 +1059,7 @@ export default function PricingManager(): JSX.Element {
                                 </button>
                                 <button
                                   onClick={handleCancelEditItem}
-                                  className="min-h-[48px] px-5 py-2 rounded-xl bg-brand-offwhite text-white text-base font-medium hover:bg-zinc-600 transition-colors"
+                                  className="min-h-[48px] px-5 py-2 rounded-xl bg-white border border-brand-grey text-brand-navy text-base font-medium hover:bg-brand-offwhite transition-colors"
                                 >
                                   Cancel
                                 </button>
@@ -1082,7 +1082,7 @@ export default function PricingManager(): JSX.Element {
                             <div className="text-sm text-brand-navy/60 shrink-0">
                               {categoryVatRate
                                 ? `${categoryVatRate.percentage}%`
-                                : <span className="text-zinc-600">—</span>}
+                                : <span className="text-brand-navy/60">—</span>}
                             </div>
                             <div className="text-base font-bold text-white tabular-nums shrink-0">
                               {formatPrice(previewCents, currencySymbol)}
@@ -1090,7 +1090,7 @@ export default function PricingManager(): JSX.Element {
                             <button
                               onClick={() => handleStartEditItem(item, category.id)}
                               aria-label={`Edit pricing for ${item.name}`}
-                              className="min-h-[48px] min-w-[48px] px-4 py-2 rounded-xl bg-brand-offwhite text-white text-base font-medium hover:bg-zinc-600 transition-colors shrink-0"
+                              className="min-h-[48px] min-w-[48px] px-4 py-2 rounded-xl bg-white border border-brand-grey text-brand-navy text-base font-medium hover:bg-brand-offwhite transition-colors shrink-0"
                             >
                               Edit
                             </button>

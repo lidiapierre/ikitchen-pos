@@ -658,6 +658,11 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
         timestamp: ts,
         printerProfile: profile,
         printerConfig: legacyConfig,
+        onBeforeBrowserPrint: () =>
+          // Give React a tick to flush reprintingKot state so print-area
+          // class is applied to the wrapper before window.print() fires
+          // (handles TCP/IP fallback-to-browser case)
+          new Promise<void>((resolve) => setTimeout(resolve, 50)),
       })
 
       if (result.errorMessage) {

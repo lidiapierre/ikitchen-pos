@@ -154,7 +154,7 @@ export default function MenuPageClient({ tableId, orderId }: MenuPageClientProps
       <div className="space-y-8">
         {categories.map((category) => (
           <section key={category.name}>
-            <h2 className="text-lg font-semibold text-zinc-300 mb-4">{category.name}</h2>
+            <h2 className="text-lg font-semibold text-brand-navy mb-4">{category.name}</h2>
             <div className="grid grid-cols-3 gap-4">
               {category.items.map((item) => (
                 <MenuItemCard
@@ -210,7 +210,7 @@ export default function MenuPageClient({ tableId, orderId }: MenuPageClientProps
 
         {/* Dietary filters */}
         <div className="flex flex-wrap gap-2 items-center">
-          <span className="text-xs text-zinc-500 font-medium uppercase tracking-wide mr-1">Diet:</span>
+          <span className="text-xs text-brand-navy/50 font-medium uppercase tracking-wide mr-1">Diet:</span>
           {(['halal', 'vegetarian', 'vegan'] as const).map((badge) => (
             <button
               key={badge}
@@ -221,7 +221,7 @@ export default function MenuPageClient({ tableId, orderId }: MenuPageClientProps
                 'text-xs font-medium px-3 py-1.5 rounded-full capitalize transition-colors min-h-[32px]',
                 filters.dietary === badge
                   ? 'bg-emerald-600 text-white'
-                  : 'bg-zinc-700 text-zinc-300 hover:bg-zinc-600',
+                  : 'bg-brand-offwhite text-brand-navy border border-brand-grey hover:bg-brand-grey/40',
               ].join(' ')}
             >
               {badge === 'halal' ? (
@@ -230,7 +230,7 @@ export default function MenuPageClient({ tableId, orderId }: MenuPageClientProps
             </button>
           ))}
 
-          <span className="text-xs text-zinc-500 font-medium uppercase tracking-wide mx-1">Allergen-free:</span>
+          <span className="text-xs text-brand-navy/50 font-medium uppercase tracking-wide mx-1">Allergen-free:</span>
           {(['nuts', 'dairy', 'gluten', 'eggs', 'shellfish', 'soy', 'sesame'] as const).map((allergen) => (
             <button
               key={allergen}
@@ -241,7 +241,7 @@ export default function MenuPageClient({ tableId, orderId }: MenuPageClientProps
                 'text-xs font-medium px-3 py-1.5 rounded-full capitalize transition-colors min-h-[32px]',
                 filters.allergenFree === allergen
                   ? 'bg-red-700 text-white'
-                  : 'bg-zinc-700 text-zinc-300 hover:bg-zinc-600',
+                  : 'bg-brand-offwhite text-brand-navy border border-brand-grey hover:bg-brand-grey/40',
               ].join(' ')}
             >
               No {allergen}
@@ -254,10 +254,10 @@ export default function MenuPageClient({ tableId, orderId }: MenuPageClientProps
         {renderMenu()}
       </div>
 
-      <footer className="mt-6 pt-4 border-t border-zinc-700 flex items-center justify-between gap-4">
+      <footer className="mt-6 pt-4 border-t border-brand-grey/30 flex items-center justify-between gap-4">
         <div className="flex flex-col">
-          <span className="text-base text-zinc-400">Added this session</span>
-          <span className="text-2xl font-bold text-white">{totalFormatted}</span>
+          <span className="text-base text-brand-navy/60">Added this session</span>
+          <span className="text-2xl font-bold text-brand-navy">{totalFormatted}</span>
         </div>
         <div className="flex items-center gap-3">
           <VoiceOrderButton orderId={orderId} onItemsConfirmed={handleVoiceItemsConfirmed} />

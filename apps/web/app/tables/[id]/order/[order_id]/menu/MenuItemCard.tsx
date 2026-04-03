@@ -151,20 +151,20 @@ export default function MenuItemCard({ item, orderId, onItemAdded, onItemFailed,
 
       <div
         className={[
-          'flex flex-col gap-3 bg-zinc-800 rounded-2xl p-4 border-2 border-zinc-600',
+          'flex flex-col gap-3 bg-white rounded-2xl p-4 border-2 border-brand-grey shadow-sm',
           isUnavailable ? 'opacity-40' : '',
         ].join(' ')}
       >
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-base font-semibold text-white">{item.name}</span>
+            <span className="text-base font-semibold text-brand-navy">{item.name}</span>
             {isUnavailable && (
               <span className="text-xs font-medium bg-zinc-700 text-zinc-400 px-2 py-0.5 rounded-full">
                 Unavailable
               </span>
             )}
           </div>
-          <span className="text-lg font-bold text-amber-400">{priceFormatted}</span>
+          <span className="text-lg font-bold text-brand-gold">{priceFormatted}</span>
           {item.modifiers.length > 0 && (
             <span className="text-sm text-zinc-400">{item.modifiers.length} option{item.modifiers.length !== 1 ? 's' : ''}</span>
           )}
@@ -241,7 +241,7 @@ export default function MenuItemCard({ item, orderId, onItemAdded, onItemFailed,
                 ? 'bg-green-600 text-white'
                 : loading
                   ? 'bg-zinc-700 text-zinc-400 cursor-wait'
-                  : 'bg-amber-600 hover:bg-amber-500 text-white',
+                  : 'bg-brand-gold hover:bg-brand-gold/90 text-brand-navy',
           ].join(' ')}
         >
           {isUnavailable ? '86\'d' : loading ? 'Adding…' : success ? (

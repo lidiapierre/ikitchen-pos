@@ -38,31 +38,36 @@ export interface StatusConfig {
   label: string
   cardClass: string
   badgeClass: string
+  labelClass: string
 }
 
 export const STATUS_CONFIG: Record<TableStatus, StatusConfig> = {
   available: {
     label: 'Empty',
-    // Off-white card, grey border — brand neutral
-    cardClass: 'bg-brand-offwhite border-brand-grey hover:border-brand-blue',
-    badgeClass: 'bg-brand-grey text-brand-navy',
+    // Quiet neutral card, still visible against the off-white floor canvas.
+    cardClass: 'bg-white border-brand-grey/80 hover:border-brand-blue shadow-sm',
+    badgeClass: 'bg-brand-offwhite text-brand-navy border border-brand-grey/70',
+    labelClass: 'text-brand-navy',
   },
   seated: {
     label: 'Seated',
-    // Brand blue — interactive/active state
-    cardClass: 'bg-brand-blue border-brand-blue hover:bg-brand-blue/80',
-    badgeClass: 'bg-brand-navy text-white',
+    // Blue tint keeps it clearly distinct from empty and ordered.
+    cardClass: 'bg-brand-blue/15 border-brand-blue hover:bg-brand-blue/20 shadow-sm',
+    badgeClass: 'bg-brand-blue text-white border border-brand-blue',
+    labelClass: 'text-brand-navy',
   },
   ordered: {
     label: 'Ordered',
-    // Brand navy — primary, prominent
-    cardClass: 'bg-brand-navy border-brand-gold hover:bg-brand-navy/90',
-    badgeClass: 'bg-brand-gold text-brand-navy',
+    // Gold is the highest-signal “active order” state in the new palette.
+    cardClass: 'bg-brand-gold/20 border-brand-gold hover:bg-brand-gold/25 shadow-sm',
+    badgeClass: 'bg-brand-gold text-brand-navy border border-brand-gold',
+    labelClass: 'text-brand-navy',
   },
   overdue: {
     label: 'Overdue',
-    // Red — keep semantic meaning clear
-    cardClass: 'bg-red-900 border-red-500 hover:bg-red-800',
-    badgeClass: 'bg-red-500 text-white',
+    // Keep semantic danger red so it cannot be confused with the brand statuses.
+    cardClass: 'bg-red-50 border-red-500 hover:bg-red-100 shadow-sm',
+    badgeClass: 'bg-red-600 text-white border border-red-600',
+    labelClass: 'text-red-900',
   },
 }

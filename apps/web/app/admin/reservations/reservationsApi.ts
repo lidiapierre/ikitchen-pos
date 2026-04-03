@@ -35,6 +35,13 @@ function buildHeaders(apiKey: string, accessToken?: string): Record<string, stri
   }
 }
 
+/** Returns midnight UTC for "today" as an ISO string, e.g. "2026-04-03T00:00:00.000Z" */
+export function todayStartUtc(): string {
+  const d = new Date()
+  d.setUTCHours(0, 0, 0, 0)
+  return d.toISOString()
+}
+
 export async function fetchReservations(
   supabaseUrl: string,
   apiKey: string,
@@ -44,6 +51,13 @@ export async function fetchReservations(
   const url = new URL(`${supabaseUrl}/rest/v1/reservations`)
   url.searchParams.set('restaurant_id', `eq.${restaurantId}`)
   url.searchParams.set('status', 'in.(waiting,seated)')
+  // Show future/today bookings (reservation_time set) OR walk-ins created today.
+  // Waitlist entries (reservation_time IS NULL) older than today are excluded so
+  // the waitlist resets each day while preserving historical records in the DB.
+  url.searchParams.set(
+    'or',
+    `(reservation_time.not.is.null,created_at.gte.${todayStartUtc()})`,
+  )
   url.searchParams.set('order', 'reservation_time.asc.nullsfirst,created_at.asc')
   const res = await fetch(url.toString(), {
     headers: buildHeaders(apiKey, accessToken),

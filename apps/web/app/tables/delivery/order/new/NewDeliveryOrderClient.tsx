@@ -21,6 +21,7 @@ export default function NewDeliveryOrderClient(): JSX.Element {
   const router = useRouter()
   const searchParams = useSearchParams()
   const customerName = searchParams.get('customerName') ?? ''
+  const customerPhone = searchParams.get('customerPhone') ?? ''
   const deliveryNote = searchParams.get('deliveryNote') ?? ''
   const { accessToken: _at } = useUser()
   // _at === null means auth is still loading; wait before firing.
@@ -52,6 +53,7 @@ export default function NewDeliveryOrderClient(): JSX.Element {
       {
         orderType: 'delivery',
         customerName,
+        ...(customerPhone ? { customerMobile: customerPhone } : {}),
         ...(deliveryNote ? { deliveryNote } : {}),
       },
       controller.signal,
@@ -67,7 +69,7 @@ export default function NewDeliveryOrderClient(): JSX.Element {
       })
 
     return () => { controller.abort() }
-  }, [_at, accessToken, customerName, deliveryNote, router])
+  }, [_at, accessToken, customerName, customerPhone, deliveryNote, router])
 
   if (error !== null) {
     return (

@@ -14,6 +14,7 @@ export interface CreateOrderOptions {
   tableId?: string
   orderType?: OrderType
   customerName?: string
+  customerMobile?: string
   deliveryNote?: string
 }
 
@@ -31,13 +32,14 @@ export async function callCreateOrder(
     opts = tableIdOrOptions
   }
 
-  const { tableId, orderType = 'dine_in', customerName, deliveryNote } = opts
+  const { tableId, orderType = 'dine_in', customerName, customerMobile, deliveryNote } = opts
 
   const bodyPayload: Record<string, string> = {
     order_type: orderType,
   }
   if (tableId) bodyPayload['table_id'] = tableId
   if (customerName) bodyPayload['customer_name'] = customerName
+  if (customerMobile) bodyPayload['customer_mobile'] = customerMobile
   if (deliveryNote) bodyPayload['delivery_note'] = deliveryNote
 
   const res = await fetch(`${supabaseUrl}/functions/v1/create_order`, {

@@ -34,6 +34,7 @@ const QUEUE: TakeawayDeliveryOrder[] = [
     id: 'order-99',
     order_type: 'takeaway',
     customer_name: null,
+    customer_mobile: null,
     delivery_note: null,
     status: 'open',
     created_at: '2026-03-31T06:00:00Z',

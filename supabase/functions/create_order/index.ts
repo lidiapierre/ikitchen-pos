@@ -84,6 +84,7 @@ export async function handler(
   }
 
   const customerName = (payload['customer_name'] as string | undefined) ?? null
+  const customerMobile = (payload['customer_mobile'] as string | undefined) ?? null
   const deliveryNote = (payload['delivery_note'] as string | undefined) ?? null
 
   // Delivery orders require customer_name
@@ -171,6 +172,7 @@ export async function handler(
     }
     if (tableId !== null) insertBody['table_id'] = tableId
     if (customerName !== null) insertBody['customer_name'] = customerName
+    if (customerMobile !== null) insertBody['customer_mobile'] = customerMobile
     if (deliveryNote !== null) insertBody['delivery_note'] = deliveryNote
 
     const insertRes = await fetchFn(

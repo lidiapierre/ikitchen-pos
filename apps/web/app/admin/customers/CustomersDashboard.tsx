@@ -378,8 +378,10 @@ export default function CustomersDashboard(): JSX.Element {
                     {customerOrders.map((order) => {
                       const orderTypeLabel = order.order_type === 'delivery' ? 'Delivery' : order.order_type === 'takeaway' ? 'Takeaway' : 'Dine-in'
                       const orderTypeColor = order.order_type === 'delivery' ? 'text-blue-400' : order.order_type === 'takeaway' ? 'text-amber-400' : 'text-zinc-400'
-                      // Build correct order URL: dine-in uses table_id, takeaway/delivery use order_type segment
-                      const segment = order.order_type === 'dine_in' ? (order.table_id ?? 'dine_in') : order.order_type
+                      // Build correct order URL: dine-in uses table_id, takeaway/delivery use order_type segment.
+                      // For dine-in orders with a null table_id (edge case), skip the link.
+                      const segment = order.order_type === 'dine_in' ? order.table_id : order.order_type
+                      const hasValidLink = segment !== null
                       return (
                         <li key={order.id} className="bg-zinc-700/50 rounded-xl px-3 py-2.5">
                           <div className="flex items-center justify-between gap-2">
@@ -398,14 +400,16 @@ export default function CustomersDashboard(): JSX.Element {
                                   ? formatPrice(order.final_total_cents, DEFAULT_CURRENCY_SYMBOL)
                                   : '—'}
                               </span>
-                              <Link
-                                href={`/tables/${segment}/order/${order.id}`}
-                                className="text-xs text-indigo-400 hover:text-indigo-300 underline"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                              >
-                                View
-                              </Link>
+                              {hasValidLink && (
+                                <Link
+                                  href={`/tables/${segment}/order/${order.id}`}
+                                  className="text-xs text-indigo-400 hover:text-indigo-300 underline"
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                >
+                                  View
+                                </Link>
+                              )}
                             </div>
                           </div>
                         </li>

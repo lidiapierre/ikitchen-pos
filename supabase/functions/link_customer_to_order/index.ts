@@ -2,7 +2,7 @@ import { verifyAndGetCaller } from '../_shared/auth.ts'
 
 export const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-demo-staff-id',
   'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
 }
 
@@ -114,6 +114,18 @@ export async function handler(
   }
 
   try {
+    // Fetch the order's restaurant_id (needed for the audit log)
+    const orderRes = await fetchFn(
+      `${supabaseUrl}/rest/v1/orders?id=eq.${orderId}&select=restaurant_id`,
+      { headers: dbHeaders },
+    )
+    let restaurantId: string | null = null
+    if (orderRes.ok) {
+      const rows = (await orderRes.json()) as Array<{ restaurant_id: string }>
+      restaurantId = rows[0]?.restaurant_id ?? null
+    }
+
+    // PATCH orders.customer_id
     const patchRes = await fetchFn(
       `${supabaseUrl}/rest/v1/orders?id=eq.${orderId}`,
       {
@@ -129,6 +141,25 @@ export async function handler(
         JSON.stringify({ success: false, error: `Failed to link customer: ${errText}` }),
         { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
       )
+    }
+
+    // Emit audit log entry (best-effort — non-fatal)
+    if (restaurantId) {
+      await fetchFn(
+        `${supabaseUrl}/rest/v1/audit_log`,
+        {
+          method: 'POST',
+          headers: { ...dbHeaders, Prefer: 'return=minimal' },
+          body: JSON.stringify({
+            restaurant_id: restaurantId,
+            user_id: caller.actorId,
+            action: 'link_customer_to_order',
+            entity_type: 'orders',
+            entity_id: orderId,
+            payload: { customer_id: customerId },
+          }),
+        },
+      ).catch(() => { /* Non-fatal */ })
     }
 
     return new Response(

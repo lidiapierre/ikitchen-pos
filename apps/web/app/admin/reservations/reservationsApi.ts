@@ -9,6 +9,10 @@ export interface Reservation {
   status: 'waiting' | 'seated' | 'cancelled' | 'no_show'
   notes: string | null
   created_at: string
+  /** FK to customers table — populated when customer_mobile is known (issue #277) */
+  customer_id: string | null
+  /** ID of the linked dine-in order — set by the Seat action (issue #277) */
+  linked_order_id?: string | null
 }
 
 export interface ReservationTable {
@@ -59,12 +63,60 @@ export async function fetchReservations(
     `(reservation_time.not.is.null,created_at.gte.${todayStartUtc()})`,
   )
   url.searchParams.set('order', 'reservation_time.asc.nullsfirst,created_at.asc')
+  // NOTE: do NOT include customer_id or reservation_id here — these columns only
+  // exist after migration 20260403000100 is deployed. Selecting them before that
+  // causes a PostgREST 400 and breaks the entire page load. They are fetched
+  // separately (with their own error handling) once we know the reservation list.
   const res = await fetch(url.toString(), {
     headers: buildHeaders(apiKey, accessToken),
   })
   if (!res.ok) throw new Error('Failed to fetch reservations')
+  const reservations = (await res.json()) as Reservation[]
+
+  // For seated reservations, try to fetch the linked active order id.
+  // This requires reservation_id column on orders (migration 20260403000100).
+  // If the column doesn't exist yet the query fails gracefully — no crash.
+  const seatedIds = reservations.filter((r) => r.status === 'seated').map((r) => r.id)
+  if (seatedIds.length === 0) return reservations
+  try {
+    const ordUrl = new URL(`${supabaseUrl}/rest/v1/orders`)
+    ordUrl.searchParams.set('select', 'id,reservation_id')
+    ordUrl.searchParams.set('reservation_id', `in.(${seatedIds.join(',')})`)
+    ordUrl.searchParams.set('status', 'in.(open,pending_payment)')
+    const ordRes = await fetch(ordUrl.toString(), { headers: buildHeaders(apiKey, accessToken) })
+    if (ordRes.ok) {
+      const orders = (await ordRes.json()) as Array<{ id: string; reservation_id: string }>
+      const orderByReservation = new Map(orders.map((o) => [o.reservation_id, o.id]))
+      return reservations.map((r) => ({
+        ...r,
+        linked_order_id: orderByReservation.get(r.id) ?? null,
+      }))
+    }
+  } catch {
+    // non-fatal — linked_order_id will just be undefined
+  }
+  return reservations
+}
+
+/** Fetch all reservations (past + upcoming) for a specific customer by customer_id. */
+export async function fetchCustomerReservations(
+  supabaseUrl: string,
+  apiKey: string,
+  accessToken: string,
+  customerId: string,
+): Promise<Reservation[]> {
+  const url = new URL(`${supabaseUrl}/rest/v1/reservations`)
+  url.searchParams.set('customer_id', `eq.${encodeURIComponent(customerId)}`)
+  url.searchParams.set('select', 'id,restaurant_id,customer_name,customer_mobile,party_size,reservation_time,table_id,status,notes,created_at,customer_id')
+  url.searchParams.set('order', 'reservation_time.desc.nullslast,created_at.desc')
+  url.searchParams.set('limit', '20')
+  const res = await fetch(url.toString(), {
+    headers: buildHeaders(apiKey, accessToken),
+  })
+  if (!res.ok) throw new Error('Failed to fetch customer reservations')
   return res.json() as Promise<Reservation[]>
 }
+
 
 export async function fetchTables(
   supabaseUrl: string,
@@ -88,6 +140,36 @@ export async function createReservation(
   accessToken: string,
   input: CreateReservationInput,
 ): Promise<Reservation> {
+  // Step 1: Upsert customer if mobile is provided — non-fatal if it fails
+  let customerId: string | null = null
+  if (input.customer_mobile?.trim()) {
+    try {
+      const custRes = await fetch(`${supabaseUrl}/rest/v1/customers`, {
+        method: 'POST',
+        headers: {
+          ...buildHeaders(apiKey, accessToken),
+          Prefer: 'return=representation,resolution=merge-duplicates',
+        },
+        body: JSON.stringify({
+          restaurant_id: input.restaurant_id,
+          mobile: input.customer_mobile.trim(),
+          name: input.customer_name || null,
+        }),
+      })
+      if (custRes.ok) {
+        const custRows = (await custRes.json()) as Array<{ id: string }>
+        customerId = custRows[0]?.id ?? null
+      }
+      // Non-fatal if customer upsert fails — reservation always proceeds
+    } catch {
+      // Non-fatal — reservation always proceeds without customer linkage
+    }
+  }
+
+  // Step 2: Insert the reservation — WITHOUT customer_id in the body.
+  // customer_id is linked via a separate PATCH below so that if the
+  // migration (20260403000100) hasn't been deployed yet this insert still
+  // succeeds and the reservation is always created.
   const res = await fetch(`${supabaseUrl}/rest/v1/reservations`, {
     method: 'POST',
     headers: {
@@ -106,7 +188,26 @@ export async function createReservation(
   })
   if (!res.ok) throw new Error('Failed to create reservation')
   const rows = (await res.json()) as Reservation[]
-  return rows[0]
+  const reservation = rows[0]
+
+  // Step 3: If we got a customerId, try to link it via PATCH.
+  // This is a best-effort operation — if the customer_id column doesn't
+  // exist yet (migration pending) the PATCH fails silently.
+  if (customerId !== null && reservation?.id) {
+    void fetch(
+      `${supabaseUrl}/rest/v1/reservations?id=eq.${encodeURIComponent(reservation.id)}`,
+      {
+        method: 'PATCH',
+        headers: {
+          ...buildHeaders(apiKey, accessToken),
+          Prefer: 'return=minimal',
+        },
+        body: JSON.stringify({ customer_id: customerId }),
+      },
+    ).catch(() => { /* non-fatal: column may not exist yet */ })
+  }
+
+  return reservation
 }
 
 export async function updateReservationStatus(
@@ -131,4 +232,67 @@ export async function updateReservationStatus(
     },
   )
   if (!res.ok) throw new Error('Failed to update reservation')
+}
+
+/**
+ * Seat a reservation:
+ * 1. Creates a dine-in order for the table
+ * 2. PATCHes the order to set reservation_id
+ * 3. PATCHes the reservation to status=seated
+ * Returns the new order_id.
+ */
+export async function seatReservation(
+  supabaseUrl: string,
+  apiKey: string,
+  accessToken: string,
+  reservation: Reservation,
+  tableId: string,
+): Promise<string> {
+  // Step 1: Create dine-in order via edge function
+  const createRes = await fetch(`${supabaseUrl}/functions/v1/create_order`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({
+      order_type: 'dine_in',
+      table_id: tableId,
+    }),
+  })
+  if (!createRes.ok) {
+    const text = await createRes.text()
+    throw new Error(`Failed to create order: ${createRes.status} — ${text}`)
+  }
+  const createJson = (await createRes.json()) as { success: boolean; data?: { order_id: string }; error?: string }
+  if (!createJson.success || !createJson.data) {
+    throw new Error(createJson.error ?? 'Failed to create order')
+  }
+  const orderId = createJson.data.order_id
+
+  // Step 2: Link reservation_id on the order (non-fatal — column may not exist yet)
+  void fetch(
+    `${supabaseUrl}/rest/v1/orders?id=eq.${encodeURIComponent(orderId)}`,
+    {
+      method: 'PATCH',
+      headers: {
+        ...buildHeaders(apiKey, accessToken),
+        Prefer: 'return=minimal',
+      },
+      body: JSON.stringify({ reservation_id: reservation.id }),
+    },
+  ).catch(() => { /* non-fatal: column may not exist pre-migration */ })
+
+  // Step 3: Mark reservation as seated (update table_id too if changed).
+  // If this fails after the order was created, include the orderId in the error
+  // so staff can manually navigate to the open order.
+  try {
+    await updateReservationStatus(supabaseUrl, apiKey, accessToken, reservation.id, 'seated', tableId)
+  } catch {
+    throw new Error(
+      `Failed to mark reservation as seated (order ${orderId} was created — navigate to it manually)`,
+    )
+  }
+
+  return orderId
 }

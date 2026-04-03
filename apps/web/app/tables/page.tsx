@@ -10,7 +10,6 @@ import { fetchTables, fetchTakeawayDeliveryQueue } from './tablesData'
 import type { TableRow, TakeawayDeliveryOrder } from './tablesData'
 import { getTablesCache, setTablesCache } from '@/lib/tablesCache'
 import type { TableStatus } from './tableStatus'
-import { callCreateOrder } from './components/createOrderApi'
 import { useUser } from '@/lib/user-context'
 import { ShoppingBag, Bike, X } from 'lucide-react'
 
@@ -49,7 +48,6 @@ export default function TablesPage(): JSX.Element {
   const [showDeliveryModal, setShowDeliveryModal] = useState(false)
   const [deliveryCustomerName, setDeliveryCustomerName] = useState('')
   const [deliveryNote, setDeliveryNote] = useState('')
-  const [creatingOrder, setCreatingOrder] = useState(false)
   const [createOrderError, setCreateOrderError] = useState<string | null>(null)
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -119,51 +117,25 @@ export default function TablesPage(): JSX.Element {
     }
   }, [])
 
-  async function handleCreateTakeaway(): Promise<void> {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    if (!supabaseUrl || !accessToken) {
-      setCreateOrderError('Not authenticated')
-      return
-    }
-    setCreatingOrder(true)
-    setCreateOrderError(null)
-    try {
-      const result = await callCreateOrder(supabaseUrl, accessToken, {
-        orderType: 'takeaway',
-      })
-      router.push(`/tables/takeaway/order/${result.order_id}`)
-    } catch (err) {
-      setCreateOrderError(err instanceof Error ? err.message : 'Failed to create takeaway order')
-      setCreatingOrder(false)
-    }
+  // Instant navigation — order is created in the background by the /order/new page (issue #317)
+  function handleCreateTakeaway(): void {
+    router.push('/tables/takeaway/order/new')
   }
 
-  async function handleCreateDelivery(): Promise<void> {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    if (!supabaseUrl || !accessToken) {
-      setCreateOrderError('Not authenticated')
-      return
-    }
+  function handleCreateDelivery(): void {
     if (!deliveryCustomerName.trim()) {
       setCreateOrderError('Customer name is required for delivery orders')
       return
     }
-    setCreatingOrder(true)
+    const params = new URLSearchParams({
+      customerName: deliveryCustomerName.trim(),
+      ...(deliveryNote.trim() ? { deliveryNote: deliveryNote.trim() } : {}),
+    })
     setCreateOrderError(null)
-    try {
-      const result = await callCreateOrder(supabaseUrl, accessToken, {
-        orderType: 'delivery',
-        customerName: deliveryCustomerName.trim(),
-        deliveryNote: deliveryNote.trim() || undefined,
-      })
-      setShowDeliveryModal(false)
-      setDeliveryCustomerName('')
-      setDeliveryNote('')
-      router.push(`/tables/delivery/order/${result.order_id}`)
-    } catch (err) {
-      setCreateOrderError(err instanceof Error ? err.message : 'Failed to create delivery order')
-      setCreatingOrder(false)
-    }
+    setShowDeliveryModal(false)
+    setDeliveryCustomerName('')
+    setDeliveryNote('')
+    router.push(`/tables/delivery/order/new?${params.toString()}`)
   }
 
   return (
@@ -202,16 +174,10 @@ export default function TablesPage(): JSX.Element {
       <div className="flex gap-3 mb-6">
         <button
           type="button"
-          onClick={() => { void handleCreateTakeaway() }}
-          disabled={creatingOrder}
-          className={[
-            'flex-1 min-h-[56px] rounded-xl text-base font-semibold transition-colors border-2',
-            creatingOrder
-              ? 'border-brand-gold/40 bg-brand-gold/10 text-brand-gold/50 cursor-wait'
-              : 'border-brand-gold bg-brand-gold/10 text-brand-navy hover:bg-brand-gold/20 hover:border-brand-gold/80',
-          ].join(' ')}
+          onClick={handleCreateTakeaway}
+          className="flex-1 min-h-[56px] rounded-xl text-base font-semibold transition-colors border-2 border-brand-gold bg-brand-gold/10 text-brand-navy hover:bg-brand-gold/20 hover:border-brand-gold/80"
         >
-          {creatingOrder ? 'Creating…' : <span className='inline-flex items-center gap-2'><ShoppingBag size={18} aria-hidden='true' />New Takeaway Order</span>}
+          <span className='inline-flex items-center gap-2'><ShoppingBag size={18} aria-hidden='true' />New Takeaway Order</span>
         </button>
         <button
           type="button"
@@ -221,13 +187,7 @@ export default function TablesPage(): JSX.Element {
             setCreateOrderError(null)
             setShowDeliveryModal(true)
           }}
-          disabled={creatingOrder}
-          className={[
-            'flex-1 min-h-[56px] rounded-xl text-base font-semibold transition-colors border-2',
-            creatingOrder
-              ? 'border-brand-blue/40 bg-brand-blue/10 text-brand-blue/50 cursor-wait'
-              : 'border-brand-blue bg-brand-blue/10 text-brand-navy hover:bg-brand-blue/20 hover:border-brand-blue/80',
-          ].join(' ')}
+          className="flex-1 min-h-[56px] rounded-xl text-base font-semibold transition-colors border-2 border-brand-blue bg-brand-blue/10 text-brand-navy hover:bg-brand-blue/20 hover:border-brand-blue/80"
         >
           <span className='inline-flex items-center gap-2'><Bike size={18} aria-hidden='true' />New Delivery Order</span>
         </button>
@@ -438,23 +398,22 @@ export default function TablesPage(): JSX.Element {
                   setShowDeliveryModal(false)
                   setCreateOrderError(null)
                 }}
-                disabled={creatingOrder}
-                className="flex-1 min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold border-2 border-brand-grey/40 text-white hover:border-brand-grey transition-colors disabled:opacity-50 font-body"
+                className="flex-1 min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold border-2 border-brand-grey/40 text-white hover:border-brand-grey transition-colors font-body"
               >
                 Cancel
               </button>
               <button
                 type="button"
-                onClick={() => { void handleCreateDelivery() }}
-                disabled={creatingOrder || deliveryCustomerName.trim() === ''}
+                onClick={handleCreateDelivery}
+                disabled={deliveryCustomerName.trim() === ''}
                 className={[
                   'flex-1 min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold transition-colors font-body',
-                  creatingOrder || deliveryCustomerName.trim() === ''
-                    ? 'bg-brand-grey/30 text-white/40 cursor-wait'
+                  deliveryCustomerName.trim() === ''
+                    ? 'bg-brand-grey/30 text-white/40 cursor-not-allowed'
                     : 'bg-brand-gold hover:bg-brand-gold/90 text-brand-navy',
                 ].join(' ')}
               >
-                {creatingOrder ? 'Creating…' : 'Create Order'}
+                Create Order
               </button>
             </div>
           </div>

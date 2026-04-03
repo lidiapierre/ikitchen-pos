@@ -1,13 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import NewOrderPage from './page'
+import NewTakeawayOrderPage from './page'
 
 const mockReplace = vi.fn()
 
 vi.mock('next/navigation', () => ({
   useRouter: (): { replace: (url: string) => void } => ({ replace: mockReplace }),
-  useParams: (): { id: string } => ({ id: 'table-uuid-001' }),
 }))
 
 vi.mock('@/lib/user-context', () => ({
@@ -20,7 +19,7 @@ vi.mock('../../../components/createOrderApi', () => ({
 
 const originalEnv = process.env
 
-describe('NewOrderPage', () => {
+describe('NewTakeawayOrderPage', () => {
   beforeEach(async () => {
     vi.clearAllMocks()
     process.env = {
@@ -28,54 +27,50 @@ describe('NewOrderPage', () => {
       NEXT_PUBLIC_SUPABASE_URL: 'https://test.supabase.co',
     }
 
-    // Re-import the module fresh for each test so the mock resolves properly
     const { callCreateOrder } = await import('../../../components/createOrderApi')
     vi.mocked(callCreateOrder).mockReset()
   })
 
   describe('initial render', () => {
-    it('shows the order page shell with table info and inline creating indicator', async () => {
+    it('shows the order page shell with takeaway badge while waiting for callCreateOrder', async () => {
       const { callCreateOrder } = await import('../../../components/createOrderApi')
       vi.mocked(callCreateOrder).mockReturnValue(new Promise(() => { /* never resolves */ }))
 
-      render(<NewOrderPage />)
+      render(<NewTakeawayOrderPage />)
 
       // Order page chrome is immediately visible
       expect(screen.getByRole('heading', { name: 'Order', level: 1 })).toBeInTheDocument()
-      // Table info shown from URL params
-      expect(screen.getByText('table-uuid-001')).toBeInTheDocument()
-      // Inline creating indicator — NOT a full-screen spinner
+      // Takeaway badge
+      expect(screen.getByText('Takeaway')).toBeInTheDocument()
+      // Inline creating indicator
       expect(screen.getByRole('status', { name: 'Creating order…' })).toBeInTheDocument()
       expect(screen.getByText('Creating order…')).toBeInTheDocument()
-      // Action buttons are disabled while order is being created
-      expect(screen.getByRole('button', { name: 'Add Items' })).toBeDisabled()
-      expect(screen.getByRole('button', { name: 'Close Order' })).toBeDisabled()
     })
   })
 
   describe('on success', () => {
-    it('redirects to the real order page via router.replace', async () => {
+    it('redirects to the real takeaway order page via router.replace', async () => {
       const { callCreateOrder } = await import('../../../components/createOrderApi')
-      vi.mocked(callCreateOrder).mockResolvedValue({ order_id: 'new-order-xyz' })
+      vi.mocked(callCreateOrder).mockResolvedValue({ order_id: 'takeaway-order-abc' })
 
-      render(<NewOrderPage />)
+      render(<NewTakeawayOrderPage />)
 
       await waitFor(() => {
-        expect(mockReplace).toHaveBeenCalledWith('/tables/table-uuid-001/order/new-order-xyz')
+        expect(mockReplace).toHaveBeenCalledWith('/tables/takeaway/order/takeaway-order-abc')
       })
     })
 
-    it('calls callCreateOrder with the correct arguments', async () => {
+    it('calls callCreateOrder with orderType takeaway', async () => {
       const { callCreateOrder } = await import('../../../components/createOrderApi')
-      vi.mocked(callCreateOrder).mockResolvedValue({ order_id: 'new-order-xyz' })
+      vi.mocked(callCreateOrder).mockResolvedValue({ order_id: 'takeaway-order-abc' })
 
-      render(<NewOrderPage />)
+      render(<NewTakeawayOrderPage />)
 
       await waitFor(() => {
         expect(callCreateOrder).toHaveBeenCalledWith(
           'https://test.supabase.co',
           'test-token',
-          'table-uuid-001',
+          { orderType: 'takeaway' },
           expect.any(AbortSignal),
         )
       })
@@ -85,12 +80,12 @@ describe('NewOrderPage', () => {
   describe('on failure', () => {
     it('shows the error message and a Go back button', async () => {
       const { callCreateOrder } = await import('../../../components/createOrderApi')
-      vi.mocked(callCreateOrder).mockRejectedValue(new Error('Table already has an open order'))
+      vi.mocked(callCreateOrder).mockRejectedValue(new Error('Failed to create takeaway order'))
 
-      render(<NewOrderPage />)
+      render(<NewTakeawayOrderPage />)
 
       await waitFor(() => {
-        expect(screen.getByText('Table already has an open order')).toBeInTheDocument()
+        expect(screen.getByText('Failed to create takeaway order')).toBeInTheDocument()
       })
       expect(screen.getByRole('button', { name: /go back to tables/i })).toBeInTheDocument()
     })
@@ -99,14 +94,13 @@ describe('NewOrderPage', () => {
       const { callCreateOrder } = await import('../../../components/createOrderApi')
       vi.mocked(callCreateOrder).mockRejectedValue(new Error('Network error'))
 
-      render(<NewOrderPage />)
+      render(<NewTakeawayOrderPage />)
 
       await waitFor(() => {
         expect(screen.getByRole('button', { name: /go back to tables/i })).toBeInTheDocument()
       })
 
       await userEvent.click(screen.getByRole('button', { name: /go back to tables/i }))
-
       expect(mockReplace).toHaveBeenCalledWith('/tables')
     })
 
@@ -114,7 +108,7 @@ describe('NewOrderPage', () => {
       const { callCreateOrder } = await import('../../../components/createOrderApi')
       vi.mocked(callCreateOrder).mockRejectedValue(new Error('create_order failed: 500'))
 
-      render(<NewOrderPage />)
+      render(<NewTakeawayOrderPage />)
 
       await waitFor(() => {
         expect(screen.queryByRole('status', { name: 'Creating order…' })).not.toBeInTheDocument()

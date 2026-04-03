@@ -449,6 +449,9 @@ verify_jwt = false
 [functions.provision_restaurant]
 verify_jwt = false
 
+[functions.link_customer_to_order]
+verify_jwt = false
+
 [functions.set_covers]
 verify_jwt = false
 

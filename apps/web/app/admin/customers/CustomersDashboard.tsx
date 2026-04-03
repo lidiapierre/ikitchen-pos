@@ -9,6 +9,7 @@ import { formatPrice, DEFAULT_CURRENCY_SYMBOL } from '@/lib/formatPrice'
 import {
   fetchCustomers,
   fetchCustomerOrders,
+  fetchCustomerOrdersById,
   updateCustomer,
 } from './customersApi'
 import type { Customer, CustomerOrder } from './customersApi'
@@ -95,8 +96,18 @@ export default function CustomersDashboard(): JSX.Element {
     setOrdersLoading(true)
     setCustomerReservations([])
 
-    fetchCustomerOrders(supabaseUrl, accessToken, customer.restaurant_id, customer.mobile)
-      .then(setCustomerOrders)
+    // Prefer customer_id-based query (issue #276); fall back to mobile-based for older orders
+    fetchCustomerOrdersById(supabaseUrl, accessToken, customer.id)
+      .then((byId) => {
+        if (byId.length > 0) {
+          setCustomerOrders(byId)
+          setOrdersLoading(false)
+        } else {
+          // Fall back to mobile lookup for pre-#276 orders
+          return fetchCustomerOrders(supabaseUrl, accessToken, customer.restaurant_id, customer.mobile)
+            .then(setCustomerOrders)
+        }
+      })
       .catch((err: unknown) => {
         setOrdersError(err instanceof Error ? err.message : 'Failed to load orders')
       })
@@ -364,35 +375,46 @@ export default function CustomersDashboard(): JSX.Element {
                   <p className="text-zinc-500 text-xs">No orders found.</p>
                 ) : (
                   <ul className="space-y-2">
-                    {customerOrders.map((order) => (
-                      <li key={order.id} className="bg-zinc-700/50 rounded-xl px-3 py-2.5">
-                        <div className="flex items-center justify-between gap-2">
-                          <div>
-                            {order.bill_number && (
-                              <p className="text-xs font-mono text-indigo-400">{order.bill_number}</p>
-                            )}
-                            <p className="text-xs text-zinc-400">
-                              {new Date(order.created_at).toLocaleDateString()}
-                            </p>
+                    {customerOrders.map((order) => {
+                      const orderTypeLabel = order.order_type === 'delivery' ? 'Delivery' : order.order_type === 'takeaway' ? 'Takeaway' : 'Dine-in'
+                      const orderTypeColor = order.order_type === 'delivery' ? 'text-blue-400' : order.order_type === 'takeaway' ? 'text-amber-400' : 'text-zinc-400'
+                      // Build correct order URL: dine-in uses table_id, takeaway/delivery use order_type segment.
+                      // For dine-in orders with a null table_id (edge case), skip the link.
+                      const segment = order.order_type === 'dine_in' ? order.table_id : order.order_type
+                      const hasValidLink = segment !== null
+                      return (
+                        <li key={order.id} className="bg-zinc-700/50 rounded-xl px-3 py-2.5">
+                          <div className="flex items-center justify-between gap-2">
+                            <div>
+                              {order.bill_number && (
+                                <p className="text-xs font-mono text-indigo-400">{order.bill_number}</p>
+                              )}
+                              <p className="text-xs text-zinc-400">
+                                {new Date(order.created_at).toLocaleDateString()}
+                                <span className={`ml-2 ${orderTypeColor}`}>{orderTypeLabel}</span>
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold text-white text-sm">
+                                {order.final_total_cents != null
+                                  ? formatPrice(order.final_total_cents, DEFAULT_CURRENCY_SYMBOL)
+                                  : '—'}
+                              </span>
+                              {hasValidLink && (
+                                <Link
+                                  href={`/tables/${segment}/order/${order.id}`}
+                                  className="text-xs text-indigo-400 hover:text-indigo-300 underline"
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                >
+                                  View
+                                </Link>
+                              )}
+                            </div>
                           </div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-semibold text-white text-sm">
-                              {order.final_total_cents != null
-                                ? formatPrice(order.final_total_cents, DEFAULT_CURRENCY_SYMBOL)
-                                : '—'}
-                            </span>
-                            <Link
-                              href={`/tables/${order.table_id ?? order.order_type}/order/${order.id}`}
-                              className="text-xs text-indigo-400 hover:text-indigo-300 underline"
-                              target="_blank"
-                              rel="noopener noreferrer"
-                            >
-                              View
-                            </Link>
-                          </div>
-                        </div>
-                      </li>
-                    ))}
+                        </li>
+                      )
+                    })}
                   </ul>
                 )}
               </div>

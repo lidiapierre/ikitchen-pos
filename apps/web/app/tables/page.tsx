@@ -44,6 +44,13 @@ export default function TablesPage(): JSX.Element {
 
   const [queue, setQueue] = useState<TakeawayDeliveryOrder[]>([])
 
+  // Takeaway modal state
+  const [showTakeawayModal, setShowTakeawayModal] = useState(false)
+  const [takeawayName, setTakeawayName] = useState('')
+  const [takeawayMobile, setTakeawayMobile] = useState('')
+  const [takeawaySuggestion, setTakeawaySuggestion] = useState<{ name: string; mobile: string } | null>(null)
+  const takeawaySearchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   // Delivery modal state
   const [showDeliveryModal, setShowDeliveryModal] = useState(false)
   const [deliveryCustomerName, setDeliveryCustomerName] = useState('')
@@ -122,6 +129,50 @@ export default function TablesPage(): JSX.Element {
     }
   }, [])
 
+  // Debounced customer mobile search for takeaway modal
+  useEffect(() => {
+    if (takeawaySearchTimerRef.current !== null) {
+      clearTimeout(takeawaySearchTimerRef.current)
+    }
+
+    const phone = takeawayMobile.trim()
+    if (!phone || !showTakeawayModal) {
+      setTakeawaySuggestion(null)
+      return
+    }
+
+    takeawaySearchTimerRef.current = setTimeout(() => {
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+      const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ''
+      if (!supabaseUrl || !accessToken) return
+
+      const url = new URL(`${supabaseUrl}/rest/v1/customers`)
+      url.searchParams.set('select', 'name,mobile')
+      url.searchParams.set('mobile', `eq.${phone}`)
+      url.searchParams.set('limit', '1')
+
+      fetch(url.toString(), {
+        headers: { apikey: publishableKey, Authorization: `Bearer ${accessToken}` },
+      })
+        .then((res) => res.ok ? res.json() : Promise.reject(new Error('search failed')))
+        .then((rows: unknown) => {
+          const results = rows as Array<{ name: string | null; mobile: string }>
+          if (results.length > 0 && results[0].name) {
+            setTakeawaySuggestion({ name: results[0].name, mobile: results[0].mobile })
+          } else {
+            setTakeawaySuggestion(null)
+          }
+        })
+        .catch(() => { setTakeawaySuggestion(null) })
+    }, 400)
+
+    return () => {
+      if (takeawaySearchTimerRef.current !== null) {
+        clearTimeout(takeawaySearchTimerRef.current)
+      }
+    }
+  }, [takeawayMobile, showTakeawayModal, accessToken])
+
   // Debounced customer mobile search: when deliveryPhone changes, search customers table after 400ms
   useEffect(() => {
     if (customerSearchTimerRef.current !== null) {
@@ -172,9 +223,22 @@ export default function TablesPage(): JSX.Element {
     }
   }, [deliveryPhone, showDeliveryModal, accessToken])
 
-  // Instant navigation — order is created in the background by the /order/new page (issue #317)
+  // Open the optional takeaway customer modal before navigating
   function handleCreateTakeaway(): void {
-    router.push('/tables/takeaway/order/new')
+    setTakeawayName('')
+    setTakeawayMobile('')
+    setTakeawaySuggestion(null)
+    setShowTakeawayModal(true)
+  }
+
+  // Confirm takeaway — navigate to /order/new with optional search params (issue #317 + #276)
+  function handleConfirmTakeaway(): void {
+    const params = new URLSearchParams()
+    if (takeawayName.trim()) params.set('customerName', takeawayName.trim())
+    if (takeawayMobile.trim()) params.set('customerPhone', takeawayMobile.trim())
+    const qs = params.toString()
+    setShowTakeawayModal(false)
+    router.push(`/tables/takeaway/order/new${qs ? `?${qs}` : ''}`)
   }
 
   function handleCreateDelivery(): void {
@@ -403,6 +467,82 @@ export default function TablesPage(): JSX.Element {
             )}
           </section>
         </>
+      )}
+
+      {/* Takeaway order modal — optional name + mobile (issue #276) */}
+      {showTakeawayModal && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70">
+          <div className="w-full max-w-lg bg-brand-navy rounded-t-2xl p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold text-white flex items-center gap-2 font-heading">
+                <ShoppingBag size={20} aria-hidden="true" />New Takeaway Order
+              </h2>
+              <button
+                type="button"
+                onClick={() => { setShowTakeawayModal(false) }}
+                className="min-h-[48px] min-w-[48px] text-white/60 hover:text-white flex items-center justify-center"
+                aria-label="Close"
+              >
+                <X size={20} aria-hidden="true" />
+              </button>
+            </div>
+
+            <div>
+              <label htmlFor="takeaway-name" className="block text-white text-base mb-2 font-body">
+                Customer Name <span className="text-brand-grey">(optional)</span>
+              </label>
+              <input
+                id="takeaway-name"
+                type="text"
+                placeholder="e.g. Ahmed Khan"
+                value={takeawayName}
+                onChange={(e) => { setTakeawayName(e.target.value); setTakeawaySuggestion(null) }}
+                className="w-full min-h-[48px] px-4 rounded-xl text-base bg-brand-blue text-white border-2 border-brand-grey/40 focus:border-brand-gold focus:outline-none placeholder-white/40 font-body"
+                autoFocus
+              />
+            </div>
+
+            <div>
+              <label htmlFor="takeaway-mobile" className="block text-white text-base mb-2 font-body">
+                Phone Number <span className="text-brand-grey">(optional)</span>
+              </label>
+              <input
+                id="takeaway-mobile"
+                type="tel"
+                placeholder="+880 1X XX XXX XXX"
+                value={takeawayMobile}
+                onChange={(e) => { setTakeawayMobile(e.target.value) }}
+                className="w-full min-h-[48px] px-4 rounded-xl text-base bg-brand-blue text-white border-2 border-brand-grey/40 focus:border-brand-gold focus:outline-none placeholder-white/40 font-body"
+              />
+              {takeawaySuggestion !== null && (
+                <button
+                  type="button"
+                  onClick={() => { setTakeawayName(takeawaySuggestion.name); setTakeawaySuggestion(null) }}
+                  className="mt-2 w-full text-left px-4 py-2 rounded-xl bg-brand-gold/10 border border-brand-gold/40 text-sm text-brand-gold hover:bg-brand-gold/20 transition-colors font-body"
+                >
+                  👤 Returning customer: <span className="font-semibold">{takeawaySuggestion.name}</span> — tap to fill name
+                </button>
+              )}
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => { setShowTakeawayModal(false) }}
+                className="flex-1 min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold border-2 border-brand-grey/40 text-white hover:border-brand-grey transition-colors font-body"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmTakeaway}
+                className="flex-1 min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold bg-brand-gold hover:bg-brand-gold/90 text-brand-navy transition-colors font-body"
+              >
+                Create Order
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Delivery order modal */}

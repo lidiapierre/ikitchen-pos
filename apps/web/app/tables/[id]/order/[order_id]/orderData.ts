@@ -62,6 +62,8 @@ export interface OrderSummary {
   bill_number: string | null
   /** Linked reservation ID for dine-in orders created via Seat action (issue #277) */
   reservation_id: string | null
+  /** Linked customer UUID (issue #276) */
+  customer_id: string | null
 }
 
 interface OrderItemRow {
@@ -205,7 +207,7 @@ export async function fetchOrderSummary(
 
   const orderUrl = new URL(`${supabaseUrl}/rest/v1/orders`)
   orderUrl.searchParams.set('id', `eq.${orderId}`)
-  orderUrl.searchParams.set('select', 'status,order_type,customer_name,delivery_note,customer_mobile,bill_number,reservation_id')
+  orderUrl.searchParams.set('select', 'status,order_type,customer_name,delivery_note,customer_mobile,bill_number,reservation_id,customer_id')
 
   const orderRes = await fetch(orderUrl.toString(), { headers })
   if (!orderRes.ok) {
@@ -221,6 +223,7 @@ export async function fetchOrderSummary(
     customer_mobile: string | null
     bill_number: string | null
     reservation_id: string | null
+    customer_id: string | null
   }>
   if (orders.length === 0) {
     throw new Error('Order not found')
@@ -233,6 +236,7 @@ export async function fetchOrderSummary(
   const customerMobile = orders[0].customer_mobile ?? null
   const billNumber = orders[0].bill_number ?? null
   const reservationId = orders[0].reservation_id ?? null
+  const customerId = orders[0].customer_id ?? null
 
   if (status !== 'paid') {
     return {
@@ -244,6 +248,7 @@ export async function fetchOrderSummary(
       customer_mobile: customerMobile,
       bill_number: billNumber,
       reservation_id: reservationId,
+      customer_id: customerId,
     }
   }
 
@@ -263,6 +268,7 @@ export async function fetchOrderSummary(
       customer_mobile: customerMobile,
       bill_number: billNumber,
       reservation_id: reservationId,
+      customer_id: customerId,
     }
   }
 
@@ -276,5 +282,6 @@ export async function fetchOrderSummary(
     customer_mobile: customerMobile,
     bill_number: billNumber,
     reservation_id: reservationId,
+    customer_id: customerId,
   }
 }

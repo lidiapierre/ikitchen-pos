@@ -212,8 +212,8 @@ export default function MenuManager(): JSX.Element {
   if (loading) {
     return (
       <div className="flex flex-col gap-6">
-        <h1 className="text-2xl font-bold text-white">Menu</h1>
-        <p className="text-zinc-400 text-base">Loading menu…</p>
+        <h1 className="text-2xl font-bold text-brand-navy font-heading">Menu</h1>
+        <p className="text-brand-navy/60 text-base">Loading menu…</p>
       </div>
     )
   }
@@ -221,7 +221,7 @@ export default function MenuManager(): JSX.Element {
   if (fetchError !== null) {
     return (
       <div className="flex flex-col gap-6">
-        <h1 className="text-2xl font-bold text-white">Menu</h1>
+        <h1 className="text-2xl font-bold text-brand-navy font-heading">Menu</h1>
         <p className="text-red-400 text-base">Unable to load menu data. Please try again.</p>
         <p className="text-red-300 text-sm font-mono">{fetchError}</p>
       </div>
@@ -232,14 +232,14 @@ export default function MenuManager(): JSX.Element {
     <div className="flex flex-col gap-6">
       {/* Page header */}
       <div className="flex items-center justify-between gap-4">
-        <h1 className="text-2xl font-bold text-white">Menu</h1>
+        <h1 className="text-2xl font-bold text-brand-navy font-heading">Menu</h1>
         <div className="flex gap-3">
           <button
             onClick={() => {
               setShowAddCategory((v) => !v)
             }}
             disabled={submitting}
-            className="min-h-[48px] px-5 py-2 rounded-xl text-base font-medium bg-zinc-700 text-white hover:bg-zinc-600 transition-colors disabled:opacity-50"
+            className="min-h-[48px] px-5 py-2 rounded-xl text-base font-medium bg-brand-offwhite text-white hover:bg-zinc-600 transition-colors disabled:opacity-50"
           >
             + Add Category
           </button>
@@ -251,7 +251,7 @@ export default function MenuManager(): JSX.Element {
           </Link>
           <Link
             href="/admin/menu/new"
-            className="min-h-[48px] px-5 py-2 rounded-xl text-base font-medium bg-indigo-600 text-white hover:bg-indigo-500 transition-colors flex items-center"
+            className="min-h-[48px] px-5 py-2 rounded-xl text-base font-medium bg-brand-navy text-white hover:bg-brand-blue transition-colors flex items-center"
           >
             + New Item
           </Link>
@@ -273,10 +273,10 @@ export default function MenuManager(): JSX.Element {
 
       {/* Add Category inline form */}
       {showAddCategory && (
-        <div className="bg-zinc-800 border border-zinc-700 rounded-2xl p-5 flex flex-col gap-4">
-          <h2 className="text-lg font-semibold text-white">New Category</h2>
+        <div className="bg-white border border-brand-grey rounded-2xl p-5 flex flex-col gap-4">
+          <h2 className="text-lg font-semibold text-brand-navy">New Category</h2>
           <div className="flex flex-col gap-1">
-            <label htmlFor="category-name" className="text-sm font-medium text-zinc-300">
+            <label htmlFor="category-name" className="text-sm font-medium text-brand-navy/80">
               Category Name <span className="text-red-400">*</span>
             </label>
             <input
@@ -287,7 +287,7 @@ export default function MenuManager(): JSX.Element {
                 setCategoryName(e.target.value)
                 setCategoryNameError('')
               }}
-              className="min-h-[48px] px-4 py-2 rounded-xl bg-zinc-900 text-white border border-zinc-600 focus:border-indigo-500 focus:outline-none text-base"
+              className="min-h-[48px] px-4 py-2 rounded-xl bg-brand-navy text-white border border-brand-grey focus:border-brand-blue focus:outline-none text-base"
               placeholder="e.g. Starters"
             />
             {categoryNameError && (
@@ -298,7 +298,7 @@ export default function MenuManager(): JSX.Element {
             <button
               onClick={() => { void handleAddCategory() }}
               disabled={submitting}
-              className="min-h-[48px] px-5 py-2 rounded-xl bg-indigo-600 text-white text-base font-medium hover:bg-indigo-500 transition-colors disabled:opacity-50"
+              className="min-h-[48px] px-5 py-2 rounded-xl bg-brand-navy text-white text-base font-medium hover:bg-brand-blue transition-colors disabled:opacity-50"
             >
               Save Category
             </button>
@@ -308,7 +308,7 @@ export default function MenuManager(): JSX.Element {
                 setCategoryName('')
                 setCategoryNameError('')
               }}
-              className="min-h-[48px] px-5 py-2 rounded-xl bg-zinc-700 text-white text-base font-medium hover:bg-zinc-600 transition-colors"
+              className="min-h-[48px] px-5 py-2 rounded-xl bg-brand-offwhite text-white text-base font-medium hover:bg-zinc-600 transition-colors"
             >
               Cancel
             </button>
@@ -333,7 +333,7 @@ export default function MenuManager(): JSX.Element {
                     setEditingCategoryNameError('')
                   }}
                   aria-label="Edit category name"
-                  className="min-h-[48px] px-4 py-2 rounded-xl bg-zinc-900 text-white border border-zinc-600 focus:border-indigo-500 focus:outline-none text-base font-semibold uppercase tracking-wide flex-1"
+                  className="min-h-[48px] px-4 py-2 rounded-xl bg-brand-navy text-white border border-brand-grey focus:border-brand-blue focus:outline-none text-base font-semibold uppercase tracking-wide flex-1"
                 />
                 {editingCategoryNameError && (
                   <span className="text-sm text-red-400">{editingCategoryNameError}</span>
@@ -341,13 +341,13 @@ export default function MenuManager(): JSX.Element {
                 <button
                   onClick={() => { void handleSaveEditCategory() }}
                   disabled={submitting}
-                  className="min-h-[48px] px-4 py-2 rounded-xl bg-indigo-600 text-white text-base font-medium hover:bg-indigo-500 transition-colors shrink-0 disabled:opacity-50"
+                  className="min-h-[48px] px-4 py-2 rounded-xl bg-brand-navy text-white text-base font-medium hover:bg-brand-blue transition-colors shrink-0 disabled:opacity-50"
                 >
                   Save
                 </button>
                 <button
                   onClick={handleCancelEditCategory}
-                  className="min-h-[48px] px-4 py-2 rounded-xl bg-zinc-700 text-white text-base font-medium hover:bg-zinc-600 transition-colors shrink-0"
+                  className="min-h-[48px] px-4 py-2 rounded-xl bg-brand-offwhite text-white text-base font-medium hover:bg-zinc-600 transition-colors shrink-0"
                 >
                   Cancel
                 </button>
@@ -355,7 +355,7 @@ export default function MenuManager(): JSX.Element {
             ) : (
               <div className="flex items-center gap-3 mb-3">
                 <div className="flex items-center gap-2 flex-1 flex-wrap">
-                  <h2 className="text-lg font-semibold text-zinc-300 uppercase tracking-wide">
+                  <h2 className="text-lg font-semibold text-brand-navy/80 uppercase tracking-wide">
                     {menu.name}
                   </h2>
                   {/* Printer type selector for this category */}
@@ -383,8 +383,8 @@ export default function MenuManager(): JSX.Element {
                         className={[
                           'text-xs px-2 py-0.5 rounded-full border font-medium transition-colors',
                           menu.printer_type === pt
-                            ? 'bg-indigo-700 border-indigo-500 text-indigo-100'
-                            : 'bg-zinc-800 border-zinc-600 text-zinc-400 hover:border-zinc-400',
+                            ? 'bg-brand-blue border-brand-blue text-white'
+                            : 'bg-white border-brand-grey text-brand-navy/60 hover:border-zinc-400',
                         ].join(' ')}
                         title={`Route KOT for this menu to the ${pt} printer`}
                       >
@@ -407,7 +407,7 @@ export default function MenuManager(): JSX.Element {
                     <button
                       onClick={() => setDeletingCategoryId(null)}
                       aria-label="Cancel delete category"
-                      className="min-h-[48px] px-4 py-2 rounded-xl bg-zinc-700 text-white text-base font-medium hover:bg-zinc-600 transition-colors"
+                      className="min-h-[48px] px-4 py-2 rounded-xl bg-brand-offwhite text-white text-base font-medium hover:bg-zinc-600 transition-colors"
                     >
                       No
                     </button>
@@ -417,7 +417,7 @@ export default function MenuManager(): JSX.Element {
                     <button
                       onClick={() => handleStartEditCategory(menu)}
                       aria-label={`Edit category ${menu.name}`}
-                      className="min-h-[48px] px-4 py-2 rounded-xl bg-zinc-700 text-white text-base font-medium hover:bg-zinc-600 transition-colors"
+                      className="min-h-[48px] px-4 py-2 rounded-xl bg-brand-offwhite text-white text-base font-medium hover:bg-zinc-600 transition-colors"
                     >
                       Edit
                     </button>
@@ -434,13 +434,13 @@ export default function MenuManager(): JSX.Element {
             )}
 
             {menu.items.length === 0 ? (
-              <p className="text-zinc-500 text-base px-2">No items in this category.</p>
+              <p className="text-brand-grey text-base px-2">No items in this category.</p>
             ) : (
               <div className="flex flex-col gap-2">
                 {menu.items.map((item: AdminMenuItem) => (
                   <div
                     key={item.id}
-                    className="bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-4 flex items-center gap-4"
+                    className="bg-white border border-brand-grey rounded-2xl px-5 py-4 flex items-center gap-4"
                   >
                     {item.image_url && (
                       <img
@@ -450,23 +450,23 @@ export default function MenuManager(): JSX.Element {
                       />
                     )}
                     <div className="flex-1 min-w-0">
-                      <div className="text-base font-semibold text-white truncate">{item.name}</div>
+                      <div className="text-base font-semibold text-brand-navy truncate">{item.name}</div>
                       {item.description && (
-                        <div className="text-sm text-zinc-400 truncate">{item.description}</div>
+                        <div className="text-sm text-brand-navy/60 truncate">{item.description}</div>
                       )}
                       {item.modifiers.length > 0 && (
-                        <div className="text-sm text-zinc-500 truncate">
+                        <div className="text-sm text-brand-grey truncate">
                           {item.modifiers.length} modifier{item.modifiers.length !== 1 ? 's' : ''}
                         </div>
                       )}
                     </div>
-                    <div className="text-lg font-bold text-indigo-300 shrink-0">
+                    <div className="text-lg font-bold text-brand-navy shrink-0">
                       {formatPrice(item.price_cents, DEFAULT_CURRENCY_SYMBOL)}
                     </div>
                     <Link
                       href={`/admin/menu/${item.id}/edit`}
                       aria-label={`Edit ${item.name}`}
-                      className="min-h-[48px] min-w-[48px] px-4 py-2 rounded-xl bg-zinc-700 text-white text-base font-medium hover:bg-zinc-600 transition-colors shrink-0 flex items-center justify-center"
+                      className="min-h-[48px] min-w-[48px] px-4 py-2 rounded-xl bg-brand-offwhite text-white text-base font-medium hover:bg-zinc-600 transition-colors shrink-0 flex items-center justify-center"
                     >
                       Edit
                     </Link>
@@ -484,7 +484,7 @@ export default function MenuManager(): JSX.Element {
                         <button
                           onClick={() => setDeletingItemId(null)}
                           aria-label="Cancel delete"
-                          className="min-h-[48px] min-w-[48px] px-4 py-2 rounded-xl bg-zinc-700 text-white text-base font-medium hover:bg-zinc-600 transition-colors"
+                          className="min-h-[48px] min-w-[48px] px-4 py-2 rounded-xl bg-brand-offwhite text-white text-base font-medium hover:bg-zinc-600 transition-colors"
                         >
                           No
                         </button>
@@ -507,7 +507,7 @@ export default function MenuManager(): JSX.Element {
       })}
 
       {menus.length === 0 && (
-        <p className="text-zinc-500 text-base">No categories yet. Add a category to get started.</p>
+        <p className="text-brand-grey text-base">No categories yet. Add a category to get started.</p>
       )}
     </div>
   )

@@ -480,8 +480,8 @@ export default function PricingManager(): JSX.Element {
   if (loading) {
     return (
       <div className="flex flex-col gap-6">
-        <h1 className="text-2xl font-bold text-white">Pricing &amp; VAT</h1>
-        <p className="text-zinc-400 text-base">Loading pricing data…</p>
+        <h1 className="text-2xl font-bold text-brand-navy font-heading">Pricing &amp; VAT</h1>
+        <p className="text-brand-navy/60 text-base">Loading pricing data…</p>
       </div>
     )
   }
@@ -489,7 +489,7 @@ export default function PricingManager(): JSX.Element {
   if (fetchError !== null) {
     return (
       <div className="flex flex-col gap-6">
-        <h1 className="text-2xl font-bold text-white">Pricing &amp; VAT</h1>
+        <h1 className="text-2xl font-bold text-brand-navy font-heading">Pricing &amp; VAT</h1>
         <p className="text-red-400 text-base">Unable to load pricing data. Please try again.</p>
         <p className="text-red-300 text-sm font-mono">{fetchError}</p>
       </div>
@@ -503,11 +503,11 @@ export default function PricingManager(): JSX.Element {
         <div className="flex items-center gap-3">
           <Link
             href="/admin"
-            className="flex items-center min-h-[48px] px-3 py-2 rounded-xl text-base font-medium text-zinc-400 hover:text-white hover:bg-zinc-700 transition-colors"
+            className="flex items-center min-h-[48px] px-3 py-2 rounded-xl text-base font-medium text-brand-navy/60 hover:text-white hover:bg-brand-offwhite transition-colors"
           >
             ← Admin
           </Link>
-          <h1 className="text-2xl font-bold text-white">Pricing &amp; VAT</h1>
+          <h1 className="text-2xl font-bold text-brand-navy font-heading">Pricing &amp; VAT</h1>
         </div>
         <button
           onClick={() => {
@@ -517,7 +517,7 @@ export default function PricingManager(): JSX.Element {
             setEditVatRateFormErrors({})
           }}
           disabled={submitting}
-          className="min-h-[48px] px-5 py-2 rounded-xl text-base font-medium bg-indigo-600 text-white hover:bg-indigo-500 transition-colors disabled:opacity-50"
+          className="min-h-[48px] px-5 py-2 rounded-xl text-base font-medium bg-brand-navy text-white hover:bg-brand-blue transition-colors disabled:opacity-50"
         >
           + Add VAT Rate
         </button>
@@ -539,10 +539,10 @@ export default function PricingManager(): JSX.Element {
       )}
 
       {/* Tax mode toggle */}
-      <div className="bg-zinc-800 border border-zinc-700 rounded-2xl p-5 flex items-center justify-between gap-4">
+      <div className="bg-white border border-brand-grey rounded-2xl p-5 flex items-center justify-between gap-4">
         <div>
-          <p className="text-base font-semibold text-white">Pricing display mode</p>
-          <p className="text-sm text-zinc-400 mt-1">
+          <p className="text-base font-semibold text-brand-navy">Pricing display mode</p>
+          <p className="text-sm text-brand-navy/60 mt-1">
             {taxInclusive
               ? 'Tax-inclusive: prices shown already include VAT'
               : 'Tax-exclusive: VAT is added on top of the base price'}
@@ -555,8 +555,8 @@ export default function PricingManager(): JSX.Element {
           className={[
             'min-h-[48px] px-6 py-2 rounded-xl text-base font-medium transition-colors shrink-0 disabled:opacity-50',
             taxInclusive
-              ? 'bg-indigo-600 text-white hover:bg-indigo-500'
-              : 'bg-zinc-700 text-zinc-300 hover:bg-zinc-600',
+              ? 'bg-brand-navy text-white hover:bg-brand-blue'
+              : 'bg-brand-offwhite text-brand-navy/80 hover:bg-zinc-600',
           ].join(' ')}
         >
           {taxInclusive ? 'Tax-inclusive' : 'Tax-exclusive'}
@@ -564,16 +564,16 @@ export default function PricingManager(): JSX.Element {
       </div>
 
       {/* Service charge section */}
-      <div className="bg-zinc-800 border border-zinc-700 rounded-2xl p-5 flex flex-col gap-4">
+      <div className="bg-white border border-brand-grey rounded-2xl p-5 flex flex-col gap-4">
         <div>
-          <p className="text-base font-semibold text-white">Service Charge</p>
-          <p className="text-sm text-zinc-400 mt-1">
+          <p className="text-base font-semibold text-brand-navy">Service Charge</p>
+          <p className="text-sm text-brand-navy/60 mt-1">
             Optional service charge applied to the bill after discounts, before VAT. Set to 0 to disable.
           </p>
         </div>
         <div className="flex items-end gap-3">
           <div className="flex flex-col gap-1 flex-1 max-w-[180px]">
-            <label htmlFor="service-charge-input" className="text-sm font-medium text-zinc-300">
+            <label htmlFor="service-charge-input" className="text-sm font-medium text-brand-navy/80">
               Service Charge (%)
             </label>
             <input
@@ -585,38 +585,38 @@ export default function PricingManager(): JSX.Element {
               value={serviceChargeInput}
               onChange={(e) => { setServiceChargeInput(e.target.value) }}
               disabled={submitting || !restaurantId}
-              className="min-h-[48px] px-4 py-2 rounded-xl bg-zinc-900 text-white border border-zinc-600 focus:border-indigo-500 focus:outline-none text-base disabled:opacity-50"
+              className="min-h-[48px] px-4 py-2 rounded-xl bg-brand-navy text-white border border-brand-grey focus:border-brand-blue focus:outline-none text-base disabled:opacity-50"
               placeholder="0"
             />
           </div>
           <button
             onClick={() => { void handleSaveServiceCharge() }}
             disabled={submitting || !restaurantId}
-            className="min-h-[48px] px-5 py-2 rounded-xl bg-indigo-600 text-white text-base font-medium hover:bg-indigo-500 transition-colors disabled:opacity-50"
+            className="min-h-[48px] px-5 py-2 rounded-xl bg-brand-navy text-white text-base font-medium hover:bg-brand-blue transition-colors disabled:opacity-50"
           >
             Save
           </button>
           {serviceChargePercent > 0 && (
-            <span className="text-sm text-zinc-400 self-center">
+            <span className="text-sm text-brand-navy/60 self-center">
               Currently: <span className="text-white font-semibold">{serviceChargePercent}%</span>
             </span>
           )}
           {serviceChargePercent === 0 && (
-            <span className="text-sm text-zinc-500 self-center">Disabled</span>
+            <span className="text-sm text-brand-grey self-center">Disabled</span>
           )}
         </div>
       </div>
 
       {/* Currency section */}
-      <div className="bg-zinc-800 border border-zinc-700 rounded-2xl p-5 flex flex-col gap-4">
+      <div className="bg-white border border-brand-grey rounded-2xl p-5 flex flex-col gap-4">
         <div>
-          <p className="text-base font-semibold text-white">Currency</p>
-          <p className="text-sm text-zinc-400 mt-1">
+          <p className="text-base font-semibold text-brand-navy">Currency</p>
+          <p className="text-sm text-brand-navy/60 mt-1">
             Set the currency code and symbol shown on all prices.
           </p>
         </div>
         <div className="flex flex-col gap-1">
-          <label htmlFor="currency-select" className="text-sm font-medium text-zinc-300">
+          <label htmlFor="currency-select" className="text-sm font-medium text-brand-navy/80">
             Currency
           </label>
           <select
@@ -624,7 +624,7 @@ export default function PricingManager(): JSX.Element {
             value={currencyCodeInput}
             onChange={(e) => { handleCurrencySelect(e.target.value) }}
             disabled={submitting || !restaurantId}
-            className="min-h-[48px] px-4 py-2 rounded-xl bg-zinc-900 text-white border border-zinc-600 focus:border-indigo-500 focus:outline-none text-base disabled:opacity-50 appearance-none cursor-pointer"
+            className="min-h-[48px] px-4 py-2 rounded-xl bg-brand-navy text-white border border-brand-grey focus:border-brand-blue focus:outline-none text-base disabled:opacity-50 appearance-none cursor-pointer"
           >
             {CURRENCY_OPTIONS.map((c) => (
               <option key={c.code} value={c.code}>{c.label}</option>
@@ -635,23 +635,23 @@ export default function PricingManager(): JSX.Element {
           <button
             onClick={() => { void handleSaveCurrency() }}
             disabled={submitting || !restaurantId}
-            className="min-h-[48px] px-5 py-2 rounded-xl bg-indigo-600 text-white text-base font-medium hover:bg-indigo-500 transition-colors disabled:opacity-50"
+            className="min-h-[48px] px-5 py-2 rounded-xl bg-brand-navy text-white text-base font-medium hover:bg-brand-blue transition-colors disabled:opacity-50"
           >
             Save Currency
           </button>
-          <span className="text-sm text-zinc-500">
-            Preview: <span className="text-zinc-300 font-mono">{formatPrice(1000, currencySymbol)}</span>
+          <span className="text-sm text-brand-grey">
+            Preview: <span className="text-brand-navy/80 font-mono">{formatPrice(1000, currencySymbol)}</span>
           </span>
         </div>
       </div>
 
       {/* Add VAT Rate inline form */}
       {showAddVatRate && (
-        <div className="bg-zinc-800 border border-indigo-600 rounded-2xl p-5 flex flex-col gap-4">
-          <h2 className="text-lg font-semibold text-white">New VAT Rate</h2>
+        <div className="bg-white border border-brand-blue rounded-2xl p-5 flex flex-col gap-4">
+          <h2 className="text-lg font-semibold text-brand-navy">New VAT Rate</h2>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="flex flex-col gap-1">
-              <label htmlFor="add-vat-label" className="text-sm font-medium text-zinc-300">
+              <label htmlFor="add-vat-label" className="text-sm font-medium text-brand-navy/80">
                 Label <span className="text-red-400">*</span>
               </label>
               <input
@@ -662,7 +662,7 @@ export default function PricingManager(): JSX.Element {
                   setAddForm((f) => ({ ...f, label: e.target.value }))
                   setAddFormErrors((e2) => ({ ...e2, label: undefined }))
                 }}
-                className="min-h-[48px] px-4 py-2 rounded-xl bg-zinc-900 text-white border border-zinc-600 focus:border-indigo-500 focus:outline-none text-base"
+                className="min-h-[48px] px-4 py-2 rounded-xl bg-brand-navy text-white border border-brand-grey focus:border-brand-blue focus:outline-none text-base"
                 placeholder="e.g. Standard 20%"
               />
               {addFormErrors.label && (
@@ -671,7 +671,7 @@ export default function PricingManager(): JSX.Element {
             </div>
 
             <div className="flex flex-col gap-1">
-              <label htmlFor="add-vat-percentage" className="text-sm font-medium text-zinc-300">
+              <label htmlFor="add-vat-percentage" className="text-sm font-medium text-brand-navy/80">
                 Percentage (%) <span className="text-red-400">*</span>
               </label>
               <input
@@ -686,7 +686,7 @@ export default function PricingManager(): JSX.Element {
                   setAddForm((f) => ({ ...f, percentage: e.target.value }))
                   setAddFormErrors((e2) => ({ ...e2, percentage: undefined }))
                 }}
-                className="min-h-[48px] px-4 py-2 rounded-xl bg-zinc-900 text-white border border-zinc-600 focus:border-indigo-500 focus:outline-none text-base"
+                className="min-h-[48px] px-4 py-2 rounded-xl bg-brand-navy text-white border border-brand-grey focus:border-brand-blue focus:outline-none text-base"
                 placeholder="20"
               />
               {addFormErrors.percentage && (
@@ -695,14 +695,14 @@ export default function PricingManager(): JSX.Element {
             </div>
 
             <div className="flex flex-col gap-1">
-              <label htmlFor="add-vat-category" className="text-sm font-medium text-zinc-300">
+              <label htmlFor="add-vat-category" className="text-sm font-medium text-brand-navy/80">
                 Applies to category
               </label>
               <select
                 id="add-vat-category"
                 value={addForm.menuId}
                 onChange={(e) => setAddForm((f) => ({ ...f, menuId: e.target.value }))}
-                className="min-h-[48px] px-4 py-2 rounded-xl bg-zinc-900 text-white border border-zinc-600 focus:border-indigo-500 focus:outline-none text-base"
+                className="min-h-[48px] px-4 py-2 rounded-xl bg-brand-navy text-white border border-brand-grey focus:border-brand-blue focus:outline-none text-base"
               >
                 <option value="">None</option>
                 {categories.map((cat) => (
@@ -717,7 +717,7 @@ export default function PricingManager(): JSX.Element {
             <button
               onClick={() => { void handleAddVatRate() }}
               disabled={submitting}
-              className="min-h-[48px] px-5 py-2 rounded-xl bg-indigo-600 text-white text-base font-medium hover:bg-indigo-500 transition-colors disabled:opacity-50"
+              className="min-h-[48px] px-5 py-2 rounded-xl bg-brand-navy text-white text-base font-medium hover:bg-brand-blue transition-colors disabled:opacity-50"
             >
               Save VAT Rate
             </button>
@@ -727,7 +727,7 @@ export default function PricingManager(): JSX.Element {
                 setAddForm(EMPTY_VAT_RATE_FORM)
                 setAddFormErrors({})
               }}
-              className="min-h-[48px] px-5 py-2 rounded-xl bg-zinc-700 text-white text-base font-medium hover:bg-zinc-600 transition-colors"
+              className="min-h-[48px] px-5 py-2 rounded-xl bg-brand-offwhite text-white text-base font-medium hover:bg-zinc-600 transition-colors"
             >
               Cancel
             </button>
@@ -737,11 +737,11 @@ export default function PricingManager(): JSX.Element {
 
       {/* VAT Rates section */}
       <section>
-        <h2 className="text-lg font-semibold text-zinc-300 uppercase tracking-wide mb-3">
+        <h2 className="text-lg font-semibold text-brand-navy/80 uppercase tracking-wide mb-3">
           VAT Rates
         </h2>
         {vatRates.length === 0 ? (
-          <p className="text-zinc-500 text-base px-2">
+          <p className="text-brand-grey text-base px-2">
             No VAT rates defined. Use &ldquo;+ Add VAT Rate&rdquo; to create one.
           </p>
         ) : (
@@ -756,13 +756,13 @@ export default function PricingManager(): JSX.Element {
                 return (
                   <div
                     key={rate.id}
-                    className="bg-zinc-800 border border-indigo-500 rounded-2xl p-4 flex flex-col gap-4"
+                    className="bg-white border border-brand-blue rounded-2xl p-4 flex flex-col gap-4"
                   >
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                       <div className="flex flex-col gap-1">
                         <label
                           htmlFor={`edit-vat-label-${rate.id}`}
-                          className="text-sm font-medium text-zinc-300"
+                          className="text-sm font-medium text-brand-navy/80"
                         >
                           Label <span className="text-red-400">*</span>
                         </label>
@@ -774,7 +774,7 @@ export default function PricingManager(): JSX.Element {
                             setEditVatRateForm((f) => ({ ...f, label: e.target.value }))
                             setEditVatRateFormErrors((e2) => ({ ...e2, label: undefined }))
                           }}
-                          className="min-h-[48px] px-4 py-2 rounded-xl bg-zinc-900 text-white border border-zinc-600 focus:border-indigo-500 focus:outline-none text-base"
+                          className="min-h-[48px] px-4 py-2 rounded-xl bg-brand-navy text-white border border-brand-grey focus:border-brand-blue focus:outline-none text-base"
                         />
                         {editVatRateFormErrors.label && (
                           <span className="text-sm text-red-400">{editVatRateFormErrors.label}</span>
@@ -783,7 +783,7 @@ export default function PricingManager(): JSX.Element {
                       <div className="flex flex-col gap-1">
                         <label
                           htmlFor={`edit-vat-pct-${rate.id}`}
-                          className="text-sm font-medium text-zinc-300"
+                          className="text-sm font-medium text-brand-navy/80"
                         >
                           Percentage (%) <span className="text-red-400">*</span>
                         </label>
@@ -799,7 +799,7 @@ export default function PricingManager(): JSX.Element {
                             setEditVatRateForm((f) => ({ ...f, percentage: e.target.value }))
                             setEditVatRateFormErrors((e2) => ({ ...e2, percentage: undefined }))
                           }}
-                          className="min-h-[48px] px-4 py-2 rounded-xl bg-zinc-900 text-white border border-zinc-600 focus:border-indigo-500 focus:outline-none text-base"
+                          className="min-h-[48px] px-4 py-2 rounded-xl bg-brand-navy text-white border border-brand-grey focus:border-brand-blue focus:outline-none text-base"
                         />
                         {editVatRateFormErrors.percentage && (
                           <span className="text-sm text-red-400">
@@ -810,7 +810,7 @@ export default function PricingManager(): JSX.Element {
                       <div className="flex flex-col gap-1">
                         <label
                           htmlFor={`edit-vat-cat-${rate.id}`}
-                          className="text-sm font-medium text-zinc-300"
+                          className="text-sm font-medium text-brand-navy/80"
                         >
                           Applies to category
                         </label>
@@ -820,7 +820,7 @@ export default function PricingManager(): JSX.Element {
                           onChange={(e) =>
                             setEditVatRateForm((f) => ({ ...f, menuId: e.target.value }))
                           }
-                          className="min-h-[48px] px-4 py-2 rounded-xl bg-zinc-900 text-white border border-zinc-600 focus:border-indigo-500 focus:outline-none text-base"
+                          className="min-h-[48px] px-4 py-2 rounded-xl bg-brand-navy text-white border border-brand-grey focus:border-brand-blue focus:outline-none text-base"
                         >
                           <option value="">None</option>
                           {categories.map((cat) => (
@@ -835,13 +835,13 @@ export default function PricingManager(): JSX.Element {
                       <button
                         onClick={() => { void handleSaveEditVatRate() }}
                         disabled={submitting}
-                        className="min-h-[48px] px-5 py-2 rounded-xl bg-indigo-600 text-white text-base font-medium hover:bg-indigo-500 transition-colors disabled:opacity-50"
+                        className="min-h-[48px] px-5 py-2 rounded-xl bg-brand-navy text-white text-base font-medium hover:bg-brand-blue transition-colors disabled:opacity-50"
                       >
                         Save Changes
                       </button>
                       <button
                         onClick={handleCancelEditVatRate}
-                        className="min-h-[48px] px-5 py-2 rounded-xl bg-zinc-700 text-white text-base font-medium hover:bg-zinc-600 transition-colors"
+                        className="min-h-[48px] px-5 py-2 rounded-xl bg-brand-offwhite text-white text-base font-medium hover:bg-zinc-600 transition-colors"
                       >
                         Cancel
                       </button>
@@ -853,24 +853,24 @@ export default function PricingManager(): JSX.Element {
               return (
                 <div
                   key={rate.id}
-                  className="bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-4 flex items-center gap-4"
+                  className="bg-white border border-brand-grey rounded-2xl px-5 py-4 flex items-center gap-4"
                 >
                   <div className="flex-1 min-w-0">
-                    <div className="text-base font-semibold text-white">{rate.label}</div>
-                    <div className="text-sm text-zinc-400">
+                    <div className="text-base font-semibold text-brand-navy">{rate.label}</div>
+                    <div className="text-sm text-brand-navy/60">
                       {rate.percentage}%
                       {assignedCategory
                         ? ` · assigned to ${assignedCategory.name}`
                         : ' · unassigned'}
                     </div>
                   </div>
-                  <div className="text-xl font-bold text-indigo-300 shrink-0 tabular-nums">
+                  <div className="text-xl font-bold text-brand-navy font-heading shrink-0 tabular-nums">
                     {rate.percentage}%
                   </div>
                   <button
                     onClick={() => handleStartEditVatRate(rate)}
                     aria-label={`Edit VAT rate ${rate.label}`}
-                    className="min-h-[48px] min-w-[48px] px-4 py-2 rounded-xl bg-zinc-700 text-white text-base font-medium hover:bg-zinc-600 transition-colors shrink-0"
+                    className="min-h-[48px] min-w-[48px] px-4 py-2 rounded-xl bg-brand-offwhite text-white text-base font-medium hover:bg-zinc-600 transition-colors shrink-0"
                   >
                     Edit
                   </button>
@@ -888,7 +888,7 @@ export default function PricingManager(): JSX.Element {
                       <button
                         onClick={() => setDeletingVatRateId(null)}
                         aria-label="Cancel delete"
-                        className="min-h-[48px] min-w-[48px] px-4 py-2 rounded-xl bg-zinc-700 text-white text-base font-medium hover:bg-zinc-600 transition-colors"
+                        className="min-h-[48px] min-w-[48px] px-4 py-2 rounded-xl bg-brand-offwhite text-white text-base font-medium hover:bg-zinc-600 transition-colors"
                       >
                         No
                       </button>
@@ -917,37 +917,37 @@ export default function PricingManager(): JSX.Element {
 
       {/* Items Pricing section */}
       <section>
-        <h2 className="text-lg font-semibold text-zinc-300 uppercase tracking-wide mb-3">
+        <h2 className="text-lg font-semibold text-brand-navy/80 uppercase tracking-wide mb-3">
           Item Pricing
         </h2>
 
         {/* Column headers */}
         <div className="hidden sm:grid sm:grid-cols-[1fr_auto_auto_auto_auto] gap-4 px-5 mb-2">
-          <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wide">Item</span>
-          <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wide text-right">
+          <span className="text-xs font-semibold text-brand-grey uppercase tracking-wide">Item</span>
+          <span className="text-xs font-semibold text-brand-grey uppercase tracking-wide text-right">
             Base Price
           </span>
-          <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wide text-right">
+          <span className="text-xs font-semibold text-brand-grey uppercase tracking-wide text-right">
             VAT Rate
           </span>
-          <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wide text-right">
+          <span className="text-xs font-semibold text-brand-grey uppercase tracking-wide text-right">
             {taxInclusive ? 'Final Price (incl. VAT)' : 'Final Price (excl. VAT)'}
           </span>
           <span className="sr-only">Actions</span>
         </div>
 
         {categories.length === 0 ? (
-          <p className="text-zinc-500 text-base px-2">No menu items found.</p>
+          <p className="text-brand-grey text-base px-2">No menu items found.</p>
         ) : (
           <div className="flex flex-col gap-6">
             {categories.map((category) => {
               const categoryVatRate = getVatRateForCategory(category.id)
               return (
                 <div key={category.id}>
-                  <h3 className="text-sm font-semibold text-zinc-400 uppercase tracking-wide mb-2 px-2">
+                  <h3 className="text-sm font-semibold text-brand-navy/60 uppercase tracking-wide mb-2 px-2">
                     {category.name}
                     {categoryVatRate && (
-                      <span className="ml-2 text-indigo-400 normal-case">
+                      <span className="ml-2 text-white normal-case">
                         · {categoryVatRate.label} ({categoryVatRate.percentage}%)
                       </span>
                     )}
@@ -970,14 +970,14 @@ export default function PricingManager(): JSX.Element {
                           return (
                             <div
                               key={item.id}
-                              className="bg-zinc-800 border border-indigo-500 rounded-2xl p-4 flex flex-col gap-4"
+                              className="bg-white border border-brand-blue rounded-2xl p-4 flex flex-col gap-4"
                             >
-                              <div className="text-base font-semibold text-white">{item.name}</div>
+                              <div className="text-base font-semibold text-brand-navy">{item.name}</div>
                               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div className="flex flex-col gap-1">
                                   <label
                                     htmlFor={`edit-item-price-${item.id}`}
-                                    className="text-sm font-medium text-zinc-300"
+                                    className="text-sm font-medium text-brand-navy/80"
                                   >
                                     Base Price ({currencySymbol}) <span className="text-red-400">*</span>
                                   </label>
@@ -992,7 +992,7 @@ export default function PricingManager(): JSX.Element {
                                       setEditItemForm((f) => ({ ...f, price: e.target.value }))
                                       setEditItemFormErrors({})
                                     }}
-                                    className="min-h-[48px] px-4 py-2 rounded-xl bg-zinc-900 text-white border border-zinc-600 focus:border-indigo-500 focus:outline-none text-base"
+                                    className="min-h-[48px] px-4 py-2 rounded-xl bg-brand-navy text-white border border-brand-grey focus:border-brand-blue focus:outline-none text-base"
                                     placeholder="0.00"
                                   />
                                   {editItemFormErrors.price && (
@@ -1004,7 +1004,7 @@ export default function PricingManager(): JSX.Element {
                                 <div className="flex flex-col gap-1">
                                   <label
                                     htmlFor={`edit-item-vat-${item.id}`}
-                                    className="text-sm font-medium text-zinc-300"
+                                    className="text-sm font-medium text-brand-navy/80"
                                   >
                                     VAT Rate
                                   </label>
@@ -1014,7 +1014,7 @@ export default function PricingManager(): JSX.Element {
                                     onChange={(e) =>
                                       setEditItemForm((f) => ({ ...f, vatRateId: e.target.value }))
                                     }
-                                    className="min-h-[48px] px-4 py-2 rounded-xl bg-zinc-900 text-white border border-zinc-600 focus:border-indigo-500 focus:outline-none text-base"
+                                    className="min-h-[48px] px-4 py-2 rounded-xl bg-brand-navy text-white border border-brand-grey focus:border-brand-blue focus:outline-none text-base"
                                   >
                                     <option value="">None</option>
                                     {vatRates.map((r) => (
@@ -1027,9 +1027,9 @@ export default function PricingManager(): JSX.Element {
                               </div>
                               {/* Live preview while editing */}
                               {editItemForm.price && !isNaN(parseFloat(editItemForm.price)) && (
-                                <div className="text-sm text-zinc-400">
+                                <div className="text-sm text-brand-navy/60">
                                   Preview:{' '}
-                                  <span className="text-indigo-300 font-semibold">
+                                  <span className="text-white font-semibold">
                                     {(() => {
                                       const baseCents = Math.round(
                                         parseFloat(editItemForm.price) * 100,
@@ -1053,13 +1053,13 @@ export default function PricingManager(): JSX.Element {
                                 <button
                                   onClick={() => { void handleSaveEditItem() }}
                                   disabled={submitting}
-                                  className="min-h-[48px] px-5 py-2 rounded-xl bg-indigo-600 text-white text-base font-medium hover:bg-indigo-500 transition-colors disabled:opacity-50"
+                                  className="min-h-[48px] px-5 py-2 rounded-xl bg-brand-navy text-white text-base font-medium hover:bg-brand-blue transition-colors disabled:opacity-50"
                                 >
                                   Save Changes
                                 </button>
                                 <button
                                   onClick={handleCancelEditItem}
-                                  className="min-h-[48px] px-5 py-2 rounded-xl bg-zinc-700 text-white text-base font-medium hover:bg-zinc-600 transition-colors"
+                                  className="min-h-[48px] px-5 py-2 rounded-xl bg-brand-offwhite text-white text-base font-medium hover:bg-zinc-600 transition-colors"
                                 >
                                   Cancel
                                 </button>
@@ -1071,26 +1071,26 @@ export default function PricingManager(): JSX.Element {
                         return (
                           <div
                             key={item.id}
-                            className="bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-4 grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-4"
+                            className="bg-white border border-brand-grey rounded-2xl px-5 py-4 grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-4"
                           >
-                            <div className="text-base font-semibold text-white truncate">
+                            <div className="text-base font-semibold text-brand-navy truncate">
                               {item.name}
                             </div>
-                            <div className="text-base text-zinc-300 tabular-nums shrink-0">
+                            <div className="text-base text-brand-navy/80 tabular-nums shrink-0">
                               {formatPrice(item.price_cents, currencySymbol)}
                             </div>
-                            <div className="text-sm text-zinc-400 shrink-0">
+                            <div className="text-sm text-brand-navy/60 shrink-0">
                               {categoryVatRate
                                 ? `${categoryVatRate.percentage}%`
                                 : <span className="text-zinc-600">—</span>}
                             </div>
-                            <div className="text-base font-bold text-indigo-300 tabular-nums shrink-0">
+                            <div className="text-base font-bold text-white tabular-nums shrink-0">
                               {formatPrice(previewCents, currencySymbol)}
                             </div>
                             <button
                               onClick={() => handleStartEditItem(item, category.id)}
                               aria-label={`Edit pricing for ${item.name}`}
-                              className="min-h-[48px] min-w-[48px] px-4 py-2 rounded-xl bg-zinc-700 text-white text-base font-medium hover:bg-zinc-600 transition-colors shrink-0"
+                              className="min-h-[48px] min-w-[48px] px-4 py-2 rounded-xl bg-brand-offwhite text-white text-base font-medium hover:bg-zinc-600 transition-colors shrink-0"
                             >
                               Edit
                             </button>

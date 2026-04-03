@@ -125,7 +125,7 @@ export default function SectionManager(): JSX.Element {
   }
 
   if (loading) {
-    return <p className="text-zinc-400 text-lg p-6">Loading sections…</p>
+    return <p className="text-brand-navy/60 text-lg p-6">Loading sections…</p>
   }
 
   if (error) {
@@ -137,7 +137,7 @@ export default function SectionManager(): JSX.Element {
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold text-white">Sections</h1>
-      <p className="text-zinc-400 text-base">
+      <p className="text-brand-navy/60 text-base">
         Group tables into sections and assign servers to each section.
       </p>
 
@@ -150,7 +150,7 @@ export default function SectionManager(): JSX.Element {
       {/* Create section */}
       <div className="flex gap-3 items-end">
         <div className="flex-1">
-          <label htmlFor="new-section-name" className="block text-zinc-400 text-sm mb-1">
+          <label htmlFor="new-section-name" className="block text-brand-navy/60 text-sm mb-1">
             New Section Name
           </label>
           <input
@@ -159,7 +159,7 @@ export default function SectionManager(): JSX.Element {
             value={newSectionName}
             onChange={e => setNewSectionName(e.target.value)}
             placeholder="e.g. Patio, Main Hall, Upstairs"
-            className="w-full min-h-[48px] px-4 rounded-xl text-base bg-zinc-800 text-white border-2 border-zinc-600 focus:border-indigo-400 focus:outline-none"
+            className="w-full min-h-[48px] px-4 rounded-xl text-base bg-white text-white border-2 border-brand-grey focus:border-brand-blue focus:outline-none"
             onKeyDown={e => { if (e.key === 'Enter') void handleCreateSection() }}
           />
         </div>
@@ -170,8 +170,8 @@ export default function SectionManager(): JSX.Element {
           className={[
             'min-h-[48px] px-6 rounded-xl text-base font-semibold transition-colors flex items-center gap-2',
             creating || !newSectionName.trim()
-              ? 'bg-zinc-700 text-zinc-400 cursor-not-allowed'
-              : 'bg-indigo-600 hover:bg-indigo-500 text-white',
+              ? 'bg-brand-offwhite text-brand-navy/60 cursor-not-allowed'
+              : 'bg-brand-navy hover:bg-brand-blue text-white',
           ].join(' ')}
         >
           <Plus size={18} aria-hidden="true" />
@@ -181,7 +181,7 @@ export default function SectionManager(): JSX.Element {
 
       {/* Section list */}
       {sections.length === 0 ? (
-        <p className="text-zinc-500 text-base">No sections yet. Create one above.</p>
+        <p className="text-brand-grey text-base">No sections yet. Create one above.</p>
       ) : (
         <div className="space-y-4">
           {sections.map(section => {
@@ -190,21 +190,21 @@ export default function SectionManager(): JSX.Element {
             const isExpanded = expandedSectionId === section.id
 
             return (
-              <div key={section.id} className="bg-zinc-800 rounded-xl border border-zinc-700 overflow-hidden">
+              <div key={section.id} className="bg-white rounded-xl border border-brand-grey overflow-hidden">
                 {/* Section header */}
                 <div className="flex items-center justify-between p-4">
                   <div className="flex items-center gap-3 flex-1">
                     <button
                       type="button"
                       onClick={() => setExpandedSectionId(isExpanded ? null : section.id)}
-                      className="text-zinc-400 hover:text-white min-h-[44px] min-w-[44px] flex items-center justify-center"
+                      className="text-brand-navy/60 hover:text-white min-h-[44px] min-w-[44px] flex items-center justify-center"
                       aria-label={isExpanded ? 'Collapse' : 'Expand'}
                     >
                       {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
                     </button>
                     <div>
                       <h3 className="text-white font-semibold text-lg">{section.name}</h3>
-                      <p className="text-zinc-500 text-sm">
+                      <p className="text-brand-grey text-sm">
                         {sectionTables.length} table{sectionTables.length !== 1 ? 's' : ''}
                       </p>
                     </div>
@@ -217,7 +217,7 @@ export default function SectionManager(): JSX.Element {
                       onChange={e => {
                         void handleAssignServer(section.id, e.target.value || null)
                       }}
-                      className="min-h-[44px] px-3 rounded-lg bg-zinc-700 text-white border border-zinc-600 text-sm"
+                      className="min-h-[44px] px-3 rounded-lg bg-brand-offwhite text-white border border-brand-grey text-sm"
                     >
                       <option value="">No server assigned</option>
                       {staffUsers.map(u => (
@@ -228,7 +228,7 @@ export default function SectionManager(): JSX.Element {
                     </select>
 
                     {assignedServer && (
-                      <span className="text-sm bg-indigo-600/30 text-indigo-300 border border-indigo-700 rounded-full px-2.5 py-0.5">
+                      <span className="text-sm bg-brand-navy/30 text-white border border-brand-blue rounded-full px-2.5 py-0.5">
                         {assignedServer.name ?? assignedServer.email}
                       </span>
                     )}
@@ -236,7 +236,7 @@ export default function SectionManager(): JSX.Element {
                     <button
                       type="button"
                       onClick={() => { void handleDeleteSection(section.id) }}
-                      className="text-zinc-500 hover:text-red-400 min-h-[44px] min-w-[44px] flex items-center justify-center transition-colors"
+                      className="text-brand-grey hover:text-red-400 min-h-[44px] min-w-[44px] flex items-center justify-center transition-colors"
                       aria-label="Delete section"
                     >
                       <Trash2 size={18} />
@@ -246,8 +246,8 @@ export default function SectionManager(): JSX.Element {
 
                 {/* Expanded: table assignment */}
                 {isExpanded && (
-                  <div className="border-t border-zinc-700 p-4 space-y-3">
-                    <p className="text-zinc-400 text-sm font-medium">Tables in this section:</p>
+                  <div className="border-t border-brand-grey p-4 space-y-3">
+                    <p className="text-brand-navy/60 text-sm font-medium">Tables in this section:</p>
                     {sectionTables.length === 0 ? (
                       <p className="text-zinc-600 text-sm">No tables assigned to this section yet.</p>
                     ) : (
@@ -255,13 +255,13 @@ export default function SectionManager(): JSX.Element {
                         {sectionTables.map(t => (
                           <span
                             key={t.id}
-                            className="inline-flex items-center gap-1 bg-zinc-700 text-white rounded-lg px-3 py-1.5 text-sm"
+                            className="inline-flex items-center gap-1 bg-brand-offwhite text-white rounded-lg px-3 py-1.5 text-sm"
                           >
                             {t.label}
                             <button
                               type="button"
                               onClick={() => { void handleAssignTable(t.id, null) }}
-                              className="text-zinc-400 hover:text-red-400 ml-1"
+                              className="text-brand-navy/60 hover:text-red-400 ml-1"
                               aria-label={`Remove ${t.label} from section`}
                             >
                               <X size={14} />
@@ -274,14 +274,14 @@ export default function SectionManager(): JSX.Element {
                     {/* Add unassigned tables */}
                     {unassignedTables.length > 0 && (
                       <div>
-                        <p className="text-zinc-400 text-sm font-medium mt-3 mb-2">Add tables:</p>
+                        <p className="text-brand-navy/60 text-sm font-medium mt-3 mb-2">Add tables:</p>
                         <div className="flex flex-wrap gap-2">
                           {unassignedTables.map(t => (
                             <button
                               key={t.id}
                               type="button"
                               onClick={() => { void handleAssignTable(t.id, section.id) }}
-                              className="inline-flex items-center gap-1 bg-zinc-900 text-zinc-300 hover:text-white hover:bg-zinc-700 border border-zinc-600 hover:border-indigo-500 rounded-lg px-3 py-1.5 text-sm transition-colors"
+                              className="inline-flex items-center gap-1 bg-brand-navy text-brand-navy/80 hover:text-white hover:bg-brand-offwhite border border-brand-grey hover:border-brand-blue rounded-lg px-3 py-1.5 text-sm transition-colors"
                             >
                               <Plus size={14} />
                               {t.label}
@@ -300,15 +300,15 @@ export default function SectionManager(): JSX.Element {
 
       {/* Unassigned tables */}
       {unassignedTables.length > 0 && (
-        <div className="bg-zinc-800/50 rounded-xl border border-zinc-700/50 p-4">
-          <h3 className="text-zinc-400 font-semibold text-base mb-2">
+        <div className="bg-white/50 rounded-xl border border-brand-grey/50 p-4">
+          <h3 className="text-brand-navy/60 font-semibold text-base mb-2">
             Unassigned Tables ({unassignedTables.length})
           </h3>
           <div className="flex flex-wrap gap-2">
             {unassignedTables.map(t => (
               <span
                 key={t.id}
-                className="bg-zinc-700/50 text-zinc-400 rounded-lg px-3 py-1.5 text-sm"
+                className="bg-brand-offwhite/50 text-brand-navy/60 rounded-lg px-3 py-1.5 text-sm"
               >
                 {t.label}
               </span>

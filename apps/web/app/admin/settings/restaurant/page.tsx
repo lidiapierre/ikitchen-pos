@@ -117,8 +117,8 @@ export default function RestaurantSettingsPage(): JSX.Element {
   if (loading) {
     return (
       <div className="flex flex-col gap-6">
-        <h1 className="text-2xl font-bold text-white">Restaurant Settings</h1>
-        <p className="text-zinc-400 text-base">Loading…</p>
+        <h1 className="text-2xl font-bold text-brand-navy font-heading">Restaurant Settings</h1>
+        <p className="text-brand-navy/60 text-base">Loading…</p>
       </div>
     )
   }
@@ -126,7 +126,7 @@ export default function RestaurantSettingsPage(): JSX.Element {
   if (fetchError) {
     return (
       <div className="flex flex-col gap-6">
-        <h1 className="text-2xl font-bold text-white">Restaurant Settings</h1>
+        <h1 className="text-2xl font-bold text-brand-navy font-heading">Restaurant Settings</h1>
         <p className="text-red-400 text-base">Unable to load settings. Please try again.</p>
         <p className="text-red-300 text-sm font-mono">{fetchError}</p>
       </div>
@@ -139,11 +139,11 @@ export default function RestaurantSettingsPage(): JSX.Element {
       <div className="flex items-center gap-3">
         <Link
           href="/admin"
-          className="flex items-center min-h-[48px] px-3 py-2 rounded-xl text-base font-medium text-zinc-400 hover:text-white hover:bg-zinc-700 transition-colors"
+          className="flex items-center min-h-[48px] px-3 py-2 rounded-xl text-base font-medium text-brand-navy/60 hover:text-white hover:bg-brand-offwhite transition-colors"
         >
           ← Admin
         </Link>
-        <h1 className="text-2xl font-bold text-white">Restaurant Settings</h1>
+        <h1 className="text-2xl font-bold text-brand-navy font-heading">Restaurant Settings</h1>
       </div>
 
       {/* Feedback banner */}
@@ -162,17 +162,17 @@ export default function RestaurantSettingsPage(): JSX.Element {
       )}
 
       {/* Bill printing section */}
-      <div className="bg-zinc-800 border border-zinc-700 rounded-2xl p-6 flex flex-col gap-6">
+      <div className="bg-white border border-brand-grey rounded-2xl p-6 flex flex-col gap-6">
         <div>
-          <h2 className="text-lg font-semibold text-white">Bill / Receipt Settings</h2>
-          <p className="text-sm text-zinc-400 mt-1">
+          <h2 className="text-lg font-semibold text-brand-navy">Bill / Receipt Settings</h2>
+          <p className="text-sm text-brand-navy/60 mt-1">
             These details appear on every printed bill and receipt.
           </p>
         </div>
 
         {/* Restaurant Name */}
         <div className="flex flex-col gap-1">
-          <label htmlFor="restaurant-name" className="text-sm font-medium text-zinc-300">
+          <label htmlFor="restaurant-name" className="text-sm font-medium text-brand-navy/80">
             Restaurant Name
           </label>
           <input
@@ -182,14 +182,14 @@ export default function RestaurantSettingsPage(): JSX.Element {
             onChange={(e) => { setRestaurantName(e.target.value) }}
             disabled={submitting}
             placeholder="e.g. Lahore by iKitchen"
-            className="min-h-[48px] px-4 py-2 rounded-xl bg-zinc-900 text-white border border-zinc-600 focus:border-indigo-500 focus:outline-none text-base disabled:opacity-50 placeholder-zinc-600"
+            className="min-h-[48px] px-4 py-2 rounded-xl bg-brand-navy text-white border border-brand-grey focus:border-brand-blue focus:outline-none text-base disabled:opacity-50 placeholder-zinc-600"
           />
-          <p className="text-xs text-zinc-500">Displayed as the header on printed bills and receipts.</p>
+          <p className="text-xs text-brand-grey">Displayed as the header on printed bills and receipts.</p>
         </div>
 
         {/* Restaurant Address */}
         <div className="flex flex-col gap-1">
-          <label htmlFor="restaurant-address" className="text-sm font-medium text-zinc-300">
+          <label htmlFor="restaurant-address" className="text-sm font-medium text-brand-navy/80">
             Restaurant Address
           </label>
           <input
@@ -199,15 +199,15 @@ export default function RestaurantSettingsPage(): JSX.Element {
             onChange={(e) => { setRestaurantAddress(e.target.value) }}
             disabled={submitting}
             placeholder="e.g. 123 Main Street, Dhaka 1200"
-            className="min-h-[48px] px-4 py-2 rounded-xl bg-zinc-900 text-white border border-zinc-600 focus:border-indigo-500 focus:outline-none text-base disabled:opacity-50 placeholder-zinc-600"
+            className="min-h-[48px] px-4 py-2 rounded-xl bg-brand-navy text-white border border-brand-grey focus:border-brand-blue focus:outline-none text-base disabled:opacity-50 placeholder-zinc-600"
           />
-          <p className="text-xs text-zinc-500">Shown below restaurant name on the printed bill.</p>
+          <p className="text-xs text-brand-grey">Shown below restaurant name on the printed bill.</p>
         </div>
 
         {/* BIN Number */}
         <div className="flex flex-col gap-1">
-          <label htmlFor="bin-number" className="text-sm font-medium text-zinc-300">
-            BIN Number <span className="text-zinc-500 font-normal">(VAT Registration)</span>
+          <label htmlFor="bin-number" className="text-sm font-medium text-brand-navy/80">
+            BIN Number <span className="text-brand-grey font-normal">(VAT Registration)</span>
           </label>
           <input
             id="bin-number"
@@ -216,16 +216,16 @@ export default function RestaurantSettingsPage(): JSX.Element {
             onChange={(e) => { setBinNumber(e.target.value) }}
             disabled={submitting}
             placeholder="e.g. 003206332-0101 -Musak6.3"
-            className="min-h-[48px] px-4 py-2 rounded-xl bg-zinc-900 text-white border border-zinc-600 focus:border-indigo-500 focus:outline-none text-base disabled:opacity-50 placeholder-zinc-600"
+            className="min-h-[48px] px-4 py-2 rounded-xl bg-brand-navy text-white border border-brand-grey focus:border-brand-blue focus:outline-none text-base disabled:opacity-50 placeholder-zinc-600"
           />
-          <p className="text-xs text-zinc-500">
+          <p className="text-xs text-brand-grey">
             Your VAT / BIN registration number printed on every receipt. Leave blank to hide.
           </p>
         </div>
 
         {/* Register Name */}
         <div className="flex flex-col gap-1">
-          <label htmlFor="register-name" className="text-sm font-medium text-zinc-300">
+          <label htmlFor="register-name" className="text-sm font-medium text-brand-navy/80">
             Register / Terminal Name
           </label>
           <input
@@ -235,9 +235,9 @@ export default function RestaurantSettingsPage(): JSX.Element {
             onChange={(e) => { setRegisterName(e.target.value) }}
             disabled={submitting}
             placeholder="e.g. Cashier 1"
-            className="min-h-[48px] px-4 py-2 rounded-xl bg-zinc-900 text-white border border-zinc-600 focus:border-indigo-500 focus:outline-none text-base disabled:opacity-50 placeholder-zinc-600"
+            className="min-h-[48px] px-4 py-2 rounded-xl bg-brand-navy text-white border border-brand-grey focus:border-brand-blue focus:outline-none text-base disabled:opacity-50 placeholder-zinc-600"
           />
-          <p className="text-xs text-zinc-500">
+          <p className="text-xs text-brand-grey">
             Terminal identifier printed on each bill (e.g. &ldquo;Cashier 1&rdquo;, &ldquo;Front Desk&rdquo;).
           </p>
         </div>
@@ -247,7 +247,7 @@ export default function RestaurantSettingsPage(): JSX.Element {
           <button
             onClick={() => { void handleSave() }}
             disabled={submitting || !restaurantId}
-            className="min-h-[48px] px-6 py-2 rounded-xl bg-indigo-600 text-white text-base font-medium hover:bg-indigo-500 transition-colors disabled:opacity-50"
+            className="min-h-[48px] px-6 py-2 rounded-xl bg-brand-navy text-white text-base font-medium hover:bg-brand-blue transition-colors disabled:opacity-50"
           >
             {submitting ? 'Saving…' : 'Save Settings'}
           </button>
@@ -255,8 +255,8 @@ export default function RestaurantSettingsPage(): JSX.Element {
       </div>
 
       {/* Info box */}
-      <div className="bg-zinc-800/60 border border-zinc-700 rounded-2xl p-5 text-sm text-zinc-400">
-        <p className="font-semibold text-zinc-300 mb-2">Bill Number Sequence</p>
+      <div className="bg-white/60 border border-brand-grey rounded-2xl p-5 text-sm text-brand-navy/60">
+        <p className="font-semibold text-brand-navy/80 mb-2">Bill Number Sequence</p>
         <p>
           Bill numbers are auto-generated sequentially when an order is closed (e.g. <span className="font-mono text-zinc-200">RN0001234</span>).
           The counter is per-restaurant and cannot be reset here — contact support if needed.

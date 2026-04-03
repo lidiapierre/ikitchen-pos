@@ -205,7 +205,7 @@ export default function TableManager(): JSX.Element {
     return (
       <div className="flex flex-col gap-6">
         <h1 className="text-2xl font-bold text-white">Tables</h1>
-        <p className="text-zinc-400 text-base">Loading tables…</p>
+        <p className="text-brand-navy/60 text-base">Loading tables…</p>
       </div>
     )
   }
@@ -234,7 +234,7 @@ export default function TableManager(): JSX.Element {
             setDeletingTableId(null)
           }}
           disabled={submitting}
-          className="min-h-[48px] px-5 py-2 rounded-xl text-base font-medium bg-indigo-600 text-white hover:bg-indigo-500 transition-colors disabled:opacity-50"
+          className="min-h-[48px] px-5 py-2 rounded-xl text-base font-medium bg-brand-navy text-white hover:bg-brand-blue transition-colors disabled:opacity-50"
         >
           + Add Table
         </button>
@@ -255,11 +255,11 @@ export default function TableManager(): JSX.Element {
 
       {/* Add Table inline form */}
       {showAddForm && (
-        <div className="bg-zinc-800 border border-zinc-700 rounded-2xl p-5 flex flex-col gap-4">
+        <div className="bg-white border border-brand-grey rounded-2xl p-5 flex flex-col gap-4">
           <h2 className="text-lg font-semibold text-white">New Table</h2>
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-1">
-              <label htmlFor="add-table-label" className="text-sm font-medium text-zinc-300">
+              <label htmlFor="add-table-label" className="text-sm font-medium text-brand-navy/80">
                 Table Label <span className="text-red-400">*</span>
               </label>
               <input
@@ -270,7 +270,7 @@ export default function TableManager(): JSX.Element {
                   setAddForm((f) => ({ ...f, label: e.target.value }))
                   setAddFormErrors((err) => ({ ...err, label: undefined }))
                 }}
-                className="min-h-[48px] px-4 py-2 rounded-xl bg-zinc-900 text-white border border-zinc-600 focus:border-indigo-500 focus:outline-none text-base"
+                className="min-h-[48px] px-4 py-2 rounded-xl bg-brand-navy text-white border border-brand-grey focus:border-brand-blue focus:outline-none text-base"
                 placeholder="e.g. Table 9"
               />
               {addFormErrors.label && (
@@ -278,7 +278,7 @@ export default function TableManager(): JSX.Element {
               )}
             </div>
             <div className="flex flex-col gap-1">
-              <label htmlFor="add-seat-count" className="text-sm font-medium text-zinc-300">
+              <label htmlFor="add-seat-count" className="text-sm font-medium text-brand-navy/80">
                 Seat Count <span className="text-red-400">*</span>
               </label>
               <input
@@ -292,7 +292,7 @@ export default function TableManager(): JSX.Element {
                   setAddForm((f) => ({ ...f, seatCount: e.target.value }))
                   setAddFormErrors((err) => ({ ...err, seatCount: undefined }))
                 }}
-                className="min-h-[48px] px-4 py-2 rounded-xl bg-zinc-900 text-white border border-zinc-600 focus:border-indigo-500 focus:outline-none text-base"
+                className="min-h-[48px] px-4 py-2 rounded-xl bg-brand-navy text-white border border-brand-grey focus:border-brand-blue focus:outline-none text-base"
                 placeholder="4"
               />
               {addFormErrors.seatCount && (
@@ -304,7 +304,7 @@ export default function TableManager(): JSX.Element {
             <button
               onClick={() => { void handleAddTable() }}
               disabled={submitting}
-              className="min-h-[48px] px-5 py-2 rounded-xl bg-indigo-600 text-white text-base font-medium hover:bg-indigo-500 transition-colors disabled:opacity-50"
+              className="min-h-[48px] px-5 py-2 rounded-xl bg-brand-navy text-white text-base font-medium hover:bg-brand-blue transition-colors disabled:opacity-50"
             >
               Add Table
             </button>
@@ -314,7 +314,7 @@ export default function TableManager(): JSX.Element {
                 setAddForm(EMPTY_FORM)
                 setAddFormErrors({})
               }}
-              className="min-h-[48px] px-5 py-2 rounded-xl bg-zinc-700 text-white text-base font-medium hover:bg-zinc-600 transition-colors"
+              className="min-h-[48px] px-5 py-2 rounded-xl bg-brand-offwhite text-white text-base font-medium hover:bg-zinc-600 transition-colors"
             >
               Cancel
             </button>
@@ -324,11 +324,11 @@ export default function TableManager(): JSX.Element {
 
       {/* Table list */}
       {tables.length === 0 ? (
-        <p className="text-zinc-500 text-base">No tables yet. Add a table to get started.</p>
+        <p className="text-brand-grey text-base">No tables yet. Add a table to get started.</p>
       ) : (
         <div className="flex flex-col gap-2">
           {/* Column header */}
-          <div className="grid grid-cols-[1fr_auto_auto_auto] gap-4 px-5 py-2 text-sm font-medium text-zinc-400 uppercase tracking-wide">
+          <div className="grid grid-cols-[1fr_auto_auto_auto] gap-4 px-5 py-2 text-sm font-medium text-brand-navy/60 uppercase tracking-wide">
             <span>Table</span>
             <span className="text-right w-20">Seats</span>
             <span className="text-right w-24">Status</span>
@@ -344,14 +344,14 @@ export default function TableManager(): JSX.Element {
               return (
                 <div
                   key={table.id}
-                  className="bg-zinc-800 border border-indigo-600 rounded-2xl px-5 py-4 flex flex-col gap-4"
+                  className="bg-white border border-brand-blue rounded-2xl px-5 py-4 flex flex-col gap-4"
                 >
                   <h2 className="text-base font-semibold text-white">Edit Table</h2>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="flex flex-col gap-1">
                       <label
                         htmlFor={`edit-label-${table.id}`}
-                        className="text-sm font-medium text-zinc-300"
+                        className="text-sm font-medium text-brand-navy/80"
                       >
                         Table Label <span className="text-red-400">*</span>
                       </label>
@@ -363,7 +363,7 @@ export default function TableManager(): JSX.Element {
                           setEditForm((f) => ({ ...f, label: e.target.value }))
                           setEditFormErrors((err) => ({ ...err, label: undefined }))
                         }}
-                        className="min-h-[48px] px-4 py-2 rounded-xl bg-zinc-900 text-white border border-zinc-600 focus:border-indigo-500 focus:outline-none text-base"
+                        className="min-h-[48px] px-4 py-2 rounded-xl bg-brand-navy text-white border border-brand-grey focus:border-brand-blue focus:outline-none text-base"
                       />
                       {editFormErrors.label && (
                         <span className="text-sm text-red-400">{editFormErrors.label}</span>
@@ -372,7 +372,7 @@ export default function TableManager(): JSX.Element {
                     <div className="flex flex-col gap-1">
                       <label
                         htmlFor={`edit-seats-${table.id}`}
-                        className="text-sm font-medium text-zinc-300"
+                        className="text-sm font-medium text-brand-navy/80"
                       >
                         Seat Count <span className="text-red-400">*</span>
                       </label>
@@ -387,7 +387,7 @@ export default function TableManager(): JSX.Element {
                           setEditForm((f) => ({ ...f, seatCount: e.target.value }))
                           setEditFormErrors((err) => ({ ...err, seatCount: undefined }))
                         }}
-                        className="min-h-[48px] px-4 py-2 rounded-xl bg-zinc-900 text-white border border-zinc-600 focus:border-indigo-500 focus:outline-none text-base"
+                        className="min-h-[48px] px-4 py-2 rounded-xl bg-brand-navy text-white border border-brand-grey focus:border-brand-blue focus:outline-none text-base"
                       />
                       {editFormErrors.seatCount && (
                         <span className="text-sm text-red-400">{editFormErrors.seatCount}</span>
@@ -398,13 +398,13 @@ export default function TableManager(): JSX.Element {
                     <button
                       onClick={() => { void handleSaveEdit() }}
                       disabled={submitting}
-                      className="min-h-[48px] px-5 py-2 rounded-xl bg-indigo-600 text-white text-base font-medium hover:bg-indigo-500 transition-colors disabled:opacity-50"
+                      className="min-h-[48px] px-5 py-2 rounded-xl bg-brand-navy text-white text-base font-medium hover:bg-brand-blue transition-colors disabled:opacity-50"
                     >
                       Save Changes
                     </button>
                     <button
                       onClick={handleCancelEdit}
-                      className="min-h-[48px] px-5 py-2 rounded-xl bg-zinc-700 text-white text-base font-medium hover:bg-zinc-600 transition-colors"
+                      className="min-h-[48px] px-5 py-2 rounded-xl bg-brand-offwhite text-white text-base font-medium hover:bg-zinc-600 transition-colors"
                     >
                       Cancel
                     </button>
@@ -416,10 +416,10 @@ export default function TableManager(): JSX.Element {
             return (
               <div
                 key={table.id}
-                className="bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-4 grid grid-cols-[1fr_auto_auto_auto] gap-4 items-center"
+                className="bg-white border border-brand-grey rounded-2xl px-5 py-4 grid grid-cols-[1fr_auto_auto_auto] gap-4 items-center"
               >
                 <span className="text-base font-semibold text-white">{table.label}</span>
-                <span className="text-base text-zinc-300 w-20 text-right">
+                <span className="text-base text-brand-navy/80 w-20 text-right">
                   {table.seat_count} {table.seat_count === 1 ? 'seat' : 'seats'}
                 </span>
                 <span className="w-24 text-right">
@@ -438,7 +438,7 @@ export default function TableManager(): JSX.Element {
                     onClick={() => handleStartEdit(table)}
                     aria-label={`Edit ${table.label}`}
                     disabled={submitting}
-                    className="min-h-[48px] min-w-[48px] px-4 py-2 rounded-xl bg-zinc-700 text-white text-base font-medium hover:bg-zinc-600 transition-colors shrink-0 disabled:opacity-50"
+                    className="min-h-[48px] min-w-[48px] px-4 py-2 rounded-xl bg-brand-offwhite text-white text-base font-medium hover:bg-zinc-600 transition-colors shrink-0 disabled:opacity-50"
                   >
                     Edit
                   </button>
@@ -456,7 +456,7 @@ export default function TableManager(): JSX.Element {
                       <button
                         onClick={() => setDeletingTableId(null)}
                         aria-label="Cancel delete"
-                        className="min-h-[48px] min-w-[48px] px-4 py-2 rounded-xl bg-zinc-700 text-white text-base font-medium hover:bg-zinc-600 transition-colors"
+                        className="min-h-[48px] min-w-[48px] px-4 py-2 rounded-xl bg-brand-offwhite text-white text-base font-medium hover:bg-zinc-600 transition-colors"
                       >
                         No
                       </button>

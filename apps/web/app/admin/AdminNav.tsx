@@ -66,8 +66,8 @@ export default function AdminNav(): JSX.Element {
         <div key={si} className="flex flex-col gap-1">
           {section.title && (
             <div className="flex items-center gap-2 px-4 pt-2 pb-1">
-              <Settings size={14} className="text-indigo-300 opacity-70" aria-hidden="true" />
-              <span className="text-xs font-semibold uppercase tracking-widest text-indigo-300 opacity-70">
+              <Settings size={14} className="text-brand-grey opacity-70" aria-hidden="true" />
+              <span className="text-xs font-semibold uppercase tracking-widest text-brand-grey opacity-70">
                 {section.title}
               </span>
             </div>
@@ -81,8 +81,8 @@ export default function AdminNav(): JSX.Element {
                 className={[
                   'flex items-center gap-3 px-4 py-3 rounded-xl text-lg font-medium transition-colors min-h-[48px]',
                   isActive
-                    ? 'bg-indigo-600 text-white'
-                    : 'text-indigo-100 hover:bg-indigo-700 hover:text-white',
+                    ? 'bg-brand-gold text-brand-navy border-l-4 border-brand-gold'
+                    : 'text-white/80 hover:bg-brand-blue hover:text-white',
                 ].join(' ')}
               >
                 <Icon size={20} aria-hidden="true" />

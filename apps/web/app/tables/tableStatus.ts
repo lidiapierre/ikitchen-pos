@@ -43,21 +43,25 @@ export interface StatusConfig {
 export const STATUS_CONFIG: Record<TableStatus, StatusConfig> = {
   available: {
     label: 'Empty',
-    cardClass: 'bg-zinc-800 border-zinc-600 hover:border-zinc-400',
-    badgeClass: 'bg-zinc-700 text-zinc-300',
+    // Off-white card, grey border — brand neutral
+    cardClass: 'bg-brand-offwhite border-brand-grey hover:border-brand-blue',
+    badgeClass: 'bg-brand-grey text-brand-navy',
   },
   seated: {
     label: 'Seated',
-    cardClass: 'bg-blue-900 border-blue-600 hover:bg-blue-800',
-    badgeClass: 'bg-blue-600 text-white',
+    // Brand blue — interactive/active state
+    cardClass: 'bg-brand-blue border-brand-blue hover:bg-brand-blue/80',
+    badgeClass: 'bg-brand-navy text-white',
   },
   ordered: {
     label: 'Ordered',
-    cardClass: 'bg-green-900 border-green-500 hover:bg-green-800',
-    badgeClass: 'bg-green-500 text-white',
+    // Brand navy — primary, prominent
+    cardClass: 'bg-brand-navy border-brand-gold hover:bg-brand-navy/90',
+    badgeClass: 'bg-brand-gold text-brand-navy',
   },
   overdue: {
     label: 'Overdue',
+    // Red — keep semantic meaning clear
     cardClass: 'bg-red-900 border-red-500 hover:bg-red-800',
     badgeClass: 'bg-red-500 text-white',
   },

@@ -1,15 +1,40 @@
 @import "tailwindcss";
 
+/*
+ * HK Grotesque — imported from Google Fonts (Light 300 + Regular 400).
+ * Quiche Bold is NOT available on Google Fonts; the brand font stack uses
+ * 'Quiche Bold', serif as a placeholder. The actual font file must be
+ * self-hosted and added as a @font-face rule once the file is available.
+ */
+@import url("https://fonts.googleapis.com/css2?family=Hind:wght@300;400&display=swap");
+
+/*
+ * IKitchen brand design tokens (Tailwind v4 @theme).
+ * These map to Tailwind utility classes:
+ *   bg-brand-navy, text-brand-blue, border-brand-gold, font-quiche, etc.
+ */
+@theme inline {
+  /* Brand colours */
+  --color-brand-navy:     #112765;
+  --color-brand-blue:     #183779;
+  --color-brand-grey:     #C6C6C6;
+  --color-brand-offwhite: #EEEEEE;
+  --color-brand-gold:     #C59F43;
+
+  /* Legacy theme vars (kept for existing usage) */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+
+  /* Typography */
+  --font-sans:         var(--font-geist-sans);
+  --font-mono:         var(--font-geist-mono);
+  --font-quiche:       'Quiche Bold', serif;
+  --font-hk-grotesque: 'Hind', 'HK Grotesque', sans-serif;
+}
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -22,7 +47,20 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: 'Hind', Arial, Helvetica, sans-serif;
+}
+
+/* ── Brand utility helpers ── */
+
+/* HK Grotesque body text */
+.font-body {
+  font-family: var(--font-hk-grotesque);
+}
+
+/* Quiche Bold headings */
+.font-heading {
+  font-family: var(--font-quiche);
+  font-weight: 700;
 }
 
 @media print {

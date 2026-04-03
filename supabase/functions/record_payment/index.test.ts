@@ -192,7 +192,7 @@ describe('record_payment handler', () => {
       expect(json.error).toBe('method is required')
     })
 
-    it('returns 400 when method is not cash or card', async (): Promise<void> => {
+    it('returns 400 when method is not a valid payment method', async (): Promise<void> => {
       const req = new Request('http://localhost/functions/v1/record_payment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -202,7 +202,21 @@ describe('record_payment handler', () => {
       expect(res.status).toBe(400)
       const json = await res.json() as { success: boolean; error: string }
       expect(json.success).toBe(false)
-      expect(json.error).toBe('method must be cash or card')
+      expect(json.error).toContain('method must be one of')
+    })
+
+    it('accepts mobile as a valid payment method', async (): Promise<void> => {
+      const req = new Request('http://localhost/functions/v1/record_payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order_id: 'order-abc-123', amount: 10, method: 'mobile' }),
+      })
+      const res = await handler(req)
+      // Should not be rejected as invalid method (may fail auth/db in test env, but not method validation)
+      const json = await res.json() as { success: boolean; error?: string }
+      if (!json.success && json.error) {
+        expect(json.error).not.toContain('method must be one of')
+      }
     })
 
     it('returns 400 when amount is zero', async (): Promise<void> => {

@@ -101,9 +101,10 @@ export async function handler(
       { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
     )
   }
-  if (payload['method'] !== 'cash' && payload['method'] !== 'card') {
+  const VALID_METHODS = ['cash', 'card', 'mobile', 'other']
+  if (!VALID_METHODS.includes(payload['method'] as string)) {
     return new Response(
-      JSON.stringify({ success: false, error: 'method must be cash or card' }),
+      JSON.stringify({ success: false, error: 'method must be one of: cash, card, mobile, other' }),
       { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
     )
   }

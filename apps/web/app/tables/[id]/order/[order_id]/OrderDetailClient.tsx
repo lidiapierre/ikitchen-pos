@@ -20,6 +20,8 @@ import type { ServerOption } from './reassignServerApi'
 import { markItemsSentToKitchen } from './kotApi'
 import { callFireCourse, callServeCourse } from './fireCourseApi'
 import { formatPrice, DEFAULT_CURRENCY_SYMBOL } from '@/lib/formatPrice'
+import { PAYMENT_METHODS, PAYMENT_METHOD_LABELS } from '@/lib/paymentMethods'
+import type { PaymentMethod } from '@/lib/paymentMethods'
 import { calcVat } from '@/lib/vatCalc'
 import { calcServiceCharge } from '@/lib/serviceChargeCalc'
 import { fetchVatConfig, fetchOrderVatContext, fetchServiceChargePercent } from '@/lib/fetchVatConfig'
@@ -77,7 +79,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState<string | null>(null)
   const [step, setStep] = useState<'order' | 'payment' | 'change' | 'success'>('order')
-  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card'>('cash')
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash')
   const [paying, setPaying] = useState(false)
   const [paymentError, setPaymentError] = useState<string | null>(null)
   const [changeDueCents, setChangeDueCents] = useState(0)
@@ -461,7 +463,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
   const totalCents = billTotalCents
   const totalFormatted = formatPrice(totalCents, currencySymbol)
 
-  const billPaymentMethod = (confirmedPaymentMethod ?? paymentMethod) as 'cash' | 'card'
+  const billPaymentMethod = (confirmedPaymentMethod ?? paymentMethod) as PaymentMethod
   const billAmountTenderedCents = paymentMethod === 'cash'
     ? Math.round(parseFloat(amountTenderedDollars || '0') * 100)
     : undefined
@@ -2745,30 +2747,21 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
             <div>
               <p className="text-zinc-400 text-base mb-3">Payment method</p>
               <div className="flex gap-3">
-                <button
-                  type="button"
-                  onClick={() => { setPaymentMethod('cash') }}
-                  className={[
-                    'flex-1 min-h-[48px] min-w-[48px] rounded-xl text-base font-semibold transition-colors border-2',
-                    paymentMethod === 'cash'
-                      ? 'border-amber-400 bg-amber-400/10 text-amber-400'
-                      : 'border-zinc-600 text-zinc-300 hover:border-zinc-400',
-                  ].join(' ')}
-                >
-                  Cash
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { setPaymentMethod('card') }}
-                  className={[
-                    'flex-1 min-h-[48px] min-w-[48px] rounded-xl text-base font-semibold transition-colors border-2',
-                    paymentMethod === 'card'
-                      ? 'border-amber-400 bg-amber-400/10 text-amber-400'
-                      : 'border-zinc-600 text-zinc-300 hover:border-zinc-400',
-                  ].join(' ')}
-                >
-                  Card
-                </button>
+                {PAYMENT_METHODS.map((method) => (
+                  <button
+                    key={method}
+                    type="button"
+                    onClick={() => { setPaymentMethod(method) }}
+                    className={[
+                      'flex-1 min-h-[56px] rounded-xl text-base font-semibold transition-colors border-2',
+                      paymentMethod === method
+                        ? 'bg-brand-gold text-brand-navy border-2 border-brand-gold'
+                        : 'bg-zinc-800 text-white border-2 border-zinc-600 hover:border-zinc-400',
+                    ].join(' ')}
+                  >
+                    {PAYMENT_METHOD_LABELS[method]}
+                  </button>
+                ))}
               </div>
             </div>
 

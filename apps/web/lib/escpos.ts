@@ -2,6 +2,8 @@
  * ESC/POS utility for 80mm thermal printers.
  * Generates a Kitchen Order Ticket (KOT) as raw ESC/POS bytes.
  */
+import { PAYMENT_METHOD_LABELS } from '@/lib/paymentMethods'
+import type { PaymentMethod } from '@/lib/paymentMethods'
 
 // ESC/POS command constants
 const ESC = 0x1b
@@ -73,7 +75,7 @@ export interface BillEscPosOptions {
   vatPercent?: number
   taxInclusive?: boolean
   totalCents: number
-  paymentMethod: 'cash' | 'card'
+  paymentMethod: PaymentMethod
   amountTenderedCents?: number
   changeDueCents?: number
   orderComp?: boolean
@@ -186,7 +188,7 @@ export function buildBillEscPos(
     bytes.push(...divider())
 
     // Payment
-    bytes.push(...line(rightAlign('Payment', paymentMethod.toUpperCase())))
+    bytes.push(...line(rightAlign('Payment', PAYMENT_METHOD_LABELS[paymentMethod] ?? paymentMethod.toUpperCase())))
     if (paymentMethod === 'cash' && amountTenderedCents !== undefined) {
       bytes.push(...line(rightAlign('Tendered', centsToCurrency(amountTenderedCents))))
     }

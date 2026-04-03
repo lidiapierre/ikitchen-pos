@@ -114,6 +114,24 @@ export default function AvailabilityPanel(): JSX.Element {
     }
   }
 
+  // useMemo must be called before any early returns (Rules of Hooks)
+  const filteredCategories = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase()
+    if (!q) return categories
+    return categories
+      .map((cat) => ({
+        ...cat,
+        items: cat.items.filter((item) => item.name.toLowerCase().includes(q)),
+      }))
+      .filter((cat) => cat.items.length > 0)
+  }, [categories, searchQuery])
+
+  const totalItems = categories.reduce((sum, cat) => sum + cat.items.length, 0)
+  const eightySixCount = categories.reduce(
+    (sum, cat) => sum + cat.items.filter((i) => !i.available).length,
+    0,
+  )
+
   if (loading) {
     return (
       <div className="flex flex-col gap-6">
@@ -129,24 +147,6 @@ export default function AvailabilityPanel(): JSX.Element {
       </div>
     )
   }
-
-  const totalItems = categories.reduce((sum, cat) => sum + cat.items.length, 0)
-  const eightySixCount = categories.reduce(
-    (sum, cat) => sum + cat.items.filter((i) => !i.available).length,
-    0,
-  )
-
-  // Filter categories/items by search query
-  const filteredCategories = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase()
-    if (!q) return categories
-    return categories
-      .map((cat) => ({
-        ...cat,
-        items: cat.items.filter((item) => item.name.toLowerCase().includes(q)),
-      }))
-      .filter((cat) => cat.items.length > 0)
-  }, [categories, searchQuery])
 
   return (
     <div className="flex flex-col gap-6">

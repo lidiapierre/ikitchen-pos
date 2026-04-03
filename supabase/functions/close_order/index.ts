@@ -427,12 +427,13 @@ export async function handler(
             // Non-fatal: best-effort
           })
 
-          // Atomically increment visit_count and total_spend_cents via RPC
-          await fetchFn(
+          // Atomically increment visit_count and total_spend_cents via RPC.
+          // The function now returns the customer UUID so we can link orders.customer_id.
+          const visitRpcRes = await fetchFn(
             `${supabaseUrl}/rest/v1/rpc/upsert_customer_visit`,
             {
               method: 'POST',
-              headers: { ...dbHeaders, Prefer: 'return=minimal' },
+              headers: { ...dbHeaders, Prefer: 'return=representation' },
               body: JSON.stringify({
                 p_restaurant_id: restaurantId,
                 p_mobile: customerMobile,
@@ -440,9 +441,28 @@ export async function handler(
                 p_spend_cents: finalTotal,
               }),
             },
-          ).catch(() => {
-            // Non-fatal: best-effort
-          })
+          ).catch(() => null)
+
+          // If RPC returned a customer UUID, link it to the order
+          if (visitRpcRes?.ok) {
+            try {
+              const rpcBody = await visitRpcRes.text()
+              // PostgREST returns a bare JSON scalar for scalar-returning functions
+              const customerId: string | null = rpcBody ? (JSON.parse(rpcBody) as string | null) : null
+              if (customerId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(customerId)) {
+                await fetchFn(
+                  `${supabaseUrl}/rest/v1/orders?id=eq.${orderId}`,
+                  {
+                    method: 'PATCH',
+                    headers: { ...dbHeaders, Prefer: 'return=minimal' },
+                    body: JSON.stringify({ customer_id: customerId }),
+                  },
+                ).catch(() => { /* Non-fatal */ })
+              }
+            } catch {
+              // Non-fatal: customer_id link is best-effort
+            }
+          }
         }
       }
     } catch {

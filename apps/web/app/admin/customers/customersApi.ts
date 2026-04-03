@@ -20,6 +20,7 @@ export interface CustomerOrder {
   bill_number: string | null
   order_type: string
   table_id: string | null
+  total_cents: number | null
 }
 
 export async function fetchCustomers(
@@ -52,6 +53,41 @@ export async function fetchCustomerOrders(
   })
   if (!res.ok) throw new Error('Failed to fetch customer orders')
   return res.json() as Promise<CustomerOrder[]>
+}
+
+/**
+ * Fetch order history for a customer by their UUID (issue #276).
+ * Uses orders.customer_id FK — covers all order types (dine-in, takeaway, delivery).
+ */
+export async function fetchCustomerOrdersById(
+  supabaseUrl: string,
+  accessToken: string,
+  customerId: string,
+): Promise<CustomerOrder[]> {
+  const url = `${supabaseUrl}/rest/v1/orders?customer_id=eq.${encodeURIComponent(customerId)}&select=id,order_type,status,created_at,final_total_cents,bill_number,table_id&order=created_at.desc&limit=20`
+  const res = await fetch(url, {
+    headers: { apikey: publishableKey, Authorization: `Bearer ${accessToken}` },
+  })
+  if (!res.ok) throw new Error('Failed to fetch customer orders')
+  const rows = await res.json() as Array<{
+    id: string
+    order_type: string
+    status: string
+    created_at: string
+    final_total_cents: number | null
+    bill_number: string | null
+    table_id: string | null
+  }>
+  return rows.map((r) => ({
+    id: r.id,
+    created_at: r.created_at,
+    status: r.status,
+    final_total_cents: r.final_total_cents,
+    bill_number: r.bill_number,
+    order_type: r.order_type,
+    table_id: r.table_id,
+    total_cents: r.final_total_cents,
+  }))
 }
 
 export async function updateCustomer(

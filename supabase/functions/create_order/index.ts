@@ -192,6 +192,12 @@ export async function handler(
     const inserted = (await insertRes.json()) as Array<{ id: string; status: string }>
     const order = inserted[0]
 
+    // Note: customer upsert (upsert_customer_visit) is intentionally NOT called here.
+    // close_order already calls it for any order with customer_mobile when the order
+    // is completed, which is the canonical moment to track a visit/spend.
+    // Calling it here too would double-increment visit_count for every delivery order.
+    // Customer linkage via orders.customer_id is tracked in issue #276.
+
     return new Response(
       JSON.stringify({ success: true, data: { order_id: order.id, status: order.status } }),
       { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },

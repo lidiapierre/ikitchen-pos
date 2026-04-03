@@ -1,12 +1,16 @@
-@import "tailwindcss";
-
 /*
  * HK Grotesque — imported from Google Fonts (Light 300 + Regular 400).
  * Quiche Bold is NOT available on Google Fonts; the brand font stack uses
  * 'Quiche Bold', serif as a placeholder. The actual font file must be
  * self-hosted and added as a @font-face rule once the file is available.
+ *
+ * IMPORTANT: @import url() must precede @import "tailwindcss" — Tailwind v4
+ * expands to thousands of CSS rules at build time, so any @import after it
+ * violates CSS spec (@imports must precede all other rules).
  */
 @import url("https://fonts.googleapis.com/css2?family=Hind:wght@300;400&display=swap");
+
+@import "tailwindcss";
 
 /*
  * IKitchen brand design tokens (Tailwind v4 @theme).

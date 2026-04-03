@@ -27,7 +27,6 @@ export default function AvailabilityPanel(): JSX.Element {
   const feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
-  const apiKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ''
 
   function showFeedback(type: FeedbackType, message: string): void {
     if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current)
@@ -36,8 +35,8 @@ export default function AvailabilityPanel(): JSX.Element {
   }
 
   useEffect(() => {
-    if (!supabaseUrl || !apiKey) {
-      setFetchError('API not configured')
+    if (!supabaseUrl || !accessToken) {
+      setFetchError(!supabaseUrl ? 'API not configured' : 'Not authenticated')
       setLoading(false)
       return
     }
@@ -49,7 +48,7 @@ export default function AvailabilityPanel(): JSX.Element {
       return
     }
     setLoading(true)
-    fetchMenuAvailability(supabaseUrl, apiKey, restaurantId)
+    fetchMenuAvailability(supabaseUrl, accessToken, restaurantId)
       .then((cats) => setCategories(cats))
       .catch((err: unknown) => {
         setFetchError(err instanceof Error ? err.message : 'Failed to load availability data')
@@ -59,7 +58,7 @@ export default function AvailabilityPanel(): JSX.Element {
     return () => {
       if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current)
     }
-  }, [supabaseUrl, apiKey, restaurantId, restaurantLoading])
+  }, [supabaseUrl, accessToken, restaurantId, restaurantLoading])
 
   async function handleToggle(categoryId: string, itemId: string, newAvailable: boolean): Promise<void> {
     if (!accessToken) {

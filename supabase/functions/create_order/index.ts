@@ -192,29 +192,11 @@ export async function handler(
     const inserted = (await insertRes.json()) as Array<{ id: string; status: string }>
     const order = inserted[0]
 
-    // Best-effort: upsert customer record for delivery orders with mobile + name.
-    // Note: orders.customer_id does not exist yet (tracked in #276); we only
-    // upsert the customer row for CRM tracking purposes.
-    if (orderType === 'delivery' && customerMobile && customerName) {
-      try {
-        await fetchFn(
-          `${supabaseUrl}/rest/v1/rpc/upsert_customer_visit`,
-          {
-            method: 'POST',
-            headers: { ...dbHeaders, Prefer: 'return=minimal' },
-            body: JSON.stringify({
-              p_restaurant_id: restaurantId,
-              p_mobile: customerMobile,
-              p_name: customerName,
-              p_spend_cents: 0,
-            }),
-          },
-        )
-      } catch (err) {
-        // Non-fatal: customer upsert must never block order creation
-        console.error('[create_order] customer upsert failed (non-fatal):', err)
-      }
-    }
+    // Note: customer upsert (upsert_customer_visit) is intentionally NOT called here.
+    // close_order already calls it for any order with customer_mobile when the order
+    // is completed, which is the canonical moment to track a visit/spend.
+    // Calling it here too would double-increment visit_count for every delivery order.
+    // Customer linkage via orders.customer_id is tracked in issue #276.
 
     return new Response(
       JSON.stringify({ success: true, data: { order_id: order.id, status: order.status } }),

@@ -434,7 +434,7 @@ export default function TablesPage(): JSX.Element {
                 type="text"
                 placeholder="e.g. Ahmed Khan"
                 value={deliveryCustomerName}
-                onChange={(e) => { setDeliveryCustomerName(e.target.value) }}
+                onChange={(e) => { setDeliveryCustomerName(e.target.value); setCustomerSuggestion(null) }}
                 className="w-full min-h-[48px] px-4 rounded-xl text-base bg-brand-blue text-white border-2 border-brand-grey/40 focus:border-brand-gold focus:outline-none placeholder-white/40 font-body"
                 autoFocus
               />

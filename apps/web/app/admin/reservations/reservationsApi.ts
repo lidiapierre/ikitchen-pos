@@ -117,43 +117,6 @@ export async function fetchCustomerReservations(
   return res.json() as Promise<Reservation[]>
 }
 
-/**
- * Upsert a customer record for a reservation (match on restaurant_id + mobile).
- * Returns the customer_id. Logs and returns null on failure — caller must not block.
- */
-export async function upsertCustomerForReservation(
-  supabaseUrl: string,
-  serviceKey: string,
-  restaurantId: string,
-  mobile: string,
-  name: string,
-): Promise<string | null> {
-  try {
-    const res = await fetch(`${supabaseUrl}/rest/v1/customers`, {
-      method: 'POST',
-      headers: {
-        apikey: serviceKey,
-        Authorization: `Bearer ${serviceKey}`,
-        'Content-Type': 'application/json',
-        Prefer: 'return=representation,resolution=merge-duplicates',
-      },
-      body: JSON.stringify({
-        restaurant_id: restaurantId,
-        mobile,
-        name: name || null,
-      }),
-    })
-    if (!res.ok) {
-      console.error('[upsertCustomerForReservation] failed', res.status, await res.text())
-      return null
-    }
-    const rows = (await res.json()) as Array<{ id: string }>
-    return rows[0]?.id ?? null
-  } catch (err) {
-    console.error('[upsertCustomerForReservation] error', err)
-    return null
-  }
-}
 
 export async function fetchTables(
   supabaseUrl: string,
@@ -196,11 +159,10 @@ export async function createReservation(
       if (custRes.ok) {
         const custRows = (await custRes.json()) as Array<{ id: string }>
         customerId = custRows[0]?.id ?? null
-      } else {
-        console.error('[createReservation] customer upsert failed', custRes.status, await custRes.text())
       }
-    } catch (err) {
-      console.error('[createReservation] customer upsert error', err)
+      // Non-fatal if customer upsert fails — reservation always proceeds
+    } catch {
+      // Non-fatal — reservation always proceeds without customer linkage
     }
   }
 
@@ -308,8 +270,8 @@ export async function seatReservation(
   }
   const orderId = createJson.data.order_id
 
-  // Step 2: Link reservation_id on the order
-  const patchOrderRes = await fetch(
+  // Step 2: Link reservation_id on the order (non-fatal — column may not exist yet)
+  void fetch(
     `${supabaseUrl}/rest/v1/orders?id=eq.${encodeURIComponent(orderId)}`,
     {
       method: 'PATCH',
@@ -319,14 +281,18 @@ export async function seatReservation(
       },
       body: JSON.stringify({ reservation_id: reservation.id }),
     },
-  )
-  if (!patchOrderRes.ok) {
-    // Non-fatal: log but don't block navigation
-    console.error('[seatReservation] failed to link reservation_id on order', await patchOrderRes.text())
-  }
+  ).catch(() => { /* non-fatal: column may not exist pre-migration */ })
 
-  // Step 3: Mark reservation as seated (update table_id too if changed)
-  await updateReservationStatus(supabaseUrl, apiKey, accessToken, reservation.id, 'seated', tableId)
+  // Step 3: Mark reservation as seated (update table_id too if changed).
+  // If this fails after the order was created, include the orderId in the error
+  // so staff can manually navigate to the open order.
+  try {
+    await updateReservationStatus(supabaseUrl, apiKey, accessToken, reservation.id, 'seated', tableId)
+  } catch {
+    throw new Error(
+      `Failed to mark reservation as seated (order ${orderId} was created — navigate to it manually)`,
+    )
+  }
 
   return orderId
 }

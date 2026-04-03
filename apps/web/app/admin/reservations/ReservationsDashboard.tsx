@@ -334,7 +334,7 @@ function SeatModal({ reservation, tables, onSeat, onClose }: SeatModalProps): JS
         </p>
 
         <div>
-          <label htmlFor="seat-table" className="block text-sm text-zinc-400 mb-1">Assign table (optional)</label>
+          <label htmlFor="seat-table" className="block text-sm text-zinc-400 mb-1">Assign table</label>
           <div className="relative">
             <select
               id="seat-table"
@@ -475,7 +475,7 @@ export default function ReservationsDashboard(): JSX.Element {
         setError(err instanceof Error ? err.message : 'Failed to load data')
       })
       .finally(() => { setLoading(false) })
-  }, [supabaseUrl, accessToken, restaurantId, accessToken])
+  }, [supabaseUrl, accessToken, restaurantId])
 
   useEffect(() => { loadData() }, [loadData])
 

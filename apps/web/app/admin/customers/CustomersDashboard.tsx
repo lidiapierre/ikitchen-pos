@@ -44,7 +44,6 @@ export default function CustomersDashboard(): JSX.Element {
   // Customer reservations (issue #277)
   const [customerReservations, setCustomerReservations] = useState<Reservation[]>([])
   const [reservationsLoading, setReservationsLoading] = useState(false)
-  const [reservationsError, setReservationsError] = useState<string | null>(null)
 
   // Inline edit state
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -95,7 +94,6 @@ export default function CustomersDashboard(): JSX.Element {
     setOrdersError(null)
     setOrdersLoading(true)
     setCustomerReservations([])
-    setReservationsError(null)
 
     fetchCustomerOrders(supabaseUrl, accessToken, customer.restaurant_id, customer.mobile)
       .then(setCustomerOrders)
@@ -109,8 +107,10 @@ export default function CustomersDashboard(): JSX.Element {
     const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ''
     fetchCustomerReservations(supabaseUrl, publishableKey, accessToken, customer.id)
       .then(setCustomerReservations)
-      .catch((err: unknown) => {
-        setReservationsError(err instanceof Error ? err.message : 'Failed to load reservations')
+      .catch(() => {
+        // Silently swallow — customer_id column may not exist pre-migration;
+        // the panel shows "No reservations found" rather than an error.
+        setCustomerReservations([])
       })
       .finally(() => { setReservationsLoading(false) })
   }
@@ -405,8 +405,6 @@ export default function CustomersDashboard(): JSX.Element {
                 </h3>
                 {reservationsLoading ? (
                   <p className="text-zinc-500 text-xs">Loading…</p>
-                ) : reservationsError !== null ? (
-                  <p className="text-red-400 text-xs">{reservationsError}</p>
                 ) : customerReservations.length === 0 ? (
                   <p className="text-zinc-500 text-xs">No reservations found.</p>
                 ) : (

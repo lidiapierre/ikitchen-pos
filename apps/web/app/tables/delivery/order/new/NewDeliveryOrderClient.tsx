@@ -118,6 +118,12 @@ export default function NewDeliveryOrderClient(): JSX.Element {
               <dd className="font-semibold text-white">{customerName}</dd>
             </div>
           )}
+          {customerPhone && (
+            <div className="flex gap-3">
+              <dt className="text-zinc-500">Phone</dt>
+              <dd className="text-zinc-300">{customerPhone}</dd>
+            </div>
+          )}
           {deliveryNote && (
             <div className="flex gap-3">
               <dt className="text-zinc-500">Note</dt>

@@ -48,6 +48,7 @@ export default function TablesPage(): JSX.Element {
   const [showDeliveryModal, setShowDeliveryModal] = useState(false)
   const [deliveryCustomerName, setDeliveryCustomerName] = useState('')
   const [deliveryPhone, setDeliveryPhone] = useState('')
+  const [deliveryPhoneTouched, setDeliveryPhoneTouched] = useState(false)
   const [deliveryNote, setDeliveryNote] = useState('')
   const [createOrderError, setCreateOrderError] = useState<string | null>(null)
 
@@ -137,6 +138,7 @@ export default function TablesPage(): JSX.Element {
     setShowDeliveryModal(false)
     setDeliveryCustomerName('')
     setDeliveryPhone('')
+    setDeliveryPhoneTouched(false)
     setDeliveryNote('')
     router.push(`/tables/delivery/order/new?${params.toString()}`)
   }
@@ -187,6 +189,7 @@ export default function TablesPage(): JSX.Element {
           onClick={() => {
             setDeliveryCustomerName('')
             setDeliveryPhone('')
+            setDeliveryPhoneTouched(false)
             setDeliveryNote('')
             setCreateOrderError(null)
             setShowDeliveryModal(true)
@@ -391,9 +394,10 @@ export default function TablesPage(): JSX.Element {
                 placeholder="+880 1X XX XXX XXX"
                 value={deliveryPhone}
                 onChange={(e) => { setDeliveryPhone(e.target.value) }}
+                onBlur={() => { setDeliveryPhoneTouched(true) }}
                 className="w-full min-h-[48px] px-4 rounded-xl text-base bg-brand-blue text-white border-2 border-brand-grey/40 focus:border-brand-gold focus:outline-none placeholder-white/40 font-body"
               />
-              {deliveryPhone.trim() === '' && (
+              {deliveryPhoneTouched && deliveryPhone.trim() === '' && (
                 <p className="text-amber-400/70 text-xs mt-1">Adding a phone number helps with delivery contact</p>
               )}
             </div>

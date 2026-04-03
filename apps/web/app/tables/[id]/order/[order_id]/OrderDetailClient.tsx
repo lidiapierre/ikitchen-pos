@@ -1291,12 +1291,12 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
       <li
         key={item.id}
         className={[
-          'bg-zinc-800 rounded-xl px-4 py-3 text-base',
+          'bg-brand-offwhite border border-brand-grey/30 rounded-xl px-4 py-3 text-base',
           isComp ? 'opacity-70' : '',
         ].join(' ')}
       >
         <div className="flex items-center justify-between gap-4">
-          <span className={['font-semibold text-white flex-1', isComp ? 'line-through' : ''].join(' ')}>
+          <span className={['font-semibold text-brand-navy flex-1', isComp ? 'line-through' : ''].join(' ')}>
             {item.name}
             {isComp && (
               <span className="ml-2 text-xs font-bold text-emerald-400 no-underline not-italic" style={{ textDecoration: 'none' }}>
@@ -1581,10 +1581,10 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
           return (
             <li
               key={item.id}
-              className="bg-zinc-800 rounded-xl px-4 py-3 text-base"
+              className="bg-brand-offwhite border border-brand-grey/30 rounded-xl px-4 py-3 text-base"
             >
               <div className="flex items-center justify-between gap-4">
-                <span className="font-semibold text-white flex-1">{item.name}</span>
+                <span className="font-semibold text-brand-navy flex-1">{item.name}</span>
                 <span className="text-zinc-400">×{item.quantity}</span>
                 <span className="text-zinc-400">{formatPrice(item.price_cents, currencySymbol)} each</span>
                 <span className="font-bold text-amber-400">{formatPrice(lineTotalCents, currencySymbol)}</span>
@@ -1608,16 +1608,16 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
   // Paid read-only view (for orders already paid when navigated to directly)
   if (!statusLoading && orderIsPaid && step === 'order') {
     return (
-      <main className="min-h-screen bg-zinc-900 p-6 flex flex-col">
+      <main className="min-h-screen bg-white p-6 flex flex-col">
         <Link
           href="/tables"
-          className="inline-flex items-center gap-2 text-zinc-400 hover:text-white text-base mb-8 min-h-[48px] min-w-[48px]"
+          className="inline-flex items-center gap-2 text-brand-navy/60 hover:text-brand-navy text-base mb-8 min-h-[48px] min-w-[48px]"
         >
           ← Back to tables
         </Link>
 
         <header className="mb-6">
-          <h1 className="text-2xl font-bold text-white mb-4">Order</h1>
+          <h1 className="text-2xl font-bold text-brand-navy mb-4">Order</h1>
           <div className="flex flex-wrap items-center gap-2 mb-4">
             <div className="inline-flex items-center gap-2 bg-green-900/40 border border-green-700 rounded-xl px-4 py-2">
               <span className="text-green-400 font-semibold text-base">Paid</span>
@@ -1628,56 +1628,56 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
               </div>
             )}
             {orderType === 'delivery' && (
-              <div className="inline-flex items-center gap-2 bg-blue-900/40 border border-blue-700 rounded-xl px-4 py-2">
-                <span className="text-blue-400 font-semibold text-base inline-flex items-center gap-1"><Bike size={16} aria-hidden="true" />Delivery</span>
+              <div className="inline-flex items-center gap-2 bg-brand-blue/10 border border-brand-blue rounded-xl px-4 py-2">
+                <span className="text-brand-blue font-semibold text-base inline-flex items-center gap-1"><Bike size={16} aria-hidden="true" />Delivery</span>
               </div>
             )}
           </div>
           <dl className="space-y-2 text-base">
             {orderType === 'dine_in' && (
               <div className="flex gap-3">
-                <dt className="text-zinc-500">Table</dt>
-                <dd className="font-semibold text-white">{tableLabel || tableId}</dd>
+                <dt className="text-brand-navy/50">Table</dt>
+                <dd className="font-semibold text-brand-navy">{tableLabel || tableId}</dd>
               </div>
             )}
             {orderType === 'delivery' && orderCustomerName && (
               <div className="flex gap-3">
-                <dt className="text-zinc-500">Customer</dt>
-                <dd className="font-semibold text-white">{orderCustomerName}</dd>
+                <dt className="text-brand-navy/50">Customer</dt>
+                <dd className="font-semibold text-brand-navy">{orderCustomerName}</dd>
               </div>
             )}
             {orderType === 'delivery' && orderDeliveryNote && (
               <div className="flex gap-3">
-                <dt className="text-zinc-500">Note</dt>
-                <dd className="text-zinc-300">{orderDeliveryNote}</dd>
+                <dt className="text-brand-navy/50">Note</dt>
+                <dd className="text-brand-navy/70">{orderDeliveryNote}</dd>
               </div>
             )}
             <div className="flex gap-3">
-              <dt className="text-zinc-500">Order ID</dt>
-              <dd className="font-mono text-sm text-zinc-300">{orderId}</dd>
+              <dt className="text-brand-navy/50">Order ID</dt>
+              <dd className="font-mono text-sm text-brand-navy/70">{orderId}</dd>
             </div>
             {paidPaymentMethod !== null && (
               <div className="flex gap-3">
-                <dt className="text-zinc-500">Payment method</dt>
-                <dd className="font-semibold text-white capitalize">{paidPaymentMethod}</dd>
+                <dt className="text-brand-navy/50">Payment method</dt>
+                <dd className="font-semibold text-brand-navy capitalize">{paidPaymentMethod}</dd>
               </div>
             )}
           </dl>
         </header>
 
         <section className="flex-1">
-          <h2 className="text-lg font-semibold text-white mb-4">Items</h2>
+          <h2 className="text-lg font-semibold text-brand-navy mb-4">Items</h2>
           {renderReadOnlyItems()}
         </section>
 
-        <footer className="mt-6 pt-4 border-t border-zinc-700">
+        <footer className="mt-6 pt-4 border-t border-brand-grey/30">
           <div className="flex items-center justify-between mb-6">
-            <span className="text-lg text-zinc-400">Total</span>
-            <span className="text-2xl font-bold text-white">{totalFormatted}</span>
+            <span className="text-lg text-brand-navy/60">Total</span>
+            <span className="text-2xl font-bold text-brand-navy">{totalFormatted}</span>
           </div>
           <Link
             href="/tables"
-            className="w-full inline-flex items-center justify-center min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold bg-zinc-700 hover:bg-zinc-600 text-white transition-colors"
+            className="w-full inline-flex items-center justify-center min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold bg-brand-navy hover:bg-brand-blue text-white transition-colors"
           >
             Back to tables
           </Link>
@@ -1689,7 +1689,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
   }
 
   return (
-    <main className="min-h-screen bg-zinc-900 p-6 flex flex-col">
+    <main className="min-h-screen bg-white p-6 flex flex-col">
       {/* KOT print component — only marked as print-area when KOT is actively printing */}
       <div className={kotStatus !== null || reprintingKot || firingCourse !== null ? 'print-area' : ''}>
         <KotPrintView
@@ -2438,7 +2438,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
         type="button"
         onClick={() => { void handleBackToTables() }}
         disabled={kotStatus !== null}
-        className="inline-flex items-center gap-2 text-zinc-400 hover:text-white text-base mb-8 min-h-[48px] min-w-[48px] disabled:opacity-50 disabled:cursor-not-allowed"
+        className="inline-flex items-center gap-2 text-brand-navy/60 hover:text-brand-navy text-base mb-8 min-h-[48px] min-w-[48px] disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {kotStatus !== null ? kotStatus : '← Back to tables'}
       </button>
@@ -2458,7 +2458,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
       )}
 
       <header className="mb-6">
-        <h1 className="text-2xl font-bold text-white mb-4">Order</h1>
+        <h1 className="text-2xl font-bold text-brand-navy mb-4">Order</h1>
         <div className="flex flex-wrap items-center gap-2 mb-4">
           {orderIsComp && (
             <div className="inline-flex items-center gap-2 bg-emerald-900/40 border border-emerald-700 rounded-xl px-4 py-2">
@@ -2471,39 +2471,39 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
             </div>
           )}
           {orderType === 'delivery' && (
-            <div className="inline-flex items-center gap-2 bg-blue-900/40 border border-blue-700 rounded-xl px-4 py-2">
-              <span className="text-blue-400 font-semibold text-base inline-flex items-center gap-1"><Bike size={16} aria-hidden="true" />Delivery</span>
+            <div className="inline-flex items-center gap-2 bg-brand-blue/10 border border-brand-blue rounded-xl px-4 py-2">
+              <span className="text-brand-blue font-semibold text-base inline-flex items-center gap-1"><Bike size={16} aria-hidden="true" />Delivery</span>
             </div>
           )}
         </div>
         <dl className="space-y-2 text-base">
           {orderType === 'dine_in' && (
             <div className="flex gap-3">
-              <dt className="text-zinc-500">Table</dt>
-              <dd className="font-semibold text-white">{tableLabel || tableId}</dd>
+              <dt className="text-brand-navy/50">Table</dt>
+              <dd className="font-semibold text-brand-navy">{tableLabel || tableId}</dd>
             </div>
           )}
           {orderType === 'delivery' && orderCustomerName && (
             <div className="flex gap-3">
-              <dt className="text-zinc-500">Customer</dt>
-              <dd className="font-semibold text-white">{orderCustomerName}</dd>
+              <dt className="text-brand-navy/50">Customer</dt>
+              <dd className="font-semibold text-brand-navy">{orderCustomerName}</dd>
             </div>
           )}
           {orderType === 'delivery' && orderDeliveryNote && (
             <div className="flex gap-3">
-              <dt className="text-zinc-500">Note</dt>
-              <dd className="text-zinc-300">{orderDeliveryNote}</dd>
+              <dt className="text-brand-navy/50">Note</dt>
+              <dd className="text-brand-navy/70">{orderDeliveryNote}</dd>
             </div>
           )}
           <div className="flex gap-3">
-            <dt className="text-zinc-500">Order ID</dt>
-            <dd className="font-mono text-sm text-zinc-300">{orderId}</dd>
+            <dt className="text-brand-navy/50">Order ID</dt>
+            <dd className="font-mono text-sm text-brand-navy/70">{orderId}</dd>
           </div>
         </dl>
         {/* Covers field — always visible in order step */}
         {step === 'order' && (
           <div className="flex items-center gap-3 mt-4">
-            <span className="text-zinc-400 text-base">Covers:</span>
+            <span className="text-brand-navy/60 text-base">Covers:</span>
             <button
               type="button"
               onClick={() => { handleCoversChange(covers - 1) }}
@@ -2528,17 +2528,17 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
       </header>
 
       <section className="flex-1">
-        <h2 className="text-lg font-semibold text-white mb-4">Items</h2>
+        <h2 className="text-lg font-semibold text-brand-navy mb-4">Items</h2>
         {renderItems()}
       </section>
 
-      <footer className="mt-6 pt-4 border-t border-zinc-700">
+      <footer className="mt-6 pt-4 border-t border-brand-grey/30">
         <div className="flex items-center justify-between mb-6">
-          <span className="text-lg text-zinc-400">Total</span>
+          <span className="text-lg text-brand-navy/60">Total</span>
           {orderIsComp ? (
             <span className="text-2xl font-bold text-emerald-400">COMPLIMENTARY</span>
           ) : (
-            <span className="text-2xl font-bold text-white">{totalFormatted}</span>
+            <span className="text-2xl font-bold text-brand-navy">{totalFormatted}</span>
           )}
         </div>
 
@@ -2547,7 +2547,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
             <div className="flex gap-4 mb-3">
               <Link
                 href={`/tables/${tableId}/order/${orderId}/menu`}
-                className="flex-1 inline-flex items-center justify-center min-h-[48px] min-w-[48px] px-6 rounded-xl border-2 border-zinc-600 text-white text-base font-semibold hover:border-zinc-400 transition-colors"
+                className="flex-1 inline-flex items-center justify-center min-h-[48px] min-w-[48px] px-6 rounded-xl border-2 border-brand-navy text-brand-navy text-base font-semibold hover:bg-brand-navy hover:text-white transition-colors"
               >
                 Add Items
               </Link>

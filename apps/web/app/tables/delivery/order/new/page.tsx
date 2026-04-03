@@ -1,29 +1,35 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { useRouter, useParams } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import type { JSX } from 'react'
 import { callCreateOrder } from '../../../components/createOrderApi'
 import { useUser } from '@/lib/user-context'
+import { Bike } from 'lucide-react'
 
 /**
- * Instant dine-in order creation page (issue #255).
+ * Optimistic delivery order creation page (issue #317).
  *
- * Navigated to immediately when staff tap an empty table.
- * Renders the dine-in order shell instantly — no full-screen blocking spinner.
- * Fires callCreateOrder in the background and redirects to the real order page
- * via router.replace on success, or shows an error with a "Go back" button on failure.
+ * Navigated to immediately after the delivery modal is confirmed.
+ * customerName and deliveryNote are passed as URL search params by
+ * handleCreateDelivery() in tables/page.tsx.
+ *
+ * Renders the delivery order shell instantly — no full-screen blocking spinner.
+ * Fires callCreateOrder({ orderType: 'delivery', customerName, deliveryNote })
+ * in the background and redirects to the real order page via router.replace
+ * on success, or shows an error with a "Go back" button on failure.
  */
-export default function NewOrderPage(): JSX.Element {
+export default function NewDeliveryOrderPage(): JSX.Element {
   const router = useRouter()
-  const params = useParams<{ id: string }>()
-  const tableId = params.id
+  const searchParams = useSearchParams()
+  const customerName = searchParams.get('customerName') ?? ''
+  const deliveryNote = searchParams.get('deliveryNote') ?? ''
   const { accessToken: _at } = useUser(); const accessToken = _at ?? ''
   const [error, setError] = useState<string | null>(null)
   const hasFired = useRef(false)
 
   useEffect(() => {
-    if (!tableId || accessToken === null) return
+    if (accessToken === null) return
     if (hasFired.current) return
     hasFired.current = true
 
@@ -33,12 +39,26 @@ export default function NewOrderPage(): JSX.Element {
       return
     }
 
+    if (!customerName) {
+      void Promise.resolve().then(() => { setError('Customer name is required for delivery orders') })
+      return
+    }
+
     const controller = new AbortController()
 
-    callCreateOrder(supabaseUrl, accessToken, tableId, controller.signal)
-      .then(({ order_id }) => {
+    callCreateOrder(
+      supabaseUrl,
+      accessToken,
+      {
+        orderType: 'delivery',
+        customerName,
+        ...(deliveryNote ? { deliveryNote } : {}),
+      },
+      controller.signal,
+    )
+      .then(({ order_id }: { order_id: string }) => {
         if (controller.signal.aborted) return
-        router.replace(`/tables/${tableId}/order/${order_id}`)
+        router.replace(`/tables/delivery/order/${order_id}`)
       })
       .catch((err: unknown) => {
         if (controller.signal.aborted) return
@@ -47,7 +67,7 @@ export default function NewOrderPage(): JSX.Element {
       })
 
     return () => { controller.abort() }
-  }, [tableId, accessToken, router])
+  }, [accessToken, customerName, deliveryNote, router])
 
   if (error !== null) {
     return (
@@ -69,7 +89,7 @@ export default function NewOrderPage(): JSX.Element {
     )
   }
 
-  // ── Dine-in order shell — visible immediately on tap ──────────────────────
+  // ── Delivery order shell — visible immediately on confirm ─────────────────
   return (
     <main className="min-h-screen bg-zinc-900 p-6 flex flex-col">
       <button
@@ -82,11 +102,26 @@ export default function NewOrderPage(): JSX.Element {
 
       <header className="mb-6">
         <h1 className="text-2xl font-bold text-white mb-4">Order</h1>
-        <dl className="space-y-2 text-base">
-          <div className="flex gap-3">
-            <dt className="text-zinc-500">Table</dt>
-            <dd className="font-semibold text-white">{tableId}</dd>
+        <div className="flex flex-wrap items-center gap-2 mb-4">
+          <div className="inline-flex items-center gap-2 bg-blue-900/40 border border-blue-700 rounded-xl px-4 py-2">
+            <span className="text-blue-400 font-semibold text-base inline-flex items-center gap-1">
+              <Bike size={16} aria-hidden="true" />Delivery
+            </span>
           </div>
+        </div>
+        <dl className="space-y-2 text-base">
+          {customerName && (
+            <div className="flex gap-3">
+              <dt className="text-zinc-500">Customer</dt>
+              <dd className="font-semibold text-white">{customerName}</dd>
+            </div>
+          )}
+          {deliveryNote && (
+            <div className="flex gap-3">
+              <dt className="text-zinc-500">Note</dt>
+              <dd className="text-zinc-300">{deliveryNote}</dd>
+            </div>
+          )}
           <div className="flex gap-3">
             <dt className="text-zinc-500">Order ID</dt>
             <dd className="font-mono text-sm text-zinc-500 flex items-center gap-2">

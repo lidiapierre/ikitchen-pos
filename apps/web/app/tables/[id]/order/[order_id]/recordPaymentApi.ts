@@ -4,12 +4,14 @@ export interface RecordPaymentResponse {
   error?: string
 }
 
+import type { PaymentMethod } from '@/lib/paymentMethods'
+
 export async function callRecordPayment(
   supabaseUrl: string,
   accessToken: string,
   orderId: string,
   amountCents: number,
-  method: 'cash' | 'card',
+  method: PaymentMethod,
   orderTotalCents: number,
 ): Promise<{ change_due: number }> {
   if (!accessToken) throw new Error('Not authenticated — please log in and try again.')

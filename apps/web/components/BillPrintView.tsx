@@ -3,6 +3,8 @@ import type { JSX } from 'react'
 import type { OrderItem } from '@/app/tables/[id]/order/[order_id]/orderData'
 import { calcItemDiscountCents } from '@/app/tables/[id]/order/[order_id]/orderData'
 import { formatPrice, DEFAULT_CURRENCY_SYMBOL } from '@/lib/formatPrice'
+import { PAYMENT_METHOD_LABELS } from '@/lib/paymentMethods'
+import type { PaymentMethod } from '@/lib/paymentMethods'
 
 export interface BillPrintViewProps {
   tableLabel: string
@@ -13,7 +15,7 @@ export interface BillPrintViewProps {
   /** Whether prices already include VAT (affects label on receipt) */
   taxInclusive?: boolean
   totalCents: number
-  paymentMethod: 'cash' | 'card'
+  paymentMethod: PaymentMethod
   amountTenderedCents?: number
   changeDueCents?: number
   timestamp: string
@@ -263,7 +265,7 @@ export default function BillPrintView({
         <div className="border-t border-black pt-1 mb-2 text-sm space-y-0.5">
           <div className="flex justify-between">
             <span>Tendered by</span>
-            <span className="capitalize">{paymentMethod}</span>
+            <span>{PAYMENT_METHOD_LABELS[paymentMethod] ?? paymentMethod}</span>
           </div>
           {paymentMethod === 'cash' && amountTenderedCents !== undefined && (
             <div className="flex justify-between">

@@ -7,6 +7,8 @@ import { useUser } from '@/lib/user-context'
 import { callGetReports, callExportOrders } from './reportsApi'
 import type { ReportData, ReportPeriod, CompDetailItem, CompByItem, StaffPerformanceRow } from './reportsApi'
 import { formatPrice, DEFAULT_CURRENCY_SYMBOL } from '@/lib/formatPrice'
+import { PAYMENT_METHOD_LABELS } from '@/lib/paymentMethods'
+import type { PaymentMethod } from '@/lib/paymentMethods'
 import {
   exportRevenueByDay,
   exportTopItems,
@@ -506,7 +508,7 @@ export default function ReportsDashboard(): JSX.Element {
                     return (
                       <div key={p.method}>
                         <div className="flex justify-between text-sm mb-1">
-                          <span className="text-white font-medium capitalize">{p.method}</span>
+                          <span className="text-white font-medium capitalize">{PAYMENT_METHOD_LABELS[p.method as PaymentMethod] ?? p.method}</span>
                           <span className="text-brand-navy/60">
                             {p.count} orders · {formatPrice(p.revenue_cents, DEFAULT_CURRENCY_SYMBOL)} · {pct}%
                           </span>

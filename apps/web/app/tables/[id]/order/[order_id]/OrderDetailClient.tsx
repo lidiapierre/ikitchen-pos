@@ -509,6 +509,10 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
       setKotTimestamp(ts)
       setKotPrintError(null)
 
+      // Set kotStatus before printing so the wrapper div receives the `print-area`
+      // class — without it, global print CSS hides everything and KOT prints blank.
+      setKotStatus('Sending to kitchen…')
+
       // Group unsent items by their printer type (kitchen vs bar)
       const itemsByPrinterType = new Map<'kitchen' | 'bar', typeof unsentItems>()
       for (const item of unsentItems) {
@@ -534,9 +538,10 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
           timestamp: ts,
           printerProfile: profile,
           printerConfig: legacyConfig,
-          onBeforeBrowserPrint: () => {
-            // KotPrintView is already rendered — nothing extra needed
-          },
+          onBeforeBrowserPrint: () =>
+            // Give React a tick to flush the kotStatus state update so the
+            // print-area class is applied to the wrapper before window.print()
+            new Promise<void>((resolve) => setTimeout(resolve, 50)),
         })
 
         printResults.push(result)
@@ -579,7 +584,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
         })
       } else {
         // TCP/IP (network) print path: await DB confirmation before navigating.
-        setKotStatus('Sending to kitchen…')
+        // kotStatus is already set to 'Sending to kitchen…' above.
         try {
           await markItemsSentToKitchen(supabaseUrl, accessToken, orderId, unsentItems.map((i) => i.id))
         } catch {
@@ -621,9 +626,10 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
         orderId,
         timestamp: ts,
         printerConfig,
-        onBeforeBrowserPrint: () => {
-          // KotPrintView showAll is already set above
-        },
+        onBeforeBrowserPrint: () =>
+          // Give React a tick to flush reprintingKot state so print-area
+          // class is applied to the wrapper before window.print()
+          new Promise<void>((resolve) => setTimeout(resolve, 50)),
         onAfterBrowserPrint: () => {
           setKotShowAll(false)
           setReprintingKot(false)
@@ -704,7 +710,10 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
           timestamp: ts,
           printerProfile: profile,
           printerConfig: legacyConfig,
-          onBeforeBrowserPrint: () => { /* KotPrintView already rendered with courseFilter */ },
+          onBeforeBrowserPrint: () =>
+            // Give React a tick to flush firingCourse state so print-area
+            // class is applied to the wrapper before window.print()
+            new Promise<void>((resolve) => setTimeout(resolve, 50)),
         })
 
         if (result.errorMessage) {

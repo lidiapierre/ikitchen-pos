@@ -86,7 +86,7 @@ export default function ModifierSelectionModal({
             className={[
               'flex-1 min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold transition-colors',
               confirming
-                ? 'bg-zinc-700 text-zinc-400 cursor-wait'
+                ? 'bg-brand-grey/30 text-brand-navy/50 cursor-wait'
                 : 'bg-brand-gold hover:bg-brand-gold/90 text-brand-navy',
             ].join(' ')}
           >

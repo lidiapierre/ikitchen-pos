@@ -1619,8 +1619,8 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
         <header className="mb-6">
           <h1 className="text-2xl font-bold text-brand-navy mb-4 font-heading">Order</h1>
           <div className="flex flex-wrap items-center gap-2 mb-4">
-            <div className="inline-flex items-center gap-2 bg-green-900/40 border border-green-700 rounded-xl px-4 py-2">
-              <span className="text-green-400 font-semibold text-base">Paid</span>
+            <div className="inline-flex items-center gap-2 bg-green-50 border border-green-400 rounded-xl px-4 py-2">
+              <span className="text-green-700 font-semibold text-base">Paid</span>
             </div>
             {orderType === 'takeaway' && (
               <div className="inline-flex items-center gap-2 bg-amber-900/40 border border-amber-700 rounded-xl px-4 py-2">
@@ -2461,8 +2461,8 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
         <h1 className="text-2xl font-bold text-brand-navy mb-4 font-heading">Order</h1>
         <div className="flex flex-wrap items-center gap-2 mb-4">
           {orderIsComp && (
-            <div className="inline-flex items-center gap-2 bg-emerald-900/40 border border-emerald-700 rounded-xl px-4 py-2">
-              <span className="text-emerald-400 font-semibold text-base inline-flex items-center gap-1"><Star size={16} aria-hidden="true" />Complimentary Order</span>
+            <div className="inline-flex items-center gap-2 bg-emerald-50 border border-emerald-400 rounded-xl px-4 py-2">
+              <span className="text-emerald-700 font-semibold text-base inline-flex items-center gap-1"><Star size={16} aria-hidden="true" />Complimentary Order</span>
             </div>
           )}
           {orderType === 'takeaway' && (
@@ -2574,7 +2574,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
                 className={[
                   'w-full min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold transition-colors mb-3',
                   reprintingKot
-                    ? 'bg-zinc-700 text-zinc-400 cursor-wait'
+                    ? 'bg-brand-grey/30 text-brand-navy/50 cursor-wait'
                     : 'bg-brand-navy hover:bg-brand-blue text-white border-2 border-brand-navy',
                 ].join(' ')}
               >

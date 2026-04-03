@@ -159,7 +159,7 @@ export default function MenuItemCard({ item, orderId, onItemAdded, onItemFailed,
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-base font-semibold text-brand-navy">{item.name}</span>
             {isUnavailable && (
-              <span className="text-xs font-medium bg-zinc-700 text-zinc-400 px-2 py-0.5 rounded-full">
+              <span className="text-xs font-medium bg-brand-grey/40 text-brand-navy border border-brand-grey px-2 py-0.5 rounded-full">
                 Unavailable
               </span>
             )}
@@ -240,7 +240,7 @@ export default function MenuItemCard({ item, orderId, onItemAdded, onItemFailed,
               : success
                 ? 'bg-green-600 text-white'
                 : loading
-                  ? 'bg-zinc-700 text-zinc-400 cursor-wait'
+                  ? 'bg-brand-grey/30 text-brand-navy/50 cursor-wait'
                   : 'bg-brand-gold hover:bg-brand-gold/90 text-brand-navy',
           ].join(' ')}
         >

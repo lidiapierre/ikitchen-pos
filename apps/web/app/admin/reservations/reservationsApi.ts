@@ -36,7 +36,7 @@ function buildHeaders(apiKey: string, accessToken?: string): Record<string, stri
 }
 
 /** Returns midnight UTC for "today" as an ISO string, e.g. "2026-04-03T00:00:00.000Z" */
-function todayStartUtc(): string {
+export function todayStartUtc(): string {
   const d = new Date()
   d.setUTCHours(0, 0, 0, 0)
   return d.toISOString()

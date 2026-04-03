@@ -63,14 +63,19 @@ export async function fetchReservations(
     `(reservation_time.not.is.null,created_at.gte.${todayStartUtc()})`,
   )
   url.searchParams.set('order', 'reservation_time.asc.nullsfirst,created_at.asc')
-  url.searchParams.set('select', 'id,restaurant_id,customer_name,customer_mobile,party_size,reservation_time,table_id,status,notes,created_at,customer_id')
+  // NOTE: do NOT include customer_id or reservation_id here — these columns only
+  // exist after migration 20260403000100 is deployed. Selecting them before that
+  // causes a PostgREST 400 and breaks the entire page load. They are fetched
+  // separately (with their own error handling) once we know the reservation list.
   const res = await fetch(url.toString(), {
     headers: buildHeaders(apiKey, accessToken),
   })
   if (!res.ok) throw new Error('Failed to fetch reservations')
   const reservations = (await res.json()) as Reservation[]
 
-  // For seated reservations, fetch the linked active order id (reservation_id FK on orders)
+  // For seated reservations, try to fetch the linked active order id.
+  // This requires reservation_id column on orders (migration 20260403000100).
+  // If the column doesn't exist yet the query fails gracefully — no crash.
   const seatedIds = reservations.filter((r) => r.status === 'seated').map((r) => r.id)
   if (seatedIds.length === 0) return reservations
   try {
@@ -172,7 +177,7 @@ export async function createReservation(
   accessToken: string,
   input: CreateReservationInput,
 ): Promise<Reservation> {
-  // Step 1: Upsert customer if mobile is provided, to link customer_id
+  // Step 1: Upsert customer if mobile is provided — non-fatal if it fails
   let customerId: string | null = null
   if (input.customer_mobile?.trim()) {
     try {
@@ -196,33 +201,51 @@ export async function createReservation(
       }
     } catch (err) {
       console.error('[createReservation] customer upsert error', err)
-      // Non-fatal: proceed without customer linkage
     }
   }
 
-  // Step 2: Insert the reservation (with customer_id if available)
-  const reservationBody: Record<string, unknown> = {
-    restaurant_id: input.restaurant_id,
-    customer_name: input.customer_name,
-    customer_mobile: input.customer_mobile ?? null,
-    party_size: input.party_size,
-    reservation_time: input.reservation_time ?? null,
-    table_id: input.table_id ?? null,
-    notes: input.notes ?? null,
-  }
-  if (customerId !== null) reservationBody['customer_id'] = customerId
-
+  // Step 2: Insert the reservation — WITHOUT customer_id in the body.
+  // customer_id is linked via a separate PATCH below so that if the
+  // migration (20260403000100) hasn't been deployed yet this insert still
+  // succeeds and the reservation is always created.
   const res = await fetch(`${supabaseUrl}/rest/v1/reservations`, {
     method: 'POST',
     headers: {
       ...buildHeaders(apiKey, accessToken),
       Prefer: 'return=representation',
     },
-    body: JSON.stringify(reservationBody),
+    body: JSON.stringify({
+      restaurant_id: input.restaurant_id,
+      customer_name: input.customer_name,
+      customer_mobile: input.customer_mobile ?? null,
+      party_size: input.party_size,
+      reservation_time: input.reservation_time ?? null,
+      table_id: input.table_id ?? null,
+      notes: input.notes ?? null,
+    }),
   })
   if (!res.ok) throw new Error('Failed to create reservation')
   const rows = (await res.json()) as Reservation[]
-  return rows[0]
+  const reservation = rows[0]
+
+  // Step 3: If we got a customerId, try to link it via PATCH.
+  // This is a best-effort operation — if the customer_id column doesn't
+  // exist yet (migration pending) the PATCH fails silently.
+  if (customerId !== null && reservation?.id) {
+    void fetch(
+      `${supabaseUrl}/rest/v1/reservations?id=eq.${encodeURIComponent(reservation.id)}`,
+      {
+        method: 'PATCH',
+        headers: {
+          ...buildHeaders(apiKey, accessToken),
+          Prefer: 'return=minimal',
+        },
+        body: JSON.stringify({ customer_id: customerId }),
+      },
+    ).catch(() => { /* non-fatal: column may not exist yet */ })
+  }
+
+  return reservation
 }
 
 export async function updateReservationStatus(

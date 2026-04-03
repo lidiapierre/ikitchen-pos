@@ -464,8 +464,8 @@ export default function ReservationsDashboard(): JSX.Element {
     setLoading(true)
     setError(null)
     Promise.all([
-      fetchReservations(supabaseUrl, accessToken, restaurantId, accessToken ?? undefined),
-      fetchTables(supabaseUrl, accessToken, restaurantId),
+      fetchReservations(supabaseUrl, publishableKey, restaurantId, accessToken),
+      fetchTables(supabaseUrl, publishableKey, restaurantId, accessToken),
     ])
       .then(([res, tbl]) => {
         setReservations(res)
@@ -490,7 +490,7 @@ export default function ReservationsDashboard(): JSX.Element {
 
   async function handleAdd(input: CreateReservationInput): Promise<void> {
     if (!accessToken) throw new Error('Not authenticated')
-    const created = await createReservation(supabaseUrl, accessToken, accessToken, input)
+    const created = await createReservation(supabaseUrl, publishableKey, accessToken, input)
     setReservations((prev) => [created, ...prev].sort((a, b) => {
       if (a.reservation_time && b.reservation_time) {
         return new Date(a.reservation_time).getTime() - new Date(b.reservation_time).getTime()
@@ -507,7 +507,7 @@ export default function ReservationsDashboard(): JSX.Element {
     if (!accessToken) return
     setBusyIds((prev) => new Set(prev).add(id))
     try {
-      await updateReservationStatus(supabaseUrl, accessToken, accessToken, id, status, tableId)
+      await updateReservationStatus(supabaseUrl, publishableKey, accessToken, id, status, tableId)
       setReservations((prev) =>
         prev.map((r) =>
           r.id === id
@@ -748,7 +748,7 @@ export default function ReservationsDashboard(): JSX.Element {
             if (!tableIdToUse) throw new Error('A table must be selected to seat the reservation')
             const orderId = await seatReservation(
               supabaseUrl,
-              accessToken,
+              publishableKey,
               accessToken,
               reservation,
               tableIdToUse,

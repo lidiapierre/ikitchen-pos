@@ -122,13 +122,14 @@ export async function fetchTables(
   supabaseUrl: string,
   apiKey: string,
   restaurantId: string,
+  accessToken?: string,
 ): Promise<ReservationTable[]> {
   const url = new URL(`${supabaseUrl}/rest/v1/tables`)
   url.searchParams.set('restaurant_id', `eq.${restaurantId}`)
   url.searchParams.set('select', 'id,label,seat_count')
   url.searchParams.set('order', 'label.asc')
   const res = await fetch(url.toString(), {
-    headers: buildHeaders(apiKey),
+    headers: buildHeaders(apiKey, accessToken),
   })
   if (!res.ok) throw new Error('Failed to fetch tables')
   return res.json() as Promise<ReservationTable[]>

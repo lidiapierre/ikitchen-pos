@@ -51,6 +51,9 @@ export default function TablesPage(): JSX.Element {
   const [deliveryPhoneTouched, setDeliveryPhoneTouched] = useState(false)
   const [deliveryNote, setDeliveryNote] = useState('')
   const [createOrderError, setCreateOrderError] = useState<string | null>(null)
+  // Customer search state (mobile lookup)
+  const [customerSuggestion, setCustomerSuggestion] = useState<{ name: string; mobile: string } | null>(null)
+  const customerSearchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -119,6 +122,56 @@ export default function TablesPage(): JSX.Element {
     }
   }, [])
 
+  // Debounced customer mobile search: when deliveryPhone changes, search customers table after 400ms
+  useEffect(() => {
+    if (customerSearchTimerRef.current !== null) {
+      clearTimeout(customerSearchTimerRef.current)
+    }
+
+    const phone = deliveryPhone.trim()
+    if (!phone || !showDeliveryModal) {
+      setCustomerSuggestion(null)
+      return
+    }
+
+    customerSearchTimerRef.current = setTimeout(() => {
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+      const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ''
+      if (!supabaseUrl || !accessToken) return
+
+      const url = new URL(`${supabaseUrl}/rest/v1/customers`)
+      url.searchParams.set('select', 'name,mobile')
+      url.searchParams.set('mobile', `eq.${phone}`)
+      url.searchParams.set('limit', '1')
+
+      fetch(url.toString(), {
+        headers: {
+          apikey: publishableKey,
+          Authorization: `Bearer ${accessToken}`,
+        },
+      })
+        .then((res) => res.ok ? res.json() : Promise.reject(new Error('search failed')))
+        .then((rows: unknown) => {
+          const results = rows as Array<{ name: string | null; mobile: string }>
+          if (results.length > 0 && results[0].name) {
+            setCustomerSuggestion({ name: results[0].name, mobile: results[0].mobile })
+          } else {
+            setCustomerSuggestion(null)
+          }
+        })
+        .catch(() => {
+          // Non-fatal: ignore search errors
+          setCustomerSuggestion(null)
+        })
+    }, 400)
+
+    return () => {
+      if (customerSearchTimerRef.current !== null) {
+        clearTimeout(customerSearchTimerRef.current)
+      }
+    }
+  }, [deliveryPhone, showDeliveryModal, accessToken])
+
   // Instant navigation — order is created in the background by the /order/new page (issue #317)
   function handleCreateTakeaway(): void {
     router.push('/tables/takeaway/order/new')
@@ -140,6 +193,7 @@ export default function TablesPage(): JSX.Element {
     setDeliveryPhone('')
     setDeliveryPhoneTouched(false)
     setDeliveryNote('')
+    setCustomerSuggestion(null)
     router.push(`/tables/delivery/order/new?${params.toString()}`)
   }
 
@@ -192,6 +246,7 @@ export default function TablesPage(): JSX.Element {
             setDeliveryPhoneTouched(false)
             setDeliveryNote('')
             setCreateOrderError(null)
+            setCustomerSuggestion(null)
             setShowDeliveryModal(true)
           }}
           className="flex-1 min-h-[56px] rounded-xl text-base font-semibold transition-colors border-2 border-brand-blue bg-brand-blue/10 text-brand-navy hover:bg-brand-blue/20 hover:border-brand-blue/80"
@@ -361,6 +416,7 @@ export default function TablesPage(): JSX.Element {
                 onClick={() => {
                   setShowDeliveryModal(false)
                   setCreateOrderError(null)
+                  setCustomerSuggestion(null)
                 }}
                 className="min-h-[48px] min-w-[48px] text-white/60 hover:text-white flex items-center justify-center"
                 aria-label="Close"
@@ -400,6 +456,18 @@ export default function TablesPage(): JSX.Element {
               {deliveryPhoneTouched && deliveryPhone.trim() === '' && (
                 <p className="text-amber-400/70 text-xs mt-1">Adding a phone number helps with delivery contact</p>
               )}
+              {customerSuggestion !== null && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDeliveryCustomerName(customerSuggestion.name)
+                    setCustomerSuggestion(null)
+                  }}
+                  className="mt-2 w-full text-left px-4 py-2 rounded-xl bg-brand-gold/10 border border-brand-gold/40 text-sm text-brand-gold hover:bg-brand-gold/20 transition-colors font-body"
+                >
+                  👤 Returning customer: <span className="font-semibold">{customerSuggestion.name}</span> — tap to fill name
+                </button>
+              )}
             </div>
 
             <div>
@@ -426,6 +494,7 @@ export default function TablesPage(): JSX.Element {
                 onClick={() => {
                   setShowDeliveryModal(false)
                   setCreateOrderError(null)
+                  setCustomerSuggestion(null)
                 }}
                 className="flex-1 min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold border-2 border-brand-grey/40 text-white hover:border-brand-grey transition-colors font-body"
               >

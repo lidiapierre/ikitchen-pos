@@ -192,6 +192,30 @@ export async function handler(
     const inserted = (await insertRes.json()) as Array<{ id: string; status: string }>
     const order = inserted[0]
 
+    // Best-effort: upsert customer record for delivery orders with mobile + name.
+    // Note: orders.customer_id does not exist yet (tracked in #276); we only
+    // upsert the customer row for CRM tracking purposes.
+    if (orderType === 'delivery' && customerMobile && customerName) {
+      try {
+        await fetchFn(
+          `${supabaseUrl}/rest/v1/rpc/upsert_customer_visit`,
+          {
+            method: 'POST',
+            headers: { ...dbHeaders, Prefer: 'return=minimal' },
+            body: JSON.stringify({
+              p_restaurant_id: restaurantId,
+              p_mobile: customerMobile,
+              p_name: customerName,
+              p_spend_cents: 0,
+            }),
+          },
+        )
+      } catch (err) {
+        // Non-fatal: customer upsert must never block order creation
+        console.error('[create_order] customer upsert failed (non-fatal):', err)
+      }
+    }
+
     return new Response(
       JSON.stringify({ success: true, data: { order_id: order.id, status: order.status } }),
       { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },

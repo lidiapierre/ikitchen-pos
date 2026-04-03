@@ -208,7 +208,7 @@ export default function UnifiedFloorPlan(): JSX.Element {
     return (
       <div className="flex flex-col gap-4">
         <h1 className="text-2xl font-bold text-white">Floor Plan</h1>
-        <p className="text-zinc-400">Loading floor plan…</p>
+        <p className="text-brand-navy/60">Loading floor plan…</p>
       </div>
     )
   }
@@ -238,10 +238,10 @@ export default function UnifiedFloorPlan(): JSX.Element {
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-bold text-white">Floor Plan</h1>
           {refreshing && (
-            <span className="text-xs text-zinc-500 animate-pulse">Refreshing…</span>
+            <span className="text-xs text-brand-grey animate-pulse">Refreshing…</span>
           )}
         </div>
-        <span className="text-sm text-zinc-500">Drag tables to arrange • Click empty cell to add</span>
+        <span className="text-sm text-brand-grey">Drag tables to arrange • Click empty cell to add</span>
       </div>
 
       {feedback && (
@@ -270,8 +270,8 @@ export default function UnifiedFloorPlan(): JSX.Element {
                 className={[
                   'flex-shrink-0 min-h-[40px] px-4 rounded-xl text-sm font-medium transition-colors border',
                   isActive
-                    ? 'bg-indigo-600 text-white border-indigo-500'
-                    : 'bg-zinc-800 text-zinc-300 border-zinc-700 hover:bg-zinc-700 hover:border-zinc-500',
+                    ? 'bg-brand-navy text-white border-brand-blue'
+                    : 'bg-white text-brand-navy/80 border-brand-grey hover:bg-brand-offwhite hover:border-brand-grey',
                 ].join(' ')}
               >
                 {section.name}
@@ -309,20 +309,20 @@ export default function UnifiedFloorPlan(): JSX.Element {
             onAssignServer={(serverId) => { void handleAssignServer(selectedSection.id, serverId) }}
           />
         ) : (
-          <div className="flex-1 flex items-center justify-center min-h-[400px] rounded-2xl border-2 border-dashed border-zinc-700">
+          <div className="flex-1 flex items-center justify-center min-h-[400px] rounded-2xl border-2 border-dashed border-brand-grey">
             <div className="text-center">
               {sections.length === 0 ? (
                 <>
-                  <p className="text-zinc-400 text-lg font-medium mb-2">Welcome to Floor Plan</p>
-                  <p className="text-zinc-600 text-sm max-w-xs">
+                  <p className="text-brand-navy/60 text-lg font-medium mb-2">Welcome to Floor Plan</p>
+                  <p className="text-brand-navy/60 text-sm max-w-xs">
                     Create your first section in the sidebar to start building your restaurant layout.
                     Sections represent rooms or zones like &quot;Main Hall&quot;, &quot;Patio&quot;, or &quot;VIP&quot;.
                   </p>
                 </>
               ) : (
                 <>
-                  <p className="text-zinc-400 text-lg font-medium mb-2">Select a section</p>
-                  <p className="text-zinc-600 text-sm">
+                  <p className="text-brand-navy/60 text-lg font-medium mb-2">Select a section</p>
+                  <p className="text-brand-navy/60 text-sm">
                     Click a section in the sidebar or tabs above to view and edit its grid.
                   </p>
                 </>

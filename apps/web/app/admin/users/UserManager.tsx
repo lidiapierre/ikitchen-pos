@@ -60,13 +60,13 @@ function roleBadgeClass(role: string): string {
     case 'owner':
       return 'bg-purple-900 text-purple-200'
     case 'manager':
-      return 'bg-indigo-900 text-indigo-200'
+      return 'bg-indigo-900 text-white'
     case 'server':
       return 'bg-blue-900 text-blue-200'
     case 'kitchen':
       return 'bg-amber-900 text-amber-200'
     default:
-      return 'bg-zinc-700 text-zinc-200'
+      return 'bg-brand-offwhite text-zinc-200'
   }
 }
 
@@ -189,8 +189,8 @@ export default function UserManager(): JSX.Element {
   if (loading) {
     return (
       <div className="flex flex-col gap-6">
-        <h1 className="text-2xl font-bold text-white">Staff Accounts</h1>
-        <p className="text-zinc-400 text-base">Loading users…</p>
+        <h1 className="text-2xl font-bold text-brand-navy font-heading">Staff Accounts</h1>
+        <p className="text-brand-navy/60 text-base">Loading users…</p>
       </div>
     )
   }
@@ -198,7 +198,7 @@ export default function UserManager(): JSX.Element {
   if (fetchError !== null) {
     return (
       <div className="flex flex-col gap-6">
-        <h1 className="text-2xl font-bold text-white">Staff Accounts</h1>
+        <h1 className="text-2xl font-bold text-brand-navy font-heading">Staff Accounts</h1>
         <p className="text-red-400 text-base">Unable to load user data. Please try again.</p>
         <p className="text-red-300 text-sm font-mono">{fetchError}</p>
       </div>
@@ -211,7 +211,7 @@ export default function UserManager(): JSX.Element {
     <div className="flex flex-col gap-6">
       {/* Page header */}
       <div className="flex items-center justify-between gap-4">
-        <h1 className="text-2xl font-bold text-white">Staff Accounts</h1>
+        <h1 className="text-2xl font-bold text-brand-navy font-heading">Staff Accounts</h1>
         <button
           onClick={() => {
             setShowCreateForm((v) => !v)
@@ -219,7 +219,7 @@ export default function UserManager(): JSX.Element {
             setCreateFormErrors({})
           }}
           disabled={submitting !== null}
-          className="min-h-[48px] px-5 py-2 rounded-xl text-base font-medium bg-indigo-600 text-white hover:bg-indigo-500 transition-colors disabled:opacity-50"
+          className="min-h-[48px] px-5 py-2 rounded-xl text-base font-medium bg-brand-navy text-white hover:bg-brand-blue transition-colors disabled:opacity-50"
         >
           + Add Staff
         </button>
@@ -240,12 +240,12 @@ export default function UserManager(): JSX.Element {
 
       {/* Create user inline form */}
       {showCreateForm && (
-        <div className="bg-zinc-800 border border-zinc-700 rounded-2xl p-5 flex flex-col gap-4">
-          <h2 className="text-lg font-semibold text-white">New Staff Account</h2>
+        <div className="bg-white border border-brand-grey rounded-2xl p-5 flex flex-col gap-4">
+          <h2 className="text-lg font-semibold text-brand-navy">New Staff Account</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Email */}
             <div className="flex flex-col gap-1">
-              <label htmlFor="create-email" className="text-sm font-medium text-zinc-300">
+              <label htmlFor="create-email" className="text-sm font-medium text-brand-navy/80">
                 Email <span className="text-red-400">*</span>
               </label>
               <input
@@ -256,7 +256,7 @@ export default function UserManager(): JSX.Element {
                   setCreateForm((f) => ({ ...f, email: e.target.value }))
                   setCreateFormErrors((err) => ({ ...err, email: undefined }))
                 }}
-                className="min-h-[48px] px-4 py-2 rounded-xl bg-zinc-900 text-white border border-zinc-600 focus:border-indigo-500 focus:outline-none text-base"
+                className="min-h-[48px] px-4 py-2 rounded-xl bg-brand-navy text-white border border-brand-grey focus:border-brand-blue focus:outline-none text-base"
                 placeholder="staff@restaurant.com"
               />
               {createFormErrors.email && (
@@ -266,22 +266,22 @@ export default function UserManager(): JSX.Element {
 
             {/* Name (optional) */}
             <div className="flex flex-col gap-1">
-              <label htmlFor="create-name" className="text-sm font-medium text-zinc-300">
-                Name <span className="text-zinc-500 font-normal">(optional)</span>
+              <label htmlFor="create-name" className="text-sm font-medium text-brand-navy/80">
+                Name <span className="text-brand-grey font-normal">(optional)</span>
               </label>
               <input
                 id="create-name"
                 type="text"
                 value={createForm.name}
                 onChange={(e) => setCreateForm((f) => ({ ...f, name: e.target.value }))}
-                className="min-h-[48px] px-4 py-2 rounded-xl bg-zinc-900 text-white border border-zinc-600 focus:border-indigo-500 focus:outline-none text-base"
+                className="min-h-[48px] px-4 py-2 rounded-xl bg-brand-navy text-white border border-brand-grey focus:border-brand-blue focus:outline-none text-base"
                 placeholder="e.g. Ali Hassan"
               />
             </div>
 
             {/* Role */}
             <div className="flex flex-col gap-1">
-              <label htmlFor="create-role" className="text-sm font-medium text-zinc-300">
+              <label htmlFor="create-role" className="text-sm font-medium text-brand-navy/80">
                 Role <span className="text-red-400">*</span>
               </label>
               <select
@@ -291,7 +291,7 @@ export default function UserManager(): JSX.Element {
                   setCreateForm((f) => ({ ...f, role: e.target.value }))
                   setCreateFormErrors((err) => ({ ...err, role: undefined }))
                 }}
-                className="min-h-[48px] px-4 py-2 rounded-xl bg-zinc-900 text-white border border-zinc-600 focus:border-indigo-500 focus:outline-none text-base"
+                className="min-h-[48px] px-4 py-2 rounded-xl bg-brand-navy text-white border border-brand-grey focus:border-brand-blue focus:outline-none text-base"
               >
                 <option value="">Select a role…</option>
                 {roles.map((r) => (
@@ -306,7 +306,7 @@ export default function UserManager(): JSX.Element {
             </div>
           </div>
 
-          <p className="text-sm text-zinc-400">
+          <p className="text-sm text-brand-navy/60">
             The new user will receive an invite email with a link to set their password.
           </p>
 
@@ -314,7 +314,7 @@ export default function UserManager(): JSX.Element {
             <button
               onClick={() => { void handleCreateUser() }}
               disabled={submitting !== null}
-              className="min-h-[48px] px-5 py-2 rounded-xl bg-indigo-600 text-white text-base font-medium hover:bg-indigo-500 transition-colors disabled:opacity-50"
+              className="min-h-[48px] px-5 py-2 rounded-xl bg-brand-navy text-white text-base font-medium hover:bg-brand-blue transition-colors disabled:opacity-50"
             >
               {submitting === 'create' ? 'Creating…' : 'Create Account'}
             </button>
@@ -325,7 +325,7 @@ export default function UserManager(): JSX.Element {
                 setCreateFormErrors({})
               }}
               disabled={submitting === 'create'}
-              className="min-h-[48px] px-5 py-2 rounded-xl bg-zinc-700 text-white text-base font-medium hover:bg-zinc-600 transition-colors"
+              className="min-h-[48px] px-5 py-2 rounded-xl bg-brand-offwhite text-white text-base font-medium hover:bg-zinc-600 transition-colors"
             >
               Cancel
             </button>
@@ -335,11 +335,11 @@ export default function UserManager(): JSX.Element {
 
       {/* Users table */}
       {users.length === 0 ? (
-        <p className="text-zinc-500 text-base">No staff accounts yet. Add a user to get started.</p>
+        <p className="text-brand-grey text-base">No staff accounts yet. Add a user to get started.</p>
       ) : (
         <div className="flex flex-col gap-2">
           {/* Column header */}
-          <div className="grid grid-cols-[1fr_auto_auto_auto] gap-4 px-5 py-2 text-sm font-medium text-zinc-400 uppercase tracking-wide">
+          <div className="grid grid-cols-[1fr_auto_auto_auto] gap-4 px-5 py-2 text-sm font-medium text-brand-navy/60 uppercase tracking-wide">
             <span>User</span>
             <span className="w-24 text-center">Role</span>
             <span className="w-24 text-center">Status</span>
@@ -353,21 +353,21 @@ export default function UserManager(): JSX.Element {
               <div
                 key={user.id}
                 className={[
-                  'bg-zinc-800 border rounded-2xl px-5 py-4 grid grid-cols-[1fr_auto_auto_auto] gap-4 items-center',
-                  user.is_active ? 'border-zinc-700' : 'border-zinc-700 opacity-60',
+                  'bg-white border rounded-2xl px-5 py-4 grid grid-cols-[1fr_auto_auto_auto] gap-4 items-center',
+                  user.is_active ? 'border-brand-grey' : 'border-brand-grey opacity-60',
                 ].join(' ')}
               >
                 {/* Name + email */}
                 <div className="flex flex-col gap-0.5 min-w-0">
                   {user.name ? (
                     <>
-                      <span className="text-base font-semibold text-white truncate">
+                      <span className="text-base font-semibold text-brand-navy truncate">
                         {user.name}
                       </span>
-                      <span className="text-sm text-zinc-400 truncate">{user.email}</span>
+                      <span className="text-sm text-brand-navy/60 truncate">{user.email}</span>
                     </>
                   ) : (
-                    <span className="text-base font-semibold text-white truncate">{user.email}</span>
+                    <span className="text-base font-semibold text-brand-navy truncate">{user.email}</span>
                   )}
                 </div>
 
@@ -390,7 +390,7 @@ export default function UserManager(): JSX.Element {
                       Active
                     </span>
                   ) : (
-                    <span className="inline-block px-2 py-1 rounded-lg text-sm font-medium bg-zinc-700 text-zinc-300">
+                    <span className="inline-block px-2 py-1 rounded-lg text-sm font-medium bg-brand-offwhite text-brand-navy/80">
                       Inactive
                     </span>
                   )}

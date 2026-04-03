@@ -120,8 +120,8 @@ export default function InventoryManager(): JSX.Element {
   if (loading) {
     return (
       <div className="flex flex-col gap-6">
-        <h1 className="text-2xl font-bold text-white">Inventory</h1>
-        <p className="text-zinc-400">Loading…</p>
+        <h1 className="text-2xl font-bold text-brand-navy font-heading">Inventory</h1>
+        <p className="text-brand-grey">Loading…</p>
       </div>
     )
   }
@@ -129,7 +129,7 @@ export default function InventoryManager(): JSX.Element {
   if (fetchError) {
     return (
       <div className="flex flex-col gap-6">
-        <h1 className="text-2xl font-bold text-white">Inventory</h1>
+        <h1 className="text-2xl font-bold text-brand-navy font-heading">Inventory</h1>
         <p className="text-red-400">{fetchError}</p>
       </div>
     )
@@ -141,7 +141,7 @@ export default function InventoryManager(): JSX.Element {
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold text-white">Inventory</h1>
+          <h1 className="text-2xl font-bold text-brand-navy font-heading">Inventory</h1>
           {lowStockCount > 0 && (
             <span className="text-xs font-bold bg-red-700 text-red-100 px-2 py-1 rounded-full">
               {lowStockCount} low stock
@@ -164,7 +164,7 @@ export default function InventoryManager(): JSX.Element {
       )}
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-zinc-800 p-1 rounded-xl w-fit flex-wrap">
+      <div className="flex gap-1 bg-brand-offwhite border border-brand-grey p-1 rounded-xl w-fit flex-wrap">
         {(
           [
             { id: 'ingredients', label: 'Ingredients' },
@@ -181,8 +181,8 @@ export default function InventoryManager(): JSX.Element {
             className={[
               'px-4 py-2 rounded-lg text-sm font-medium transition-colors',
               tab === id
-                ? 'bg-indigo-600 text-white'
-                : 'text-zinc-400 hover:text-white hover:bg-zinc-700',
+                ? 'bg-brand-navy text-white'
+                : 'text-brand-grey hover:text-white hover:bg-zinc-700',
             ].join(' ')}
           >
             {label}
@@ -375,7 +375,7 @@ function IngredientsTab({
       <div className="flex justify-end">
         <button
           onClick={() => { setShowAdd((v) => !v); setEditingId(null); setForm(emptyForm); setFormError('') }}
-          className="min-h-[48px] px-5 py-2 rounded-xl bg-indigo-600 text-white font-medium hover:bg-indigo-500 transition-colors"
+          className="min-h-[48px] px-5 py-2 rounded-xl bg-brand-navy text-white font-medium hover:bg-brand-blue transition-colors"
         >
           + Add Ingredient
         </button>
@@ -396,7 +396,7 @@ function IngredientsTab({
       )}
 
       {/* Table header */}
-      <div className="hidden sm:grid grid-cols-[1fr_80px_100px_120px_140px] gap-4 px-5 py-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">
+      <div className="hidden sm:grid grid-cols-[1fr_80px_100px_120px_140px] gap-4 px-5 py-2 text-xs font-semibold uppercase tracking-wide text-brand-navy/50">
         <span>Name</span>
         <span>Unit</span>
         <span className="text-right">Stock</span>
@@ -417,8 +417,8 @@ function IngredientsTab({
           <div
             key={ing.id}
             className={[
-              'bg-zinc-800 border rounded-2xl px-5 py-4 flex flex-col gap-3',
-              low ? 'border-red-600' : 'border-zinc-700',
+              'bg-white border rounded-2xl px-5 py-4 flex flex-col gap-3',
+              low ? 'border-red-600' : 'border-brand-grey',
             ].join(' ')}
           >
             {isEditing ? (
@@ -436,14 +436,14 @@ function IngredientsTab({
               <div className="flex items-center gap-4 flex-wrap">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="text-base font-semibold text-white">{ing.name}</span>
+                    <span className="text-base font-semibold text-brand-navy">{ing.name}</span>
                     {low && (
                       <span className="text-xs font-bold bg-red-700 text-red-100 px-2 py-0.5 rounded-full">
                         <span className="inline-flex items-center gap-1"><AlertTriangle size={10} aria-hidden="true" />Low Stock</span>
                       </span>
                     )}
                   </div>
-                  <div className="text-sm text-zinc-400 mt-0.5">
+                  <div className="text-sm text-brand-grey mt-0.5">
                     Stock: <span className={low ? 'text-red-400 font-semibold' : 'text-zinc-300'}>{formatQty(ing.current_stock)} {ing.unit}</span>
                     {' · '}
                     Threshold: {formatQty(ing.low_stock_threshold)} {ing.unit}
@@ -457,11 +457,11 @@ function IngredientsTab({
                   <div className="flex items-center gap-2 shrink-0">
                     <span className="text-sm text-red-400">Delete?</span>
                     <button onClick={() => { void handleDelete() }} disabled={submitting} className="min-h-[44px] px-4 py-2 rounded-xl bg-red-700 text-white font-medium hover:bg-red-600 disabled:opacity-50 transition-colors">Yes</button>
-                    <button onClick={() => setDeletingId(null)} className="min-h-[44px] px-4 py-2 rounded-xl bg-zinc-700 text-white font-medium hover:bg-zinc-600 transition-colors">No</button>
+                    <button onClick={() => setDeletingId(null)} className="min-h-[44px] px-4 py-2 rounded-xl bg-brand-offwhite text-brand-navy border border-brand-grey font-medium hover:bg-brand-grey/20 transition-colors">No</button>
                   </div>
                 ) : (
                   <div className="flex gap-2 shrink-0">
-                    <button onClick={() => startEdit(ing)} className="min-h-[44px] px-4 py-2 rounded-xl bg-zinc-700 text-white font-medium hover:bg-zinc-600 transition-colors">Edit</button>
+                    <button onClick={() => startEdit(ing)} className="min-h-[44px] px-4 py-2 rounded-xl bg-brand-offwhite text-brand-navy border border-brand-grey font-medium hover:bg-brand-grey/20 transition-colors">Edit</button>
                     <button onClick={() => setDeletingId(ing.id)} className="min-h-[44px] px-4 py-2 rounded-xl bg-red-900 text-red-200 font-medium hover:bg-red-800 transition-colors">Delete</button>
                   </div>
                 )}
@@ -496,7 +496,7 @@ interface IngredientFormProps {
 function IngredientForm({ form, setForm, formError, submitting, onSave, onCancel, title, saveLabel }: IngredientFormProps): JSX.Element {
   return (
     <div className="bg-zinc-900 border border-zinc-600 rounded-2xl p-5 flex flex-col gap-4">
-      <h3 className="text-base font-semibold text-white">{title}</h3>
+      <h3 className="text-base font-semibold text-brand-navy">{title}</h3>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="flex flex-col gap-1">
           <label className="text-sm font-medium text-zinc-300">Name <span className="text-red-400">*</span></label>
@@ -557,8 +557,8 @@ function IngredientForm({ form, setForm, formError, submitting, onSave, onCancel
       </div>
       {formError && <p className="text-sm text-red-400">{formError}</p>}
       <div className="flex gap-3">
-        <button onClick={onSave} disabled={submitting} className="min-h-[48px] px-5 py-2 rounded-xl bg-indigo-600 text-white font-medium hover:bg-indigo-500 disabled:opacity-50 transition-colors">{saveLabel}</button>
-        <button onClick={onCancel} className="min-h-[48px] px-5 py-2 rounded-xl bg-zinc-700 text-white font-medium hover:bg-zinc-600 transition-colors">Cancel</button>
+        <button onClick={onSave} disabled={submitting} className="min-h-[48px] px-5 py-2 rounded-xl bg-brand-navy text-white font-medium hover:bg-brand-blue disabled:opacity-50 transition-colors">{saveLabel}</button>
+        <button onClick={onCancel} className="min-h-[48px] px-5 py-2 rounded-xl bg-brand-offwhite text-brand-navy border border-brand-grey font-medium hover:bg-brand-grey/20 transition-colors">Cancel</button>
       </div>
     </div>
   )
@@ -682,7 +682,7 @@ function RecipesTab({
             <h3 className="text-sm font-semibold text-zinc-300">Add Ingredient</h3>
             <div className="flex flex-wrap gap-3 items-end">
               <div className="flex flex-col gap-1">
-                <label className="text-xs text-zinc-400">Ingredient</label>
+                <label className="text-xs text-brand-grey">Ingredient</label>
                 <select
                   value={addIngredientId}
                   onChange={(e) => setAddIngredientId(e.target.value)}
@@ -695,7 +695,7 @@ function RecipesTab({
                 </select>
               </div>
               <div className="flex flex-col gap-1">
-                <label className="text-xs text-zinc-400">Qty per portion</label>
+                <label className="text-xs text-brand-grey">Qty per portion</label>
                 <input
                   type="number"
                   value={addQty}
@@ -794,7 +794,7 @@ function AdjustmentsTab({
     <div className="flex flex-col gap-6">
       {/* Log adjustment form */}
       <div className="bg-zinc-800 border border-zinc-700 rounded-2xl p-5 flex flex-col gap-4">
-        <h2 className="text-base font-semibold text-white">Log Adjustment</h2>
+        <h2 className="text-base font-semibold text-brand-navy">Log Adjustment</h2>
         <div className="flex flex-wrap gap-4 items-end">
           <div className="flex flex-col gap-1">
             <label className="text-sm font-medium text-zinc-300">Ingredient</label>
@@ -835,7 +835,7 @@ function AdjustmentsTab({
           <button
             onClick={() => { void handleSubmit() }}
             disabled={submitting}
-            className="min-h-[48px] px-6 py-2 rounded-xl bg-indigo-600 text-white font-medium hover:bg-indigo-500 disabled:opacity-50 transition-colors"
+            className="min-h-[48px] px-6 py-2 rounded-xl bg-brand-navy text-white font-medium hover:bg-brand-blue disabled:opacity-50 transition-colors"
           >
             Record
           </button>
@@ -1011,7 +1011,7 @@ function WastageTab({
     <div className="flex flex-col gap-8">
       {/* ── Entry Form ────────────────────────────────── */}
       <div className="bg-zinc-800 border border-zinc-700 rounded-2xl p-5 flex flex-col gap-4">
-        <h2 className="text-base font-semibold text-white">Log Wastage</h2>
+        <h2 className="text-base font-semibold text-brand-navy">Log Wastage</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="flex flex-col gap-1">
             <label className="text-sm font-medium text-zinc-300">Ingredient <span className="text-red-400">*</span></label>
@@ -1075,7 +1075,7 @@ function WastageTab({
       {/* ── Report ────────────────────────────────────── */}
       <div className="flex flex-col gap-4">
         <div className="flex items-center gap-4 flex-wrap">
-          <h2 className="text-base font-semibold text-white">Wastage Report</h2>
+          <h2 className="text-base font-semibold text-brand-navy">Wastage Report</h2>
           <div className="flex items-center gap-2 flex-wrap">
             <input
               type="date"
@@ -1105,15 +1105,15 @@ function WastageTab({
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div className="bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-4">
               <p className="text-xs text-zinc-500 uppercase tracking-wide font-semibold">Total Events</p>
-              <p className="text-2xl font-bold text-white mt-1">{reportRecords.length}</p>
+              <p className="text-2xl font-bold text-brand-navy font-heading mt-1">{reportRecords.length}</p>
             </div>
             <div className="bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-4">
               <p className="text-xs text-zinc-500 uppercase tracking-wide font-semibold">Ingredients Affected</p>
-              <p className="text-2xl font-bold text-white mt-1">{ranked.length}</p>
+              <p className="text-2xl font-bold text-brand-navy font-heading mt-1">{ranked.length}</p>
             </div>
             <div className="bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-4 col-span-2">
               <p className="text-xs text-zinc-500 uppercase tracking-wide font-semibold">Est. Total Cost</p>
-              <p className="text-2xl font-bold text-white mt-1">
+              <p className="text-2xl font-bold text-brand-navy font-heading mt-1">
                 {ranked.some((r) => r.hasCost)
                   ? ranked.filter((r) => r.hasCost).reduce((sum, r) => sum + (r.totalCost ?? 0), 0).toFixed(2)
                   : '—'}
@@ -1136,7 +1136,7 @@ function WastageTab({
                 <div key={r.name} className="flex flex-col gap-1">
                   <div className="flex items-center justify-between text-sm">
                     <span className="font-medium text-white">{r.name}</span>
-                    <span className="text-zinc-400">
+                    <span className="text-brand-grey">
                       {formatQty(r.totalQty)} {r.unit}
                       {r.hasCost && r.totalCost != null && (
                         <span className="text-zinc-500 ml-2">· {r.totalCost.toFixed(2)}</span>
@@ -1158,7 +1158,7 @@ function WastageTab({
         {/* Recent log */}
         {reportRecords.length > 0 && (
           <div className="flex flex-col gap-2">
-            <h3 className="text-sm font-semibold text-zinc-400 uppercase tracking-wide">Recent Entries</h3>
+            <h3 className="text-sm font-semibold text-brand-grey uppercase tracking-wide">Recent Entries</h3>
             {reportRecords.slice(0, 50).map((r) => (
               <div
                 key={r.id}
@@ -1258,11 +1258,11 @@ function MarginsTab({ menuItems, recipeItems }: MarginsTabProps): JSX.Element {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-4">
           <p className="text-xs text-zinc-500 uppercase tracking-wide font-semibold">Total Dishes</p>
-          <p className="text-2xl font-bold text-white mt-1">{menuItems.length}</p>
+          <p className="text-2xl font-bold text-brand-navy font-heading mt-1">{menuItems.length}</p>
         </div>
         <div className="bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-4">
           <p className="text-xs text-zinc-500 uppercase tracking-wide font-semibold">With Recipe</p>
-          <p className="text-2xl font-bold text-white mt-1">{margins.filter((m) => m.hasRecipe).length}</p>
+          <p className="text-2xl font-bold text-brand-navy font-heading mt-1">{margins.filter((m) => m.hasRecipe).length}</p>
         </div>
         <div className="bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-4">
           <p className="text-xs text-zinc-500 uppercase tracking-wide font-semibold">Avg Margin</p>
@@ -1278,7 +1278,7 @@ function MarginsTab({ menuItems, recipeItems }: MarginsTabProps): JSX.Element {
       </div>
 
       {/* Legend */}
-      <div className="flex items-center gap-4 text-xs text-zinc-400 flex-wrap">
+      <div className="flex items-center gap-4 text-xs text-brand-grey flex-wrap">
         <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-green-600 inline-block" />&#x2265; 60% Good</span>
         <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-amber-600 inline-block" />40&#x2013;60% Fair</span>
         <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-red-600 inline-block" />&lt; 40% Low</span>
@@ -1291,7 +1291,7 @@ function MarginsTab({ menuItems, recipeItems }: MarginsTabProps): JSX.Element {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-xs font-semibold uppercase tracking-wide text-zinc-500 border-b border-zinc-700">
+              <tr className="text-xs font-semibold uppercase tracking-wide text-brand-navy/50 border-b border-zinc-700">
                 <th className="text-left py-3 px-4">Dish</th>
                 <th className="text-right py-3 px-4">Selling Price</th>
                 <th className="text-right py-3 px-4">Ingredient Cost</th>

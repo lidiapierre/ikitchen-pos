@@ -1,15 +1,44 @@
+/*
+ * HK Grotesque — imported from Google Fonts (Light 300 + Regular 400).
+ * Quiche Bold is NOT available on Google Fonts; the brand font stack uses
+ * 'Quiche Bold', serif as a placeholder. The actual font file must be
+ * self-hosted and added as a @font-face rule once the file is available.
+ *
+ * IMPORTANT: @import url() must precede @import "tailwindcss" — Tailwind v4
+ * expands to thousands of CSS rules at build time, so any @import after it
+ * violates CSS spec (@imports must precede all other rules).
+ */
+@import url("https://fonts.googleapis.com/css2?family=Hind:wght@300;400&display=swap");
+
 @import "tailwindcss";
+
+/*
+ * IKitchen brand design tokens (Tailwind v4 @theme).
+ * These map to Tailwind utility classes:
+ *   bg-brand-navy, text-brand-blue, border-brand-gold, font-quiche, etc.
+ */
+@theme inline {
+  /* Brand colours */
+  --color-brand-navy:     #112765;
+  --color-brand-blue:     #183779;
+  --color-brand-grey:     #C6C6C6;
+  --color-brand-offwhite: #EEEEEE;
+  --color-brand-gold:     #C59F43;
+
+  /* Typography */
+  --font-sans:         var(--font-geist-sans);
+  --font-mono:         var(--font-geist-mono);
+  /* TODO(#331): Quiche Bold is not on Google Fonts — self-host via @font-face once font files are obtained */
+  --font-quiche:       'Quiche Bold', serif;
+  --font-hk-grotesque: 'Hind', 'HK Grotesque', sans-serif;
+}
 
 :root {
   --background: #ffffff;
   --foreground: #171717;
-}
-
-@theme inline {
+  /* Legacy theme vars (kept for existing usage — outside @theme since they reference runtime CSS vars) */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -22,7 +51,20 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: 'Hind', Arial, Helvetica, sans-serif;
+}
+
+/* ── Brand utility helpers ── */
+
+/* HK Grotesque body text */
+.font-body {
+  font-family: var(--font-hk-grotesque);
+}
+
+/* Quiche Bold headings */
+.font-heading {
+  font-family: var(--font-quiche);
+  font-weight: 700;
 }
 
 @media print {

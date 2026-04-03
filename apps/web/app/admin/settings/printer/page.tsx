@@ -264,7 +264,7 @@ export default function PrinterSettingsPage(): JSX.Element {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-48">
-        <span className="text-zinc-400 text-lg">Loading…</span>
+        <span className="text-brand-navy/60 text-lg">Loading…</span>
       </div>
     )
   }
@@ -272,16 +272,16 @@ export default function PrinterSettingsPage(): JSX.Element {
   return (
     <div className="max-w-2xl">
       <div className="flex items-center justify-between mb-2">
-        <h1 className="text-2xl font-bold text-white">Printers</h1>
+        <h1 className="text-2xl font-bold text-brand-navy font-heading">Printers</h1>
         <button
           type="button"
           onClick={openAdd}
-          className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold transition-colors min-h-[44px]"
+          className="px-4 py-2 rounded-xl bg-brand-navy hover:bg-brand-blue text-white text-sm font-semibold transition-colors min-h-[44px]"
         >
           + Add Printer
         </button>
       </div>
-      <p className="text-zinc-400 text-sm mb-6">
+      <p className="text-brand-navy/60 text-sm mb-6">
         Configure network printers for each station. KOTs route to <strong className="text-zinc-200">kitchen</strong>{' '}
         (or <strong className="text-zinc-200">bar</strong> for bar-tagged menus). Bills route to{' '}
         <strong className="text-zinc-200">cashier</strong>. The print bridge must be running on the same machine.
@@ -295,8 +295,8 @@ export default function PrinterSettingsPage(): JSX.Element {
       )}
 
       {/* Bridge info */}
-      <div className="mb-6 p-4 rounded-xl bg-zinc-800 border border-zinc-700 text-sm text-zinc-400">
-        <p className="font-semibold text-zinc-300 mb-1 flex items-center gap-2">
+      <div className="mb-6 p-4 rounded-xl bg-white border border-brand-grey text-sm text-brand-navy/60">
+        <p className="font-semibold text-brand-navy/80 mb-1 flex items-center gap-2">
           <Info size={14} aria-hidden="true" />
           Print Bridge Required
         </p>
@@ -308,7 +308,7 @@ export default function PrinterSettingsPage(): JSX.Element {
 
       {/* Printer list */}
       {printers.length === 0 ? (
-        <div className="p-6 rounded-xl bg-zinc-800 border border-zinc-700 text-center text-zinc-500">
+        <div className="p-6 rounded-xl bg-white border border-brand-grey text-center text-brand-grey">
           No printers configured yet. Add a printer to enable network printing.
         </div>
       ) : (
@@ -319,24 +319,24 @@ export default function PrinterSettingsPage(): JSX.Element {
               className={[
                 'p-4 rounded-xl border transition-colors',
                 printer.enabled
-                  ? 'bg-zinc-800 border-zinc-700'
-                  : 'bg-zinc-900 border-zinc-800 opacity-60',
+                  ? 'bg-white border-brand-grey'
+                  : 'bg-brand-navy border-zinc-800 opacity-60',
               ].join(' ')}
             >
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1 flex-wrap">
                     <span className="font-semibold text-white text-base">{printer.name}</span>
-                    <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-indigo-900/60 text-indigo-300 border border-indigo-700">
+                    <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-indigo-900/60 text-white border border-brand-blue">
                       {PRINTER_TYPE_LABELS[printer.type]}
                     </span>
                     {!printer.enabled && (
-                      <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-zinc-700 text-zinc-400">
+                      <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-brand-offwhite text-brand-navy/60">
                         Disabled
                       </span>
                     )}
                   </div>
-                  <p className="text-zinc-400 text-sm font-mono">
+                  <p className="text-brand-navy/60 text-sm font-mono">
                     {printer.ip_address}:{printer.port}
                   </p>
                 </div>
@@ -350,7 +350,7 @@ export default function PrinterSettingsPage(): JSX.Element {
                     title={printer.enabled ? 'Disable' : 'Enable'}
                     className={[
                       'relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0',
-                      printer.enabled ? 'bg-indigo-600' : 'bg-zinc-600',
+                      printer.enabled ? 'bg-brand-navy' : 'bg-zinc-600',
                     ].join(' ')}
                     aria-label={printer.enabled ? 'Disable printer' : 'Enable printer'}
                   >
@@ -367,7 +367,7 @@ export default function PrinterSettingsPage(): JSX.Element {
                     type="button"
                     onClick={() => { void handleTestPrint(printer) }}
                     disabled={testingId === printer.id || !printer.enabled}
-                    className="min-h-[36px] px-3 rounded-lg text-xs font-semibold bg-zinc-700 hover:bg-zinc-600 text-white transition-colors disabled:opacity-50 flex items-center gap-1"
+                    className="min-h-[36px] px-3 rounded-lg text-xs font-semibold bg-brand-offwhite hover:bg-zinc-600 text-white transition-colors disabled:opacity-50 flex items-center gap-1"
                   >
                     {testingId === printer.id ? 'Testing…' : <><PrinterIcon size={12} aria-hidden="true" /> Test</>}
                   </button>
@@ -376,7 +376,7 @@ export default function PrinterSettingsPage(): JSX.Element {
                   <button
                     type="button"
                     onClick={() => { openEdit(printer) }}
-                    className="min-h-[36px] px-3 rounded-lg text-xs font-semibold bg-zinc-700 hover:bg-zinc-600 text-white transition-colors"
+                    className="min-h-[36px] px-3 rounded-lg text-xs font-semibold bg-brand-offwhite hover:bg-zinc-600 text-white transition-colors"
                   >
                     Edit
                   </button>
@@ -416,7 +416,7 @@ export default function PrinterSettingsPage(): JSX.Element {
       {/* Add / Edit modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70">
-          <div className="w-full max-w-lg bg-zinc-900 rounded-t-2xl p-6 space-y-5 max-h-[90vh] overflow-y-auto">
+          <div className="w-full max-w-lg bg-brand-navy rounded-t-2xl p-6 space-y-5 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-semibold text-white">
                 {editingId ? 'Edit Printer' : 'Add Printer'}
@@ -424,7 +424,7 @@ export default function PrinterSettingsPage(): JSX.Element {
               <button
                 type="button"
                 onClick={() => { setShowModal(false) }}
-                className="text-zinc-400 hover:text-white min-h-[44px] min-w-[44px] flex items-center justify-center"
+                className="text-brand-navy/60 hover:text-white min-h-[44px] min-w-[44px] flex items-center justify-center"
                 aria-label="Close"
               >
                 <X size={20} aria-hidden="true" />
@@ -433,7 +433,7 @@ export default function PrinterSettingsPage(): JSX.Element {
 
             {/* Name */}
             <div>
-              <label className="block text-sm font-medium text-zinc-300 mb-1">
+              <label className="block text-sm font-medium text-brand-navy/80 mb-1">
                 Printer Name
               </label>
               <input
@@ -441,13 +441,13 @@ export default function PrinterSettingsPage(): JSX.Element {
                 value={form.name}
                 onChange={(e) => { setForm((f) => ({ ...f, name: e.target.value })) }}
                 placeholder="e.g. Kitchen Printer 1"
-                className="w-full bg-zinc-800 border border-zinc-600 rounded-lg px-3 py-2 text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-base"
+                className="w-full bg-white border border-brand-grey rounded-lg px-3 py-2 text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-brand-gold text-base"
               />
             </div>
 
             {/* Type */}
             <div>
-              <label className="block text-sm font-medium text-zinc-300 mb-2">
+              <label className="block text-sm font-medium text-brand-navy/80 mb-2">
                 Printer Type
               </label>
               <div className="flex gap-2">
@@ -459,22 +459,22 @@ export default function PrinterSettingsPage(): JSX.Element {
                     className={[
                       'flex-1 py-2.5 px-3 rounded-xl text-sm font-medium border transition-colors',
                       form.type === t
-                        ? 'bg-indigo-600 border-indigo-500 text-white'
-                        : 'bg-zinc-800 border-zinc-700 text-zinc-300 hover:bg-zinc-700',
+                        ? 'bg-brand-navy border-brand-blue text-white'
+                        : 'bg-white border-brand-grey text-brand-navy/80 hover:bg-brand-offwhite',
                     ].join(' ')}
                   >
                     {PRINTER_TYPE_LABELS[t]}
                   </button>
                 ))}
               </div>
-              <p className="mt-1.5 text-xs text-zinc-500">
+              <p className="mt-1.5 text-xs text-brand-grey">
                 KOT items route to <em>kitchen</em> (or <em>bar</em> if the menu is tagged bar). Bills route to <em>cashier</em>.
               </p>
             </div>
 
             {/* IP */}
             <div>
-              <label className="block text-sm font-medium text-zinc-300 mb-1">
+              <label className="block text-sm font-medium text-brand-navy/80 mb-1">
                 IP Address
               </label>
               <input
@@ -482,13 +482,13 @@ export default function PrinterSettingsPage(): JSX.Element {
                 value={form.ip_address}
                 onChange={(e) => { setForm((f) => ({ ...f, ip_address: e.target.value })) }}
                 placeholder="192.168.1.100"
-                className="w-full bg-zinc-800 border border-zinc-600 rounded-lg px-3 py-2 text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-base font-mono"
+                className="w-full bg-white border border-brand-grey rounded-lg px-3 py-2 text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-brand-gold text-base font-mono"
               />
             </div>
 
             {/* Port */}
             <div>
-              <label className="block text-sm font-medium text-zinc-300 mb-1">
+              <label className="block text-sm font-medium text-brand-navy/80 mb-1">
                 Port (default 9100)
               </label>
               <input
@@ -497,19 +497,19 @@ export default function PrinterSettingsPage(): JSX.Element {
                 onChange={(e) => { setForm((f) => ({ ...f, port: e.target.value })) }}
                 min="1"
                 max="65535"
-                className="w-full bg-zinc-800 border border-zinc-600 rounded-lg px-3 py-2 text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-base"
+                className="w-full bg-white border border-brand-grey rounded-lg px-3 py-2 text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-brand-gold text-base"
               />
             </div>
 
             {/* Enabled */}
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-zinc-300">Enabled</span>
+              <span className="text-sm font-medium text-brand-navy/80">Enabled</span>
               <button
                 type="button"
                 onClick={() => { setForm((f) => ({ ...f, enabled: !f.enabled })) }}
                 className={[
                   'relative inline-flex h-7 w-12 items-center rounded-full transition-colors',
-                  form.enabled ? 'bg-indigo-600' : 'bg-zinc-600',
+                  form.enabled ? 'bg-brand-navy' : 'bg-zinc-600',
                 ].join(' ')}
               >
                 <span
@@ -533,7 +533,7 @@ export default function PrinterSettingsPage(): JSX.Element {
                 type="button"
                 onClick={() => { setShowModal(false) }}
                 disabled={saving}
-                className="flex-1 min-h-[48px] rounded-xl text-base font-semibold border-2 border-zinc-600 text-zinc-300 hover:border-zinc-400 transition-colors disabled:opacity-50"
+                className="flex-1 min-h-[48px] rounded-xl text-base font-semibold border-2 border-brand-grey text-brand-navy/80 hover:border-zinc-400 transition-colors disabled:opacity-50"
               >
                 Cancel
               </button>
@@ -544,8 +544,8 @@ export default function PrinterSettingsPage(): JSX.Element {
                 className={[
                   'flex-1 min-h-[48px] rounded-xl text-base font-semibold transition-colors',
                   saving
-                    ? 'bg-zinc-700 text-zinc-400 cursor-wait'
-                    : 'bg-indigo-600 hover:bg-indigo-500 text-white',
+                    ? 'bg-brand-offwhite text-brand-navy/60 cursor-wait'
+                    : 'bg-brand-navy hover:bg-brand-blue text-white',
                 ].join(' ')}
               >
                 {saving ? 'Saving…' : editingId ? 'Update' : 'Add Printer'}
@@ -558,9 +558,9 @@ export default function PrinterSettingsPage(): JSX.Element {
       {/* Delete confirmation */}
       {deletingId && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70">
-          <div className="w-full max-w-lg bg-zinc-800 rounded-t-2xl p-6 space-y-4">
+          <div className="w-full max-w-lg bg-white rounded-t-2xl p-6 space-y-4">
             <h2 className="text-xl font-semibold text-white">Delete Printer?</h2>
-            <p className="text-zinc-300 text-base">
+            <p className="text-brand-navy/80 text-base">
               This will remove the printer profile. Print jobs will fall back to browser print.
             </p>
             {deleteError && (
@@ -574,7 +574,7 @@ export default function PrinterSettingsPage(): JSX.Element {
                 type="button"
                 onClick={() => { setDeletingId(null); setDeleteError(null) }}
                 disabled={deleting}
-                className="flex-1 min-h-[48px] rounded-xl text-base font-semibold border-2 border-zinc-600 text-zinc-300 hover:border-zinc-400 transition-colors disabled:opacity-50"
+                className="flex-1 min-h-[48px] rounded-xl text-base font-semibold border-2 border-brand-grey text-brand-navy/80 hover:border-zinc-400 transition-colors disabled:opacity-50"
               >
                 Cancel
               </button>
@@ -585,7 +585,7 @@ export default function PrinterSettingsPage(): JSX.Element {
                 className={[
                   'flex-1 min-h-[48px] rounded-xl text-base font-semibold transition-colors',
                   deleting
-                    ? 'bg-zinc-700 text-zinc-400 cursor-wait'
+                    ? 'bg-brand-offwhite text-brand-navy/60 cursor-wait'
                     : 'bg-red-700 hover:bg-red-600 text-white',
                 ].join(' ')}
               >
@@ -597,8 +597,8 @@ export default function PrinterSettingsPage(): JSX.Element {
       )}
 
       {/* Legacy single-printer note */}
-      <div className="mt-8 p-4 rounded-xl bg-zinc-800/60 border border-zinc-700 text-sm text-zinc-500">
-        <p className="font-semibold text-zinc-400 mb-1">Legacy Single-Printer Mode</p>
+      <div className="mt-8 p-4 rounded-xl bg-white/60 border border-brand-grey text-sm text-brand-grey">
+        <p className="font-semibold text-brand-navy/60 mb-1">Legacy Single-Printer Mode</p>
         <p>
           If you previously configured a single printer via the old settings, it still works as a fallback.
           Adding profiles here enables multi-printer routing and takes precedence over the legacy config.

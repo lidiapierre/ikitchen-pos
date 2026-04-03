@@ -21,6 +21,7 @@ export interface TakeawayDeliveryOrder {
   id: string
   order_type: 'takeaway' | 'delivery'
   customer_name: string | null
+  customer_mobile: string | null
   delivery_note: string | null
   status: string
   created_at: string
@@ -59,6 +60,7 @@ interface TakeawayDeliveryApiRow {
   id: string
   order_type: string
   customer_name: string | null
+  customer_mobile: string | null
   delivery_note: string | null
   status: string
   created_at: string
@@ -193,7 +195,7 @@ export async function fetchTakeawayDeliveryQueue(
   }
 
   const ordersUrl = new URL(`${supabaseUrl}/rest/v1/orders`)
-  ordersUrl.searchParams.set('select', 'id,order_type,customer_name,delivery_note,status,created_at')
+  ordersUrl.searchParams.set('select', 'id,order_type,customer_name,customer_mobile,delivery_note,status,created_at')
   ordersUrl.searchParams.set('status', 'in.(open,pending_payment)')
   ordersUrl.searchParams.set('order_type', 'in.(takeaway,delivery)')
   ordersUrl.searchParams.set('order', 'created_at.asc')
@@ -229,6 +231,7 @@ export async function fetchTakeawayDeliveryQueue(
     id: o.id,
     order_type: o.order_type as 'takeaway' | 'delivery',
     customer_name: o.customer_name,
+    customer_mobile: o.customer_mobile,
     delivery_note: o.delivery_note,
     status: o.status,
     created_at: o.created_at,

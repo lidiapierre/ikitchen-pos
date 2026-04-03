@@ -10,15 +10,15 @@ export default function AdminLayout({
 }: Readonly<{ children: React.ReactNode }>): JSX.Element {
   return (
     <ActiveRestaurantProvider>
-    <div className="min-h-screen flex flex-col bg-zinc-900">
-      {/* Admin header — indigo to distinguish from POS area */}
-      <header className="bg-indigo-900 border-b border-indigo-700 px-6 py-4 flex items-center justify-between shrink-0">
+    <div className="min-h-screen flex flex-col bg-brand-offwhite">
+      {/* Admin header — brand navy */}
+      <header className="bg-brand-navy border-b border-brand-blue px-6 py-4 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3">
-          <span className="text-xs font-bold uppercase tracking-widest text-indigo-300 bg-indigo-800 px-2 py-1 rounded">
+          <span className="text-xs font-bold uppercase tracking-widest text-brand-gold bg-brand-blue px-2 py-1 rounded">
             Admin
           </span>
           <div className="flex flex-col">
-            <span className="text-xl font-bold text-white">iKitchen</span>
+            <span className="text-xl font-bold text-white font-heading">iKitchen</span>
             <BranchLabel />
           </div>
         </div>
@@ -26,7 +26,7 @@ export default function AdminLayout({
           <BranchSwitcher />
           <Link
             href="/tables"
-            className="flex items-center min-h-[48px] px-4 py-2 rounded-xl text-base font-medium text-indigo-200 hover:text-white hover:bg-indigo-700 transition-colors"
+            className="flex items-center min-h-[48px] px-4 py-2 rounded-xl text-base font-medium text-white/80 hover:text-white hover:bg-brand-blue transition-colors"
           >
             ← Back to POS
           </Link>
@@ -34,12 +34,12 @@ export default function AdminLayout({
       </header>
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Sidebar */}
-        <aside className="w-56 bg-indigo-800 shrink-0 flex flex-col">
+        {/* Sidebar — brand navy */}
+        <aside className="w-56 bg-brand-navy shrink-0 flex flex-col">
           <AdminNav />
         </aside>
 
-        {/* Main content */}
+        {/* Main content — off-white background */}
         <main className="flex-1 overflow-auto p-6">
           {children}
         </main>

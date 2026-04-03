@@ -31,28 +31,28 @@ describe('AdminNav', () => {
     vi.mocked(usePathname).mockReturnValue('/admin')
     render(<AdminNav />)
     const dashboardLink = screen.getByText('Dashboard').closest('a')
-    expect(dashboardLink?.className).toMatch(/bg-indigo-600/)
+    expect(dashboardLink?.className).toMatch(/bg-brand-gold/)
   })
 
   it('highlights the active Floor Plan link when on /admin/floor-plan', () => {
     vi.mocked(usePathname).mockReturnValue('/admin/floor-plan')
     render(<AdminNav />)
     const floorPlanLink = screen.getByText('Floor Plan').closest('a')
-    expect(floorPlanLink?.className).toMatch(/bg-indigo-600/)
+    expect(floorPlanLink?.className).toMatch(/bg-brand-gold/)
   })
 
   it('highlights the active Menu link when on /admin/menu', () => {
     vi.mocked(usePathname).mockReturnValue('/admin/menu')
     render(<AdminNav />)
     const menuLink = screen.getByText('Menu').closest('a')
-    expect(menuLink?.className).toMatch(/bg-indigo-600/)
+    expect(menuLink?.className).toMatch(/bg-brand-gold/)
   })
 
   it('does not highlight Dashboard when on /admin/menu', () => {
     vi.mocked(usePathname).mockReturnValue('/admin/menu')
     render(<AdminNav />)
     const dashboardLink = screen.getByText('Dashboard').closest('a')
-    expect(dashboardLink?.className).not.toMatch(/bg-indigo-600/)
+    expect(dashboardLink?.className).not.toMatch(/bg-brand-gold/)
   })
 
   it('all nav links meet minimum 48px touch target height', () => {

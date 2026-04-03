@@ -14,7 +14,7 @@ export default function BranchLabel(): JSX.Element | null {
   if (loading || !restaurantName) return null
 
   return (
-    <span className="flex items-center gap-1 text-xs text-indigo-300 font-medium mt-0.5">
+    <span className="flex items-center gap-1 text-xs text-brand-gold font-medium mt-0.5">
       <Building2 size={11} className="shrink-0 opacity-70" aria-hidden="true" />
       {restaurantName}
     </span>

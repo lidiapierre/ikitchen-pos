@@ -152,19 +152,19 @@ export default function AvailabilityPanel(): JSX.Element {
     <div className="flex flex-col gap-6">
       {/* Search bar */}
       <div className="relative">
-        <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" aria-hidden="true" />
+        <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-grey pointer-events-none" aria-hidden="true" />
         <input
           type="search"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder="Search items to 86…"
-          className="w-full min-h-[48px] pl-10 pr-4 py-2 rounded-xl bg-zinc-800 text-white border border-zinc-600 focus:border-indigo-500 focus:outline-none placeholder-zinc-500"
+          className="w-full min-h-[48px] pl-10 pr-4 py-2 rounded-xl bg-brand-offwhite text-brand-navy border border-brand-grey focus:border-brand-blue focus:outline-none placeholder-brand-grey"
         />
       </div>
 
       {/* Header summary */}
       <div className="flex items-center gap-3 flex-wrap">
-        <p className="text-sm text-zinc-400">
+        <p className="text-sm text-brand-navy/70">
           {totalItems} items across {categories.length} categories
         </p>
         {eightySixCount > 0 && (
@@ -189,7 +189,7 @@ export default function AvailabilityPanel(): JSX.Element {
 
       {/* Categories */}
       {filteredCategories.length === 0 && (
-        <p className="text-zinc-500">
+        <p className="text-brand-grey">
           {searchQuery.trim() ? `No items match "${searchQuery.trim()}".` : 'No menu categories found.'}
         </p>
       )}
@@ -198,8 +198,8 @@ export default function AvailabilityPanel(): JSX.Element {
         <div key={category.id} className="flex flex-col gap-3">
           {/* Category header */}
           <div className="flex items-center gap-3">
-            <h2 className="text-lg font-semibold text-white">{category.name}</h2>
-            <div className="flex-1 h-px bg-zinc-700" />
+            <h2 className="text-lg font-semibold text-brand-navy">{category.name}</h2>
+            <div className="flex-1 h-px bg-brand-grey" />
             {category.items.filter((i) => !i.available).length > 0 && (
               <span className="text-xs font-bold bg-red-700 text-red-100 px-2 py-0.5 rounded-full">
                 {category.items.filter((i) => !i.available).length} 86&apos;d
@@ -208,7 +208,7 @@ export default function AvailabilityPanel(): JSX.Element {
           </div>
 
           {category.items.length === 0 && (
-            <p className="text-zinc-500 text-sm">No items in this category.</p>
+            <p className="text-brand-grey text-sm">No items in this category.</p>
           )}
 
           {/* Item rows */}
@@ -219,14 +219,14 @@ export default function AvailabilityPanel(): JSX.Element {
               <div
                 key={item.id}
                 className={[
-                  'bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-4',
+                  'bg-white border border-brand-grey rounded-2xl px-5 py-4',
                   'flex items-center gap-4',
                   !item.available ? 'border-red-900' : '',
                 ].join(' ')}
               >
                 {/* Item name + badge */}
                 <div className={['flex-1 min-w-0 flex items-center gap-2', !item.available ? 'opacity-60' : ''].join(' ')}>
-                  <span className="text-base font-medium text-white truncate">{item.name}</span>
+                  <span className="text-base font-medium text-brand-navy truncate">{item.name}</span>
                   {!item.available && (
                     <span className="shrink-0 bg-red-700 text-red-100 text-xs font-bold px-2 py-0.5 rounded-full">
                       86&apos;d
@@ -244,7 +244,7 @@ export default function AvailabilityPanel(): JSX.Element {
                   disabled={isToggling}
                   className={[
                     'relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent',
-                    'transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-zinc-800',
+                    'transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-brand-gold focus:ring-offset-2 focus:ring-offset-white',
                     'disabled:opacity-50',
                     // min 48px touch target via padding
                     'min-w-[48px] min-h-[48px] items-center justify-center',

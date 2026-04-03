@@ -60,18 +60,24 @@ export default async function AdminDashboardPage(): Promise<JSX.Element> {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-white mb-6">Dashboard</h1>
+      <h1 className="text-2xl font-bold text-brand-navy mb-6 font-heading">Dashboard</h1>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {stats.map(({ label, value, description }) => (
           <div
             key={label}
-            className="bg-zinc-800 border border-zinc-700 rounded-2xl p-6 flex flex-col gap-2"
+            className="bg-white border border-brand-grey rounded-2xl overflow-hidden shadow-sm"
           >
-            <span className="text-sm font-medium text-zinc-400 uppercase tracking-wide">
-              {label}
-            </span>
-            <span className="text-5xl font-bold text-white">{value}</span>
-            <span className="text-base text-zinc-400">{description}</span>
+            {/* Navy header */}
+            <div className="bg-brand-navy px-6 py-3">
+              <span className="text-sm font-medium text-white/80 uppercase tracking-wide font-body">
+                {label}
+              </span>
+            </div>
+            {/* Content */}
+            <div className="px-6 py-5 flex flex-col gap-1">
+              <span className="text-5xl font-bold text-brand-gold font-heading">{value}</span>
+              <span className="text-base text-brand-blue/70 font-body">{description}</span>
+            </div>
           </div>
         ))}
       </div>

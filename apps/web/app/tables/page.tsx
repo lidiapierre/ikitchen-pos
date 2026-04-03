@@ -18,9 +18,9 @@ import { ShoppingBag, Bike, X } from 'lucide-react'
 const REFRESH_INTERVAL_MS = 30_000
 
 const STATUS_LEGEND: { status: TableStatus; label: string; dotClass: string }[] = [
-  { status: 'available', label: 'Empty', dotClass: 'bg-zinc-500' },
-  { status: 'seated', label: 'Seated', dotClass: 'bg-blue-500' },
-  { status: 'ordered', label: 'Ordered', dotClass: 'bg-green-500' },
+  { status: 'available', label: 'Empty', dotClass: 'bg-brand-grey' },
+  { status: 'seated', label: 'Seated', dotClass: 'bg-brand-blue' },
+  { status: 'ordered', label: 'Ordered', dotClass: 'bg-brand-gold' },
   { status: 'overdue', label: 'Overdue (>2h)', dotClass: 'bg-red-500' },
 ]
 
@@ -167,20 +167,20 @@ export default function TablesPage(): JSX.Element {
   }
 
   return (
-    <main className="min-h-screen bg-zinc-900 p-6">
+    <main className="min-h-screen bg-brand-offwhite p-6">
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-bold text-white">Tables</h1>
+        <h1 className="text-2xl font-bold text-brand-navy font-heading">Tables</h1>
         <div className="flex items-center gap-3">
           <Link
             href="/shifts"
-            className="text-zinc-400 hover:text-white text-base font-medium px-4 py-2 rounded-lg border border-zinc-700 hover:border-zinc-500 transition-colors min-h-[48px] flex items-center"
+            className="text-brand-blue hover:text-brand-navy text-base font-medium px-4 py-2 rounded-lg border border-brand-grey hover:border-brand-blue transition-colors min-h-[48px] flex items-center"
           >
             Shifts
           </Link>
           <button
             type="button"
             onClick={loadAll}
-            className="text-zinc-400 hover:text-white text-base font-medium px-4 py-2 rounded-lg border border-zinc-700 hover:border-zinc-500 transition-colors min-h-[48px]"
+            className="text-brand-blue hover:text-brand-navy text-base font-medium px-4 py-2 rounded-lg border border-brand-grey hover:border-brand-blue transition-colors min-h-[48px]"
           >
             Refresh
           </button>
@@ -190,12 +190,12 @@ export default function TablesPage(): JSX.Element {
       {/* Status legend */}
       <div className="flex flex-wrap items-center gap-x-5 gap-y-2 mb-6">
         {STATUS_LEGEND.map(({ status, label, dotClass }) => (
-          <span key={status} className="flex items-center gap-1.5 text-sm text-zinc-400">
+          <span key={status} className="flex items-center gap-1.5 text-sm text-brand-navy/70">
             <span className={`inline-block w-3 h-3 rounded-full ${dotClass}`} />
             {label}
           </span>
         ))}
-        <span className="text-xs text-zinc-600 ml-auto">Auto-refreshes every 30s</span>
+        <span className="text-xs text-brand-grey ml-auto">Auto-refreshes every 30s</span>
       </div>
 
       {/* Takeaway / Delivery quick-launch buttons */}
@@ -207,8 +207,8 @@ export default function TablesPage(): JSX.Element {
           className={[
             'flex-1 min-h-[56px] rounded-xl text-base font-semibold transition-colors border-2',
             creatingOrder
-              ? 'border-amber-800 bg-amber-900/20 text-amber-600 cursor-wait'
-              : 'border-amber-500 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 hover:border-amber-400',
+              ? 'border-brand-gold/40 bg-brand-gold/10 text-brand-gold/50 cursor-wait'
+              : 'border-brand-gold bg-brand-gold/10 text-brand-navy hover:bg-brand-gold/20 hover:border-brand-gold/80',
           ].join(' ')}
         >
           {creatingOrder ? 'Creating…' : <span className='inline-flex items-center gap-2'><ShoppingBag size={18} aria-hidden='true' />New Takeaway Order</span>}
@@ -225,8 +225,8 @@ export default function TablesPage(): JSX.Element {
           className={[
             'flex-1 min-h-[56px] rounded-xl text-base font-semibold transition-colors border-2',
             creatingOrder
-              ? 'border-blue-800 bg-blue-900/20 text-blue-600 cursor-wait'
-              : 'border-blue-500 bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 hover:border-blue-400',
+              ? 'border-brand-blue/40 bg-brand-blue/10 text-brand-blue/50 cursor-wait'
+              : 'border-brand-blue bg-brand-blue/10 text-brand-navy hover:bg-brand-blue/20 hover:border-brand-blue/80',
           ].join(' ')}
         >
           <span className='inline-flex items-center gap-2'><Bike size={18} aria-hidden='true' />New Delivery Order</span>
@@ -238,9 +238,9 @@ export default function TablesPage(): JSX.Element {
       )}
 
       {loading ? (
-        <p className="text-zinc-400 text-lg">Loading tables…</p>
+        <p className="text-brand-blue text-lg">Loading tables…</p>
       ) : error !== null ? (
-        <p className="text-red-400 text-lg">{error}</p>
+        <p className="text-red-500 text-lg">{error}</p>
       ) : (
         <>
           {/* Dine-in table grid */}
@@ -257,7 +257,7 @@ export default function TablesPage(): JSX.Element {
                 {/* Unplaced tables strip */}
                 {unplacedTables.length > 0 && (
                   <div className="mt-4">
-                    <p className="text-sm font-semibold text-zinc-400 mb-2">
+                    <p className="text-sm font-semibold text-brand-navy/60 mb-2">
                       Unplaced Tables ({unplacedTables.length})
                     </p>
                     <div className="flex gap-3 overflow-x-auto pb-2">
@@ -274,7 +274,7 @@ export default function TablesPage(): JSX.Element {
               /* Tables grouped by section */
               <div className="space-y-8 mb-10">
                 {tables.length === 0 ? (
-                  <p className="text-zinc-400 text-lg">No tables configured.</p>
+                  <p className="text-brand-navy/60 text-lg">No tables configured.</p>
                 ) : (() => {
                   const sectionGroups = new Map<string | null, TableRow[]>()
                   for (const t of tables) {
@@ -298,9 +298,9 @@ export default function TablesPage(): JSX.Element {
                     return (
                       <div key={sectionId ?? 'unsectioned'}>
                         <div className="flex items-center gap-3 mb-3">
-                          <h2 className="text-lg font-bold text-white">{sectionName ?? 'Unsectioned'}</h2>
+                          <h2 className="text-lg font-bold text-brand-navy font-heading">{sectionName ?? 'Unsectioned'}</h2>
                           {serverName && (
-                            <span className="text-sm bg-indigo-600/30 text-indigo-300 border border-indigo-700 rounded-full px-2.5 py-0.5">{serverName}</span>
+                            <span className="text-sm bg-brand-blue/20 text-brand-navy border border-brand-blue rounded-full px-2.5 py-0.5">{serverName}</span>
                           )}
                         </div>
                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
@@ -318,16 +318,16 @@ export default function TablesPage(): JSX.Element {
 
           {/* Takeaway / Delivery Queue */}
           <section>
-            <h2 className="text-lg font-bold text-white mb-3 flex items-center gap-2">
+            <h2 className="text-lg font-bold text-brand-navy mb-3 flex items-center gap-2 font-heading">
               <span>Takeaway / Delivery Queue</span>
               {queue.length > 0 && (
-                <span className="text-sm font-normal bg-amber-500/20 text-amber-400 border border-amber-700 rounded-full px-2 py-0.5">
+                <span className="text-sm font-normal bg-brand-gold/20 text-brand-navy border border-brand-gold rounded-full px-2 py-0.5">
                   {queue.length}
                 </span>
               )}
             </h2>
             {queue.length === 0 ? (
-              <p className="text-zinc-500 text-base">No active takeaway or delivery orders.</p>
+              <p className="text-brand-grey text-base">No active takeaway or delivery orders.</p>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                 {queue.map((order) => {
@@ -341,8 +341,8 @@ export default function TablesPage(): JSX.Element {
                       className={[
                         'flex flex-col gap-2 p-4 rounded-xl border-2 text-left transition-colors',
                         isDelivery
-                          ? 'border-blue-700 bg-blue-900/20 hover:bg-blue-900/40 hover:border-blue-500'
-                          : 'border-amber-700 bg-amber-900/20 hover:bg-amber-900/40 hover:border-amber-500',
+                          ? 'border-brand-blue bg-brand-blue/20 hover:bg-brand-blue/40 hover:border-brand-navy'
+                          : 'border-brand-gold bg-brand-gold/20 hover:bg-brand-gold/30 hover:border-brand-gold',
                       ].join(' ')}
                     >
                       {/* Type badge + age */}
@@ -350,12 +350,12 @@ export default function TablesPage(): JSX.Element {
                         <span className={[
                           'text-xs font-bold px-2 py-0.5 rounded-full',
                           isDelivery
-                            ? 'bg-blue-900/60 text-blue-300'
-                            : 'bg-amber-900/60 text-amber-300',
+                            ? 'bg-brand-blue/60 text-white'
+                            : 'bg-brand-gold/60 text-brand-navy',
                         ].join(' ')}>
                           {isDelivery ? <span className='inline-flex items-center gap-1'><Bike size={12} aria-hidden='true' />DELIVERY</span> : <span className='inline-flex items-center gap-1'><ShoppingBag size={12} aria-hidden='true' />TAKEAWAY</span>}
                         </span>
-                        <span className="text-xs text-zinc-500">{orderAge(order.created_at)}</span>
+                        <span className="text-xs text-brand-navy/60">{orderAge(order.created_at)}</span>
                       </div>
 
                       {/* Customer name (delivery only) */}
@@ -364,12 +364,12 @@ export default function TablesPage(): JSX.Element {
                       )}
 
                       {/* Item count */}
-                      <p className="text-zinc-400 text-sm">
+                      <p className="text-brand-navy/60 text-sm">
                         {order.item_count} item{order.item_count !== 1 ? 's' : ''}
                       </p>
 
                       {/* Order ID snippet */}
-                      <p className="text-zinc-600 text-xs font-mono">{order.id.slice(0, 8)}</p>
+                      <p className="text-brand-navy/60 text-xs font-mono">{order.id.slice(0, 8)}</p>
                     </button>
                   )
                 })}
@@ -382,16 +382,16 @@ export default function TablesPage(): JSX.Element {
       {/* Delivery order modal */}
       {showDeliveryModal && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70">
-          <div className="w-full max-w-lg bg-zinc-900 rounded-t-2xl p-6 space-y-4">
+          <div className="w-full max-w-lg bg-brand-navy rounded-t-2xl p-6 space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-xl font-semibold text-white flex items-center gap-2"><Bike size={20} aria-hidden="true" />New Delivery Order</h2>
+              <h2 className="text-xl font-semibold text-white flex items-center gap-2 font-heading"><Bike size={20} aria-hidden="true" />New Delivery Order</h2>
               <button
                 type="button"
                 onClick={() => {
                   setShowDeliveryModal(false)
                   setCreateOrderError(null)
                 }}
-                className="min-h-[48px] min-w-[48px] text-zinc-400 hover:text-white flex items-center justify-center"
+                className="min-h-[48px] min-w-[48px] text-white/60 hover:text-white flex items-center justify-center"
                 aria-label="Close"
               >
                 <X size={20} aria-hidden="true" />
@@ -399,7 +399,7 @@ export default function TablesPage(): JSX.Element {
             </div>
 
             <div>
-              <label htmlFor="delivery-customer-name" className="block text-zinc-400 text-base mb-2">
+              <label htmlFor="delivery-customer-name" className="block text-white text-base mb-2 font-body">
                 Customer Name <span className="text-red-400">*</span>
               </label>
               <input
@@ -408,14 +408,14 @@ export default function TablesPage(): JSX.Element {
                 placeholder="e.g. Ahmed Khan"
                 value={deliveryCustomerName}
                 onChange={(e) => { setDeliveryCustomerName(e.target.value) }}
-                className="w-full min-h-[48px] px-4 rounded-xl text-base bg-zinc-800 text-white border-2 border-zinc-600 focus:border-blue-400 focus:outline-none"
+                className="w-full min-h-[48px] px-4 rounded-xl text-base bg-brand-blue text-white border-2 border-brand-grey/40 focus:border-brand-gold focus:outline-none placeholder-white/40 font-body"
                 autoFocus
               />
             </div>
 
             <div>
-              <label htmlFor="delivery-note" className="block text-zinc-400 text-base mb-2">
-                Delivery Note <span className="text-zinc-600">(optional)</span>
+              <label htmlFor="delivery-note" className="block text-white text-base mb-2 font-body">
+                Delivery Note <span className="text-brand-grey">(optional)</span>
               </label>
               <input
                 id="delivery-note"
@@ -423,7 +423,7 @@ export default function TablesPage(): JSX.Element {
                 placeholder="e.g. Road 12, House 5, Ring the bell"
                 value={deliveryNote}
                 onChange={(e) => { setDeliveryNote(e.target.value) }}
-                className="w-full min-h-[48px] px-4 rounded-xl text-base bg-zinc-800 text-white border-2 border-zinc-600 focus:border-blue-400 focus:outline-none"
+                className="w-full min-h-[48px] px-4 rounded-xl text-base bg-brand-blue text-white border-2 border-brand-grey/40 focus:border-brand-gold focus:outline-none placeholder-white/40 font-body"
               />
             </div>
 
@@ -439,7 +439,7 @@ export default function TablesPage(): JSX.Element {
                   setCreateOrderError(null)
                 }}
                 disabled={creatingOrder}
-                className="flex-1 min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold border-2 border-zinc-600 text-zinc-300 hover:border-zinc-400 transition-colors disabled:opacity-50"
+                className="flex-1 min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold border-2 border-brand-grey/40 text-white hover:border-brand-grey transition-colors disabled:opacity-50 font-body"
               >
                 Cancel
               </button>
@@ -448,10 +448,10 @@ export default function TablesPage(): JSX.Element {
                 onClick={() => { void handleCreateDelivery() }}
                 disabled={creatingOrder || deliveryCustomerName.trim() === ''}
                 className={[
-                  'flex-1 min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold transition-colors',
+                  'flex-1 min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold transition-colors font-body',
                   creatingOrder || deliveryCustomerName.trim() === ''
-                    ? 'bg-zinc-700 text-zinc-400 cursor-wait'
-                    : 'bg-blue-600 hover:bg-blue-500 text-white',
+                    ? 'bg-brand-grey/30 text-white/40 cursor-wait'
+                    : 'bg-brand-gold hover:bg-brand-gold/90 text-brand-navy',
                 ].join(' ')}
               >
                 {creatingOrder ? 'Creating…' : 'Create Order'}

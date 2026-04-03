@@ -38,16 +38,16 @@ export default function BranchSwitcher(): JSX.Element | null {
       <button
         type="button"
         onClick={() => setOpen(o => !o)}
-        className="flex items-center gap-2 px-3 py-2 rounded-xl bg-indigo-800 hover:bg-indigo-700 border border-indigo-600 text-indigo-100 hover:text-white text-sm font-medium transition-colors min-h-[48px] min-w-[48px]"
+        className="flex items-center gap-2 px-3 py-2 rounded-xl bg-brand-blue hover:bg-brand-blue/80 border border-brand-blue/60 text-white/80 hover:text-white text-sm font-medium transition-colors min-h-[48px] min-w-[48px]"
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-label="Switch branch"
       >
-        <Building2 size={16} className="shrink-0 text-indigo-300" aria-hidden="true" />
+        <Building2 size={16} className="shrink-0 text-brand-gold" aria-hidden="true" />
         <span className="max-w-[160px] truncate">{displayName}</span>
         <ChevronDown
           size={14}
-          className={`shrink-0 text-indigo-300 transition-transform ${open ? 'rotate-180' : ''}`}
+          className={`shrink-0 text-brand-gold transition-transform ${open ? 'rotate-180' : ''}`}
           aria-hidden="true"
         />
       </button>
@@ -56,10 +56,10 @@ export default function BranchSwitcher(): JSX.Element | null {
         <div
           role="listbox"
           aria-label="Select branch"
-          className="absolute right-0 top-full mt-2 z-50 min-w-[200px] bg-indigo-900 border border-indigo-700 rounded-xl shadow-lg overflow-hidden"
+          className="absolute right-0 top-full mt-2 z-50 min-w-[200px] bg-brand-navy border border-brand-blue rounded-xl shadow-lg overflow-hidden"
         >
-          <div className="px-3 py-2 border-b border-indigo-700">
-            <span className="text-xs font-semibold uppercase tracking-widest text-indigo-400">
+          <div className="px-3 py-2 border-b border-brand-blue">
+            <span className="text-xs font-semibold uppercase tracking-widest text-brand-grey">
               Switch Branch
             </span>
           </div>
@@ -78,14 +78,14 @@ export default function BranchSwitcher(): JSX.Element | null {
                     className={[
                       'w-full text-left flex items-center gap-2 px-4 py-3 text-sm transition-colors',
                       isActive
-                        ? 'bg-indigo-700 text-white font-semibold'
-                        : 'text-indigo-100 hover:bg-indigo-800 hover:text-white',
+                        ? 'bg-brand-blue text-white font-semibold'
+                        : 'text-white/80 hover:bg-brand-blue hover:text-white',
                     ].join(' ')}
                   >
                     <Building2 size={14} className="shrink-0 opacity-60" aria-hidden="true" />
                     <span className="truncate">{label}</span>
                     {isActive && (
-                      <span className="ml-auto text-xs text-indigo-300 font-normal">Active</span>
+                      <span className="ml-auto text-xs text-brand-gold font-normal">Active</span>
                     )}
                   </button>
                 </li>

@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import type { JSX } from 'react'
 import Link from 'next/link'
-import { Users, Search, Phone, X, Pencil, Check } from 'lucide-react'
+import { Users, Search, Phone, X, Pencil, Check, CalendarDays } from 'lucide-react'
 import { useUser } from '@/lib/user-context'
 import { formatPrice, DEFAULT_CURRENCY_SYMBOL } from '@/lib/formatPrice'
 import {
@@ -12,6 +12,8 @@ import {
   updateCustomer,
 } from './customersApi'
 import type { Customer, CustomerOrder } from './customersApi'
+import { fetchCustomerReservations } from '../reservations/reservationsApi'
+import type { Reservation } from '../reservations/reservationsApi'
 
 function ordinalSuffix(n: number): string {
   if (n % 100 >= 11 && n % 100 <= 13) return `${n}th`
@@ -38,6 +40,11 @@ export default function CustomersDashboard(): JSX.Element {
   const [customerOrders, setCustomerOrders] = useState<CustomerOrder[]>([])
   const [ordersLoading, setOrdersLoading] = useState(false)
   const [ordersError, setOrdersError] = useState<string | null>(null)
+
+  // Customer reservations (issue #277)
+  const [customerReservations, setCustomerReservations] = useState<Reservation[]>([])
+  const [reservationsLoading, setReservationsLoading] = useState(false)
+  const [reservationsError, setReservationsError] = useState<string | null>(null)
 
   // Inline edit state
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -87,12 +94,25 @@ export default function CustomersDashboard(): JSX.Element {
     setCustomerOrders([])
     setOrdersError(null)
     setOrdersLoading(true)
+    setCustomerReservations([])
+    setReservationsError(null)
+
     fetchCustomerOrders(supabaseUrl, accessToken, customer.restaurant_id, customer.mobile)
       .then(setCustomerOrders)
       .catch((err: unknown) => {
         setOrdersError(err instanceof Error ? err.message : 'Failed to load orders')
       })
       .finally(() => { setOrdersLoading(false) })
+
+    // Fetch reservations if the customer has an id (issue #277)
+    setReservationsLoading(true)
+    const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ''
+    fetchCustomerReservations(supabaseUrl, publishableKey, accessToken, customer.id)
+      .then(setCustomerReservations)
+      .catch((err: unknown) => {
+        setReservationsError(err instanceof Error ? err.message : 'Failed to load reservations')
+      })
+      .finally(() => { setReservationsLoading(false) })
   }
 
   function startEdit(customer: Customer): void {
@@ -371,6 +391,44 @@ export default function CustomersDashboard(): JSX.Element {
                             </Link>
                           </div>
                         </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              {/* Reservations (issue #277) */}
+              <div>
+                <h3 className="text-sm font-semibold text-zinc-300 mb-3 flex items-center gap-1.5">
+                  <CalendarDays size={14} aria-hidden="true" />
+                  Reservations
+                </h3>
+                {reservationsLoading ? (
+                  <p className="text-zinc-500 text-xs">Loading…</p>
+                ) : reservationsError !== null ? (
+                  <p className="text-red-400 text-xs">{reservationsError}</p>
+                ) : customerReservations.length === 0 ? (
+                  <p className="text-zinc-500 text-xs">No reservations found.</p>
+                ) : (
+                  <ul className="space-y-2">
+                    {customerReservations.map((res) => (
+                      <li key={res.id} className="bg-zinc-700/50 rounded-xl px-3 py-2.5 space-y-0.5">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-xs font-medium text-white">
+                            {res.reservation_time
+                              ? new Date(res.reservation_time).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+                              : 'Walk-in'}
+                          </span>
+                          <span className={`text-xs px-1.5 py-0.5 rounded-full ${
+                            res.status === 'waiting' ? 'bg-amber-500/20 text-amber-300' :
+                            res.status === 'seated' ? 'bg-emerald-500/20 text-emerald-300' :
+                            'bg-zinc-500/20 text-zinc-400'
+                          }`}>
+                            {res.status}
+                          </span>
+                        </div>
+                        <p className="text-xs text-zinc-400">Party of {res.party_size}</p>
+                        {res.notes && <p className="text-xs text-zinc-500 italic">{res.notes}</p>}
                       </li>
                     ))}
                   </ul>

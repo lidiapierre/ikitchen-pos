@@ -50,6 +50,7 @@ import {
   Pencil,
   MessageCircle,
   Phone,
+  CalendarDays,
 } from 'lucide-react'
 
 const COMP_REASONS = ['VIP', 'Complaint resolution', 'Staff meal', 'Event', 'Other'] as const
@@ -98,6 +99,11 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
   // Enhanced bill fields (issue #261)
   const [orderCustomerMobile, setOrderCustomerMobile] = useState<string | null>(null)
   const [orderBillNumber, setOrderBillNumber] = useState<string | null>(null)
+
+  // Linked reservation info (issue #277)
+  const [orderReservationId, setOrderReservationId] = useState<string | null>(null)
+  interface ReservationInfo { customer_name: string; party_size: number; notes: string | null }
+  const [orderReservationInfo, setOrderReservationInfo] = useState<ReservationInfo | null>(null)
 
   // Send Receipt modal state (issue #173)
   const [showReceiptModal, setShowReceiptModal] = useState(false)
@@ -262,6 +268,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
         setOrderDeliveryNote(summary.delivery_note)
         setOrderCustomerMobile(summary.customer_mobile)
         setOrderBillNumber(summary.bill_number)
+        setOrderReservationId(summary.reservation_id)
       })
       .catch(() => {
         // Non-fatal: fall back to normal order view if status check fails
@@ -417,6 +424,33 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
     loadTableLabel()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderId, accessToken])
+
+  // Fetch reservation info when order has a linked reservation (issue #277)
+  useEffect(() => {
+    if (!orderReservationId || !accessToken) return
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    if (!supabaseUrl) return
+    const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ''
+    const url = new URL(`${supabaseUrl}/rest/v1/reservations`)
+    url.searchParams.set('id', `eq.${orderReservationId}`)
+    url.searchParams.set('select', 'customer_name,party_size,notes')
+    url.searchParams.set('limit', '1')
+    void fetch(url.toString(), {
+      headers: { apikey: publishableKey, Authorization: `Bearer ${accessToken}` },
+    })
+      .then(async (res) => {
+        if (!res.ok) return
+        const rows = (await res.json()) as Array<{ customer_name: string; party_size: number; notes: string | null }>
+        if (rows.length > 0) {
+          setOrderReservationInfo({
+            customer_name: rows[0].customer_name,
+            party_size: rows[0].party_size,
+            notes: rows[0].notes,
+          })
+        }
+      })
+      .catch(() => { /* non-fatal */ })
+  }, [orderReservationId, accessToken])
 
   // Auto-navigate to /tables after success state is shown for 1.5s
   // Paused while bill is printing (printingBill) to avoid tearing down page during print dialog
@@ -1679,6 +1713,19 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
               </div>
             )}
           </dl>
+          {/* Reservation info block — shown when order was created via Seat action (issue #277) */}
+          {orderReservationInfo !== null && (
+            <div className="mt-4 flex items-start gap-2 bg-indigo-900/30 border border-indigo-500/30 rounded-xl px-4 py-3">
+              <CalendarDays size={16} className="text-indigo-400 mt-0.5 shrink-0" aria-hidden="true" />
+              <div className="text-sm space-y-0.5">
+                <p className="text-indigo-300 font-semibold">Reservation — {orderReservationInfo.customer_name}</p>
+                <p className="text-zinc-400">Party of {orderReservationInfo.party_size}</p>
+                {orderReservationInfo.notes && (
+                  <p className="text-zinc-500 italic">{orderReservationInfo.notes}</p>
+                )}
+              </div>
+            </div>
+          )}
         </header>
 
         <section className="flex-1">
@@ -2516,6 +2563,19 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
             <dd className="font-mono text-sm text-zinc-300">{orderId}</dd>
           </div>
         </dl>
+        {/* Reservation info block — shown when order was created via Seat action (issue #277) */}
+        {orderReservationInfo !== null && (
+          <div className="mt-4 flex items-start gap-2 bg-indigo-900/30 border border-indigo-500/30 rounded-xl px-4 py-3">
+            <CalendarDays size={16} className="text-indigo-400 mt-0.5 shrink-0" aria-hidden="true" />
+            <div className="text-sm space-y-0.5">
+              <p className="text-indigo-300 font-semibold">Reservation — {orderReservationInfo.customer_name}</p>
+              <p className="text-zinc-400">Party of {orderReservationInfo.party_size}</p>
+              {orderReservationInfo.notes && (
+                <p className="text-zinc-500 italic">{orderReservationInfo.notes}</p>
+              )}
+            </div>
+          </div>
+        )}
         {/* Covers field — always visible in order step */}
         {step === 'order' && (
           <div className="flex items-center gap-3 mt-4">

@@ -12,13 +12,17 @@ import {
   Ban,
   UserX,
   ChevronDown,
+  ExternalLink,
 } from 'lucide-react'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useUser } from '@/lib/user-context'
 import {
   fetchReservations,
   fetchTables,
   createReservation,
   updateReservationStatus,
+  seatReservation,
   type Reservation,
   type ReservationTable,
   type CreateReservationInput,
@@ -290,7 +294,7 @@ function AddModal({ tables, restaurantId, defaultWaitlist = false, onAdd, onClos
 interface SeatModalProps {
   reservation: Reservation
   tables: ReservationTable[]
-  onSeat: (reservationId: string, tableId: string | null) => Promise<void>
+  onSeat: (reservation: Reservation, tableId: string | null) => Promise<void>
   onClose: () => void
 }
 
@@ -303,11 +307,9 @@ function SeatModal({ reservation, tables, onSeat, onClose }: SeatModalProps): JS
     setSaving(true)
     setError(null)
     try {
-      await onSeat(reservation.id, tableId || null)
-      onClose()
+      await onSeat(reservation, tableId || null)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to seat')
-    } finally {
       setSaving(false)
     }
   }
@@ -378,6 +380,21 @@ interface ActionButtonsProps {
 }
 
 function ActionButtons({ reservation, onSeatClick, onCancel, onNoShow, busy }: ActionButtonsProps): JSX.Element {
+  if (reservation.status === 'seated') {
+    // Show a link to the active order if we have one
+    if (reservation.linked_order_id) {
+      const href = `/tables/${reservation.table_id ?? 'dine_in'}/order/${reservation.linked_order_id}`
+      return (
+        <Link
+          href={href}
+          className="inline-flex items-center gap-1 min-h-[34px] px-3 rounded-lg bg-indigo-600/20 border border-indigo-500/40 text-indigo-300 hover:text-indigo-200 text-xs font-medium transition-colors"
+        >
+          <ExternalLink size={12} aria-hidden="true" /> View Order
+        </Link>
+      )
+    }
+    return <span />
+  }
   if (reservation.status !== 'waiting') return <span />
   return (
     <div className="flex items-center gap-1.5 flex-wrap">
@@ -412,6 +429,7 @@ function ActionButtons({ reservation, onSeatClick, onCancel, onNoShow, busy }: A
 // ─── Main Dashboard ──────────────────────────────────────────────────────────
 
 export default function ReservationsDashboard(): JSX.Element {
+  const router = useRouter()
   const { accessToken: _at } = useUser(); const accessToken = _at ?? ''
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
 
@@ -725,7 +743,27 @@ export default function ReservationsDashboard(): JSX.Element {
         <SeatModal
           reservation={seatTarget}
           tables={tables}
-          onSeat={(id, tblId) => handleStatusChange(id, 'seated', tblId)}
+          onSeat={async (reservation, tblId) => {
+            const tableIdToUse = tblId ?? reservation.table_id ?? ''
+            if (!tableIdToUse) throw new Error('A table must be selected to seat the reservation')
+            const orderId = await seatReservation(
+              supabaseUrl,
+              accessToken,
+              accessToken,
+              reservation,
+              tableIdToUse,
+            )
+            // Update local state
+            setReservations((prev) =>
+              prev.map((r) =>
+                r.id === reservation.id
+                  ? { ...r, status: 'seated', table_id: tableIdToUse, linked_order_id: orderId }
+                  : r,
+              ),
+            )
+            setSeatTarget(null)
+            router.push(`/tables/${tableIdToUse}/order/${orderId}`)
+          }}
           onClose={() => { setSeatTarget(null) }}
         />
       )}

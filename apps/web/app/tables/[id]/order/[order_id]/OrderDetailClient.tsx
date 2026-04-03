@@ -1285,21 +1285,22 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
 
   async function handleLinkCustomer(customer: LinkedCustomer): Promise<void> {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const pubKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ''
     if (!supabaseUrl || !accessToken) return
     setLinkError(null)
     try {
-      const res = await fetch(`${supabaseUrl}/rest/v1/orders?id=eq.${encodeURIComponent(orderId)}`, {
-        method: 'PATCH',
+      // All writes go through the Action API (per apps/web/CLAUDE.md)
+      const res = await fetch(`${supabaseUrl}/functions/v1/link_customer_to_order`, {
+        method: 'POST',
         headers: {
-          apikey: pubKey,
-          Authorization: `Bearer ${accessToken}`,
           'Content-Type': 'application/json',
-          Prefer: 'return=minimal',
+          Authorization: `Bearer ${accessToken}`,
         },
-        body: JSON.stringify({ customer_id: customer.id }),
+        body: JSON.stringify({ order_id: orderId, customer_id: customer.id }),
       })
-      if (!res.ok) throw new Error('Failed to link customer')
+      if (!res.ok) {
+        const body = await res.text().catch(() => '')
+        throw new Error(`Failed to link customer: ${body}`)
+      }
       setLinkedCustomer(customer)
       setShowLinkCustomer(false)
       setLinkMobileSearch('')
@@ -2662,64 +2663,62 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
             </div>
           </div>
         )}
-        {/* Link customer section — dine-in orders only (issue #276) */}
-        {orderType === 'dine_in' && (
+        {/* Linked customer badge — all order types (issue #276) */}
+        {linkedCustomer !== null && (
+          <div className="mt-4 flex items-start gap-2 bg-emerald-900/30 border border-emerald-500/30 rounded-xl px-4 py-3">
+            <UserCheck size={16} className="text-emerald-400 mt-0.5 shrink-0" aria-hidden="true" />
+            <div className="text-sm space-y-0.5">
+              <p className="text-emerald-300 font-semibold">{linkedCustomer.name ?? linkedCustomer.mobile}</p>
+              <p className="text-zinc-400">{linkedCustomer.mobile} · {linkedCustomer.visit_count} visit{linkedCustomer.visit_count !== 1 ? 's' : ''}</p>
+            </div>
+          </div>
+        )}
+        {/* "Link customer" search — dine-in orders only (auto-linked for takeaway/delivery at close_order) */}
+        {orderType === 'dine_in' && linkedCustomer === null && (
           <div className="mt-4">
-            {linkedCustomer !== null ? (
-              <div className="flex items-start gap-2 bg-emerald-900/30 border border-emerald-500/30 rounded-xl px-4 py-3">
-                <UserCheck size={16} className="text-emerald-400 mt-0.5 shrink-0" aria-hidden="true" />
-                <div className="text-sm space-y-0.5">
-                  <p className="text-emerald-300 font-semibold">{linkedCustomer.name ?? linkedCustomer.mobile}</p>
-                  <p className="text-zinc-400">{linkedCustomer.mobile} · {linkedCustomer.visit_count} visit{linkedCustomer.visit_count !== 1 ? 's' : ''}</p>
+            <button
+              type="button"
+              onClick={() => { setShowLinkCustomer((v) => !v); setLinkMobileSearch(''); setLinkSearchResults([]); setLinkError(null) }}
+              className="flex items-center gap-2 text-sm text-zinc-400 hover:text-white transition-colors min-h-[36px]"
+            >
+              <UserPlus size={14} aria-hidden="true" />
+              {showLinkCustomer ? 'Cancel' : 'Link customer'}
+            </button>
+            {showLinkCustomer && (
+              <div className="mt-2 space-y-2">
+                <div className="relative">
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" aria-hidden="true" />
+                  <input
+                    type="tel"
+                    placeholder="Search by mobile…"
+                    value={linkMobileSearch}
+                    onChange={(e) => { setLinkMobileSearch(e.target.value) }}
+                    className="w-full pl-9 pr-4 py-2 rounded-xl bg-zinc-800 text-white border border-zinc-600 focus:border-indigo-500 focus:outline-none text-sm placeholder:text-zinc-500"
+                    autoFocus
+                  />
                 </div>
-              </div>
-            ) : (
-              <div>
-                <button
-                  type="button"
-                  onClick={() => { setShowLinkCustomer((v) => !v); setLinkMobileSearch(''); setLinkSearchResults([]); setLinkError(null) }}
-                  className="flex items-center gap-2 text-sm text-zinc-400 hover:text-white transition-colors min-h-[36px]"
-                >
-                  <UserPlus size={14} aria-hidden="true" />
-                  {showLinkCustomer ? 'Cancel' : 'Link customer'}
-                </button>
-                {showLinkCustomer && (
-                  <div className="mt-2 space-y-2">
-                    <div className="relative">
-                      <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" aria-hidden="true" />
-                      <input
-                        type="tel"
-                        placeholder="Search by mobile…"
-                        value={linkMobileSearch}
-                        onChange={(e) => { setLinkMobileSearch(e.target.value) }}
-                        className="w-full pl-9 pr-4 py-2 rounded-xl bg-zinc-800 text-white border border-zinc-600 focus:border-indigo-500 focus:outline-none text-sm placeholder:text-zinc-500"
-                        autoFocus
-                      />
-                    </div>
-                    {linkSearching && <p className="text-zinc-500 text-xs">Searching…</p>}
-                    {!linkSearching && linkSearchResults.length > 0 && (
-                      <ul className="space-y-1">
-                        {linkSearchResults.map((c) => (
-                          <li key={c.id}>
-                            <button
-                              type="button"
-                              onClick={() => { void handleLinkCustomer(c) }}
-                              className="w-full text-left px-3 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-sm text-white transition-colors"
-                            >
-                              <span className="font-semibold">{c.name ?? '—'}</span>
-                              <span className="text-zinc-400 ml-2">{c.mobile}</span>
-                              <span className="text-zinc-500 ml-2 text-xs">{c.visit_count} visit{c.visit_count !== 1 ? 's' : ''}</span>
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                    {!linkSearching && linkMobileSearch.trim().length >= 4 && linkSearchResults.length === 0 && (
-                      <p className="text-zinc-500 text-xs">No customers found</p>
-                    )}
-                    {linkError !== null && <p className="text-red-400 text-xs">{linkError}</p>}
-                  </div>
+                {linkSearching && <p className="text-zinc-500 text-xs">Searching…</p>}
+                {!linkSearching && linkSearchResults.length > 0 && (
+                  <ul className="space-y-1">
+                    {linkSearchResults.map((c) => (
+                      <li key={c.id}>
+                        <button
+                          type="button"
+                          onClick={() => { void handleLinkCustomer(c) }}
+                          className="w-full text-left px-3 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-sm text-white transition-colors"
+                        >
+                          <span className="font-semibold">{c.name ?? '—'}</span>
+                          <span className="text-zinc-400 ml-2">{c.mobile}</span>
+                          <span className="text-zinc-500 ml-2 text-xs">{c.visit_count} visit{c.visit_count !== 1 ? 's' : ''}</span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
                 )}
+                {!linkSearching && linkMobileSearch.trim().length >= 4 && linkSearchResults.length === 0 && (
+                  <p className="text-zinc-500 text-xs">No customers found</p>
+                )}
+                {linkError !== null && <p className="text-red-400 text-xs">{linkError}</p>}
               </div>
             )}
           </div>

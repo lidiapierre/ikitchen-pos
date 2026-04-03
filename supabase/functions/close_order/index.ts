@@ -400,33 +400,6 @@ export async function handler(
         const customerMobile = customerOrderRows[0]?.customer_mobile
         if (customerMobile) {
           const customerName = customerOrderRows[0]?.customer_name ?? null
-          // Use INSERT ... ON CONFLICT DO UPDATE via PostgREST upsert
-          const upsertPayload: Record<string, unknown> = {
-            restaurant_id: restaurantId,
-            mobile: customerMobile,
-            visit_count: 1,
-            total_spend_cents: finalTotal,
-            last_visit_at: new Date().toISOString(),
-          }
-          if (customerName) {
-            upsertPayload['name'] = customerName
-          }
-          await fetchFn(
-            `${supabaseUrl}/rest/v1/customers?on_conflict=restaurant_id,mobile`,
-            {
-              method: 'POST',
-              headers: {
-                ...dbHeaders,
-                Prefer: 'resolution=merge-duplicates,return=minimal',
-              },
-              // For merge-duplicates, PostgREST does a full replace — we need a DB-side increment.
-              // Use an RPC for the atomic upsert/increment.
-              body: JSON.stringify(upsertPayload),
-            },
-          ).catch(() => {
-            // Non-fatal: best-effort
-          })
-
           // Atomically increment visit_count and total_spend_cents via RPC.
           // The function now returns the customer UUID so we can link orders.customer_id.
           const visitRpcRes = await fetchFn(

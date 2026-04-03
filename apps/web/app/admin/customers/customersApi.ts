@@ -64,7 +64,7 @@ export async function fetchCustomerOrdersById(
   accessToken: string,
   customerId: string,
 ): Promise<CustomerOrder[]> {
-  const url = `${supabaseUrl}/rest/v1/orders?customer_id=eq.${encodeURIComponent(customerId)}&select=id,order_type,status,created_at,final_total_cents,bill_number,table_id&order=created_at.desc&limit=20`
+  const url = `${supabaseUrl}/rest/v1/orders?customer_id=eq.${encodeURIComponent(customerId)}&status=in.(paid,pending_payment)&select=id,order_type,status,created_at,final_total_cents,bill_number,table_id&order=created_at.desc&limit=20`
   const res = await fetch(url, {
     headers: { apikey: publishableKey, Authorization: `Bearer ${accessToken}` },
   })
@@ -86,7 +86,7 @@ export async function fetchCustomerOrdersById(
     bill_number: r.bill_number,
     order_type: r.order_type,
     table_id: r.table_id,
-    total_cents: r.final_total_cents,
+    total_cents: null,
   }))
 }
 

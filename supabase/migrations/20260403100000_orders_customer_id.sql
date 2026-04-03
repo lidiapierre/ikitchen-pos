@@ -1,7 +1,7 @@
 -- Migration: add customer_id FK to orders, update upsert_customer_visit to return UUID (issue #276)
 --
 -- Rollback:
---   DROP INDEX IF EXISTS orders_customer_id_idx;
+--   DROP INDEX IF EXISTS idx_orders_customer_id;
 --   ALTER TABLE orders DROP COLUMN IF EXISTS customer_id;
 --   Restore upsert_customer_visit to RETURNS VOID.
 
@@ -9,7 +9,7 @@
 ALTER TABLE orders
   ADD COLUMN IF NOT EXISTS customer_id UUID REFERENCES customers(id) ON DELETE SET NULL;
 
-CREATE INDEX IF NOT EXISTS orders_customer_id_idx ON orders(customer_id);
+CREATE INDEX IF NOT EXISTS idx_orders_customer_id ON orders(customer_id);
 
 -- Part 2: Replace upsert_customer_visit to return the customer's UUID
 -- (so close_order can immediately PATCH orders.customer_id)

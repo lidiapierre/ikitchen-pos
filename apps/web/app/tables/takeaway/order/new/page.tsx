@@ -17,12 +17,14 @@ import { ShoppingBag } from 'lucide-react'
  */
 export default function NewTakeawayOrderPage(): JSX.Element {
   const router = useRouter()
-  const { accessToken: _at } = useUser(); const accessToken = _at ?? ''
+  const { accessToken: _at } = useUser()
+  // _at === null means auth is still loading; wait before firing.
+  const accessToken = _at ?? ''
   const [error, setError] = useState<string | null>(null)
   const hasFired = useRef(false)
 
   useEffect(() => {
-    if (accessToken === null) return
+    if (_at === null) return
     if (hasFired.current) return
     hasFired.current = true
 

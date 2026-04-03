@@ -131,6 +131,7 @@ export default function TablesPage(): JSX.Element {
       customerName: deliveryCustomerName.trim(),
       ...(deliveryNote.trim() ? { deliveryNote: deliveryNote.trim() } : {}),
     })
+    setCreateOrderError(null)
     setShowDeliveryModal(false)
     setDeliveryCustomerName('')
     setDeliveryNote('')

@@ -1,7 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import NewDeliveryOrderPage from './page'
+// Import the client component directly — page.tsx is a thin Suspense wrapper
+// that doesn't need to be tested here.
+import NewDeliveryOrderClient from './NewDeliveryOrderClient'
 
 const mockReplace = vi.fn()
 const mockSearchParamsGet = vi.fn()
@@ -47,7 +49,7 @@ describe('NewDeliveryOrderPage', () => {
       const { callCreateOrder } = await import('../../../components/createOrderApi')
       vi.mocked(callCreateOrder).mockReturnValue(new Promise(() => { /* never resolves */ }))
 
-      render(<NewDeliveryOrderPage />)
+      render(<NewDeliveryOrderClient />)
 
       // Order page chrome is immediately visible
       expect(screen.getByRole('heading', { name: 'Order', level: 1 })).toBeInTheDocument()
@@ -66,7 +68,7 @@ describe('NewDeliveryOrderPage', () => {
       const { callCreateOrder } = await import('../../../components/createOrderApi')
       vi.mocked(callCreateOrder).mockResolvedValue({ order_id: 'delivery-order-xyz' })
 
-      render(<NewDeliveryOrderPage />)
+      render(<NewDeliveryOrderClient />)
 
       await waitFor(() => {
         expect(mockReplace).toHaveBeenCalledWith('/tables/delivery/order/delivery-order-xyz')
@@ -77,7 +79,7 @@ describe('NewDeliveryOrderPage', () => {
       const { callCreateOrder } = await import('../../../components/createOrderApi')
       vi.mocked(callCreateOrder).mockResolvedValue({ order_id: 'delivery-order-xyz' })
 
-      render(<NewDeliveryOrderPage />)
+      render(<NewDeliveryOrderClient />)
 
       await waitFor(() => {
         expect(callCreateOrder).toHaveBeenCalledWith(
@@ -103,7 +105,7 @@ describe('NewDeliveryOrderPage', () => {
       const { callCreateOrder } = await import('../../../components/createOrderApi')
       vi.mocked(callCreateOrder).mockResolvedValue({ order_id: 'delivery-order-xyz' })
 
-      render(<NewDeliveryOrderPage />)
+      render(<NewDeliveryOrderClient />)
 
       await waitFor(() => {
         expect(callCreateOrder).toHaveBeenCalledWith(
@@ -121,7 +123,7 @@ describe('NewDeliveryOrderPage', () => {
       const { callCreateOrder } = await import('../../../components/createOrderApi')
       vi.mocked(callCreateOrder).mockRejectedValue(new Error('Failed to create delivery order'))
 
-      render(<NewDeliveryOrderPage />)
+      render(<NewDeliveryOrderClient />)
 
       await waitFor(() => {
         expect(screen.getByText('Failed to create delivery order')).toBeInTheDocument()
@@ -133,7 +135,7 @@ describe('NewDeliveryOrderPage', () => {
       const { callCreateOrder } = await import('../../../components/createOrderApi')
       vi.mocked(callCreateOrder).mockRejectedValue(new Error('Network error'))
 
-      render(<NewDeliveryOrderPage />)
+      render(<NewDeliveryOrderClient />)
 
       await waitFor(() => {
         expect(screen.getByRole('button', { name: /go back to tables/i })).toBeInTheDocument()
@@ -147,7 +149,7 @@ describe('NewDeliveryOrderPage', () => {
       const { callCreateOrder } = await import('../../../components/createOrderApi')
       vi.mocked(callCreateOrder).mockRejectedValue(new Error('create_order failed: 500'))
 
-      render(<NewDeliveryOrderPage />)
+      render(<NewDeliveryOrderClient />)
 
       await waitFor(() => {
         expect(screen.queryByRole('status', { name: 'Creating order…' })).not.toBeInTheDocument()
@@ -164,7 +166,7 @@ describe('NewDeliveryOrderPage', () => {
       const { callCreateOrder } = await import('../../../components/createOrderApi')
       vi.mocked(callCreateOrder).mockResolvedValue({ order_id: 'should-not-reach' })
 
-      render(<NewDeliveryOrderPage />)
+      render(<NewDeliveryOrderClient />)
 
       await waitFor(() => {
         expect(screen.getByText('Customer name is required for delivery orders')).toBeInTheDocument()

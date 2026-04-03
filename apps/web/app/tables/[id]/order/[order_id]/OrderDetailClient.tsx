@@ -1608,19 +1608,19 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
   // Paid read-only view (for orders already paid when navigated to directly)
   if (!statusLoading && orderIsPaid && step === 'order') {
     return (
-      <main className="min-h-screen bg-zinc-900 p-6 flex flex-col">
+      <main className="min-h-screen bg-brand-offwhite p-6 flex flex-col">
         <Link
           href="/tables"
-          className="inline-flex items-center gap-2 text-zinc-400 hover:text-white text-base mb-8 min-h-[48px] min-w-[48px]"
+          className="inline-flex items-center gap-2 text-brand-blue hover:text-brand-navy text-base mb-8 min-h-[48px] min-w-[48px] font-medium"
         >
           ← Back to tables
         </Link>
 
         <header className="mb-6">
-          <h1 className="text-2xl font-bold text-white mb-4">Order</h1>
+          <h1 className="text-2xl font-bold text-brand-navy mb-4 font-heading">Order</h1>
           <div className="flex flex-wrap items-center gap-2 mb-4">
-            <div className="inline-flex items-center gap-2 bg-green-900/40 border border-green-700 rounded-xl px-4 py-2">
-              <span className="text-green-400 font-semibold text-base">Paid</span>
+            <div className="inline-flex items-center gap-2 bg-green-50 border border-green-400 rounded-xl px-4 py-2">
+              <span className="text-green-700 font-semibold text-base">Paid</span>
             </div>
             {orderType === 'takeaway' && (
               <div className="inline-flex items-center gap-2 bg-amber-900/40 border border-amber-700 rounded-xl px-4 py-2">
@@ -1666,7 +1666,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
         </header>
 
         <section className="flex-1">
-          <h2 className="text-lg font-semibold text-white mb-4">Items</h2>
+          <h2 className="text-lg font-semibold text-brand-navy mb-4">Items</h2>
           {renderReadOnlyItems()}
         </section>
 
@@ -1689,7 +1689,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
   }
 
   return (
-    <main className="min-h-screen bg-zinc-900 p-6 flex flex-col">
+    <main className="min-h-screen bg-brand-offwhite p-6 flex flex-col">
       {/* KOT print component — only marked as print-area when KOT is actively printing */}
       <div className={kotStatus !== null || reprintingKot || firingCourse !== null ? 'print-area' : ''}>
         <KotPrintView
@@ -2438,7 +2438,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
         type="button"
         onClick={() => { void handleBackToTables() }}
         disabled={kotStatus !== null}
-        className="inline-flex items-center gap-2 text-zinc-400 hover:text-white text-base mb-8 min-h-[48px] min-w-[48px] disabled:opacity-50 disabled:cursor-not-allowed"
+        className="inline-flex items-center gap-2 text-brand-blue hover:text-brand-navy text-base mb-8 min-h-[48px] min-w-[48px] font-medium disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {kotStatus !== null ? kotStatus : '← Back to tables'}
       </button>
@@ -2458,11 +2458,11 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
       )}
 
       <header className="mb-6">
-        <h1 className="text-2xl font-bold text-white mb-4">Order</h1>
+        <h1 className="text-2xl font-bold text-brand-navy mb-4 font-heading">Order</h1>
         <div className="flex flex-wrap items-center gap-2 mb-4">
           {orderIsComp && (
-            <div className="inline-flex items-center gap-2 bg-emerald-900/40 border border-emerald-700 rounded-xl px-4 py-2">
-              <span className="text-emerald-400 font-semibold text-base inline-flex items-center gap-1"><Star size={16} aria-hidden="true" />Complimentary Order</span>
+            <div className="inline-flex items-center gap-2 bg-emerald-50 border border-emerald-400 rounded-xl px-4 py-2">
+              <span className="text-emerald-700 font-semibold text-base inline-flex items-center gap-1"><Star size={16} aria-hidden="true" />Complimentary Order</span>
             </div>
           )}
           {orderType === 'takeaway' && (
@@ -2528,7 +2528,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
       </header>
 
       <section className="flex-1">
-        <h2 className="text-lg font-semibold text-white mb-4">Items</h2>
+        <h2 className="text-lg font-semibold text-brand-navy mb-4">Items</h2>
         {renderItems()}
       </section>
 
@@ -2547,7 +2547,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
             <div className="flex gap-4 mb-3">
               <Link
                 href={`/tables/${tableId}/order/${orderId}/menu`}
-                className="flex-1 inline-flex items-center justify-center min-h-[48px] min-w-[48px] px-6 rounded-xl border-2 border-zinc-600 text-white text-base font-semibold hover:border-zinc-400 transition-colors"
+                className="flex-1 inline-flex items-center justify-center min-h-[48px] min-w-[48px] px-6 rounded-xl border-2 border-brand-blue text-brand-navy text-base font-semibold hover:border-brand-navy hover:bg-brand-blue/10 transition-colors"
               >
                 Add Items
               </Link>
@@ -2574,8 +2574,8 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
                 className={[
                   'w-full min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold transition-colors mb-3',
                   reprintingKot
-                    ? 'bg-zinc-700 text-zinc-400 cursor-wait'
-                    : 'bg-zinc-700 hover:bg-zinc-600 text-white border-2 border-zinc-600',
+                    ? 'bg-brand-grey/30 text-brand-navy/50 cursor-wait'
+                    : 'bg-brand-navy hover:bg-brand-blue text-white border-2 border-brand-navy',
                 ].join(' ')}
               >
                 {reprintingKot ? 'Reprinting…' : <span className='inline-flex items-center gap-1'><PrinterIcon size={16} aria-hidden='true' />Reprint KOT</span>}

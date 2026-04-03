@@ -154,7 +154,7 @@ export default function MenuPageClient({ tableId, orderId }: MenuPageClientProps
       <div className="space-y-8">
         {categories.map((category) => (
           <section key={category.name}>
-            <h2 className="text-lg font-semibold text-zinc-300 mb-4">{category.name}</h2>
+            <h2 className="text-lg font-semibold text-brand-navy mb-4">{category.name}</h2>
             <div className="grid grid-cols-3 gap-4">
               {category.items.map((item) => (
                 <MenuItemCard
@@ -173,15 +173,15 @@ export default function MenuPageClient({ tableId, orderId }: MenuPageClientProps
   }
 
   return (
-    <main className="min-h-screen bg-zinc-900 p-6 flex flex-col">
+    <main className="min-h-screen bg-brand-offwhite p-6 flex flex-col">
       <header className="mb-6">
         <Link
           href={`/tables/${tableId}/order/${orderId}`}
-          className="inline-flex items-center gap-2 text-zinc-400 hover:text-white text-base mb-4 min-h-[48px] min-w-[48px]"
+          className="inline-flex items-center gap-2 text-brand-blue hover:text-brand-navy text-base mb-4 min-h-[48px] min-w-[48px] font-medium"
         >
           ← Back to order
         </Link>
-        <h1 className="text-2xl font-bold text-white">Menu</h1>
+        <h1 className="text-2xl font-bold text-brand-navy font-heading">Menu</h1>
       </header>
 
       <div className="mb-6 flex flex-col gap-3">
@@ -194,7 +194,7 @@ export default function MenuPageClient({ tableId, orderId }: MenuPageClientProps
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search items…"
             aria-label="Search menu items"
-            className="w-full bg-zinc-800 text-white placeholder-zinc-500 rounded-xl px-4 py-3 pr-10 text-base border border-zinc-700 focus:outline-none focus:border-amber-500 transition-colors"
+            className="w-full bg-white text-brand-navy placeholder-brand-grey rounded-xl px-4 py-3 pr-10 text-base border border-brand-grey focus:outline-none focus:border-brand-gold transition-colors"
           />
           {(searchQuery !== '' || filters.dietary !== '' || filters.allergenFree !== '') && (
             <button
@@ -268,7 +268,7 @@ export default function MenuPageClient({ tableId, orderId }: MenuPageClientProps
           ) : (
             <Link
               href={`/tables/${tableId}/order/${orderId}`}
-              className="inline-flex items-center justify-center min-h-[48px] min-w-[48px] px-8 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-base font-semibold transition-colors"
+              className="inline-flex items-center justify-center min-h-[48px] min-w-[48px] px-8 rounded-xl bg-brand-gold hover:bg-brand-gold/90 text-brand-navy text-base font-semibold transition-colors"
             >
               View Order
             </Link>

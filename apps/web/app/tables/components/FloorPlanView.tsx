@@ -177,7 +177,7 @@ export default function FloorPlanView({ tables }: Props): JSX.Element {
 
   if (configLoading) {
     return (
-      <div className="flex items-center justify-center py-12 text-zinc-400 text-base">
+      <div className="flex items-center justify-center py-12 text-brand-blue text-base">
         Loading floor plan…
       </div>
     )
@@ -192,8 +192,8 @@ export default function FloorPlanView({ tables }: Props): JSX.Element {
         className={[
           'flex-shrink-0 min-h-[40px] px-4 rounded-xl text-sm font-medium transition-colors border',
           selectedSectionId === null
-            ? 'bg-indigo-600 text-white border-indigo-500'
-            : 'bg-zinc-800 text-zinc-300 border-zinc-700 hover:bg-zinc-700',
+            ? 'bg-brand-navy text-white border-brand-navy'
+            : 'bg-white text-brand-navy border-brand-grey hover:border-brand-blue hover:bg-brand-offwhite',
         ].join(' ')}
       >
         All
@@ -208,8 +208,8 @@ export default function FloorPlanView({ tables }: Props): JSX.Element {
             className={[
               'flex-shrink-0 min-h-[40px] px-4 rounded-xl text-sm font-medium transition-colors border',
               isActive
-                ? 'bg-indigo-600 text-white border-indigo-500'
-                : 'bg-zinc-800 text-zinc-300 border-zinc-700 hover:bg-zinc-700',
+                ? 'bg-brand-navy text-white border-brand-navy'
+                : 'bg-white text-brand-navy border-brand-grey hover:border-brand-blue hover:bg-brand-offwhite',
             ].join(' ')}
           >
             {section.name}
@@ -225,8 +225,8 @@ export default function FloorPlanView({ tables }: Props): JSX.Element {
         className={[
           'flex-shrink-0 min-h-[40px] px-4 rounded-xl text-sm font-medium transition-colors border ml-auto',
           myTablesOnly
-            ? 'bg-amber-600 text-white border-amber-500'
-            : 'bg-zinc-800 text-zinc-300 border-zinc-700 hover:bg-zinc-700',
+            ? 'bg-brand-gold text-brand-navy border-brand-gold'
+            : 'bg-white text-brand-navy border-brand-grey hover:border-brand-gold hover:bg-brand-offwhite',
         ].join(' ')}
       >
         My Tables
@@ -243,12 +243,12 @@ export default function FloorPlanView({ tables }: Props): JSX.Element {
         cells.push(
           <div
             key={`empty-${c}-${r}`}
-            className="border border-zinc-800/40 aspect-square min-w-12"
+            className="aspect-square min-w-12 rounded-xl border border-brand-grey/70 bg-white/60"
           />,
         )
       } else {
         const status = getTableStatus(table)
-        const { label: statusLabel, cardClass } = STATUS_CONFIG[status]
+        const { label: statusLabel, cardClass, labelClass, badgeClass } = STATUS_CONFIG[status]
         const isLoading = tappingTableId === table.id
 
         cells.push(
@@ -258,18 +258,21 @@ export default function FloorPlanView({ tables }: Props): JSX.Element {
               disabled={isLoading}
               onClick={() => { void handleTableTap(table) }}
               className={[
-                'rounded-xl border-2 w-full h-full',
+                'rounded-xl border-2 w-full h-full px-1 py-1.5',
                 'flex flex-col items-center justify-center',
-                'transition-colors select-none',
+                'transition-colors select-none shadow-sm',
                 isLoading ? 'opacity-60 cursor-wait' : '',
                 cardClass,
               ].join(' ')}
             >
-              <span className="text-white font-bold text-sm leading-tight">
+              <span className={["font-bold text-sm leading-tight", labelClass].join(' ')}>
                 {table.label}
               </span>
-              <span className="text-white text-xs mt-0.5 opacity-80">
-                {isLoading ? '…' : statusLabel}
+              <span className={[
+                'mt-1 rounded-full px-2 py-0.5 text-[11px] font-semibold border',
+                badgeClass,
+              ].join(' ')}>
+                {isLoading ? 'Loading' : statusLabel}
               </span>
             </button>
           </div>,
@@ -285,13 +288,13 @@ export default function FloorPlanView({ tables }: Props): JSX.Element {
       {/* Section header when filtered */}
       {activeSection && (
         <div className="flex items-center gap-3 mb-3">
-          <h2 className="text-lg font-bold text-white">{activeSection.name}</h2>
+          <h2 className="text-lg font-bold text-brand-navy">{activeSection.name}</h2>
           {activeSection.assigned_server_name && (
-            <span className="text-sm bg-indigo-600/30 text-indigo-300 border border-indigo-700 rounded-full px-2.5 py-0.5">
+            <span className="text-sm bg-brand-blue/15 text-brand-navy border border-brand-blue rounded-full px-2.5 py-0.5">
               {activeSection.assigned_server_name}
             </span>
           )}
-          <span className="text-xs text-zinc-500">{activeSection.grid_cols}×{activeSection.grid_rows}</span>
+          <span className="text-xs text-brand-grey">{activeSection.grid_cols}×{activeSection.grid_rows}</span>
         </div>
       )}
 
@@ -299,10 +302,10 @@ export default function FloorPlanView({ tables }: Props): JSX.Element {
         <p className="text-red-400 text-sm mb-3">{tapError}</p>
       )}
 
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto rounded-3xl border border-brand-grey/80 bg-brand-offwhite/80 p-3 shadow-inner">
         <div
-          className="grid"
-          style={{ gridTemplateColumns: `repeat(${displayCols}, 1fr)` }}
+          className="grid gap-1"
+          style={{ gridTemplateColumns: `repeat(${displayCols}, minmax(3rem, 1fr))` }}
         >
           {cells}
         </div>

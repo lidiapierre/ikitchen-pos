@@ -13,7 +13,7 @@ export default function TableCard({ table }: TableCardProps): JSX.Element {
   const router = useRouter()
 
   const status = getTableStatus(table)
-  const { label: statusLabel, cardClass, badgeClass } = STATUS_CONFIG[status]
+  const { label: statusLabel, cardClass, badgeClass, labelClass } = STATUS_CONFIG[status]
   const isOccupied = table.open_order_id !== null
 
   function handleTap(): void {
@@ -37,7 +37,7 @@ export default function TableCard({ table }: TableCardProps): JSX.Element {
         cardClass,
       ].join(' ')}
     >
-      <span className="text-3xl font-bold text-white">
+      <span className={['text-3xl font-bold', labelClass].join(' ')}>
         {table.label}
       </span>
       <span

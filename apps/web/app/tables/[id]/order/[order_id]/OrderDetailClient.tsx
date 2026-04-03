@@ -1661,7 +1661,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
             {paidPaymentMethod !== null && (
               <div className="flex gap-3">
                 <dt className="text-zinc-500">Payment method</dt>
-                <dd className="font-semibold text-white capitalize">{paidPaymentMethod}</dd>
+                <dd className="font-semibold text-white">{PAYMENT_METHOD_LABELS[paidPaymentMethod as PaymentMethod] ?? paidPaymentMethod}</dd>
               </div>
             )}
           </dl>
@@ -2850,7 +2850,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
             <div className="mb-2 text-green-400 flex justify-center"><CheckCircle2 size={64} aria-hidden="true" /></div>
             <h2 className="text-2xl font-bold text-green-400">Payment recorded — order closed</h2>
             {confirmedPaymentMethod !== null && (
-              <p className="text-zinc-400 text-base capitalize">Paid by {confirmedPaymentMethod}</p>
+              <p className="text-zinc-400 text-base">Paid by {PAYMENT_METHOD_LABELS[confirmedPaymentMethod as PaymentMethod] ?? confirmedPaymentMethod}</p>
             )}
             <button
               type="button"

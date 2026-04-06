@@ -662,7 +662,7 @@ export default function PricingManager(): JSX.Element {
           <button
             onClick={() => { void handleSaveServiceChargeApply() }}
             disabled={savingServiceChargeApply || !restaurantId}
-            className="mt-3 min-h-[44px] px-5 py-2 rounded-xl bg-brand-navy text-white text-sm font-medium hover:bg-brand-blue transition-colors disabled:opacity-50"
+            className="mt-3 min-h-[48px] px-5 py-2 rounded-xl bg-brand-navy text-white text-sm font-medium hover:bg-brand-blue transition-colors disabled:opacity-50"
           >
             {savingServiceChargeApply ? 'Saving…' : 'Save order type settings'}
           </button>

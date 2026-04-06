@@ -89,7 +89,7 @@ describe('OrderDetailClient', () => {
     const { fetchOrderItems } = await import('./orderData')
     vi.mocked(fetchOrderItems).mockResolvedValue(mockItems)
     const { fetchOrderSummary } = await import('./orderData')
-    vi.mocked(fetchOrderSummary).mockResolvedValue({ status: 'open', payment_method: null, order_type: 'dine_in', customer_name: null, delivery_note: null, customer_mobile: null, bill_number: null, reservation_id: null, customer_id: null, order_number: null, scheduled_time: null })
+    vi.mocked(fetchOrderSummary).mockResolvedValue({ status: 'open', payment_method: null, order_type: 'dine_in', customer_name: null, delivery_note: null, customer_mobile: null, bill_number: null, reservation_id: null, customer_id: null, order_number: null, scheduled_time: null, delivery_zone_name: null, delivery_charge: 0 })
   })
 
   afterEach((): void => {
@@ -183,7 +183,18 @@ describe('OrderDetailClient', () => {
     expect(btn.className).toContain('min-h-[48px]')
   })
 
-  it('shows "Closing…" and disables the button while the API call is in progress', async (): Promise<void> => {
+  it('clicking Close Order shows the bill preview screen', async (): Promise<void> => {
+    render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
+
+    await screen.findByText('Bruschetta')
+    fireEvent.click(screen.getByRole('button', { name: 'Close Order' }))
+
+    await waitFor((): void => {
+      expect(screen.getByText('Bill Preview')).toBeInTheDocument()
+    })
+  })
+
+  it('shows "Processing…" and disables the button while Proceed to Payment API call is in progress', async (): Promise<void> => {
     const { callCloseOrder } = await import('./closeOrderApi')
     vi.mocked(callCloseOrder).mockImplementation(
       (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 100)),
@@ -191,20 +202,34 @@ describe('OrderDetailClient', () => {
 
     render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
 
+    await screen.findByText('Bruschetta')
     fireEvent.click(screen.getByRole('button', { name: 'Close Order' }))
+    await waitFor((): void => {
+      expect(screen.getByText('Bill Preview')).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Proceed to Payment' }))
 
     await waitFor((): void => {
-      expect(screen.getByRole('button', { name: 'Closing…' })).toBeDisabled()
+      expect(screen.getByRole('button', { name: 'Processing…' })).toBeDisabled()
     })
   })
 
-  it('shows payment step after order is closed successfully', async (): Promise<void> => {
+  it('shows bill preview after clicking Close Order, then payment step after Proceed to Payment', async (): Promise<void> => {
     const { callCloseOrder } = await import('./closeOrderApi')
     vi.mocked(callCloseOrder).mockResolvedValue(undefined)
 
     render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
 
+    await screen.findByText('Bruschetta')
     fireEvent.click(screen.getByRole('button', { name: 'Close Order' }))
+
+    await waitFor((): void => {
+      expect(screen.getByText('Bill Preview')).toBeInTheDocument()
+    })
+    expect(mockPush).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Proceed to Payment' }))
 
     await waitFor((): void => {
       expect(screen.getByText('Record Payment')).toBeInTheDocument()
@@ -212,41 +237,125 @@ describe('OrderDetailClient', () => {
     expect(mockPush).not.toHaveBeenCalled()
   })
 
-  it('shows an error message when the close order API call fails', async (): Promise<void> => {
+  it('shows an error message when the close order API call fails (from bill preview)', async (): Promise<void> => {
     const { callCloseOrder } = await import('./closeOrderApi')
     vi.mocked(callCloseOrder).mockRejectedValue(new Error('Order has no items'))
 
     render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
 
+    await screen.findByText('Bruschetta')
     fireEvent.click(screen.getByRole('button', { name: 'Close Order' }))
+    await waitFor((): void => {
+      expect(screen.getByText('Bill Preview')).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Proceed to Payment' }))
 
     await waitFor((): void => {
       expect(screen.getByText('Order has no items')).toBeInTheDocument()
     })
   })
 
-  it('re-enables the Close Order button after an error', async (): Promise<void> => {
+  it('re-enables the Proceed to Payment button after an error', async (): Promise<void> => {
     const { callCloseOrder } = await import('./closeOrderApi')
     vi.mocked(callCloseOrder).mockRejectedValue(new Error('Server error'))
 
     render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
 
+    await screen.findByText('Bruschetta')
     fireEvent.click(screen.getByRole('button', { name: 'Close Order' }))
+    await waitFor((): void => {
+      expect(screen.getByText('Bill Preview')).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Proceed to Payment' }))
 
     await waitFor((): void => {
-      expect(screen.getByRole('button', { name: 'Close Order' })).not.toBeDisabled()
+      expect(screen.getByRole('button', { name: 'Proceed to Payment' })).not.toBeDisabled()
     })
   })
 
-  it('shows "API not configured" error when Supabase env vars are absent', async (): Promise<void> => {
+  it('shows "API not configured" error on bill preview when Supabase env vars are absent', async (): Promise<void> => {
     vi.unstubAllEnvs()
 
     render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
 
+    await screen.findByText('Bruschetta')
     fireEvent.click(screen.getByRole('button', { name: 'Close Order' }))
+    await waitFor((): void => {
+      expect(screen.getByText('Bill Preview')).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Proceed to Payment' }))
 
     await waitFor((): void => {
-      expect(screen.getAllByText('API not configured').length).toBeGreaterThanOrEqual(1)
+      expect(screen.getAllByText('Not authenticated').length).toBeGreaterThanOrEqual(1)
+    })
+  })
+
+  describe('bill preview', () => {
+    async function openBillPreview(): Promise<void> {
+      await screen.findByText('Bruschetta')
+      fireEvent.click(screen.getByRole('button', { name: 'Close Order' }))
+      await waitFor((): void => {
+        expect(screen.getByText('Bill Preview')).toBeInTheDocument()
+      })
+    }
+
+    it('bill preview shows all item names', async (): Promise<void> => {
+      render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
+      await openBillPreview()
+
+      expect(screen.getAllByText('Bruschetta').length).toBeGreaterThanOrEqual(1)
+      expect(screen.getAllByText('Grilled Salmon').length).toBeGreaterThanOrEqual(1)
+      expect(screen.getAllByText('House Wine').length).toBeGreaterThanOrEqual(1)
+    })
+
+    it('bill preview shows item quantities', async (): Promise<void> => {
+      render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
+      await openBillPreview()
+
+      // Bruschetta ×2, House Wine ×2
+      const times2 = screen.getAllByText('×2')
+      expect(times2.length).toBeGreaterThanOrEqual(2)
+      // Grilled Salmon ×1
+      expect(screen.getAllByText('×1').length).toBeGreaterThanOrEqual(1)
+    })
+
+    it('bill preview shows the grand total', async (): Promise<void> => {
+      render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
+      await openBillPreview()
+
+      // Grand Total heading and total value should be visible
+      expect(screen.getByText('Grand Total')).toBeInTheDocument()
+    })
+
+    it('bill preview Back button returns to order screen', async (): Promise<void> => {
+      render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
+      await openBillPreview()
+
+      fireEvent.click(screen.getByRole('button', { name: '← Back' }))
+
+      await waitFor((): void => {
+        expect(screen.getByRole('button', { name: 'Close Order' })).toBeInTheDocument()
+      })
+      expect(screen.queryByText('Bill Preview')).not.toBeInTheDocument()
+    })
+
+    it('bill preview Proceed to Payment button has minimum 48px touch target', async (): Promise<void> => {
+      render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
+      await openBillPreview()
+
+      const btn = screen.getByRole('button', { name: 'Proceed to Payment' })
+      expect(btn.className).toContain('min-h-[48px]')
+    })
+
+    it('bill preview Back button has minimum 48px touch target', async (): Promise<void> => {
+      render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
+      await openBillPreview()
+
+      const btn = screen.getByRole('button', { name: '← Back' })
+      expect(btn.className).toContain('min-h-[48px]')
     })
   })
 
@@ -562,7 +671,12 @@ describe('OrderDetailClient', () => {
     async function openPaymentStep(): Promise<void> {
       const { callCloseOrder } = await import('./closeOrderApi')
       vi.mocked(callCloseOrder).mockResolvedValue(undefined)
+      await screen.findByText('Bruschetta')
       fireEvent.click(screen.getByRole('button', { name: 'Close Order' }))
+      await waitFor((): void => {
+        expect(screen.getByText('Bill Preview')).toBeInTheDocument()
+      })
+      fireEvent.click(screen.getByRole('button', { name: 'Proceed to Payment' }))
       await waitFor((): void => {
         expect(screen.getByText('Record Payment')).toBeInTheDocument()
       })

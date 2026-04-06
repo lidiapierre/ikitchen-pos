@@ -83,7 +83,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
   const [items, setItems] = useState<OrderItem[]>([])
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState<string | null>(null)
-  const [step, setStep] = useState<'order' | 'payment' | 'change' | 'success'>('order')
+  const [step, setStep] = useState<'order' | 'bill_preview' | 'payment' | 'change' | 'success'>('order')
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash')
   const [paying, setPaying] = useState(false)
   const [paymentError, setPaymentError] = useState<string | null>(null)
@@ -918,11 +918,28 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
       if (!supabaseUrl || !accessToken) {
         throw new Error('Not authenticated')
       }
-      // Empty order — cancel directly, no payment needed
+      // Empty order — cancel directly, no preview or payment needed
       if (items.length === 0) {
         await callCancelOrder(supabaseUrl, accessToken, orderId, 'Empty order — no items added')
         router.push('/tables')
         return
+      }
+      // Non-empty order — show bill preview before proceeding to payment
+      setStep('bill_preview')
+    } catch (err) {
+      setCloseError(err instanceof Error ? err.message : 'Failed to close order')
+    } finally {
+      setClosing(false)
+    }
+  }
+
+  async function handleProceedToPayment(): Promise<void> {
+    setCloseError(null)
+    setClosing(true)
+    try {
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+      if (!supabaseUrl || !accessToken) {
+        throw new Error('Not authenticated')
       }
       await callCloseOrder(supabaseUrl, accessToken, orderId)
       setStep('payment')
@@ -2807,7 +2824,159 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
           )}
         </div>
 
-        {step === 'order' && !statusLoading ? (
+        {step === 'bill_preview' ? (
+          <div className="space-y-5">
+            <h2 className="text-xl font-semibold text-white">Bill Preview</h2>
+
+            {/* Order meta */}
+            <div className="bg-zinc-800 rounded-xl px-4 py-3 text-sm space-y-1.5">
+              {orderNumber !== null && (
+                <div className="flex justify-between text-zinc-300">
+                  <span className="text-zinc-400">Order</span>
+                  <span className="font-bold text-amber-400">#{String(orderNumber).padStart(3, '0')}</span>
+                </div>
+              )}
+              {orderType === 'dine_in' && tableLabel && (
+                <div className="flex justify-between text-zinc-300">
+                  <span className="text-zinc-400">Table</span>
+                  <span className="font-semibold">{tableLabel}</span>
+                </div>
+              )}
+              {orderType === 'takeaway' && (
+                <div className="flex justify-between text-zinc-300">
+                  <span className="text-zinc-400">Type</span>
+                  <span className="font-semibold text-amber-400 inline-flex items-center gap-1"><ShoppingBag size={14} aria-hidden="true" />Takeaway</span>
+                </div>
+              )}
+              {orderType === 'delivery' && (
+                <div className="flex justify-between text-zinc-300">
+                  <span className="text-zinc-400">Type</span>
+                  <span className="font-semibold text-blue-400 inline-flex items-center gap-1"><Bike size={14} aria-hidden="true" />Delivery</span>
+                </div>
+              )}
+              {orderType === 'delivery' && orderCustomerName && (
+                <div className="flex justify-between text-zinc-300">
+                  <span className="text-zinc-400">Customer</span>
+                  <span className="font-semibold">{orderCustomerName}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Items */}
+            <div className="space-y-1">
+              <p className="text-zinc-400 text-sm font-semibold uppercase tracking-wider mb-2">Items</p>
+              <ul className="space-y-1.5">
+                {items.map((item) => {
+                  const isComp = item.comp || orderIsComp
+                  const grossCents = item.quantity * item.price_cents
+                  const itemDiscountCents = isComp ? 0 : calcItemDiscountCents(item)
+                  const lineCents = grossCents - itemDiscountCents
+                  return (
+                    <li key={item.id} className="bg-zinc-800 rounded-xl px-4 py-3 text-sm">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className={['font-medium text-white flex-1', isComp ? 'line-through' : ''].join(' ')}>
+                          {item.name}
+                          {isComp && <span className="ml-2 text-xs font-bold text-emerald-400 not-italic" style={{ textDecoration: 'none' }}>COMP</span>}
+                        </span>
+                        <span className="text-zinc-400">×{item.quantity}</span>
+                        <span className="text-zinc-400">{formatPrice(item.price_cents, currencySymbol)}</span>
+                        {isComp ? (
+                          <span className="text-emerald-400 italic text-xs">Free</span>
+                        ) : (
+                          <span className="font-bold text-amber-400">{formatPrice(lineCents, currencySymbol)}</span>
+                        )}
+                      </div>
+                      {item.modifier_names.length > 0 && (
+                        <ul className="mt-1 pl-2 space-y-0.5">
+                          {item.modifier_names.map((modName) => (
+                            <li key={modName} className="text-xs text-zinc-500">+ {modName}</li>
+                          ))}
+                        </ul>
+                      )}
+                      {item.notes && (
+                        <p className="mt-1 pl-2 text-xs text-zinc-500 italic">↳ {item.notes}</p>
+                      )}
+                    </li>
+                  )
+                })}
+              </ul>
+            </div>
+
+            {/* Totals breakdown */}
+            <div className="bg-zinc-800 rounded-xl px-4 py-3 text-sm space-y-1.5">
+              <div className="flex justify-between text-zinc-400">
+                <span>Subtotal</span>
+                <span>{formatPrice(billSubtotalCents, currencySymbol)}</span>
+              </div>
+              {appliedDiscountCents > 0 && (
+                <div className="flex justify-between text-emerald-400">
+                  <span>Discount{appliedDiscountLabel ? ` (${appliedDiscountLabel})` : ''}</span>
+                  <span>-{formatPrice(appliedDiscountCents, currencySymbol)}</span>
+                </div>
+              )}
+              {serviceChargePercent > 0 && billServiceChargeCents > 0 && !orderIsComp && (
+                <div className="flex justify-between text-zinc-400">
+                  <span>Service Charge ({serviceChargePercent}%)</span>
+                  <span>{formatPrice(billServiceChargeCents, currencySymbol)}</span>
+                </div>
+              )}
+              {billVatCents > 0 && (
+                <div className="flex justify-between text-zinc-400">
+                  <span>VAT {vatPercent}%{taxInclusive ? ' (incl.)' : ''}</span>
+                  <span>{formatPrice(billVatCents, currencySymbol)}</span>
+                </div>
+              )}
+              {billDeliveryChargeCents > 0 && (
+                <div className="flex justify-between text-zinc-400">
+                  <span>Delivery Charge{orderDeliveryZoneName ? ` (${orderDeliveryZoneName})` : ''}</span>
+                  <span>{formatPrice(billDeliveryChargeCents, currencySymbol)}</span>
+                </div>
+              )}
+              {orderIsComp && (
+                <div className="flex justify-between text-emerald-400 font-semibold">
+                  <span className="inline-flex items-center gap-1"><Star size={14} aria-hidden="true" />Complimentary</span>
+                  <span>COMP</span>
+                </div>
+              )}
+              <div className="flex justify-between font-bold text-white border-t border-zinc-700 pt-1.5 mt-1 text-base">
+                <span>Grand Total</span>
+                {orderIsComp ? (
+                  <span className="text-emerald-400">COMPLIMENTARY</span>
+                ) : (
+                  <span>{formatPrice(billTotalCents, currencySymbol)}</span>
+                )}
+              </div>
+            </div>
+
+            {closeError !== null && (
+              <p className="text-base text-red-400">{closeError}</p>
+            )}
+
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => { setStep('order'); setCloseError(null) }}
+                disabled={closing}
+                className="flex-1 min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold border-2 border-zinc-600 text-zinc-300 hover:border-zinc-400 transition-colors disabled:opacity-50"
+              >
+                ← Back
+              </button>
+              <button
+                type="button"
+                onClick={() => { void handleProceedToPayment() }}
+                disabled={closing}
+                className={[
+                  'flex-1 min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold transition-colors',
+                  closing
+                    ? 'bg-zinc-700 text-zinc-400 cursor-wait'
+                    : 'bg-amber-500 hover:bg-amber-400 text-zinc-900',
+                ].join(' ')}
+              >
+                {closing ? 'Processing…' : 'Proceed to Payment'}
+              </button>
+            </div>
+          </div>
+        ) : step === 'order' && !statusLoading ? (
           <>
             <div className="flex gap-4 mb-3">
               <Link

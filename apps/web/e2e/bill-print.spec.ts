@@ -163,6 +163,8 @@ test.describe('Print Bill button', () => {
     await expect(page.getByText('Chicken Karahi', { exact: true }).last()).toBeVisible();
 
     await page.getByRole('button', { name: 'Close Order' }).click();
+    await expect(page.getByText('Bill Preview')).toBeVisible();
+    await page.getByRole('button', { name: 'Proceed to Payment' }).click();
     await expect(page.getByText('Record Payment')).toBeVisible();
 
     await expect(page.getByRole('button', { name: /Print Bill/i })).toBeVisible();
@@ -177,6 +179,8 @@ test.describe('Print Bill button', () => {
     await expect(page.getByText('Chicken Karahi', { exact: true }).last()).toBeVisible();
 
     await page.getByRole('button', { name: 'Close Order' }).click();
+    await expect(page.getByText('Bill Preview')).toBeVisible();
+    await page.getByRole('button', { name: 'Proceed to Payment' }).click();
     await expect(page.getByText('Record Payment')).toBeVisible();
     await page.getByRole('button', { name: 'Card' }).click();
     await page.getByRole('button', { name: /Confirm Payment/ }).click();
@@ -191,6 +195,8 @@ test.describe('Print Bill button', () => {
     await expect(page.getByText('Chicken Karahi', { exact: true }).last()).toBeVisible();
 
     await page.getByRole('button', { name: 'Close Order' }).click();
+    await expect(page.getByText('Bill Preview')).toBeVisible();
+    await page.getByRole('button', { name: 'Proceed to Payment' }).click();
     await expect(page.getByText('Record Payment')).toBeVisible();
 
     const box = await page.getByRole('button', { name: /Print Bill/i }).boundingBox();
@@ -205,6 +211,8 @@ test.describe('Print Bill button', () => {
     await expect(page.getByText('Chicken Karahi', { exact: true }).last()).toBeVisible();
 
     await page.getByRole('button', { name: 'Close Order' }).click();
+    await expect(page.getByText('Bill Preview')).toBeVisible();
+    await page.getByRole('button', { name: 'Proceed to Payment' }).click();
     await expect(page.getByText('Record Payment')).toBeVisible();
 
     await page.getByRole('button', { name: /Print Bill/i }).click();

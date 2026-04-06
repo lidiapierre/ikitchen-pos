@@ -153,6 +153,8 @@ test.describe('Print Bill flow', () => {
 
     // Advance to payment step
     await page.getByRole('button', { name: 'Close Order' }).click();
+    await expect(page.getByText('Bill Preview')).toBeVisible();
+    await page.getByRole('button', { name: 'Proceed to Payment' }).click();
     await expect(page.getByText('Record Payment')).toBeVisible();
 
     // Print Bill must be visible before payment is recorded
@@ -171,6 +173,8 @@ test.describe('Print Bill flow', () => {
 
     // Close order → card payment → success
     await page.getByRole('button', { name: 'Close Order' }).click();
+    await expect(page.getByText('Bill Preview')).toBeVisible();
+    await page.getByRole('button', { name: 'Proceed to Payment' }).click();
     await expect(page.getByText('Record Payment')).toBeVisible();
 
     await page.getByRole('button', { name: 'Card' }).click();
@@ -193,6 +197,8 @@ test.describe('Print Bill flow', () => {
     await expect(page.getByText('Special Platter', { exact: true }).last()).toBeVisible();
 
     await page.getByRole('button', { name: 'Close Order' }).click();
+    await expect(page.getByText('Bill Preview')).toBeVisible();
+    await page.getByRole('button', { name: 'Proceed to Payment' }).click();
     await expect(page.getByText('Record Payment')).toBeVisible();
 
     const printBtn = page.getByRole('button', { name: /Print Bill/i });
@@ -216,6 +222,8 @@ test.describe('Print Bill flow', () => {
     await expect(page.getByText('Special Platter', { exact: true }).last()).toBeVisible();
 
     await page.getByRole('button', { name: 'Close Order' }).click();
+    await expect(page.getByText('Bill Preview')).toBeVisible();
+    await page.getByRole('button', { name: 'Proceed to Payment' }).click();
     await expect(page.getByText('Record Payment')).toBeVisible();
 
     await page.getByRole('button', { name: 'Card' }).click();
@@ -239,6 +247,8 @@ test.describe('Print Bill flow', () => {
     await expect(page.getByText('Special Platter', { exact: true }).last()).toBeVisible();
 
     await page.getByRole('button', { name: 'Close Order' }).click();
+    await expect(page.getByText('Bill Preview')).toBeVisible();
+    await page.getByRole('button', { name: 'Proceed to Payment' }).click();
     await expect(page.getByText('Record Payment')).toBeVisible();
 
     const printBtn = page.getByRole('button', { name: /Print Bill/i });

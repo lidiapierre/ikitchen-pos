@@ -390,7 +390,15 @@ test('Flow 4: Payment flow - VAT breakdown and Print Bill', async ({ page }) => 
     console.log(`  All buttons on order page: ${btnTexts.filter(t => t.trim()).join(' | ')}`);
   }
 
-  await page.waitForTimeout(3000);
+  // If bill preview screen appeared, click "Proceed to Payment"
+  await page.waitForTimeout(1000);
+  const proceedBtn = page.locator('button:has-text("Proceed to Payment")');
+  if (await proceedBtn.count() > 0) {
+    console.log('  Bill preview detected — clicking Proceed to Payment');
+    await proceedBtn.click();
+  }
+
+  await page.waitForTimeout(2000);
   await ss(page, '04b-payment-step');
   console.log(`Payment URL: ${page.url()}`);
 

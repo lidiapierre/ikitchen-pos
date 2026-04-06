@@ -143,6 +143,8 @@ test.describe('post-payment completion flow', () => {
 
     // Close the order
     await page.getByRole('button', { name: 'Close Order' }).click();
+    await expect(page.getByText('Bill Preview')).toBeVisible();
+    await page.getByRole('button', { name: 'Proceed to Payment' }).click();
     await expect(page.getByText('Record Payment')).toBeVisible();
 
     // Select card payment and confirm
@@ -171,6 +173,8 @@ test.describe('post-payment completion flow', () => {
 
     // Close order
     await page.getByRole('button', { name: 'Close Order' }).click();
+    await expect(page.getByText('Bill Preview')).toBeVisible();
+    await page.getByRole('button', { name: 'Proceed to Payment' }).click();
     await expect(page.getByText('Record Payment')).toBeVisible();
 
     // Cash is default; enter tendered amount

@@ -64,6 +64,8 @@ export interface OrderSummary {
   reservation_id: string | null
   /** Linked customer UUID (issue #276) */
   customer_id: string | null
+  /** Short sequential numeric order number, resets daily per restaurant (issue #349) */
+  order_number: number | null
 }
 
 interface OrderItemRow {
@@ -207,7 +209,7 @@ export async function fetchOrderSummary(
 
   const orderUrl = new URL(`${supabaseUrl}/rest/v1/orders`)
   orderUrl.searchParams.set('id', `eq.${orderId}`)
-  orderUrl.searchParams.set('select', 'status,order_type,customer_name,delivery_note,customer_mobile,bill_number,reservation_id,customer_id')
+  orderUrl.searchParams.set('select', 'status,order_type,customer_name,delivery_note,customer_mobile,bill_number,reservation_id,customer_id,order_number')
 
   const orderRes = await fetch(orderUrl.toString(), { headers })
   if (!orderRes.ok) {
@@ -224,6 +226,7 @@ export async function fetchOrderSummary(
     bill_number: string | null
     reservation_id: string | null
     customer_id: string | null
+    order_number: number | null
   }>
   if (orders.length === 0) {
     throw new Error('Order not found')
@@ -237,6 +240,7 @@ export async function fetchOrderSummary(
   const billNumber = orders[0].bill_number ?? null
   const reservationId = orders[0].reservation_id ?? null
   const customerId = orders[0].customer_id ?? null
+  const orderNumber = orders[0].order_number ?? null
 
   if (status !== 'paid') {
     return {
@@ -249,6 +253,7 @@ export async function fetchOrderSummary(
       bill_number: billNumber,
       reservation_id: reservationId,
       customer_id: customerId,
+      order_number: orderNumber,
     }
   }
 
@@ -269,6 +274,7 @@ export async function fetchOrderSummary(
       bill_number: billNumber,
       reservation_id: reservationId,
       customer_id: customerId,
+      order_number: orderNumber,
     }
   }
 
@@ -283,5 +289,6 @@ export async function fetchOrderSummary(
     bill_number: billNumber,
     reservation_id: reservationId,
     customer_id: customerId,
+    order_number: orderNumber,
   }
 }

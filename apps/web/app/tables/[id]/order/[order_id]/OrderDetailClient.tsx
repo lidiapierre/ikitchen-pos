@@ -103,6 +103,8 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
   // Enhanced bill fields (issue #261)
   const [orderCustomerMobile, setOrderCustomerMobile] = useState<string | null>(null)
   const [orderBillNumber, setOrderBillNumber] = useState<string | null>(null)
+  // Sequential order number (issue #349)
+  const [orderNumber, setOrderNumber] = useState<number | null>(null)
 
   // Linked reservation info (issue #277)
   const [orderReservationId, setOrderReservationId] = useState<string | null>(null)
@@ -283,6 +285,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
         setOrderCustomerMobile(summary.customer_mobile)
         setOrderBillNumber(summary.bill_number)
         setOrderReservationId(summary.reservation_id)
+        setOrderNumber(summary.order_number)
         // Fetch linked customer info if customer_id is set (issue #276)
         if (summary.customer_id) {
           const supaUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -1745,7 +1748,14 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
         </Link>
 
         <header className="mb-6">
-          <h1 className="text-2xl font-bold text-brand-navy mb-4 font-heading">Order</h1>
+          <div className="flex items-center justify-between mb-2">
+            <h1 className="text-2xl font-bold text-brand-navy font-heading">Order</h1>
+            {orderNumber !== null && (
+              <span className="text-3xl font-extrabold text-amber-400 font-mono tracking-tight">
+                #{String(orderNumber).padStart(3, '0')}
+              </span>
+            )}
+          </div>
           <div className="flex flex-wrap items-center gap-2 mb-4">
             <div className="inline-flex items-center gap-2 bg-green-50 border border-green-400 rounded-xl px-4 py-2">
               <span className="text-green-700 font-semibold text-base">Paid</span>
@@ -1780,10 +1790,6 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
                 <dd className="text-zinc-300">{orderDeliveryNote}</dd>
               </div>
             )}
-            <div className="flex gap-3">
-              <dt className="text-zinc-500">Order ID</dt>
-              <dd className="font-mono text-sm text-zinc-300">{orderId}</dd>
-            </div>
             {paidPaymentMethod !== null && (
               <div className="flex gap-3">
                 <dt className="text-zinc-500">Payment method</dt>
@@ -1853,6 +1859,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
           orderType={orderType}
           customerName={orderCustomerName}
           deliveryNote={orderDeliveryNote}
+          orderNumber={orderNumber}
         />
       </div>
 
@@ -1886,6 +1893,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
             binNumber={binNumber}
             billNumber={orderBillNumber ?? undefined}
             registerName={registerName}
+            orderNumber={orderNumber}
           />
         </div>
       )}
@@ -1908,6 +1916,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
             binNumber={binNumber}
             billNumber={orderBillNumber ?? undefined}
             registerName={registerName}
+            orderNumber={orderNumber}
           />
         </div>
       )}
@@ -2609,7 +2618,14 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
       )}
 
       <header className="mb-6">
-        <h1 className="text-2xl font-bold text-brand-navy mb-4 font-heading">Order</h1>
+        <div className="flex items-center justify-between mb-2">
+          <h1 className="text-2xl font-bold text-brand-navy font-heading">Order</h1>
+          {orderNumber !== null && (
+            <span className="text-3xl font-extrabold text-amber-400 font-mono tracking-tight">
+              #{String(orderNumber).padStart(3, '0')}
+            </span>
+          )}
+        </div>
         <div className="flex flex-wrap items-center gap-2 mb-4">
           {orderIsComp && (
             <div className="inline-flex items-center gap-2 bg-emerald-50 border border-emerald-400 rounded-xl px-4 py-2">
@@ -2646,10 +2662,6 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
               <dd className="text-zinc-300">{orderDeliveryNote}</dd>
             </div>
           )}
-          <div className="flex gap-3">
-            <dt className="text-zinc-500">Order ID</dt>
-            <dd className="font-mono text-sm text-zinc-300">{orderId}</dd>
-          </div>
         </dl>
         {/* Reservation info block — shown when order was created via Seat action (issue #277) */}
         {orderReservationInfo !== null && (

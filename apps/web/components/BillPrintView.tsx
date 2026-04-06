@@ -61,6 +61,8 @@ export interface BillPrintViewProps {
    * Show line only when non-zero.
    */
   roundOffCents?: number
+  /** Short sequential numeric order number, resets daily per restaurant (issue #349). */
+  orderNumber?: number | null
 }
 
 export default function BillPrintView({
@@ -93,6 +95,7 @@ export default function BillPrintView({
   registerName,
   staffUser,
   roundOffCents = 0,
+  orderNumber,
 }: BillPrintViewProps): JSX.Element {
   // Use caller-provided vatCents when available (preferred — supports new calculation order).
   // Fall back to derived value for backward compatibility.
@@ -118,6 +121,13 @@ export default function BillPrintView({
       {binNumber && (
         <div className="text-center mb-1">
           <p className="text-xs">BIN: {binNumber}</p>
+        </div>
+      )}
+
+      {/* Order number badge — prominently displayed above meta */}
+      {orderNumber != null && (
+        <div className="text-center border border-black py-1 mb-2">
+          <p className="text-2xl font-bold tracking-widest">#{String(orderNumber).padStart(3, '0')}</p>
         </div>
       )}
 
@@ -161,10 +171,6 @@ export default function BillPrintView({
             <span>{staffUser}</span>
           </div>
         )}
-        <div className="flex justify-between">
-          <span>Order#</span>
-          <span>{orderId.slice(0, 8)}</span>
-        </div>
       </div>
 
       {/* COMPLIMENTARY banner for whole-order comp */}

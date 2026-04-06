@@ -103,7 +103,7 @@ export async function handler(
   try {
     // 1. Fetch the order to verify it exists and is open (also get discount & comp info)
     const orderRes = await fetchFn(
-      `${supabaseUrl}/rest/v1/orders?select=id,restaurant_id,status,discount_amount_cents,order_comp,final_total_cents,service_charge_cents,bill_number&id=eq.${orderId}`,
+      `${supabaseUrl}/rest/v1/orders?select=id,restaurant_id,status,discount_amount_cents,order_comp,final_total_cents,service_charge_cents,bill_number,order_type&id=eq.${orderId}`,
       { headers: dbHeaders },
     )
     if (!orderRes.ok) {
@@ -121,6 +121,7 @@ export async function handler(
       final_total_cents: number | null
       service_charge_cents: number | null
       bill_number: string | null
+      order_type: string | null
     }>
     if (orders.length === 0) {
       return new Response(
@@ -151,6 +152,14 @@ export async function handler(
     const restaurantId = orders[0].restaurant_id
     const discountAmountCents = orders[0].discount_amount_cents ?? 0
     const orderIsComp = orders[0].order_comp === true
+    const KNOWN_ORDER_TYPES = ['dine_in', 'takeaway', 'delivery'] as const
+    const rawOrderType = orders[0].order_type ?? 'dine_in'
+    if (!KNOWN_ORDER_TYPES.includes(rawOrderType as typeof KNOWN_ORDER_TYPES[number])) {
+      console.warn(`[close_order] Unrecognised order_type "${rawOrderType}" for order ${orderId} — defaulting to dine_in for service charge logic`)
+    }
+    const orderType = (KNOWN_ORDER_TYPES.includes(rawOrderType as typeof KNOWN_ORDER_TYPES[number])
+      ? rawOrderType
+      : 'dine_in') as 'dine_in' | 'takeaway' | 'delivery'
 
     // 2. Calculate final total from non-voided order items, applying per-item discounts first
     //    Calculation order (issue #254):
@@ -190,16 +199,38 @@ export async function handler(
 
     // 3. Fetch service charge config and calculate service_charge_cents
     // Order: Subtotal → Discount → Service Charge → VAT → Total
+    // Service charge only applies to order types enabled in config (issue #357).
+    // Defaults: dine-in = true, takeaway = false, delivery = false.
+    // Canonical defaults are mirrored in apps/web/lib/serviceChargeCalc.ts:DEFAULT_SERVICE_CHARGE_APPLY_CONFIG.
+    // Keep in sync if defaults change.
     let serviceChargeCents = 0
     if (!orderIsComp) {
       try {
-        const configUrl = `${supabaseUrl}/rest/v1/config?select=value&restaurant_id=eq.${restaurantId}&key=eq.service_charge_percent&limit=1`
+        const configUrl = `${supabaseUrl}/rest/v1/config?select=key,value&restaurant_id=eq.${restaurantId}&key=in.(service_charge_percent,service_charge_apply_dine_in,service_charge_apply_takeaway,service_charge_apply_delivery)`
         const configRes = await fetchFn(configUrl, { headers: dbHeaders })
         if (configRes.ok) {
-          const configRows = (await configRes.json()) as Array<{ value: string }>
-          if (configRows.length > 0) {
-            const scPercent = parseFloat(configRows[0].value)
-            if (!isNaN(scPercent) && scPercent > 0) {
+          const configRows = (await configRes.json()) as Array<{ key: string; value: string }>
+          const cfgMap = new Map(configRows.map((r) => [r.key, r.value]))
+
+          const scPercent = parseFloat(cfgMap.get('service_charge_percent') ?? '0')
+          if (!isNaN(scPercent) && scPercent > 0) {
+            // Determine if SC applies for this order type
+            const applyDineIn = cfgMap.has('service_charge_apply_dine_in')
+              ? cfgMap.get('service_charge_apply_dine_in') === 'true'
+              : true   // default: apply to dine-in
+            const applyTakeaway = cfgMap.has('service_charge_apply_takeaway')
+              ? cfgMap.get('service_charge_apply_takeaway') === 'true'
+              : false  // default: don't apply to takeaway
+            const applyDelivery = cfgMap.has('service_charge_apply_delivery')
+              ? cfgMap.get('service_charge_apply_delivery') === 'true'
+              : false  // default: don't apply to delivery
+
+            const scApplies =
+              (orderType === 'dine_in' && applyDineIn) ||
+              (orderType === 'takeaway' && applyTakeaway) ||
+              (orderType === 'delivery' && applyDelivery)
+
+            if (scApplies) {
               const postDiscountBase = Math.max(0, finalTotal - discountAmountCents)
               serviceChargeCents = Math.round((postDiscountBase * scPercent) / 100)
             }

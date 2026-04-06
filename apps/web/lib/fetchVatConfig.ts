@@ -89,37 +89,83 @@ export async function fetchVatConfig(
 }
 
 /**
- * Fetch the service charge percent for a restaurant from the config table.
- * Returns 0 (disabled) if not configured or on error.
+ * Fetch the service charge percent and per-order-type apply flags for a restaurant.
+ * Returns 0 percent and default apply flags (dine-in only) on error or if not configured.
  */
 export async function fetchServiceChargePercent(
   supabaseUrl: string,
   accessToken: string,
   restaurantId: string,
 ): Promise<number> {
+  const config = await fetchServiceChargeConfig(supabaseUrl, accessToken, restaurantId)
+  return config.percent
+}
+
+export interface ServiceChargeConfig {
+  /** Service charge rate in percent (e.g. 10 for 10%). 0 = disabled. */
+  percent: number
+  /** Whether service charge applies to dine-in orders (default: true). */
+  applyDineIn: boolean
+  /** Whether service charge applies to takeaway orders (default: false). */
+  applyTakeaway: boolean
+  /** Whether service charge applies to delivery orders (default: false). */
+  applyDelivery: boolean
+}
+
+/**
+ * Fetch service charge config (percent + per-order-type apply flags) in a single request.
+ * Default: percent=0, dine-in only.
+ */
+export async function fetchServiceChargeConfig(
+  supabaseUrl: string,
+  accessToken: string,
+  restaurantId: string,
+): Promise<ServiceChargeConfig> {
   const headers = {
     apikey: publishableKey,
     Authorization: `Bearer ${accessToken}`,
   }
+  const defaults: ServiceChargeConfig = {
+    percent: 0,
+    applyDineIn: true,
+    applyTakeaway: false,
+    applyDelivery: false,
+  }
   try {
     const configUrl = new URL(`${supabaseUrl}/rest/v1/config`)
     configUrl.searchParams.set('restaurant_id', `eq.${restaurantId}`)
-    configUrl.searchParams.set('key', 'eq.service_charge_percent')
-    configUrl.searchParams.set('select', 'value')
-    configUrl.searchParams.set('limit', '1')
+    configUrl.searchParams.set(
+      'key',
+      'in.(service_charge_percent,service_charge_apply_dine_in,service_charge_apply_takeaway,service_charge_apply_delivery)',
+    )
+    configUrl.searchParams.set('select', 'key,value')
 
     const configRes = await fetch(configUrl.toString(), { headers })
     if (configRes.ok) {
-      const rows = (await configRes.json()) as Array<{ value: string }>
-      if (rows.length > 0) {
-        const parsed = parseFloat(rows[0].value)
-        return isNaN(parsed) || parsed < 0 ? 0 : parsed
-      }
+      const rows = (await configRes.json()) as Array<{ key: string; value: string }>
+      const map = new Map(rows.map((r) => [r.key, r.value]))
+
+      const percentStr = map.get('service_charge_percent')
+      const parsed = percentStr ? parseFloat(percentStr) : NaN
+      const percent = isNaN(parsed) || parsed < 0 ? 0 : parsed
+
+      // Apply flags: if key exists use its value, otherwise fall back to defaults
+      const applyDineIn = map.has('service_charge_apply_dine_in')
+        ? map.get('service_charge_apply_dine_in') === 'true'
+        : defaults.applyDineIn
+      const applyTakeaway = map.has('service_charge_apply_takeaway')
+        ? map.get('service_charge_apply_takeaway') === 'true'
+        : defaults.applyTakeaway
+      const applyDelivery = map.has('service_charge_apply_delivery')
+        ? map.get('service_charge_apply_delivery') === 'true'
+        : defaults.applyDelivery
+
+      return { percent, applyDineIn, applyTakeaway, applyDelivery }
     }
   } catch {
     // Non-fatal: default to 0 (disabled)
   }
-  return 0
+  return defaults
 }
 
 /**

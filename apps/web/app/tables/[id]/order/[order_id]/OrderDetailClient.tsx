@@ -23,8 +23,8 @@ import { formatPrice, DEFAULT_CURRENCY_SYMBOL } from '@/lib/formatPrice'
 import { PAYMENT_METHODS, PAYMENT_METHOD_LABELS } from '@/lib/paymentMethods'
 import type { PaymentMethod } from '@/lib/paymentMethods'
 import { calcVat } from '@/lib/vatCalc'
-import { calcServiceCharge } from '@/lib/serviceChargeCalc'
-import { fetchVatConfig, fetchOrderVatContext, fetchServiceChargePercent } from '@/lib/fetchVatConfig'
+import { calcServiceCharge, shouldApplyServiceCharge } from '@/lib/serviceChargeCalc'
+import { fetchVatConfig, fetchOrderVatContext, fetchServiceChargeConfig } from '@/lib/fetchVatConfig'
 import { printKot, printBill, findPrinter } from '@/lib/kotPrint'
 import type { PrinterConfig, PrinterProfile, PrintResult } from '@/lib/kotPrint'
 import KotPrintView from '@/components/KotPrintView'
@@ -215,6 +215,9 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
 
   // Service charge config state (fetched once on load)
   const [serviceChargePercent, setServiceChargePercent] = useState(0)
+  const [serviceChargeApplyDineIn, setServiceChargeApplyDineIn] = useState(true)
+  const [serviceChargeApplyTakeaway, setServiceChargeApplyTakeaway] = useState(false)
+  const [serviceChargeApplyDelivery, setServiceChargeApplyDelivery] = useState(false)
 
   // Discount state
   const [discountType, setDiscountType] = useState<'percent' | 'flat'>('percent')
@@ -331,7 +334,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
       .then(({ restaurantId, menuId }) =>
         Promise.all([
           fetchVatConfig(supabaseUrl, accessToken, restaurantId, menuId),
-          fetchServiceChargePercent(supabaseUrl, accessToken, restaurantId),
+          fetchServiceChargeConfig(supabaseUrl, accessToken, restaurantId),
           // Fetch restaurant name
           fetch(
             `${supabaseUrl}/rest/v1/restaurants?id=eq.${restaurantId}&select=name&limit=1`,
@@ -344,10 +347,13 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
           ).then((r) => r.ok ? r.json() as Promise<Array<{ key: string; value: string }>> : Promise.resolve([])),
         ]),
       )
-      .then(([config, scPercent, restaurantRows, configRows]) => {
+      .then(([config, scConfig, restaurantRows, configRows]) => {
         setVatPercent(config.vatPercent)
         setTaxInclusive(config.taxInclusive)
-        setServiceChargePercent(scPercent)
+        setServiceChargePercent(scConfig.percent)
+        setServiceChargeApplyDineIn(scConfig.applyDineIn)
+        setServiceChargeApplyTakeaway(scConfig.applyTakeaway)
+        setServiceChargeApplyDelivery(scConfig.applyDelivery)
         // Restaurant name
         if (Array.isArray(restaurantRows) && restaurantRows.length > 0) {
           setRestaurantName((restaurantRows as Array<{ name: string }>)[0].name)
@@ -520,8 +526,14 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
     ? 0
     : Math.max(0, rawItemsTotalCents - appliedDiscountCents)
 
-  // Step 2: apply service charge to post-discount subtotal
-  const scBreakdown = calcServiceCharge(postDiscountCents, orderIsComp ? 0 : serviceChargePercent)
+  // Step 2: apply service charge to post-discount subtotal (only if enabled for this order type)
+  const serviceChargeApplies = !orderIsComp && shouldApplyServiceCharge(orderType, {
+    applyDineIn: serviceChargeApplyDineIn,
+    applyTakeaway: serviceChargeApplyTakeaway,
+    applyDelivery: serviceChargeApplyDelivery,
+  })
+  const effectiveServiceChargePercent = serviceChargeApplies ? serviceChargePercent : 0
+  const scBreakdown = calcServiceCharge(postDiscountCents, effectiveServiceChargePercent)
   const billServiceChargeCents = scBreakdown.serviceChargeCents
 
   // Step 3: apply VAT to (post-discount + service charge) base
@@ -880,7 +892,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
           discountCents: appliedDiscountCents,
           discountLabel: appliedDiscountLabel,
           serviceChargeCents: billServiceChargeCents,
-          serviceChargePercent,
+          serviceChargePercent: effectiveServiceChargePercent,
           vatCents: billVatCents,
           vatPercent,
           taxInclusive,
@@ -1276,8 +1288,8 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
       if (appliedDiscountCents > 0) {
         lines.push(`Discount: -${formatPrice(appliedDiscountCents, currencySymbol)}`)
       }
-      if (serviceChargePercent > 0 && billServiceChargeCents > 0) {
-        lines.push(`Service Charge (${serviceChargePercent}%): ${formatPrice(billServiceChargeCents, currencySymbol)}`)
+      if (effectiveServiceChargePercent > 0 && billServiceChargeCents > 0) {
+        lines.push(`Service Charge (${effectiveServiceChargePercent}%): ${formatPrice(billServiceChargeCents, currencySymbol)}`)
       }
       if (vatPercent > 0 && billVatCents > 0) {
         lines.push(`VAT ${vatPercent}%${taxInclusive ? ' (incl.)' : ''}: ${formatPrice(billVatCents, currencySymbol)}`)
@@ -1920,7 +1932,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
             discountAmountCents={appliedDiscountCents}
             discountLabel={appliedDiscountLabel}
             orderComp={orderIsComp}
-            serviceChargePercent={serviceChargePercent}
+            serviceChargePercent={effectiveServiceChargePercent}
             serviceChargeCents={billServiceChargeCents}
             orderType={orderType}
             customerName={orderCustomerName}
@@ -1950,7 +1962,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
             taxInclusive={taxInclusive}
             timestamp={splitBillTimestamp}
             evenSplit={splitBillPrintMode === 'even'}
-            serviceChargePercent={serviceChargePercent}
+            serviceChargePercent={effectiveServiceChargePercent}
             restaurantName={restaurantName}
             restaurantAddress={restaurantAddress}
             binNumber={binNumber}
@@ -2914,9 +2926,9 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
                   <span>-{formatPrice(appliedDiscountCents, currencySymbol)}</span>
                 </div>
               )}
-              {serviceChargePercent > 0 && billServiceChargeCents > 0 && !orderIsComp && (
+              {effectiveServiceChargePercent > 0 && billServiceChargeCents > 0 && !orderIsComp && (
                 <div className="flex justify-between text-zinc-400">
-                  <span>Service Charge ({serviceChargePercent}%)</span>
+                  <span>Service Charge ({effectiveServiceChargePercent}%)</span>
                   <span>{formatPrice(billServiceChargeCents, currencySymbol)}</span>
                 </div>
               )}
@@ -3083,9 +3095,9 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
                   <span>-{formatPrice(appliedDiscountCents, currencySymbol)}</span>
                 </div>
               )}
-              {serviceChargePercent > 0 && billServiceChargeCents > 0 && !orderIsComp && (
+              {effectiveServiceChargePercent > 0 && billServiceChargeCents > 0 && !orderIsComp && (
                 <div className="flex justify-between text-zinc-400">
-                  <span>Service Charge ({serviceChargePercent}%)</span>
+                  <span>Service Charge ({effectiveServiceChargePercent}%)</span>
                   <span>{formatPrice(billServiceChargeCents, currencySymbol)}</span>
                 </div>
               )}

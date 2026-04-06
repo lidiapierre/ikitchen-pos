@@ -27,6 +27,8 @@ export interface SplitBillPrintViewProps {
   billNumber?: string
   /** Terminal / register name e.g. "Cashier 1". */
   registerName?: string
+  /** Short sequential numeric order number, resets daily per restaurant (issue #349). */
+  orderNumber?: number | null
 }
 
 /**
@@ -48,6 +50,7 @@ export default function SplitBillPrintView({
   binNumber,
   billNumber,
   registerName,
+  orderNumber,
 }: SplitBillPrintViewProps): JSX.Element {
   // For even split: calculate total then divide
   const totalRawCents = items
@@ -159,10 +162,12 @@ export default function SplitBillPrintView({
                 <span>Table</span>
                 <span>{tableLabel}</span>
               </div>
-              <div className="flex justify-between">
-                <span>Order#</span>
-                <span>{orderId.slice(0, 8)}</span>
-              </div>
+              {orderNumber != null && (
+                <div className="flex justify-between font-bold">
+                  <span>Order</span>
+                  <span>#{String(orderNumber).padStart(3, '0')}</span>
+                </div>
+              )}
               <div className="font-bold text-sm">{section.label}</div>
             </div>
 

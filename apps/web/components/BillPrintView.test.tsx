@@ -51,7 +51,7 @@ describe('BillPrintView', () => {
     expect(screen.getByText('Lahore by iKitchen')).toBeInTheDocument()
   })
 
-  it('renders the table and short order ID', () => {
+  it('renders the table label and order number when provided', () => {
     render(
       <BillPrintView
         tableLabel="Table 3"
@@ -62,12 +62,15 @@ describe('BillPrintView', () => {
         totalCents={TOTAL}
         paymentMethod="card"
         timestamp="25/03/2026, 14:00:00"
+        orderNumber={7}
       />,
     )
 
-    // New layout: table and order# are key-value pairs in separate spans
     expect(screen.getByText('Table 3')).toBeInTheDocument()
-    expect(screen.getByText('order-ab')).toBeInTheDocument()
+    // Order number displayed as zero-padded 3-digit badge (issue #349)
+    expect(screen.getByText('#007')).toBeInTheDocument()
+    // UUID should NOT appear on printed bill (staff should not see internal IDs)
+    expect(screen.queryByText('order-ab')).not.toBeInTheDocument()
   })
 
   it('renders the timestamp', () => {

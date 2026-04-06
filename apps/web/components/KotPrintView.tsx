@@ -20,6 +20,8 @@ interface KotPrintViewProps {
   customerName?: string | null
   /** Delivery note for delivery orders. */
   deliveryNote?: string | null
+  /** Sequential human-readable order number (issue #349). Displayed prominently as e.g. #001. */
+  orderNumber?: number | null
 }
 
 const COURSE_LABELS: Record<string, string> = {
@@ -38,6 +40,7 @@ export default function KotPrintView({
   orderType = 'dine_in',
   customerName,
   deliveryNote,
+  orderNumber,
 }: KotPrintViewProps): JSX.Element {
   // Base filter: unsent items (or all for reprint)
   let displayItems = showAll ? items : items.filter((item) => !item.sent_to_kitchen)
@@ -73,9 +76,14 @@ export default function KotPrintView({
         </div>
       )}
 
+      {orderNumber != null && (
+        <div className="text-center border border-black py-1 mb-2">
+          <p className="text-2xl font-bold tracking-widest">#{String(orderNumber).padStart(3, '0')}</p>
+        </div>
+      )}
+
       <div className="border-t border-b border-black py-1 mb-2 text-sm">
         {!isTakeaway && !isDelivery && <p>Table: {tableLabel}</p>}
-        <p>Order: {orderId.slice(0, 8)}</p>
         <p>Time: {timestamp}</p>
         {courseFilter !== undefined && (
           <p className="font-bold text-base mt-1">

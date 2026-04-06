@@ -87,6 +87,10 @@ export async function handler(
   const customerMobile = (payload['customer_mobile'] as string | undefined) ?? null
   const deliveryNote = (payload['delivery_note'] as string | undefined) ?? null
   const scheduledTimeRaw = (payload['scheduled_time'] as string | undefined) ?? null
+  const deliveryZoneId = (payload['delivery_zone_id'] as string | undefined) ?? null
+  // NOTE: delivery_charge is NOT read from the client payload — it is always fetched
+  // server-side from the delivery_zones table to prevent fee manipulation (issue #353).
+  let deliveryCharge = 0
 
   // Validate scheduled_time if provided
   let scheduledTime: string | null = null
@@ -190,6 +194,36 @@ export async function handler(
       }
     }
 
+    // Validate delivery zone and fetch authoritative charge amount server-side (issue #353).
+    // We intentionally ignore any client-supplied delivery_charge to prevent fee manipulation.
+    if (deliveryZoneId !== null) {
+      const zoneRes = await fetchFn(
+        `${supabaseUrl}/rest/v1/delivery_zones?id=eq.${deliveryZoneId}&select=charge_amount,restaurant_id&limit=1`,
+        { headers: dbHeaders },
+      )
+      if (!zoneRes.ok) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Failed to fetch delivery zone' }),
+          { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+        )
+      }
+      const zones = (await zoneRes.json()) as Array<{ charge_amount: number; restaurant_id: string }>
+      if (zones.length === 0) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Delivery zone not found' }),
+          { status: 404, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+        )
+      }
+      // Cross-tenant validation: zone must belong to the same restaurant as the order
+      if (zones[0].restaurant_id !== restaurantId) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Delivery zone does not belong to this restaurant' }),
+          { status: 403, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+        )
+      }
+      deliveryCharge = zones[0].charge_amount
+    }
+
     // Insert the new order
     const insertBody: Record<string, unknown> = {
       restaurant_id: restaurantId,
@@ -202,6 +236,8 @@ export async function handler(
     if (customerMobile !== null) insertBody['customer_mobile'] = customerMobile
     if (deliveryNote !== null) insertBody['delivery_note'] = deliveryNote
     if (scheduledTime !== null) insertBody['scheduled_time'] = scheduledTime
+    if (deliveryZoneId !== null) insertBody['delivery_zone_id'] = deliveryZoneId
+    if (deliveryCharge > 0) insertBody['delivery_charge'] = deliveryCharge
 
     const insertRes = await fetchFn(
       `${supabaseUrl}/rest/v1/orders`,

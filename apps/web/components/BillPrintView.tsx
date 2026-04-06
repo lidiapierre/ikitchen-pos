@@ -63,6 +63,10 @@ export interface BillPrintViewProps {
   roundOffCents?: number
   /** Short sequential numeric order number, resets daily per restaurant (issue #349). */
   orderNumber?: number | null
+  /** Delivery charge in cents — shown as line item on receipt (issue #353). */
+  deliveryChargeCents?: number
+  /** Delivery zone name for the receipt label (issue #353). */
+  deliveryZoneName?: string
 }
 
 export default function BillPrintView({
@@ -96,6 +100,8 @@ export default function BillPrintView({
   staffUser,
   roundOffCents = 0,
   orderNumber,
+  deliveryChargeCents = 0,
+  deliveryZoneName,
 }: BillPrintViewProps): JSX.Element {
   // Use caller-provided vatCents when available (preferred — supports new calculation order).
   // Fall back to derived value for backward compatibility.
@@ -244,6 +250,12 @@ export default function BillPrintView({
               <div className="flex justify-between">
                 <span>VAT {vatPercent}%{taxInclusive ? ' (incl.)' : ''}</span>
                 <span>{formatPrice(vatCents, DEFAULT_CURRENCY_SYMBOL)}</span>
+              </div>
+            )}
+            {deliveryChargeCents > 0 && (
+              <div className="flex justify-between">
+                <span>{deliveryZoneName ? `Delivery (${deliveryZoneName})` : 'Delivery Charge'}</span>
+                <span>{formatPrice(deliveryChargeCents, DEFAULT_CURRENCY_SYMBOL)}</span>
               </div>
             )}
             {roundOffCents !== 0 && (

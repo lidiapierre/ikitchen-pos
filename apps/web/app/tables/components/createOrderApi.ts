@@ -18,6 +18,10 @@ export interface CreateOrderOptions {
   deliveryNote?: string
   /** ISO 8601 scheduled pickup/delivery time for takeaway and delivery orders (issue #352). */
   scheduledTime?: string
+  /** Selected delivery zone UUID for delivery orders (issue #353). */
+  deliveryZoneId?: string
+  /** Delivery charge in cents — snapshot of zone charge_amount at order creation (issue #353). */
+  deliveryChargeCents?: number
 }
 
 export async function callCreateOrder(
@@ -34,9 +38,9 @@ export async function callCreateOrder(
     opts = tableIdOrOptions
   }
 
-  const { tableId, orderType = 'dine_in', customerName, customerMobile, deliveryNote, scheduledTime } = opts
+  const { tableId, orderType = 'dine_in', customerName, customerMobile, deliveryNote, scheduledTime, deliveryZoneId, deliveryChargeCents } = opts
 
-  const bodyPayload: Record<string, string> = {
+  const bodyPayload: Record<string, string | number> = {
     order_type: orderType,
   }
   if (tableId) bodyPayload['table_id'] = tableId
@@ -44,6 +48,8 @@ export async function callCreateOrder(
   if (customerMobile) bodyPayload['customer_mobile'] = customerMobile
   if (deliveryNote) bodyPayload['delivery_note'] = deliveryNote
   if (scheduledTime) bodyPayload['scheduled_time'] = scheduledTime
+  if (deliveryZoneId) bodyPayload['delivery_zone_id'] = deliveryZoneId
+  if (deliveryChargeCents != null && deliveryChargeCents > 0) bodyPayload['delivery_charge'] = deliveryChargeCents
 
   const res = await fetch(`${supabaseUrl}/functions/v1/create_order`, {
     method: 'POST',

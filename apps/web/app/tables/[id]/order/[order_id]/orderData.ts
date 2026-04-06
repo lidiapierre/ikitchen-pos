@@ -68,6 +68,12 @@ export interface OrderSummary {
   order_number: number | null
   /** Scheduled pickup or delivery time for takeaway/delivery orders (issue #352). ISO string or null. */
   scheduled_time: string | null
+  /** Selected delivery zone UUID (issue #353). */
+  delivery_zone_id: string | null
+  /** Delivery zone name for display (issue #353). */
+  delivery_zone_name: string | null
+  /** Delivery charge in cents — snapshotted at order creation (issue #353). */
+  delivery_charge: number
 }
 
 interface OrderItemRow {
@@ -211,7 +217,7 @@ export async function fetchOrderSummary(
 
   const orderUrl = new URL(`${supabaseUrl}/rest/v1/orders`)
   orderUrl.searchParams.set('id', `eq.${orderId}`)
-  orderUrl.searchParams.set('select', 'status,order_type,customer_name,delivery_note,customer_mobile,bill_number,reservation_id,customer_id,order_number,scheduled_time')
+  orderUrl.searchParams.set('select', 'status,order_type,customer_name,delivery_note,customer_mobile,bill_number,reservation_id,customer_id,order_number,scheduled_time,delivery_zone_id,delivery_charge,delivery_zones(name)')
 
   const orderRes = await fetch(orderUrl.toString(), { headers })
   if (!orderRes.ok) {
@@ -230,6 +236,9 @@ export async function fetchOrderSummary(
     customer_id: string | null
     order_number: number | null
     scheduled_time: string | null
+    delivery_zone_id: string | null
+    delivery_charge: number | null
+    delivery_zones: { name: string } | null
   }>
   if (orders.length === 0) {
     throw new Error('Order not found')
@@ -245,6 +254,9 @@ export async function fetchOrderSummary(
   const customerId = orders[0].customer_id ?? null
   const orderNumber = orders[0].order_number ?? null
   const scheduledTime = orders[0].scheduled_time ?? null
+  const deliveryZoneId = orders[0].delivery_zone_id ?? null
+  const deliveryZoneName = orders[0].delivery_zones?.name ?? null
+  const deliveryCharge = orders[0].delivery_charge ?? 0
 
   if (status !== 'paid') {
     return {
@@ -259,6 +271,9 @@ export async function fetchOrderSummary(
       customer_id: customerId,
       order_number: orderNumber,
       scheduled_time: scheduledTime,
+      delivery_zone_id: deliveryZoneId,
+      delivery_zone_name: deliveryZoneName,
+      delivery_charge: deliveryCharge,
     }
   }
 
@@ -281,6 +296,9 @@ export async function fetchOrderSummary(
       customer_id: customerId,
       order_number: orderNumber,
       scheduled_time: scheduledTime,
+      delivery_zone_id: deliveryZoneId,
+      delivery_zone_name: deliveryZoneName,
+      delivery_charge: deliveryCharge,
     }
   }
 
@@ -297,5 +315,8 @@ export async function fetchOrderSummary(
     customer_id: customerId,
     order_number: orderNumber,
     scheduled_time: scheduledTime,
+    delivery_zone_id: deliveryZoneId,
+    delivery_zone_name: deliveryZoneName,
+    delivery_charge: deliveryCharge,
   }
 }

@@ -107,6 +107,9 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
   const [orderNumber, setOrderNumber] = useState<number | null>(null)
   // Scheduled pickup/delivery time (issue #352)
   const [orderScheduledTime, setOrderScheduledTime] = useState<string | null>(null)
+  // Delivery zone info (issue #353)
+  const [orderDeliveryZoneName, setOrderDeliveryZoneName] = useState<string | null>(null)
+  const [orderDeliveryChargeCents, setOrderDeliveryChargeCents] = useState<number>(0)
 
   // Linked reservation info (issue #277)
   const [orderReservationId, setOrderReservationId] = useState<string | null>(null)
@@ -289,6 +292,8 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
         setOrderReservationId(summary.reservation_id)
         setOrderNumber(summary.order_number)
         setOrderScheduledTime(summary.scheduled_time)
+        setOrderDeliveryZoneName(summary.delivery_zone_name)
+        setOrderDeliveryChargeCents(summary.delivery_charge)
         // Fetch linked customer info if customer_id is set (issue #276)
         if (summary.customer_id) {
           const supaUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -527,7 +532,9 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
   // Displayed subtotal = raw items total (before any adjustments)
   const billSubtotalCents = rawItemsTotalCents
 
-  const billTotalCents = orderIsComp ? 0 : vatBreakdown.totalCents
+  // Step 4: add delivery charge (issue #353) — applied after VAT on top of order total
+  const billDeliveryChargeCents = orderType === 'delivery' ? orderDeliveryChargeCents : 0
+  const billTotalCents = orderIsComp ? 0 : vatBreakdown.totalCents + billDeliveryChargeCents
 
   // Displayed "total" in the order footer is the grand total
   const totalCents = billTotalCents
@@ -1258,6 +1265,10 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
       if (vatPercent > 0 && billVatCents > 0) {
         lines.push(`VAT ${vatPercent}%${taxInclusive ? ' (incl.)' : ''}: ${formatPrice(billVatCents, currencySymbol)}`)
       }
+      if (billDeliveryChargeCents > 0) {
+        const dcLabel = orderDeliveryZoneName ? `Delivery (${orderDeliveryZoneName})` : 'Delivery Charge'
+        lines.push(`${dcLabel}: ${formatPrice(billDeliveryChargeCents, currencySymbol)}`)
+      }
       lines.push(`Total: ${formatPrice(billTotalCents, currencySymbol)}`)
     } else {
       lines.push('Total: COMPLIMENTARY')
@@ -1904,6 +1915,8 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
             billNumber={orderBillNumber ?? undefined}
             registerName={registerName}
             orderNumber={orderNumber}
+            deliveryChargeCents={billDeliveryChargeCents > 0 ? billDeliveryChargeCents : undefined}
+            deliveryZoneName={orderDeliveryZoneName ?? undefined}
           />
         </div>
       )}
@@ -2911,6 +2924,12 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
                 <div className="flex justify-between text-zinc-400">
                   <span>VAT {vatPercent}%{taxInclusive ? ' (incl.)' : ''}</span>
                   <span>{formatPrice(billVatCents, currencySymbol)}</span>
+                </div>
+              )}
+              {billDeliveryChargeCents > 0 && (
+                <div className="flex justify-between text-zinc-400">
+                  <span>Delivery Charge{orderDeliveryZoneName ? ` (${orderDeliveryZoneName})` : ''}</span>
+                  <span>{formatPrice(billDeliveryChargeCents, currencySymbol)}</span>
                 </div>
               )}
               {orderIsComp && (

@@ -7,18 +7,7 @@ import { fetchAdminRestaurants, fetchIsSuperAdmin } from './restaurantAdminData'
 import type { AdminRestaurant } from './restaurantAdminData'
 import { useUser } from '@/lib/user-context'
 import { Zap } from 'lucide-react'
-
-function formatDate(iso: string): string {
-  try {
-    return new Date(iso).toLocaleDateString('en-GB', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    })
-  } catch {
-    return iso
-  }
-}
+import { formatDate } from '@/lib/dateFormat'
 
 export default function RestaurantList(): JSX.Element {
   const { accessToken: _at } = useUser(); const accessToken = _at ?? ''

@@ -17,6 +17,7 @@ import { supabase } from '@/lib/supabase'
 import { PRINT_BRIDGE_URL } from '@/lib/kotPrint'
 import { buildKotEscPos } from '@/lib/escpos'
 import { AlertTriangle, CheckCircle2, Info, Printer as PrinterIcon, X } from 'lucide-react'
+import { formatDateTime } from '@/lib/dateFormat'
 
 const IP_REGEX = /^(\d{1,3}\.){3}\d{1,3}$/
 
@@ -231,7 +232,7 @@ export default function PrinterSettingsPage(): JSX.Element {
       const escposBytes = buildKotEscPos(testItems, {
         tableId: 'TEST',
         orderId: 'test-0000',
-        timestamp: new Date().toLocaleString(),
+        timestamp: formatDateTime(new Date().toISOString()),
       })
       const base64 = btoa(String.fromCharCode(...escposBytes))
 

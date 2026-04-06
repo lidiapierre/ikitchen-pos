@@ -1,5 +1,6 @@
 import type { ReportData, ReportPeriod } from './reportsApi'
 import { formatPrice, DEFAULT_CURRENCY_SYMBOL } from '@/lib/formatPrice'
+import { formatDateTime, isoDateToDDMMYYYY } from '@/lib/dateFormat'
 
 // ---------------------------------------------------------------------------
 // Primitives
@@ -58,7 +59,7 @@ export function makeFilename(section: string, period: ReportPeriod, customFrom?:
 export function exportRevenueByDay(data: ReportData, period: ReportPeriod, customFrom?: string, customTo?: string): void {
   const headers = ['Date', 'Order Count', 'Revenue']
   const rows = data.revenue_by_day.map(r => [
-    r.date,
+    isoDateToDDMMYYYY(r.date),
     (r as { date: string; revenue_cents: number; order_count?: number }).order_count ?? '',
     formatPrice(r.revenue_cents, DEFAULT_CURRENCY_SYMBOL),
   ])
@@ -90,7 +91,7 @@ export function exportCompDetail(data: ReportData, period: ReportPeriod, customF
   if (!data.comp_detail) return
   const headers = ['Date', 'Type', 'Item', 'Qty', 'Unit Price', 'Total Value', 'Reason', 'Authorised By']
   const rows = data.comp_detail.items.map(item => [
-    item.date.slice(0, 10),
+    isoDateToDDMMYYYY(item.date),
     item.type,
     item.item_name,
     item.quantity,
@@ -158,7 +159,7 @@ export function exportAccountingCSV(
     const dayNet = day.revenue_cents - daySvc - dayVat
 
     return [
-      day.date,
+      isoDateToDDMMYYYY(day.date),
       (day as { date: string; revenue_cents: number; order_count?: number }).order_count ?? '',
       day.revenue_cents,
       dayCash,
@@ -203,7 +204,7 @@ export function exportDailySummary(
     'iKitchen POS — Financial Summary',
     divider,
     `Period   : ${periodLabel}`,
-    `Generated: ${new Date().toLocaleString('en-GB', { hour12: false })}`,
+    `Generated: ${formatDateTime(new Date().toISOString())}`,
     '',
     'SALES OVERVIEW',
     divider,
@@ -298,7 +299,7 @@ export function exportOrderList(
   const rows = orders.map(o => [
     o.order_id,
     o.table_label ?? '',
-    o.created_at.slice(0, 19).replace('T', ' '),
+    formatDateTime(o.created_at),
     formatPrice(o.final_total_cents, DEFAULT_CURRENCY_SYMBOL),
     o.payment_methods,
     o.discount_amount_cents > 0 ? formatPrice(o.discount_amount_cents, DEFAULT_CURRENCY_SYMBOL) : '',

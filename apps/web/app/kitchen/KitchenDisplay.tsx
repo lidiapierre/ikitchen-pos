@@ -11,6 +11,7 @@ import {
   type KdsSettings,
 } from './kdsApi'
 import { CheckCircle2, AlertTriangle, ChefHat, Delete } from 'lucide-react'
+import { formatTimeOnly } from '@/lib/dateFormat'
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -354,7 +355,7 @@ export default function KitchenDisplay(): JSX.Element {
         <div className="flex items-center gap-4">
           {lastRefresh && (
             <span className="text-zinc-500 text-base">
-              Last refresh: {lastRefresh.toLocaleTimeString()}
+              Last refresh: {formatTimeOnly(lastRefresh.toISOString())}
             </span>
           )}
           <button

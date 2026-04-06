@@ -11,7 +11,8 @@ import type { TableRow, TakeawayDeliveryOrder } from './tablesData'
 import { getTablesCache, setTablesCache } from '@/lib/tablesCache'
 import type { TableStatus } from './tableStatus'
 import { useUser } from '@/lib/user-context'
-import { ShoppingBag, Bike, X } from 'lucide-react'
+import { ShoppingBag, Bike, X, Clock } from 'lucide-react'
+import { formatDateTimeShort } from '@/lib/dateFormat'
 
 /** Auto-refresh interval in milliseconds (30 seconds) */
 const REFRESH_INTERVAL_MS = 30_000
@@ -48,6 +49,7 @@ export default function TablesPage(): JSX.Element {
   const [showTakeawayModal, setShowTakeawayModal] = useState(false)
   const [takeawayName, setTakeawayName] = useState('')
   const [takeawayMobile, setTakeawayMobile] = useState('')
+  const [takeawayScheduledTime, setTakeawayScheduledTime] = useState('')
   const [takeawaySuggestion, setTakeawaySuggestion] = useState<{ name: string; mobile: string } | null>(null)
   const takeawaySearchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -57,6 +59,7 @@ export default function TablesPage(): JSX.Element {
   const [deliveryPhone, setDeliveryPhone] = useState('')
   const [deliveryPhoneTouched, setDeliveryPhoneTouched] = useState(false)
   const [deliveryNote, setDeliveryNote] = useState('')
+  const [deliveryScheduledTime, setDeliveryScheduledTime] = useState('')
   const [createOrderError, setCreateOrderError] = useState<string | null>(null)
   // Customer search state (mobile lookup)
   const [customerSuggestion, setCustomerSuggestion] = useState<{ name: string; mobile: string } | null>(null)
@@ -227,18 +230,23 @@ export default function TablesPage(): JSX.Element {
   function handleCreateTakeaway(): void {
     setTakeawayName('')
     setTakeawayMobile('')
+    setTakeawayScheduledTime('')
     setTakeawaySuggestion(null)
     setShowTakeawayModal(true)
   }
 
-  // Confirm takeaway — navigate to /order/new with optional search params (issue #317 + #276)
+  // Confirm takeaway — navigate to /order/new with optional search params (issue #317 + #276 + #352)
   function handleConfirmTakeaway(): void {
+    if (!takeawayScheduledTime) {
+      return // button is disabled; guard for safety
+    }
     const params = new URLSearchParams()
     if (takeawayName.trim()) params.set('customerName', takeawayName.trim())
     if (takeawayMobile.trim()) params.set('customerPhone', takeawayMobile.trim())
-    const qs = params.toString()
+    // Convert local datetime-local value to ISO string for the edge function
+    params.set('scheduledTime', new Date(takeawayScheduledTime).toISOString())
     setShowTakeawayModal(false)
-    router.push(`/tables/takeaway/order/new${qs ? `?${qs}` : ''}`)
+    router.push(`/tables/takeaway/order/new?${params.toString()}`)
   }
 
   function handleCreateDelivery(): void {
@@ -246,10 +254,16 @@ export default function TablesPage(): JSX.Element {
       setCreateOrderError('Customer name is required for delivery orders')
       return
     }
+    if (!deliveryScheduledTime) {
+      setCreateOrderError('Delivery Time is required')
+      return
+    }
     const params = new URLSearchParams({
       customerName: deliveryCustomerName.trim(),
       ...(deliveryPhone.trim() ? { customerPhone: deliveryPhone.trim() } : {}),
       ...(deliveryNote.trim() ? { deliveryNote: deliveryNote.trim() } : {}),
+      // Convert local datetime-local value to ISO string (issue #352)
+      scheduledTime: new Date(deliveryScheduledTime).toISOString(),
     })
     setCreateOrderError(null)
     setShowDeliveryModal(false)
@@ -257,6 +271,7 @@ export default function TablesPage(): JSX.Element {
     setDeliveryPhone('')
     setDeliveryPhoneTouched(false)
     setDeliveryNote('')
+    setDeliveryScheduledTime('')
     setCustomerSuggestion(null)
     router.push(`/tables/delivery/order/new?${params.toString()}`)
   }
@@ -309,6 +324,7 @@ export default function TablesPage(): JSX.Element {
             setDeliveryPhone('')
             setDeliveryPhoneTouched(false)
             setDeliveryNote('')
+            setDeliveryScheduledTime('')
             setCreateOrderError(null)
             setCustomerSuggestion(null)
             setShowDeliveryModal(true)
@@ -453,6 +469,14 @@ export default function TablesPage(): JSX.Element {
                         <p className="text-white/70 text-sm">📞 {order.customer_mobile}</p>
                       )}
 
+                      {/* Scheduled time */}
+                      {order.scheduled_time && (
+                        <p className="text-brand-navy font-semibold text-sm inline-flex items-center gap-1">
+                          <Clock size={13} aria-hidden="true" />
+                          {isDelivery ? 'Delivery' : 'Pickup'}: {formatDateTimeShort(order.scheduled_time)}
+                        </p>
+                      )}
+
                       {/* Item count */}
                       <p className="text-brand-navy/60 text-sm">
                         {order.item_count} item{order.item_count !== 1 ? 's' : ''}
@@ -525,6 +549,21 @@ export default function TablesPage(): JSX.Element {
               )}
             </div>
 
+            <div>
+              <label htmlFor="takeaway-scheduled-time" className="block text-white text-base mb-2 font-body">
+                Pickup Time <span className="text-red-400">*</span>
+              </label>
+              <input
+                id="takeaway-scheduled-time"
+                type="datetime-local"
+                value={takeawayScheduledTime}
+                min={new Date().toISOString().slice(0, 16)}
+                onChange={(e) => { setTakeawayScheduledTime(e.target.value) }}
+                className="w-full min-h-[48px] px-4 rounded-xl text-base bg-brand-blue text-white border-2 border-brand-grey/40 focus:border-brand-gold focus:outline-none font-body"
+                required
+              />
+            </div>
+
             <div className="flex gap-3">
               <button
                 type="button"
@@ -536,7 +575,13 @@ export default function TablesPage(): JSX.Element {
               <button
                 type="button"
                 onClick={handleConfirmTakeaway}
-                className="flex-1 min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold bg-brand-gold hover:bg-brand-gold/90 text-brand-navy transition-colors font-body"
+                disabled={!takeawayScheduledTime}
+                className={[
+                  'flex-1 min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold transition-colors font-body',
+                  !takeawayScheduledTime
+                    ? 'bg-brand-grey/30 text-white/40 cursor-not-allowed'
+                    : 'bg-brand-gold hover:bg-brand-gold/90 text-brand-navy',
+                ].join(' ')}
               >
                 Create Order
               </button>
@@ -624,6 +669,21 @@ export default function TablesPage(): JSX.Element {
               />
             </div>
 
+            <div>
+              <label htmlFor="delivery-scheduled-time" className="block text-white text-base mb-2 font-body">
+                Delivery Time <span className="text-red-400">*</span>
+              </label>
+              <input
+                id="delivery-scheduled-time"
+                type="datetime-local"
+                value={deliveryScheduledTime}
+                min={new Date().toISOString().slice(0, 16)}
+                onChange={(e) => { setDeliveryScheduledTime(e.target.value) }}
+                className="w-full min-h-[48px] px-4 rounded-xl text-base bg-brand-blue text-white border-2 border-brand-grey/40 focus:border-brand-gold focus:outline-none font-body"
+                required
+              />
+            </div>
+
             {createOrderError !== null && (
               <p className="text-red-400 text-sm">{createOrderError}</p>
             )}
@@ -643,10 +703,10 @@ export default function TablesPage(): JSX.Element {
               <button
                 type="button"
                 onClick={handleCreateDelivery}
-                disabled={deliveryCustomerName.trim() === ''}
+                disabled={deliveryCustomerName.trim() === '' || !deliveryScheduledTime}
                 className={[
                   'flex-1 min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold transition-colors font-body',
-                  deliveryCustomerName.trim() === ''
+                  deliveryCustomerName.trim() === '' || !deliveryScheduledTime
                     ? 'bg-brand-grey/30 text-white/40 cursor-not-allowed'
                     : 'bg-brand-gold hover:bg-brand-gold/90 text-brand-navy',
                 ].join(' ')}

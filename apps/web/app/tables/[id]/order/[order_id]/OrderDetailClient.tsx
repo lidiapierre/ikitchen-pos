@@ -31,7 +31,7 @@ import KotPrintView from '@/components/KotPrintView'
 import BillPrintView from '@/components/BillPrintView'
 import { supabase } from '@/lib/supabase'
 import { useUser } from '@/lib/user-context'
-import { formatDateTime } from '@/lib/dateFormat'
+import { formatDateTime, formatDateTimeShort } from '@/lib/dateFormat'
 import { useToast } from '@/hooks/useToast'
 import { ToastContainer } from '@/components/ui/Toast'
 import { callSetCovers, callSetItemSeat } from './splitBillApi'
@@ -105,6 +105,8 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
   const [orderBillNumber, setOrderBillNumber] = useState<string | null>(null)
   // Sequential order number (issue #349)
   const [orderNumber, setOrderNumber] = useState<number | null>(null)
+  // Scheduled pickup/delivery time (issue #352)
+  const [orderScheduledTime, setOrderScheduledTime] = useState<string | null>(null)
 
   // Linked reservation info (issue #277)
   const [orderReservationId, setOrderReservationId] = useState<string | null>(null)
@@ -286,6 +288,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
         setOrderBillNumber(summary.bill_number)
         setOrderReservationId(summary.reservation_id)
         setOrderNumber(summary.order_number)
+        setOrderScheduledTime(summary.scheduled_time)
         // Fetch linked customer info if customer_id is set (issue #276)
         if (summary.customer_id) {
           const supaUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -1790,6 +1793,12 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
                 <dd className="text-zinc-300">{orderDeliveryNote}</dd>
               </div>
             )}
+            {(orderType === 'takeaway' || orderType === 'delivery') && orderScheduledTime && (
+              <div className="flex gap-3">
+                <dt className="text-zinc-500">{orderType === 'takeaway' ? 'Pickup Time' : 'Delivery Time'}</dt>
+                <dd className="font-semibold text-amber-300">{formatDateTimeShort(orderScheduledTime)}</dd>
+              </div>
+            )}
             {paidPaymentMethod !== null && (
               <div className="flex gap-3">
                 <dt className="text-zinc-500">Payment method</dt>
@@ -1860,6 +1869,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
           customerName={orderCustomerName}
           deliveryNote={orderDeliveryNote}
           orderNumber={orderNumber}
+          scheduledTime={orderScheduledTime}
         />
       </div>
 
@@ -2660,6 +2670,12 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
             <div className="flex gap-3">
               <dt className="text-zinc-500">Note</dt>
               <dd className="text-zinc-300">{orderDeliveryNote}</dd>
+            </div>
+          )}
+          {(orderType === 'takeaway' || orderType === 'delivery') && orderScheduledTime && (
+            <div className="flex gap-3">
+              <dt className="text-zinc-500">{orderType === 'takeaway' ? 'Pickup Time' : 'Delivery Time'}</dt>
+              <dd className="font-semibold text-amber-300">{formatDateTimeShort(orderScheduledTime)}</dd>
             </div>
           )}
         </dl>

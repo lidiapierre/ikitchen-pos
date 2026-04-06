@@ -39,6 +39,7 @@ const QUEUE: TakeawayDeliveryOrder[] = [
     status: 'open',
     created_at: '2026-03-31T06:00:00Z',
     item_count: 2,
+    scheduled_time: null,
   },
 ]
 

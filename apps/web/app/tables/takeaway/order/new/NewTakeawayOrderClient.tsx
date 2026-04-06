@@ -22,6 +22,7 @@ export default function NewTakeawayOrderClient(): JSX.Element {
   const searchParams = useSearchParams()
   const customerName = searchParams.get('customerName') ?? ''
   const customerPhone = searchParams.get('customerPhone') ?? ''
+  const scheduledTime = searchParams.get('scheduledTime') ?? ''
   const { accessToken: _at } = useUser()
   // _at === null means auth is still loading; wait before firing.
   const accessToken = _at ?? ''
@@ -39,6 +40,11 @@ export default function NewTakeawayOrderClient(): JSX.Element {
       return
     }
 
+    if (!scheduledTime) {
+      void Promise.resolve().then(() => { setError('Pickup Time is required for takeaway orders') })
+      return
+    }
+
     const controller = new AbortController()
 
     callCreateOrder(
@@ -48,6 +54,7 @@ export default function NewTakeawayOrderClient(): JSX.Element {
         orderType: 'takeaway',
         ...(customerName ? { customerName } : {}),
         ...(customerPhone ? { customerMobile: customerPhone } : {}),
+        scheduledTime,
       },
       controller.signal,
     )
@@ -62,7 +69,7 @@ export default function NewTakeawayOrderClient(): JSX.Element {
       })
 
     return () => { controller.abort() }
-  }, [_at, accessToken, customerName, customerPhone, router])
+  }, [_at, accessToken, customerName, customerPhone, scheduledTime, router])
 
   if (error !== null) {
     return (
@@ -115,6 +122,14 @@ export default function NewTakeawayOrderClient(): JSX.Element {
             <div className="flex gap-3">
               <dt className="text-zinc-500">Phone</dt>
               <dd className="text-zinc-300">{customerPhone}</dd>
+            </div>
+          )}
+          {scheduledTime && (
+            <div className="flex gap-3">
+              <dt className="text-zinc-500">Pickup Time</dt>
+              <dd className="font-semibold text-amber-300">
+                {new Date(scheduledTime).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+              </dd>
             </div>
           )}
           <div className="flex gap-3">

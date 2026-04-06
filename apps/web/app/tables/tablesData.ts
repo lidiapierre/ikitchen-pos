@@ -26,6 +26,8 @@ export interface TakeawayDeliveryOrder {
   status: string
   created_at: string
   item_count: number
+  /** Scheduled pickup/delivery time for takeaway and delivery orders (issue #352). */
+  scheduled_time: string | null
 }
 
 interface TableApiRow {
@@ -64,6 +66,7 @@ interface TakeawayDeliveryApiRow {
   delivery_note: string | null
   status: string
   created_at: string
+  scheduled_time: string | null
 }
 
 export async function fetchTables(
@@ -195,7 +198,7 @@ export async function fetchTakeawayDeliveryQueue(
   }
 
   const ordersUrl = new URL(`${supabaseUrl}/rest/v1/orders`)
-  ordersUrl.searchParams.set('select', 'id,order_type,customer_name,customer_mobile,delivery_note,status,created_at')
+  ordersUrl.searchParams.set('select', 'id,order_type,customer_name,customer_mobile,delivery_note,status,created_at,scheduled_time')
   ordersUrl.searchParams.set('status', 'in.(open,pending_payment)')
   ordersUrl.searchParams.set('order_type', 'in.(takeaway,delivery)')
   ordersUrl.searchParams.set('order', 'created_at.asc')
@@ -236,5 +239,6 @@ export async function fetchTakeawayDeliveryQueue(
     status: o.status,
     created_at: o.created_at,
     item_count: itemCountByOrder.get(o.id) ?? 0,
+    scheduled_time: o.scheduled_time ?? null,
   }))
 }

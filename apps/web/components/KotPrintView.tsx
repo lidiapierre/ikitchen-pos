@@ -22,12 +22,31 @@ interface KotPrintViewProps {
   deliveryNote?: string | null
   /** Sequential human-readable order number (issue #349). Displayed prominently as e.g. #001. */
   orderNumber?: number | null
+  /** Scheduled pickup/delivery time for takeaway/delivery orders (issue #352). ISO string or null. */
+  scheduledTime?: string | null
 }
 
 const COURSE_LABELS: Record<string, string> = {
   starter: 'STARTER',
   main: 'MAIN',
   dessert: 'DESSERT',
+}
+
+/** Format an ISO datetime string for KOT display (e.g. "06 Apr 17:30"). Exported for unit testing. */
+export function formatKotTime(iso: string | null | undefined): string {
+  if (!iso) return ''
+  try {
+    const d = new Date(iso)
+    if (isNaN(d.getTime())) return iso
+    const dd = String(d.getDate()).padStart(2, '0')
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+    const mon = months[d.getMonth()]
+    const hh = String(d.getHours()).padStart(2, '0')
+    const min = String(d.getMinutes()).padStart(2, '0')
+    return `${dd} ${mon} ${hh}:${min}`
+  } catch {
+    return iso
+  }
 }
 
 export default function KotPrintView({
@@ -41,6 +60,7 @@ export default function KotPrintView({
   customerName,
   deliveryNote,
   orderNumber,
+  scheduledTime,
 }: KotPrintViewProps): JSX.Element {
   // Base filter: unsent items (or all for reprint)
   let displayItems = showAll ? items : items.filter((item) => !item.sent_to_kitchen)
@@ -72,6 +92,11 @@ export default function KotPrintView({
           )}
           {isDelivery && deliveryNote && (
             <p className="text-xs">{deliveryNote}</p>
+          )}
+          {scheduledTime && (
+            <p className="text-sm font-bold mt-1">
+              {isDelivery ? 'DELIVER BY' : 'PICKUP AT'}: {formatKotTime(scheduledTime)}
+            </p>
           )}
         </div>
       )}

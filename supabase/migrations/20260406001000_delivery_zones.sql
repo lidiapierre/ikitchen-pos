@@ -72,7 +72,7 @@ ALTER TABLE orders
 COMMENT ON COLUMN orders.delivery_zone_id IS 'Selected delivery zone for this delivery order (issue #353).';
 COMMENT ON COLUMN orders.delivery_charge  IS 'Delivery charge in cents at time of order (issue #353). Snapshot so zone changes do not affect historical orders.';
 
--- Rollback:
+-- Rollback (order matters — FK must be dropped before the referenced table):
 --   ALTER TABLE orders DROP COLUMN IF EXISTS delivery_zone_id;
 --   ALTER TABLE orders DROP COLUMN IF EXISTS delivery_charge;
 --   DROP TABLE IF EXISTS delivery_zones;

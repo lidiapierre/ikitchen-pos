@@ -158,7 +158,7 @@ export default function NewDeliveryOrderClient(): JSX.Element {
                 {deliveryZoneName}
                 {deliveryChargeCents > 0 && (
                   <span className="ml-2 text-amber-300 font-semibold">
-                    +৳{(deliveryChargeCents / 100).toFixed(0)}
+                    +৳{(deliveryChargeCents / 100).toFixed(2)}
                   </span>
                 )}
               </dd>

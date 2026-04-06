@@ -17,6 +17,9 @@ import { formatDateTimeShort } from '@/lib/dateFormat'
 /** Auto-refresh interval in milliseconds (30 seconds) */
 const REFRESH_INTERVAL_MS = 30_000
 
+/** Delivery zone as returned by the delivery_zones table (issue #353). */
+interface DeliveryZone { id: string; name: string; charge_amount: number }
+
 const STATUS_LEGEND: { status: TableStatus; label: string; dotClass: string }[] = [
   { status: 'available', label: 'Empty', dotClass: 'bg-brand-grey' },
   { status: 'seated', label: 'Seated', dotClass: 'bg-brand-blue' },
@@ -65,9 +68,9 @@ export default function TablesPage(): JSX.Element {
   const [customerSuggestion, setCustomerSuggestion] = useState<{ name: string; mobile: string } | null>(null)
   const customerSearchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   // Delivery zones (issue #353)
-  interface DeliveryZone { id: string; name: string; charge_amount: number }
   const [deliveryZones, setDeliveryZones] = useState<DeliveryZone[]>([])
   const [selectedDeliveryZoneId, setSelectedDeliveryZoneId] = useState<string>('')
+  const [zonesLoading, setZonesLoading] = useState(false)
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -237,6 +240,7 @@ export default function TablesPage(): JSX.Element {
     const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ''
     if (!supabaseUrl || !accessToken) return
 
+    setZonesLoading(true)
     // Get restaurant id first, then zones
     fetch(`${supabaseUrl}/rest/v1/restaurants?select=id&limit=1`, {
       headers: { apikey: publishableKey, Authorization: `Bearer ${accessToken}` },
@@ -256,14 +260,12 @@ export default function TablesPage(): JSX.Element {
         if (!res.ok) return
         const zones = (await res.json()) as Array<{ id: string; name: string; charge_amount: number }>
         setDeliveryZones(zones)
-        // Auto-select first zone if none selected
-        if (zones.length > 0 && !selectedDeliveryZoneId) {
-          setSelectedDeliveryZoneId(zones[0].id)
-        }
+        // Intentionally do NOT auto-select — staff must make an explicit zone choice (issue #353)
       })
       .catch(() => {
         // Non-fatal: zones remain empty → zone selector hidden
       })
+      .finally(() => { setZonesLoading(false) })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showDeliveryModal, accessToken])
 
@@ -739,7 +741,10 @@ export default function TablesPage(): JSX.Element {
             </div>
 
             {/* Delivery zone selector — only shown when zones are configured (issue #353) */}
-            {deliveryZones.length > 0 && (
+            {zonesLoading && (
+              <p className="text-zinc-400 text-sm">Loading delivery zones…</p>
+            )}
+            {!zonesLoading && deliveryZones.length > 0 && (
               <div>
                 <label htmlFor="delivery-zone" className="block text-white text-base mb-2 font-body">
                   Delivery Zone <span className="text-red-400">*</span>
@@ -754,7 +759,7 @@ export default function TablesPage(): JSX.Element {
                   <option value="">— Select zone —</option>
                   {deliveryZones.map((zone) => (
                     <option key={zone.id} value={zone.id}>
-                      {zone.name} — ৳{(zone.charge_amount / 100).toFixed(0)}
+                      {zone.name} — ৳{(zone.charge_amount / 100).toFixed(2)}
                     </option>
                   ))}
                 </select>
@@ -774,6 +779,7 @@ export default function TablesPage(): JSX.Element {
                   setCustomerSuggestion(null)
                   setSelectedDeliveryZoneId('')
                   setDeliveryZones([])
+                  setZonesLoading(false)
                 }}
                 className="flex-1 min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold border-2 border-brand-grey/40 text-white hover:border-brand-grey transition-colors font-body"
               >
@@ -785,12 +791,14 @@ export default function TablesPage(): JSX.Element {
                 disabled={
                   deliveryCustomerName.trim() === '' ||
                   !deliveryScheduledTime ||
+                  zonesLoading ||
                   (deliveryZones.length > 0 && !selectedDeliveryZoneId)
                 }
                 className={[
                   'flex-1 min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold transition-colors font-body',
                   (deliveryCustomerName.trim() === '' ||
                     !deliveryScheduledTime ||
+                    zonesLoading ||
                     (deliveryZones.length > 0 && !selectedDeliveryZoneId))
                     ? 'bg-brand-grey/30 text-white/40 cursor-not-allowed'
                     : 'bg-brand-gold hover:bg-brand-gold/90 text-brand-navy',

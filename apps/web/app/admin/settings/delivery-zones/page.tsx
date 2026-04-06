@@ -43,32 +43,35 @@ export default function DeliveryZonesPage(): JSX.Element {
 
   // Confirm-delete state
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
   const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ''
 
-  function apiHeaders(): Record<string, string> {
-    return {
+  const loadZones = useCallback(async (rid: string): Promise<void> => {
+    // Build headers inline so this callback has no stale-closure issues with apiHeaders()
+    const headers = {
       apikey: publishableKey,
       Authorization: `Bearer ${accessToken}`,
       'Content-Type': 'application/json',
     }
-  }
-
-  const loadZones = useCallback(async (rid: string): Promise<void> => {
     const res = await fetch(
       `${supabaseUrl}/rest/v1/delivery_zones?restaurant_id=eq.${rid}&order=name.asc&select=id,name,charge_amount`,
-      { headers: apiHeaders() },
+      { headers },
     )
     if (!res.ok) throw new Error(`Failed to load zones: ${res.statusText}`)
     setZones((await res.json()) as DeliveryZone[])
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [supabaseUrl, accessToken])
+  }, [supabaseUrl, publishableKey, accessToken])
 
   useEffect(() => {
     if (!supabaseUrl || !accessToken) return
 
-    fetch(`${supabaseUrl}/rest/v1/restaurants?select=id&limit=1`, { headers: apiHeaders() })
+    const headers = {
+      apikey: publishableKey,
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    }
+    fetch(`${supabaseUrl}/rest/v1/restaurants?select=id&limit=1`, { headers })
       .then((r) => r.json() as Promise<Array<{ id: string }>>)
       .then(async (rows) => {
         if (rows.length === 0) throw new Error('No restaurant found')
@@ -80,8 +83,7 @@ export default function DeliveryZonesPage(): JSX.Element {
         setFetchError(err instanceof Error ? err.message : 'Failed to load')
       })
       .finally(() => { setLoading(false) })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [accessToken])
+  }, [accessToken, supabaseUrl, publishableKey, loadZones])
 
   function openAdd(): void {
     setSaveMode('add')
@@ -115,10 +117,15 @@ export default function DeliveryZonesPage(): JSX.Element {
     setSubmitting(true)
     setFormError(null)
     try {
+      const authHeaders = {
+        apikey: publishableKey,
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      }
       if (saveMode === 'add') {
         const res = await fetch(`${supabaseUrl}/rest/v1/delivery_zones`, {
           method: 'POST',
-          headers: { ...apiHeaders(), Prefer: 'return=representation' },
+          headers: { ...authHeaders, Prefer: 'return=representation' },
           body: JSON.stringify({ restaurant_id: restaurantId, name: zoneName.trim(), charge_amount: chargeCents }),
         })
         if (!res.ok) throw new Error(`Save failed: ${res.statusText}`)
@@ -127,7 +134,7 @@ export default function DeliveryZonesPage(): JSX.Element {
           `${supabaseUrl}/rest/v1/delivery_zones?id=eq.${editingId}`,
           {
             method: 'PATCH',
-            headers: { ...apiHeaders(), Prefer: 'return=representation' },
+            headers: { ...authHeaders, Prefer: 'return=representation' },
             body: JSON.stringify({ name: zoneName.trim(), charge_amount: chargeCents }),
           },
         )
@@ -147,9 +154,14 @@ export default function DeliveryZonesPage(): JSX.Element {
   async function handleDelete(id: string): Promise<void> {
     setDeletingId(id)
     try {
+      const authHeaders = {
+        apikey: publishableKey,
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      }
       const res = await fetch(`${supabaseUrl}/rest/v1/delivery_zones?id=eq.${id}`, {
         method: 'DELETE',
-        headers: apiHeaders(),
+        headers: authHeaders,
       })
       if (!res.ok) throw new Error(`Delete failed: ${res.statusText}`)
       setSuccessMsg('Zone deleted')
@@ -307,10 +319,31 @@ export default function DeliveryZonesPage(): JSX.Element {
                 </button>
                 {deletingId === zone.id ? (
                   <span className="text-xs text-zinc-400 px-2">Deleting…</span>
+                ) : confirmDeleteId === zone.id ? (
+                  /* Inline confirmation — prevents accidental deletes */
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs text-red-500 font-medium">Delete?</span>
+                    <button
+                      type="button"
+                      onClick={() => { setConfirmDeleteId(null); void handleDelete(zone.id) }}
+                      className="min-h-[36px] px-2 text-xs rounded-lg bg-red-500 text-white hover:bg-red-600 transition-colors font-semibold"
+                      aria-label="Confirm delete"
+                    >
+                      Yes
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setConfirmDeleteId(null) }}
+                      className="min-h-[36px] min-w-[36px] flex items-center justify-center rounded-lg border border-brand-grey/30 text-brand-navy hover:bg-brand-offwhite transition-colors"
+                      aria-label="Cancel delete"
+                    >
+                      <X size={14} aria-hidden="true" />
+                    </button>
+                  </div>
                 ) : (
                   <button
                     type="button"
-                    onClick={() => { void handleDelete(zone.id) }}
+                    onClick={() => { setConfirmDeleteId(zone.id) }}
                     className="min-h-[40px] min-w-[40px] flex items-center justify-center rounded-xl border border-red-200 text-red-500 hover:bg-red-50 transition-colors"
                     aria-label={`Delete ${zone.name}`}
                   >

@@ -86,6 +86,28 @@ export async function handler(
   const customerName = (payload['customer_name'] as string | undefined) ?? null
   const customerMobile = (payload['customer_mobile'] as string | undefined) ?? null
   const deliveryNote = (payload['delivery_note'] as string | undefined) ?? null
+  const scheduledTimeRaw = (payload['scheduled_time'] as string | undefined) ?? null
+
+  // Validate scheduled_time if provided
+  let scheduledTime: string | null = null
+  if (scheduledTimeRaw !== null) {
+    const parsed = new Date(scheduledTimeRaw)
+    if (isNaN(parsed.getTime())) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'scheduled_time must be a valid ISO 8601 datetime string' }),
+        { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+      )
+    }
+    scheduledTime = parsed.toISOString()
+  }
+
+  // Takeaway and delivery orders require a scheduled_time
+  if ((orderType === 'takeaway' || orderType === 'delivery') && scheduledTime === null) {
+    return new Response(
+      JSON.stringify({ success: false, error: 'scheduled_time is required for takeaway and delivery orders' }),
+      { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    )
+  }
 
   // Delivery orders require customer_name
   if (orderType === 'delivery' && (!customerName || customerName.trim() === '')) {
@@ -174,6 +196,7 @@ export async function handler(
     if (customerName !== null) insertBody['customer_name'] = customerName
     if (customerMobile !== null) insertBody['customer_mobile'] = customerMobile
     if (deliveryNote !== null) insertBody['delivery_note'] = deliveryNote
+    if (scheduledTime !== null) insertBody['scheduled_time'] = scheduledTime
 
     const insertRes = await fetchFn(
       `${supabaseUrl}/rest/v1/orders`,

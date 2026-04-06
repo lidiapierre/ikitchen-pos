@@ -22,6 +22,7 @@ export default function NewTakeawayOrderClient(): JSX.Element {
   const searchParams = useSearchParams()
   const customerName = searchParams.get('customerName') ?? ''
   const customerPhone = searchParams.get('customerPhone') ?? ''
+  const scheduledTime = searchParams.get('scheduledTime') ?? ''
   const { accessToken: _at } = useUser()
   // _at === null means auth is still loading; wait before firing.
   const accessToken = _at ?? ''
@@ -39,6 +40,11 @@ export default function NewTakeawayOrderClient(): JSX.Element {
       return
     }
 
+    if (!scheduledTime) {
+      void Promise.resolve().then(() => { setError('Pickup Time is required for takeaway orders') })
+      return
+    }
+
     const controller = new AbortController()
 
     callCreateOrder(
@@ -48,6 +54,7 @@ export default function NewTakeawayOrderClient(): JSX.Element {
         orderType: 'takeaway',
         ...(customerName ? { customerName } : {}),
         ...(customerPhone ? { customerMobile: customerPhone } : {}),
+        scheduledTime,
       },
       controller.signal,
     )

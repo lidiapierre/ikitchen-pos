@@ -16,6 +16,8 @@ export interface CreateOrderOptions {
   customerName?: string
   customerMobile?: string
   deliveryNote?: string
+  /** ISO 8601 scheduled pickup/delivery time for takeaway and delivery orders (issue #352). */
+  scheduledTime?: string
 }
 
 export async function callCreateOrder(
@@ -32,7 +34,7 @@ export async function callCreateOrder(
     opts = tableIdOrOptions
   }
 
-  const { tableId, orderType = 'dine_in', customerName, customerMobile, deliveryNote } = opts
+  const { tableId, orderType = 'dine_in', customerName, customerMobile, deliveryNote, scheduledTime } = opts
 
   const bodyPayload: Record<string, string> = {
     order_type: orderType,
@@ -41,6 +43,7 @@ export async function callCreateOrder(
   if (customerName) bodyPayload['customer_name'] = customerName
   if (customerMobile) bodyPayload['customer_mobile'] = customerMobile
   if (deliveryNote) bodyPayload['delivery_note'] = deliveryNote
+  if (scheduledTime) bodyPayload['scheduled_time'] = scheduledTime
 
   const res = await fetch(`${supabaseUrl}/functions/v1/create_order`, {
     method: 'POST',

@@ -23,6 +23,7 @@ export default function NewDeliveryOrderClient(): JSX.Element {
   const customerName = searchParams.get('customerName') ?? ''
   const customerPhone = searchParams.get('customerPhone') ?? ''
   const deliveryNote = searchParams.get('deliveryNote') ?? ''
+  const scheduledTime = searchParams.get('scheduledTime') ?? ''
   const { accessToken: _at } = useUser()
   // _at === null means auth is still loading; wait before firing.
   const accessToken = _at ?? ''
@@ -45,6 +46,11 @@ export default function NewDeliveryOrderClient(): JSX.Element {
       return
     }
 
+    if (!scheduledTime) {
+      void Promise.resolve().then(() => { setError('Delivery Time is required for delivery orders') })
+      return
+    }
+
     const controller = new AbortController()
 
     callCreateOrder(
@@ -55,6 +61,7 @@ export default function NewDeliveryOrderClient(): JSX.Element {
         customerName,
         ...(customerPhone ? { customerMobile: customerPhone } : {}),
         ...(deliveryNote ? { deliveryNote } : {}),
+        scheduledTime,
       },
       controller.signal,
     )

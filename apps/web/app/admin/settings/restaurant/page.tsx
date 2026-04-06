@@ -252,16 +252,6 @@ export default function RestaurantSettingsPage(): JSX.Element {
           </p>
         </div>
 
-        {/* Save button */}
-        <div>
-          <button
-            onClick={() => { void handleSave() }}
-            disabled={submitting || !restaurantId}
-            className="min-h-[48px] px-6 py-2 rounded-xl bg-brand-navy text-white text-base font-medium hover:bg-brand-blue transition-colors disabled:opacity-50"
-          >
-            {submitting ? 'Saving…' : 'Save Settings'}
-          </button>
-        </div>
       </div>
 
       {/* Loyalty programme section */}
@@ -293,16 +283,17 @@ export default function RestaurantSettingsPage(): JSX.Element {
             Customers earn this many points each time they pay for an order. Set to 0 to disable.
           </p>
         </div>
+      </div>
 
-        <div>
-          <button
-            onClick={() => { void handleSave() }}
-            disabled={submitting || !restaurantId}
-            className="min-h-[48px] px-6 py-2 rounded-xl bg-brand-navy text-white text-base font-medium hover:bg-brand-blue transition-colors disabled:opacity-50"
-          >
-            {submitting ? 'Saving…' : 'Save Settings'}
-          </button>
-        </div>
+      {/* Single save button for all settings */}
+      <div>
+        <button
+          onClick={() => { void handleSave() }}
+          disabled={submitting || !restaurantId}
+          className="min-h-[48px] px-6 py-2 rounded-xl bg-brand-navy text-white text-base font-medium hover:bg-brand-blue transition-colors disabled:opacity-50"
+        >
+          {submitting ? 'Saving…' : 'Save Settings'}
+        </button>
       </div>
 
       {/* Info box */}

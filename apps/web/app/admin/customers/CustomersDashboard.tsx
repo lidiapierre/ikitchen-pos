@@ -140,13 +140,13 @@ export default function CustomersDashboard(): JSX.Element {
     setSaveError(null)
   }
 
-  function membershipColor(status: string): string {
+  function membershipColor(status: 'regular' | 'silver' | 'gold'): string {
     if (status === 'gold') return 'text-yellow-400'
     if (status === 'silver') return 'text-zinc-300'
     return 'text-zinc-500'
   }
 
-  function membershipBadge(status: string): string {
+  function membershipBadge(status: 'regular' | 'silver' | 'gold'): string {
     if (status === 'gold') return 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/40'
     if (status === 'silver') return 'bg-zinc-400/20 text-zinc-300 border border-zinc-400/40'
     return 'bg-zinc-700/60 text-zinc-400 border border-zinc-600/40'

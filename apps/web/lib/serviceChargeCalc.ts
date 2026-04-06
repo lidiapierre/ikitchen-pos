@@ -43,6 +43,12 @@ export function shouldApplyServiceCharge(
     case 'dine_in': return config.applyDineIn
     case 'takeaway': return config.applyTakeaway
     case 'delivery': return config.applyDelivery
+    default: {
+      // TypeScript exhaustiveness check — compile error if a new order type is added without updating this function
+      const _exhaustive: never = orderType
+      void _exhaustive
+      return false
+    }
   }
 }
 

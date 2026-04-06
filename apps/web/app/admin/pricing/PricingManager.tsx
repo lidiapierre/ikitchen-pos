@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import type { JSX } from 'react'
 import Link from 'next/link'
 import { fetchPricingAdminData, fetchConfigValue } from './pricingAdminData'
+import { fetchServiceChargeConfig } from '@/lib/fetchVatConfig'
 import type { VatRate, PricingCategory, PricingMenuItem } from './pricingAdminData'
 import {
   callCreateVatRate,
@@ -124,25 +125,14 @@ export default function PricingManager(): JSX.Element {
         setCurrencyCode(data.currencyCode)
         setCurrencySymbol(data.currencySymbol)
         setCurrencyCodeInput(data.currencyCode)
-        // Fetch service charge config (percent + per-order-type flags) in a single request
-        const scKeys = ['service_charge_percent', 'service_charge_apply_dine_in', 'service_charge_apply_takeaway', 'service_charge_apply_delivery']
-        const scUrl = new URL(`${supabaseUrl}/rest/v1/config`)
-        scUrl.searchParams.set('select', 'key,value')
-        scUrl.searchParams.set('restaurant_id', `eq.${data.restaurantId}`)
-        scUrl.searchParams.set('key', `in.(${scKeys.join(',')})`)
-        return fetch(scUrl.toString(), {
-          headers: { apikey: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? '', Authorization: `Bearer ${accessToken}` },
-        })
-          .then((r) => r.ok ? r.json() as Promise<Array<{ key: string; value: string }>> : Promise.resolve([]))
-          .then((rows) => {
-            const cfgMap = new Map((rows as Array<{ key: string; value: string }>).map((r) => [r.key, r.value]))
-            const parsed = parseFloat(cfgMap.get('service_charge_percent') ?? '0')
-            const sc = isNaN(parsed) || parsed < 0 ? 0 : parsed
-            setServiceChargePercent(sc)
-            setServiceChargeInput(String(sc))
-            if (cfgMap.has('service_charge_apply_dine_in')) setServiceChargeApplyDineIn(cfgMap.get('service_charge_apply_dine_in') === 'true')
-            if (cfgMap.has('service_charge_apply_takeaway')) setServiceChargeApplyTakeaway(cfgMap.get('service_charge_apply_takeaway') === 'true')
-            if (cfgMap.has('service_charge_apply_delivery')) setServiceChargeApplyDelivery(cfgMap.get('service_charge_apply_delivery') === 'true')
+        // Fetch service charge config (percent + per-order-type flags) using shared utility
+        return fetchServiceChargeConfig(supabaseUrl, accessToken, data.restaurantId)
+          .then((scConfig) => {
+            setServiceChargePercent(scConfig.percent)
+            setServiceChargeInput(String(scConfig.percent))
+            setServiceChargeApplyDineIn(scConfig.applyDineIn)
+            setServiceChargeApplyTakeaway(scConfig.applyTakeaway)
+            setServiceChargeApplyDelivery(scConfig.applyDelivery)
           })
           .catch(() => { /* non-fatal */ })
       })
@@ -252,12 +242,20 @@ export default function PricingManager(): JSX.Element {
     if (!config || !restaurantId) return
     setSavingServiceChargeApply(true)
     try {
-      await Promise.all([
+      const results = await Promise.allSettled([
         callUpsertConfig(config.url, config.key, restaurantId, 'service_charge_apply_dine_in', String(serviceChargeApplyDineIn)),
         callUpsertConfig(config.url, config.key, restaurantId, 'service_charge_apply_takeaway', String(serviceChargeApplyTakeaway)),
         callUpsertConfig(config.url, config.key, restaurantId, 'service_charge_apply_delivery', String(serviceChargeApplyDelivery)),
       ])
-      showFeedback('success', 'Service charge order type settings saved.')
+      const failed = results.filter((r) => r.status === 'rejected')
+      if (failed.length > 0) {
+        const msg = (failed[0] as PromiseRejectedResult).reason instanceof Error
+          ? (failed[0] as PromiseRejectedResult).reason.message
+          : 'Failed to save some service charge settings'
+        showFeedback('error', `Partial save failure (${failed.length}/3 keys): ${msg}`)
+      } else {
+        showFeedback('success', 'Service charge order type settings saved.')
+      }
     } catch (err) {
       showFeedback('error', err instanceof Error ? err.message : 'Failed to save service charge settings.')
     } finally {
@@ -649,7 +647,7 @@ export default function PricingManager(): JSX.Element {
               { key: 'takeaway', label: 'Takeaway', value: serviceChargeApplyTakeaway, setter: setServiceChargeApplyTakeaway },
               { key: 'delivery', label: 'Delivery', value: serviceChargeApplyDelivery, setter: setServiceChargeApplyDelivery },
             ].map(({ key, label, value, setter }) => (
-              <label key={key} className="flex items-center gap-3 cursor-pointer select-none min-h-[40px]">
+              <label key={key} className="flex items-center gap-3 cursor-pointer select-none min-h-[48px]">
                 <input
                   type="checkbox"
                   checked={value}

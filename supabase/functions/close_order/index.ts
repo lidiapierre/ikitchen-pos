@@ -152,7 +152,14 @@ export async function handler(
     const restaurantId = orders[0].restaurant_id
     const discountAmountCents = orders[0].discount_amount_cents ?? 0
     const orderIsComp = orders[0].order_comp === true
-    const orderType = (orders[0].order_type ?? 'dine_in') as 'dine_in' | 'takeaway' | 'delivery'
+    const KNOWN_ORDER_TYPES = ['dine_in', 'takeaway', 'delivery'] as const
+    const rawOrderType = orders[0].order_type ?? 'dine_in'
+    if (!KNOWN_ORDER_TYPES.includes(rawOrderType as typeof KNOWN_ORDER_TYPES[number])) {
+      console.warn(`[close_order] Unrecognised order_type "${rawOrderType}" for order ${orderId} — defaulting to dine_in for service charge logic`)
+    }
+    const orderType = (KNOWN_ORDER_TYPES.includes(rawOrderType as typeof KNOWN_ORDER_TYPES[number])
+      ? rawOrderType
+      : 'dine_in') as 'dine_in' | 'takeaway' | 'delivery'
 
     // 2. Calculate final total from non-voided order items, applying per-item discounts first
     //    Calculation order (issue #254):
@@ -194,6 +201,8 @@ export async function handler(
     // Order: Subtotal → Discount → Service Charge → VAT → Total
     // Service charge only applies to order types enabled in config (issue #357).
     // Defaults: dine-in = true, takeaway = false, delivery = false.
+    // Canonical defaults are mirrored in apps/web/lib/serviceChargeCalc.ts:DEFAULT_SERVICE_CHARGE_APPLY_CONFIG.
+    // Keep in sync if defaults change.
     let serviceChargeCents = 0
     if (!orderIsComp) {
       try {

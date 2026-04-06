@@ -10,6 +10,12 @@ export interface Customer {
   total_spend_cents: number
   last_visit_at: string | null
   created_at: string
+  // Extended profile fields (issue #356)
+  date_of_birth: string | null
+  email: string | null
+  delivery_address: string | null
+  loyalty_points: number
+  membership_status: 'regular' | 'silver' | 'gold'
 }
 
 export interface CustomerOrder {
@@ -94,7 +100,13 @@ export async function updateCustomer(
   supabaseUrl: string,
   accessToken: string,
   customerId: string,
-  data: { name?: string; notes?: string },
+  data: {
+    name?: string
+    notes?: string
+    date_of_birth?: string | null
+    email?: string | null
+    delivery_address?: string | null
+  },
 ): Promise<void> {
   const res = await fetch(
     `${supabaseUrl}/rest/v1/customers?id=eq.${encodeURIComponent(customerId)}`,

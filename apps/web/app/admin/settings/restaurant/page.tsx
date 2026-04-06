@@ -36,6 +36,7 @@ export default function RestaurantSettingsPage(): JSX.Element {
   const [binNumber, setBinNumber] = useState('')
   const [registerName, setRegisterName] = useState('')
   const [restaurantAddress, setRestaurantAddress] = useState('')
+  const [loyaltyPointsPerOrder, setLoyaltyPointsPerOrder] = useState('10')
 
   // Supabase config ref
   const supabaseConfig = useRef<{ url: string; key: string } | null>(null)
@@ -57,16 +58,18 @@ export default function RestaurantSettingsPage(): JSX.Element {
         if (rows.length === 0) throw new Error('No restaurant found')
         const rid = rows[0].id
         setRestaurantId(rid)
-        const [nameVal, binVal, regVal, addrVal] = await Promise.all([
+        const [nameVal, binVal, regVal, addrVal, loyaltyVal] = await Promise.all([
           fetchConfigValue(supabaseUrl, accessToken, rid, 'restaurant_name', ''),
           fetchConfigValue(supabaseUrl, accessToken, rid, 'bin_number', ''),
           fetchConfigValue(supabaseUrl, accessToken, rid, 'register_name', ''),
           fetchConfigValue(supabaseUrl, accessToken, rid, 'restaurant_address', ''),
+          fetchConfigValue(supabaseUrl, accessToken, rid, 'loyalty_points_per_order', '10'),
         ])
         setRestaurantName(nameVal)
         setBinNumber(binVal)
         setRegisterName(regVal)
         setRestaurantAddress(addrVal)
+        setLoyaltyPointsPerOrder(loyaltyVal)
       })
       .catch((err: unknown) => {
         setFetchError(err instanceof Error ? err.message : 'Failed to load settings')
@@ -92,6 +95,12 @@ export default function RestaurantSettingsPage(): JSX.Element {
     if (!config || !restaurantId) return
     setSubmitting(true)
     try {
+      const loyaltyNum = parseInt(loyaltyPointsPerOrder, 10)
+      if (isNaN(loyaltyNum) || loyaltyNum < 0) {
+        showFeedback('error', 'Loyalty points per order must be a non-negative number.')
+        setSubmitting(false)
+        return
+      }
       await Promise.all([
         restaurantName.trim()
           ? callUpsertConfig(config.url, config.key, restaurantId, 'restaurant_name', restaurantName.trim())
@@ -105,6 +114,7 @@ export default function RestaurantSettingsPage(): JSX.Element {
         restaurantAddress.trim()
           ? callUpsertConfig(config.url, config.key, restaurantId, 'restaurant_address', restaurantAddress.trim())
           : Promise.resolve(),
+        callUpsertConfig(config.url, config.key, restaurantId, 'loyalty_points_per_order', String(loyaltyNum)),
       ])
       showFeedback('success', 'Restaurant settings saved.')
     } catch (err) {
@@ -243,6 +253,47 @@ export default function RestaurantSettingsPage(): JSX.Element {
         </div>
 
         {/* Save button */}
+        <div>
+          <button
+            onClick={() => { void handleSave() }}
+            disabled={submitting || !restaurantId}
+            className="min-h-[48px] px-6 py-2 rounded-xl bg-brand-navy text-white text-base font-medium hover:bg-brand-blue transition-colors disabled:opacity-50"
+          >
+            {submitting ? 'Saving…' : 'Save Settings'}
+          </button>
+        </div>
+      </div>
+
+      {/* Loyalty programme section */}
+      <div className="bg-white border border-brand-grey rounded-2xl p-6 flex flex-col gap-6">
+        <div>
+          <h2 className="text-lg font-semibold text-brand-navy">Loyalty Programme</h2>
+          <p className="text-sm text-brand-navy/60 mt-1">
+            Configure how many loyalty points customers earn per completed order.
+            Membership tiers: Regular (0–99 pts) → Silver (100–499 pts) → Gold (500+ pts).
+          </p>
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <label htmlFor="loyalty-points" className="text-sm font-medium text-brand-navy/80">
+            Points Per Order
+          </label>
+          <input
+            id="loyalty-points"
+            type="number"
+            min="0"
+            step="1"
+            value={loyaltyPointsPerOrder}
+            onChange={(e) => { setLoyaltyPointsPerOrder(e.target.value) }}
+            disabled={submitting}
+            placeholder="10"
+            className="min-h-[48px] px-4 py-2 rounded-xl bg-brand-navy text-white border border-brand-grey focus:border-brand-blue focus:outline-none text-base disabled:opacity-50 placeholder-zinc-600 max-w-[160px]"
+          />
+          <p className="text-xs text-brand-grey">
+            Customers earn this many points each time they pay for an order. Set to 0 to disable.
+          </p>
+        </div>
+
         <div>
           <button
             onClick={() => { void handleSave() }}

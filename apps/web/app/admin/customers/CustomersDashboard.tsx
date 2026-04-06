@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import type { JSX } from 'react'
 import Link from 'next/link'
-import { Users, Search, Phone, X, Pencil, Check, CalendarDays } from 'lucide-react'
+import { Users, Search, Phone, X, Pencil, Check, CalendarDays, Star, Mail, MapPin } from 'lucide-react'
 import { useUser } from '@/lib/user-context'
 import { formatPrice, DEFAULT_CURRENCY_SYMBOL } from '@/lib/formatPrice'
 import { isoDateToDDMMYYYY, formatDateTimeShort } from '@/lib/dateFormat'
@@ -51,6 +51,9 @@ export default function CustomersDashboard(): JSX.Element {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
   const [editNotes, setEditNotes] = useState('')
+  const [editDob, setEditDob] = useState('')
+  const [editEmail, setEditEmail] = useState('')
+  const [editAddress, setEditAddress] = useState('')
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
 
@@ -131,7 +134,22 @@ export default function CustomersDashboard(): JSX.Element {
     setEditingId(customer.id)
     setEditName(customer.name ?? '')
     setEditNotes(customer.notes ?? '')
+    setEditDob(customer.date_of_birth ?? '')
+    setEditEmail(customer.email ?? '')
+    setEditAddress(customer.delivery_address ?? '')
     setSaveError(null)
+  }
+
+  function membershipColor(status: string): string {
+    if (status === 'gold') return 'text-yellow-400'
+    if (status === 'silver') return 'text-zinc-300'
+    return 'text-zinc-500'
+  }
+
+  function membershipBadge(status: string): string {
+    if (status === 'gold') return 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/40'
+    if (status === 'silver') return 'bg-zinc-400/20 text-zinc-300 border border-zinc-400/40'
+    return 'bg-zinc-700/60 text-zinc-400 border border-zinc-600/40'
   }
 
   async function saveEdit(customer: Customer): Promise<void> {
@@ -142,12 +160,18 @@ export default function CustomersDashboard(): JSX.Element {
       await updateCustomer(supabaseUrl, accessToken, customer.id, {
         name: editName.trim() || undefined,
         notes: editNotes.trim() || undefined,
+        date_of_birth: editDob.trim() || null,
+        email: editEmail.trim() || null,
+        delivery_address: editAddress.trim() || null,
       })
       // Update local state
       const updated: Customer = {
         ...customer,
         name: editName.trim() || null,
         notes: editNotes.trim() || null,
+        date_of_birth: editDob.trim() || null,
+        email: editEmail.trim() || null,
+        delivery_address: editAddress.trim() || null,
       }
       setCustomers((prev) => prev.map((c) => c.id === customer.id ? updated : c))
       if (selectedCustomer?.id === customer.id) {
@@ -203,6 +227,7 @@ export default function CustomersDashboard(): JSX.Element {
                     <th className="text-left px-4 py-3 text-zinc-400 font-semibold">Mobile</th>
                     <th className="text-right px-4 py-3 text-zinc-400 font-semibold">Visits</th>
                     <th className="text-right px-4 py-3 text-zinc-400 font-semibold">Total Spend</th>
+                    <th className="text-center px-4 py-3 text-zinc-400 font-semibold">Loyalty</th>
                     <th className="text-left px-4 py-3 text-zinc-400 font-semibold">Last Visit</th>
                     <th className="px-4 py-3" />
                   </tr>
@@ -249,6 +274,14 @@ export default function CustomersDashboard(): JSX.Element {
                           <span className="font-semibold text-white">
                             {formatPrice(customer.total_spend_cents, DEFAULT_CURRENCY_SYMBOL)}
                           </span>
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <div className="flex flex-col items-center gap-0.5">
+                            <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${membershipBadge(customer.membership_status)}`}>
+                              {customer.membership_status}
+                            </span>
+                            <span className="text-xs text-zinc-500">{customer.loyalty_points} pts</span>
+                          </div>
                         </td>
                         <td className="px-4 py-3 text-zinc-400">
                           {isoDateToDDMMYYYY(customer.last_visit_at)}
@@ -322,6 +355,15 @@ export default function CustomersDashboard(): JSX.Element {
                 </button>
               </div>
 
+              {/* Membership badge */}
+              <div className="flex items-center gap-2">
+                <Star size={14} className={membershipColor(selectedCustomer.membership_status)} aria-hidden="true" />
+                <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${membershipBadge(selectedCustomer.membership_status)}`}>
+                  {selectedCustomer.membership_status}
+                </span>
+                <span className="text-xs text-zinc-400">{selectedCustomer.loyalty_points} pts</span>
+              </div>
+
               {/* Stats */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="bg-zinc-700/50 rounded-xl p-3 text-center">
@@ -336,30 +378,79 @@ export default function CustomersDashboard(): JSX.Element {
                 </div>
               </div>
 
-              <div className="text-xs text-zinc-500">
+              <div className="text-xs text-zinc-500 space-y-1">
                 {selectedCustomer.visit_count > 0 && (
                   <p>{ordinalSuffix(selectedCustomer.visit_count)} visit</p>
                 )}
                 {selectedCustomer.last_visit_at && (
                   <p>Last visit: {isoDateToDDMMYYYY(selectedCustomer.last_visit_at)}</p>
                 )}
+                {selectedCustomer.date_of_birth && (
+                  <p>DOB: {isoDateToDDMMYYYY(selectedCustomer.date_of_birth)}</p>
+                )}
+                {selectedCustomer.email && (
+                  <p className="inline-flex items-center gap-1 text-zinc-400">
+                    <Mail size={11} aria-hidden="true" />
+                    {selectedCustomer.email}
+                  </p>
+                )}
+                {selectedCustomer.delivery_address && (
+                  <p className="inline-flex items-center gap-1 text-zinc-400">
+                    <MapPin size={11} aria-hidden="true" />
+                    {selectedCustomer.delivery_address}
+                  </p>
+                )}
                 {selectedCustomer.notes && (
-                  <p className="mt-1 text-zinc-400">{selectedCustomer.notes}</p>
+                  <p className="text-zinc-400">{selectedCustomer.notes}</p>
                 )}
               </div>
 
-              {/* Notes edit */}
+              {/* Extended edit fields */}
               {editingId === selectedCustomer.id && (
-                <div>
-                  <label htmlFor="edit-notes" className="block text-zinc-400 text-xs mb-1">Notes</label>
-                  <textarea
-                    id="edit-notes"
-                    value={editNotes}
-                    onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => { setEditNotes(e.target.value) }}
-                    rows={2}
-                    className="w-full px-3 py-2 rounded-xl bg-zinc-700 text-white border border-zinc-600 focus:border-indigo-400 focus:outline-none text-sm resize-none"
-                    placeholder="Add a note about this customer…"
-                  />
+                <div className="space-y-3">
+                  <div>
+                    <label htmlFor="edit-dob" className="block text-zinc-400 text-xs mb-1">Date of Birth</label>
+                    <input
+                      id="edit-dob"
+                      type="date"
+                      value={editDob}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setEditDob(e.target.value) }}
+                      className="w-full px-3 py-2 rounded-xl bg-zinc-700 text-white border border-zinc-600 focus:border-indigo-400 focus:outline-none text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="edit-email" className="block text-zinc-400 text-xs mb-1">Email</label>
+                    <input
+                      id="edit-email"
+                      type="email"
+                      value={editEmail}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setEditEmail(e.target.value) }}
+                      className="w-full px-3 py-2 rounded-xl bg-zinc-700 text-white border border-zinc-600 focus:border-indigo-400 focus:outline-none text-sm"
+                      placeholder="customer@email.com"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="edit-address" className="block text-zinc-400 text-xs mb-1">Delivery Address</label>
+                    <textarea
+                      id="edit-address"
+                      value={editAddress}
+                      onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => { setEditAddress(e.target.value) }}
+                      rows={2}
+                      className="w-full px-3 py-2 rounded-xl bg-zinc-700 text-white border border-zinc-600 focus:border-indigo-400 focus:outline-none text-sm resize-none"
+                      placeholder="Delivery address…"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="edit-notes" className="block text-zinc-400 text-xs mb-1">Notes</label>
+                    <textarea
+                      id="edit-notes"
+                      value={editNotes}
+                      onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => { setEditNotes(e.target.value) }}
+                      rows={2}
+                      className="w-full px-3 py-2 rounded-xl bg-zinc-700 text-white border border-zinc-600 focus:border-indigo-400 focus:outline-none text-sm resize-none"
+                      placeholder="Add a note about this customer…"
+                    />
+                  </div>
                 </div>
               )}
 

@@ -15,6 +15,38 @@ export interface ServiceChargeBreakdown {
 }
 
 /**
+ * Per-order-type flags for service charge application.
+ * Defaults (per issue #357): dine-in = true, takeaway = false, delivery = false.
+ */
+export interface ServiceChargeApplyConfig {
+  applyDineIn: boolean
+  applyTakeaway: boolean
+  applyDelivery: boolean
+}
+
+/** Default config: service charge applies to dine-in only. */
+export const DEFAULT_SERVICE_CHARGE_APPLY_CONFIG: ServiceChargeApplyConfig = {
+  applyDineIn: true,
+  applyTakeaway: false,
+  applyDelivery: false,
+}
+
+/**
+ * Determine whether service charge should be applied for the given order type
+ * based on the restaurant's configuration.
+ */
+export function shouldApplyServiceCharge(
+  orderType: 'dine_in' | 'takeaway' | 'delivery',
+  config: ServiceChargeApplyConfig,
+): boolean {
+  switch (orderType) {
+    case 'dine_in': return config.applyDineIn
+    case 'takeaway': return config.applyTakeaway
+    case 'delivery': return config.applyDelivery
+  }
+}
+
+/**
  * Calculate service charge from a post-discount subtotal in cents.
  *
  * @param postDiscountCents  Subtotal after discounts have been applied

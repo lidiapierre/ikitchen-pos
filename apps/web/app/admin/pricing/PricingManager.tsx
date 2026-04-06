@@ -75,6 +75,10 @@ export default function PricingManager(): JSX.Element {
   const [taxInclusive, setTaxInclusive] = useState<boolean>(false)
   const [serviceChargePercent, setServiceChargePercent] = useState<number>(0)
   const [serviceChargeInput, setServiceChargeInput] = useState<string>('0')
+  const [serviceChargeApplyDineIn, setServiceChargeApplyDineIn] = useState<boolean>(true)
+  const [serviceChargeApplyTakeaway, setServiceChargeApplyTakeaway] = useState<boolean>(false)
+  const [serviceChargeApplyDelivery, setServiceChargeApplyDelivery] = useState<boolean>(false)
+  const [savingServiceChargeApply, setSavingServiceChargeApply] = useState<boolean>(false)
   const [currencyCode, setCurrencyCode] = useState<string>('BDT')
   const [currencySymbol, setCurrencySymbol] = useState<string>('৳')
   const [currencyCodeInput, setCurrencyCodeInput] = useState<string>('BDT')
@@ -120,13 +124,25 @@ export default function PricingManager(): JSX.Element {
         setCurrencyCode(data.currencyCode)
         setCurrencySymbol(data.currencySymbol)
         setCurrencyCodeInput(data.currencyCode)
-        // Fetch service charge config
-        return fetchConfigValue(supabaseUrl, accessToken, data.restaurantId, 'service_charge_percent', '0')
-          .then((scValue) => {
-            const parsed = parseFloat(scValue)
+        // Fetch service charge config (percent + per-order-type flags) in a single request
+        const scKeys = ['service_charge_percent', 'service_charge_apply_dine_in', 'service_charge_apply_takeaway', 'service_charge_apply_delivery']
+        const scUrl = new URL(`${supabaseUrl}/rest/v1/config`)
+        scUrl.searchParams.set('select', 'key,value')
+        scUrl.searchParams.set('restaurant_id', `eq.${data.restaurantId}`)
+        scUrl.searchParams.set('key', `in.(${scKeys.join(',')})`)
+        return fetch(scUrl.toString(), {
+          headers: { apikey: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? '', Authorization: `Bearer ${accessToken}` },
+        })
+          .then((r) => r.ok ? r.json() as Promise<Array<{ key: string; value: string }>> : Promise.resolve([]))
+          .then((rows) => {
+            const cfgMap = new Map((rows as Array<{ key: string; value: string }>).map((r) => [r.key, r.value]))
+            const parsed = parseFloat(cfgMap.get('service_charge_percent') ?? '0')
             const sc = isNaN(parsed) || parsed < 0 ? 0 : parsed
             setServiceChargePercent(sc)
             setServiceChargeInput(String(sc))
+            if (cfgMap.has('service_charge_apply_dine_in')) setServiceChargeApplyDineIn(cfgMap.get('service_charge_apply_dine_in') === 'true')
+            if (cfgMap.has('service_charge_apply_takeaway')) setServiceChargeApplyTakeaway(cfgMap.get('service_charge_apply_takeaway') === 'true')
+            if (cfgMap.has('service_charge_apply_delivery')) setServiceChargeApplyDelivery(cfgMap.get('service_charge_apply_delivery') === 'true')
           })
           .catch(() => { /* non-fatal */ })
       })
@@ -228,6 +244,24 @@ export default function PricingManager(): JSX.Element {
       showFeedback('error', err instanceof Error ? err.message : 'Failed to save service charge.')
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  async function handleSaveServiceChargeApply(): Promise<void> {
+    const config = supabaseConfig.current
+    if (!config || !restaurantId) return
+    setSavingServiceChargeApply(true)
+    try {
+      await Promise.all([
+        callUpsertConfig(config.url, config.key, restaurantId, 'service_charge_apply_dine_in', String(serviceChargeApplyDineIn)),
+        callUpsertConfig(config.url, config.key, restaurantId, 'service_charge_apply_takeaway', String(serviceChargeApplyTakeaway)),
+        callUpsertConfig(config.url, config.key, restaurantId, 'service_charge_apply_delivery', String(serviceChargeApplyDelivery)),
+      ])
+      showFeedback('success', 'Service charge order type settings saved.')
+    } catch (err) {
+      showFeedback('error', err instanceof Error ? err.message : 'Failed to save service charge settings.')
+    } finally {
+      setSavingServiceChargeApply(false)
     }
   }
 
@@ -604,6 +638,36 @@ export default function PricingManager(): JSX.Element {
           {serviceChargePercent === 0 && (
             <span className="text-sm text-brand-grey self-center">Disabled</span>
           )}
+        </div>
+
+        {/* Per-order-type toggles (issue #357) */}
+        <div className="pt-2 border-t border-brand-grey/30">
+          <p className="text-sm font-medium text-brand-navy/80 mb-3">Apply service charge to:</p>
+          <div className="flex flex-col gap-2">
+            {[
+              { key: 'dine_in', label: 'Dine-in', value: serviceChargeApplyDineIn, setter: setServiceChargeApplyDineIn },
+              { key: 'takeaway', label: 'Takeaway', value: serviceChargeApplyTakeaway, setter: setServiceChargeApplyTakeaway },
+              { key: 'delivery', label: 'Delivery', value: serviceChargeApplyDelivery, setter: setServiceChargeApplyDelivery },
+            ].map(({ key, label, value, setter }) => (
+              <label key={key} className="flex items-center gap-3 cursor-pointer select-none min-h-[40px]">
+                <input
+                  type="checkbox"
+                  checked={value}
+                  onChange={(e) => { setter(e.target.checked) }}
+                  disabled={savingServiceChargeApply || !restaurantId}
+                  className="w-5 h-5 rounded accent-brand-navy disabled:opacity-50"
+                />
+                <span className="text-sm text-brand-navy">{label}</span>
+              </label>
+            ))}
+          </div>
+          <button
+            onClick={() => { void handleSaveServiceChargeApply() }}
+            disabled={savingServiceChargeApply || !restaurantId}
+            className="mt-3 min-h-[44px] px-5 py-2 rounded-xl bg-brand-navy text-white text-sm font-medium hover:bg-brand-blue transition-colors disabled:opacity-50"
+          >
+            {savingServiceChargeApply ? 'Saving…' : 'Save order type settings'}
+          </button>
         </div>
       </div>
 

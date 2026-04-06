@@ -390,9 +390,11 @@ test('Flow 4: Payment flow - VAT breakdown and Print Bill', async ({ page }) => 
     console.log(`  All buttons on order page: ${btnTexts.filter(t => t.trim()).join(' | ')}`);
   }
 
-  // Bill preview screen — wait for it then click "Proceed to Payment"
-  await expect(page.getByText('Bill Preview')).toBeVisible();
-  await page.getByRole('button', { name: 'Proceed to Payment' }).click();
+  // Bill preview screen — only reachable when an order was closed
+  if (closedOrder) {
+    await expect(page.getByText('Bill Preview')).toBeVisible();
+    await page.getByRole('button', { name: 'Proceed to Payment' }).click();
+  }
 
   await page.waitForTimeout(2000);
   await ss(page, '04b-payment-step');

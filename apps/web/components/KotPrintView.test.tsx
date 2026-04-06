@@ -154,6 +154,41 @@ describe('KotPrintView', () => {
     expect(screen.getByText(/DELIVER BY/i)).toBeInTheDocument()
   })
 
+  // Customer mobile on KOT for delivery orders (issue #358)
+  it('shows customer mobile number on KOT for delivery orders', () => {
+    render(
+      <KotPrintView
+        tableLabel="Delivery"
+        orderId="order-abc-12345678"
+        items={mockItems}
+        timestamp="06/04/2026, 12:00:00"
+        orderType="delivery"
+        customerName="Ahmed Khan"
+        customerMobile="+880 1711 123456"
+        deliveryNote="Road 12, House 5"
+        scheduledTime="2026-04-06T17:30:00.000Z"
+      />,
+    )
+
+    expect(screen.getByText('+880 1711 123456')).toBeInTheDocument()
+  })
+
+  it('does not show customer mobile on KOT when not provided', () => {
+    render(
+      <KotPrintView
+        tableLabel="Delivery"
+        orderId="order-abc-12345678"
+        items={mockItems}
+        timestamp="06/04/2026, 12:00:00"
+        orderType="delivery"
+        customerName="Ahmed Khan"
+        scheduledTime="2026-04-06T17:30:00.000Z"
+      />,
+    )
+
+    expect(screen.queryByText(/\+880/)).not.toBeInTheDocument()
+  })
+
   it('does not show PICKUP AT or DELIVER BY when scheduledTime is null', () => {
     render(
       <KotPrintView

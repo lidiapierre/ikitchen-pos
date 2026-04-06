@@ -50,6 +50,16 @@ export default function NewDeliveryOrderClient(): JSX.Element {
       return
     }
 
+    if (!customerPhone) {
+      void Promise.resolve().then(() => { setError('Mobile number is required for delivery orders') })
+      return
+    }
+
+    if (!deliveryNote) {
+      void Promise.resolve().then(() => { setError('Delivery address is required for delivery orders') })
+      return
+    }
+
     if (!scheduledTime) {
       void Promise.resolve().then(() => { setError('Delivery Time is required for delivery orders') })
       return
@@ -63,8 +73,8 @@ export default function NewDeliveryOrderClient(): JSX.Element {
       {
         orderType: 'delivery',
         customerName,
-        ...(customerPhone ? { customerMobile: customerPhone } : {}),
-        ...(deliveryNote ? { deliveryNote } : {}),
+        customerMobile: customerPhone,
+        deliveryNote,
         scheduledTime,
         ...(deliveryZoneId ? { deliveryZoneId } : {}),
         ...(deliveryChargeCents > 0 ? { deliveryChargeCents } : {}),

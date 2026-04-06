@@ -17,7 +17,7 @@ import {
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useUser } from '@/lib/user-context'
-import { formatDate as fmtDate, formatDateTime as fmtDateTime, formatTimeOnly, formatDateShort } from '@/lib/dateFormat'
+import { formatDateTime as fmtDateTime, formatTimeOnly, formatDateShort } from '@/lib/dateFormat'
 import {
   fetchReservations,
   fetchTables,

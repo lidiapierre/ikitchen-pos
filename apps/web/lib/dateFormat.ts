@@ -11,6 +11,7 @@ export function formatDate(iso: string | null | undefined): string {
   if (!iso) return '—'
   try {
     const d = new Date(iso)
+    if (isNaN(d.getTime())) return iso
     const dd = String(d.getDate()).padStart(2, '0')
     const mm = String(d.getMonth() + 1).padStart(2, '0')
     const yyyy = d.getFullYear()
@@ -22,10 +23,13 @@ export function formatDate(iso: string | null | undefined): string {
 
 /**
  * Format an ISO datetime string as DD-MM-YYYY HH:mm.
+ * Returns '—' for null/undefined/empty.
  */
-export function formatDateTime(iso: string): string {
+export function formatDateTime(iso: string | null | undefined): string {
+  if (!iso) return '—'
   try {
     const d = new Date(iso)
+    if (isNaN(d.getTime())) return iso
     const dd = String(d.getDate()).padStart(2, '0')
     const mm = String(d.getMonth() + 1).padStart(2, '0')
     const yyyy = d.getFullYear()
@@ -39,10 +43,13 @@ export function formatDateTime(iso: string): string {
 
 /**
  * Format an ISO datetime string as HH:mm (time only).
+ * Returns '—' for null/undefined/empty.
  */
-export function formatTimeOnly(iso: string): string {
+export function formatTimeOnly(iso: string | null | undefined): string {
+  if (!iso) return '—'
   try {
     const d = new Date(iso)
+    if (isNaN(d.getTime())) return iso
     const hh = String(d.getHours()).padStart(2, '0')
     const min = String(d.getMinutes()).padStart(2, '0')
     return `${hh}:${min}`
@@ -54,10 +61,13 @@ export function formatTimeOnly(iso: string): string {
 /**
  * Format an ISO datetime string as "DD MMM HH:mm" (e.g. "06 Apr 14:30").
  * Used for compact datetime display (reservations list, etc.).
+ * Returns '—' for null/undefined/empty.
  */
-export function formatDateTimeShort(iso: string): string {
+export function formatDateTimeShort(iso: string | null | undefined): string {
+  if (!iso) return '—'
   try {
     const d = new Date(iso)
+    if (isNaN(d.getTime())) return iso
     const dd = String(d.getDate()).padStart(2, '0')
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
     const mon = months[d.getMonth()]
@@ -72,10 +82,13 @@ export function formatDateTimeShort(iso: string): string {
 /**
  * Format an ISO datetime string as "DD MMM" (e.g. "06 Apr").
  * Used for day-only compact display without year.
+ * Returns '—' for null/undefined/empty.
  */
-export function formatDateShort(iso: string): string {
+export function formatDateShort(iso: string | null | undefined): string {
+  if (!iso) return '—'
   try {
     const d = new Date(iso)
+    if (isNaN(d.getTime())) return iso
     const dd = String(d.getDate()).padStart(2, '0')
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
     const mon = months[d.getMonth()]
@@ -87,9 +100,11 @@ export function formatDateShort(iso: string): string {
 
 /**
  * Convert an ISO date string (YYYY-MM-DD) to DD-MM-YYYY.
- * Safe for strings that are already in YYYY-MM-DD format (e.g. from DB date columns).
+ * Uses regex to avoid timezone day-shift for date-only columns.
+ * Falls back to formatDate for full ISO datetime strings.
+ * Returns '—' for null/undefined/empty.
  */
-export function isoDateToDDMMYYYY(isoDate: string): string {
+export function isoDateToDDMMYYYY(isoDate: string | null | undefined): string {
   if (!isoDate) return '—'
   // Handle YYYY-MM-DD format directly (no timezone conversion)
   const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(isoDate)

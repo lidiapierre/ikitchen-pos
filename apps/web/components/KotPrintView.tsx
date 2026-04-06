@@ -18,7 +18,9 @@ interface KotPrintViewProps {
   orderType?: 'dine_in' | 'takeaway' | 'delivery'
   /** Customer name for delivery orders. */
   customerName?: string | null
-  /** Delivery note for delivery orders. */
+  /** Customer mobile number for delivery orders (issue #358). */
+  customerMobile?: string | null
+  /** Delivery address / note for delivery orders. */
   deliveryNote?: string | null
   /** Sequential human-readable order number (issue #349). Displayed prominently as e.g. #001. */
   orderNumber?: number | null
@@ -58,6 +60,7 @@ export default function KotPrintView({
   courseFilter,
   orderType = 'dine_in',
   customerName,
+  customerMobile,
   deliveryNote,
   orderNumber,
   scheduledTime,
@@ -89,6 +92,9 @@ export default function KotPrintView({
           </p>
           {isDelivery && customerName && (
             <p className="text-sm font-bold">{customerName}</p>
+          )}
+          {isDelivery && customerMobile && (
+            <p className="text-xs">{customerMobile}</p>
           )}
           {isDelivery && deliveryNote && (
             <p className="text-xs">{deliveryNote}</p>

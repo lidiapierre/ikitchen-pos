@@ -31,11 +31,13 @@ describe('NewDeliveryOrderPage', () => {
       NEXT_PUBLIC_SUPABASE_URL: 'https://test.supabase.co',
     }
 
-    // Default: search params with both customerName and deliveryNote
+    // Default: search params with all required fields (issue #358)
     mockSearchParamsGet.mockImplementation((key: string) => {
       const params: Record<string, string> = {
         customerName: 'Ahmed Khan',
-        deliveryNote: 'Ring the bell',
+        customerPhone: '+880 1711 123456',
+        deliveryNote: 'Road 12, House 5',
+        scheduledTime: '2026-04-06T18:00:00.000Z',
       }
       return params[key] ?? null
     })
@@ -75,7 +77,7 @@ describe('NewDeliveryOrderPage', () => {
       })
     })
 
-    it('calls callCreateOrder with customerName and deliveryNote from search params', async () => {
+    it('calls callCreateOrder with customerName, customerMobile, and deliveryNote from search params', async () => {
       const { callCreateOrder } = await import('../../../components/createOrderApi')
       vi.mocked(callCreateOrder).mockResolvedValue({ order_id: 'delivery-order-xyz' })
 
@@ -88,30 +90,10 @@ describe('NewDeliveryOrderPage', () => {
           {
             orderType: 'delivery',
             customerName: 'Ahmed Khan',
-            deliveryNote: 'Ring the bell',
+            customerMobile: '+880 1711 123456',
+            deliveryNote: 'Road 12, House 5',
+            scheduledTime: '2026-04-06T18:00:00.000Z',
           },
-          expect.any(AbortSignal),
-        )
-      })
-    })
-
-    it('calls callCreateOrder without deliveryNote when it is absent', async () => {
-      // Override: no deliveryNote
-      mockSearchParamsGet.mockImplementation((key: string) => {
-        if (key === 'customerName') return 'Rahim Uddin'
-        return null
-      })
-
-      const { callCreateOrder } = await import('../../../components/createOrderApi')
-      vi.mocked(callCreateOrder).mockResolvedValue({ order_id: 'delivery-order-xyz' })
-
-      render(<NewDeliveryOrderClient />)
-
-      await waitFor(() => {
-        expect(callCreateOrder).toHaveBeenCalledWith(
-          'https://test.supabase.co',
-          'test-token',
-          { orderType: 'delivery', customerName: 'Rahim Uddin' },
           expect.any(AbortSignal),
         )
       })
@@ -170,6 +152,48 @@ describe('NewDeliveryOrderPage', () => {
 
       await waitFor(() => {
         expect(screen.getByText('Customer name is required for delivery orders')).toBeInTheDocument()
+      })
+      expect(callCreateOrder).not.toHaveBeenCalled()
+      expect(mockReplace).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('missing customerPhone (issue #358)', () => {
+    it('shows an error when customerPhone search param is absent', async () => {
+      mockSearchParamsGet.mockImplementation((key: string) => {
+        if (key === 'customerName') return 'Ahmed Khan'
+        if (key === 'deliveryNote') return 'Road 12, House 5'
+        return null
+      })
+
+      const { callCreateOrder } = await import('../../../components/createOrderApi')
+      vi.mocked(callCreateOrder).mockResolvedValue({ order_id: 'should-not-reach' })
+
+      render(<NewDeliveryOrderClient />)
+
+      await waitFor(() => {
+        expect(screen.getByText('Mobile number is required for delivery orders')).toBeInTheDocument()
+      })
+      expect(callCreateOrder).not.toHaveBeenCalled()
+      expect(mockReplace).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('missing deliveryNote/address (issue #358)', () => {
+    it('shows an error when deliveryNote search param is absent', async () => {
+      mockSearchParamsGet.mockImplementation((key: string) => {
+        if (key === 'customerName') return 'Ahmed Khan'
+        if (key === 'customerPhone') return '+880 1711 123456'
+        return null
+      })
+
+      const { callCreateOrder } = await import('../../../components/createOrderApi')
+      vi.mocked(callCreateOrder).mockResolvedValue({ order_id: 'should-not-reach' })
+
+      render(<NewDeliveryOrderClient />)
+
+      await waitFor(() => {
+        expect(screen.getByText('Delivery address is required for delivery orders')).toBeInTheDocument()
       })
       expect(callCreateOrder).not.toHaveBeenCalled()
       expect(mockReplace).not.toHaveBeenCalled()

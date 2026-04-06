@@ -297,6 +297,14 @@ export default function TablesPage(): JSX.Element {
       setCreateOrderError('Customer name is required for delivery orders')
       return
     }
+    if (!deliveryPhone.trim()) {
+      setCreateOrderError('Mobile number is required for delivery orders')
+      return
+    }
+    if (!deliveryNote.trim()) {
+      setCreateOrderError('Delivery address is required for delivery orders')
+      return
+    }
     if (!deliveryScheduledTime) {
       setCreateOrderError('Delivery Time is required')
       return
@@ -311,8 +319,8 @@ export default function TablesPage(): JSX.Element {
 
     const params = new URLSearchParams({
       customerName: deliveryCustomerName.trim(),
-      ...(deliveryPhone.trim() ? { customerPhone: deliveryPhone.trim() } : {}),
-      ...(deliveryNote.trim() ? { deliveryNote: deliveryNote.trim() } : {}),
+      customerPhone: deliveryPhone.trim(),
+      deliveryNote: deliveryNote.trim(),
       // Convert local datetime-local value to ISO string (issue #352)
       scheduledTime: new Date(deliveryScheduledTime).toISOString(),
       ...(selectedZone ? { deliveryZoneId: selectedZone.id } : {}),
@@ -683,7 +691,7 @@ export default function TablesPage(): JSX.Element {
 
             <div>
               <label htmlFor="delivery-phone" className="block text-white text-base mb-2 font-body">
-                Phone Number <span className="text-brand-grey">(optional)</span>
+                Mobile Number <span className="text-red-400">*</span>
               </label>
               <input
                 id="delivery-phone"
@@ -694,9 +702,6 @@ export default function TablesPage(): JSX.Element {
                 onBlur={() => { setDeliveryPhoneTouched(true) }}
                 className="w-full min-h-[48px] px-4 rounded-xl text-base bg-brand-blue text-white border-2 border-brand-grey/40 focus:border-brand-gold focus:outline-none placeholder-white/40 font-body"
               />
-              {deliveryPhoneTouched && deliveryPhone.trim() === '' && (
-                <p className="text-amber-400/70 text-xs mt-1">Adding a phone number helps with delivery contact</p>
-              )}
               {customerSuggestion !== null && (
                 <button
                   type="button"
@@ -713,12 +718,12 @@ export default function TablesPage(): JSX.Element {
 
             <div>
               <label htmlFor="delivery-note" className="block text-white text-base mb-2 font-body">
-                Delivery Note <span className="text-brand-grey">(optional)</span>
+                Delivery Address <span className="text-red-400">*</span>
               </label>
               <input
                 id="delivery-note"
                 type="text"
-                placeholder="e.g. Road 12, House 5, Ring the bell"
+                placeholder="e.g. Road 12, House 5, Mirpur"
                 value={deliveryNote}
                 onChange={(e) => { setDeliveryNote(e.target.value) }}
                 className="w-full min-h-[48px] px-4 rounded-xl text-base bg-brand-blue text-white border-2 border-brand-grey/40 focus:border-brand-gold focus:outline-none placeholder-white/40 font-body"
@@ -790,6 +795,8 @@ export default function TablesPage(): JSX.Element {
                 onClick={handleCreateDelivery}
                 disabled={
                   deliveryCustomerName.trim() === '' ||
+                  deliveryPhone.trim() === '' ||
+                  deliveryNote.trim() === '' ||
                   !deliveryScheduledTime ||
                   zonesLoading ||
                   (deliveryZones.length > 0 && !selectedDeliveryZoneId)
@@ -797,6 +804,8 @@ export default function TablesPage(): JSX.Element {
                 className={[
                   'flex-1 min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold transition-colors font-body',
                   (deliveryCustomerName.trim() === '' ||
+                    deliveryPhone.trim() === '' ||
+                    deliveryNote.trim() === '' ||
                     !deliveryScheduledTime ||
                     zonesLoading ||
                     (deliveryZones.length > 0 && !selectedDeliveryZoneId))

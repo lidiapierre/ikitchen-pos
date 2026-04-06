@@ -118,10 +118,22 @@ export async function handler(
     )
   }
 
-  // Delivery orders require customer_name
+  // Delivery orders require customer_name, customer_mobile, and delivery_note (issue #358)
   if (orderType === 'delivery' && (!customerName || customerName.trim() === '')) {
     return new Response(
       JSON.stringify({ success: false, error: 'customer_name is required for delivery orders' }),
+      { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    )
+  }
+  if (orderType === 'delivery' && (!customerMobile || customerMobile.trim() === '')) {
+    return new Response(
+      JSON.stringify({ success: false, error: 'customer_mobile is required for delivery orders' }),
+      { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    )
+  }
+  if (orderType === 'delivery' && (!deliveryNote || deliveryNote.trim() === '')) {
+    return new Response(
+      JSON.stringify({ success: false, error: 'delivery_note (address) is required for delivery orders' }),
       { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
     )
   }

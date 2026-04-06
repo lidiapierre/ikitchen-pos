@@ -1907,6 +1907,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
           courseFilter={kotCourseFilter ?? undefined}
           orderType={orderType}
           customerName={orderCustomerName}
+          customerMobile={orderCustomerMobile}
           deliveryNote={orderDeliveryNote}
           orderNumber={orderNumber}
           scheduledTime={orderScheduledTime}

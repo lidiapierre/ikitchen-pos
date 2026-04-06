@@ -12,9 +12,11 @@
 
 -- 1. Per-restaurant, per-day counter table
 CREATE TABLE IF NOT EXISTS daily_order_counters (
-  restaurant_id UUID    NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
-  counter_date  DATE    NOT NULL,
-  last_number   INTEGER NOT NULL DEFAULT 0,
+  restaurant_id UUID        NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
+  counter_date  DATE        NOT NULL,
+  last_number   INTEGER     NOT NULL DEFAULT 0,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY (restaurant_id, counter_date)
 );
 
@@ -34,7 +36,10 @@ ALTER TABLE orders
 CREATE INDEX IF NOT EXISTS idx_orders_order_number
   ON orders (restaurant_id, order_number, created_at);
 
--- 3. Atomic increment function (SECURITY DEFINER so trigger can write counters)
+-- HUMAN REVIEW REQUIRED: SECURITY DEFINER function — runs with elevated privileges
+-- Needed so the BEFORE INSERT trigger can write to daily_order_counters regardless
+-- of the calling user's row-level security context.
+-- 3. Atomic increment function
 CREATE OR REPLACE FUNCTION next_daily_order_number(
   p_restaurant_id UUID,
   p_date          DATE
@@ -49,13 +54,17 @@ BEGIN
   INSERT INTO daily_order_counters (restaurant_id, counter_date, last_number)
   VALUES (p_restaurant_id, p_date, 1)
   ON CONFLICT (restaurant_id, counter_date) DO UPDATE
-    SET last_number = daily_order_counters.last_number + 1
+    SET last_number = daily_order_counters.last_number + 1,
+        updated_at  = now()
   RETURNING last_number INTO v_next;
 
   RETURN v_next;
 END;
 $$;
 
+-- HUMAN REVIEW REQUIRED: SECURITY DEFINER trigger function — runs with elevated privileges
+-- Needed so the trigger can call next_daily_order_number() and assign order_number
+-- during INSERT, before RLS is evaluated on the new row.
 -- 4. Trigger function: assign order_number on INSERT when restaurant_id is known
 CREATE OR REPLACE FUNCTION set_order_number()
 RETURNS TRIGGER
@@ -63,12 +72,11 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
 BEGIN
-  -- Only assign when restaurant_id is set and order_number not already provided
+  -- Only assign when restaurant_id is set and order_number not already provided.
+  -- Use CURRENT_DATE directly: in a BEFORE INSERT trigger, column DEFAULTs (incl.
+  -- created_at) have not been applied yet, so NEW.created_at is always NULL here.
   IF NEW.restaurant_id IS NOT NULL AND NEW.order_number IS NULL THEN
-    NEW.order_number := next_daily_order_number(
-      NEW.restaurant_id,
-      COALESCE(CAST(NEW.created_at AS DATE), CURRENT_DATE)
-    );
+    NEW.order_number := next_daily_order_number(NEW.restaurant_id, CURRENT_DATE);
   END IF;
   RETURN NEW;
 END;

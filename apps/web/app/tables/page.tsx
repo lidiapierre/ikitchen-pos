@@ -557,6 +557,7 @@ export default function TablesPage(): JSX.Element {
                 id="takeaway-scheduled-time"
                 type="datetime-local"
                 value={takeawayScheduledTime}
+                min={new Date().toISOString().slice(0, 16)}
                 onChange={(e) => { setTakeawayScheduledTime(e.target.value) }}
                 className="w-full min-h-[48px] px-4 rounded-xl text-base bg-brand-blue text-white border-2 border-brand-grey/40 focus:border-brand-gold focus:outline-none font-body"
                 required
@@ -676,6 +677,7 @@ export default function TablesPage(): JSX.Element {
                 id="delivery-scheduled-time"
                 type="datetime-local"
                 value={deliveryScheduledTime}
+                min={new Date().toISOString().slice(0, 16)}
                 onChange={(e) => { setDeliveryScheduledTime(e.target.value) }}
                 className="w-full min-h-[48px] px-4 rounded-xl text-base bg-brand-blue text-white border-2 border-brand-grey/40 focus:border-brand-gold focus:outline-none font-body"
                 required

@@ -32,8 +32,8 @@ const COURSE_LABELS: Record<string, string> = {
   dessert: 'DESSERT',
 }
 
-/** Format an ISO datetime string for KOT display (e.g. "06 Apr 17:30"). */
-function formatKotTime(iso: string | null | undefined): string {
+/** Format an ISO datetime string for KOT display (e.g. "06 Apr 17:30"). Exported for unit testing. */
+export function formatKotTime(iso: string | null | undefined): string {
   if (!iso) return ''
   try {
     const d = new Date(iso)

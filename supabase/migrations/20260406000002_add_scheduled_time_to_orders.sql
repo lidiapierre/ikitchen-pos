@@ -10,3 +10,5 @@ ALTER TABLE orders
 
 COMMENT ON COLUMN orders.scheduled_time IS
   'Optional scheduled pickup or delivery time for takeaway/delivery orders (issue #352).';
+
+-- Rollback: ALTER TABLE orders DROP COLUMN IF EXISTS scheduled_time;

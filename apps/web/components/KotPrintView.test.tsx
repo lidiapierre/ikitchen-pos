@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import KotPrintView from './KotPrintView'
+import KotPrintView, { formatKotTime } from './KotPrintView'
 import type { OrderItem } from '@/app/tables/[id]/order/[order_id]/orderData'
 
 const mockItems: OrderItem[] = [
@@ -120,5 +120,78 @@ describe('KotPrintView', () => {
     )
 
     expect(screen.getByText('#123')).toBeInTheDocument()
+  })
+
+  // Scheduled time display (issue #352)
+  it('shows PICKUP AT line for takeaway orders with scheduledTime', () => {
+    render(
+      <KotPrintView
+        tableLabel="Takeaway"
+        orderId="order-abc-12345678"
+        items={mockItems}
+        timestamp="06/04/2026, 12:00:00"
+        orderType="takeaway"
+        scheduledTime="2026-04-06T17:30:00.000Z"
+      />,
+    )
+
+    expect(screen.getByText(/PICKUP AT/i)).toBeInTheDocument()
+  })
+
+  it('shows DELIVER BY line for delivery orders with scheduledTime', () => {
+    render(
+      <KotPrintView
+        tableLabel="Delivery"
+        orderId="order-abc-12345678"
+        items={mockItems}
+        timestamp="06/04/2026, 12:00:00"
+        orderType="delivery"
+        customerName="Ahmed Khan"
+        scheduledTime="2026-04-06T17:30:00.000Z"
+      />,
+    )
+
+    expect(screen.getByText(/DELIVER BY/i)).toBeInTheDocument()
+  })
+
+  it('does not show PICKUP AT or DELIVER BY when scheduledTime is null', () => {
+    render(
+      <KotPrintView
+        tableLabel="Takeaway"
+        orderId="order-abc-12345678"
+        items={mockItems}
+        timestamp="06/04/2026, 12:00:00"
+        orderType="takeaway"
+        scheduledTime={null}
+      />,
+    )
+
+    expect(screen.queryByText(/PICKUP AT/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/DELIVER BY/i)).not.toBeInTheDocument()
+  })
+})
+
+describe('formatKotTime', () => {
+  it('formats a valid ISO string as "DD Mon HH:mm"', () => {
+    // Use a fixed UTC timestamp: 2026-04-06T11:30:00Z
+    // Result depends on local timezone, so just check the shape
+    const result = formatKotTime('2026-04-06T11:30:00.000Z')
+    expect(result).toMatch(/^\d{2} [A-Z][a-z]{2} \d{2}:\d{2}$/)
+  })
+
+  it('returns the original string when the input is not a valid date', () => {
+    expect(formatKotTime('not-a-date')).toBe('not-a-date')
+  })
+
+  it('returns empty string for null', () => {
+    expect(formatKotTime(null)).toBe('')
+  })
+
+  it('returns empty string for undefined', () => {
+    expect(formatKotTime(undefined)).toBe('')
+  })
+
+  it('returns empty string for empty string', () => {
+    expect(formatKotTime('')).toBe('')
   })
 })

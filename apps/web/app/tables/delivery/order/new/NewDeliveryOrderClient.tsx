@@ -76,7 +76,7 @@ export default function NewDeliveryOrderClient(): JSX.Element {
       })
 
     return () => { controller.abort() }
-  }, [_at, accessToken, customerName, customerPhone, deliveryNote, router])
+  }, [_at, accessToken, customerName, customerPhone, deliveryNote, scheduledTime, router])
 
   if (error !== null) {
     return (
@@ -135,6 +135,14 @@ export default function NewDeliveryOrderClient(): JSX.Element {
             <div className="flex gap-3">
               <dt className="text-zinc-500">Note</dt>
               <dd className="text-zinc-300">{deliveryNote}</dd>
+            </div>
+          )}
+          {scheduledTime && (
+            <div className="flex gap-3">
+              <dt className="text-zinc-500">Delivery Time</dt>
+              <dd className="font-semibold text-amber-300">
+                {new Date(scheduledTime).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+              </dd>
             </div>
           )}
           <div className="flex gap-3">

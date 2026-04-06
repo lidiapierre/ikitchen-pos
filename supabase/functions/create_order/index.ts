@@ -101,6 +101,11 @@ export async function handler(
     scheduledTime = parsed.toISOString()
   }
 
+  // Note: we do not enforce that scheduled_time is in the future here — the
+  // ordering context may legitimately need a "ASAP" flow in the future. Any
+  // future-time enforcement should be added as an explicit business-rule guard
+  // rather than silent rejection.
+
   // Takeaway and delivery orders require a scheduled_time
   if ((orderType === 'takeaway' || orderType === 'delivery') && scheduledTime === null) {
     return new Response(

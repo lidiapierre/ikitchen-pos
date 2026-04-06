@@ -270,6 +270,8 @@ test.describe('void item, payment, and bill print flows', () => {
 
     // Close order
     await page.getByRole('button', { name: 'Close Order' }).click()
+    await expect(page.getByText('Bill Preview')).toBeVisible()
+    await page.getByRole('button', { name: 'Proceed to Payment' }).click()
     await expect(page.getByText('Record Payment')).toBeVisible()
 
     // Cash method should be default — enter tendered amount
@@ -322,6 +324,8 @@ test.describe('void item, payment, and bill print flows', () => {
 
     // Close order → go to payment step
     await page.getByRole('button', { name: 'Close Order' }).click()
+    await expect(page.getByText('Bill Preview')).toBeVisible()
+    await page.getByRole('button', { name: 'Proceed to Payment' }).click()
     await expect(page.getByText('Record Payment')).toBeVisible()
 
     // Select Card payment (no change due — goes directly to success)

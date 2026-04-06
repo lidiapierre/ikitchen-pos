@@ -150,13 +150,15 @@ test.describe('payment flow', () => {
     await expect(page.getByRole('button', { name: 'Close Order' })).toBeVisible();
   });
 
-  test('clicking Close Order shows the Record Payment heading', async ({ page }) => {
+  test('clicking Close Order shows the Bill Preview heading', async ({ page }) => {
     await page.goto(`/tables/${TABLE_ID}/order/${ORDER_ID}`);
 
     await expect(page.getByText('Lamb Karahi', { exact: true }).last()).toBeVisible();
 
     await page.getByRole('button', { name: 'Close Order' }).click();
 
+    await expect(page.getByText('Bill Preview')).toBeVisible();
+    await page.getByRole('button', { name: 'Proceed to Payment' }).click();
     await expect(page.getByText('Record Payment')).toBeVisible();
   });
 
@@ -167,6 +169,8 @@ test.describe('payment flow', () => {
 
     // Close order → payment step
     await page.getByRole('button', { name: 'Close Order' }).click();
+    await expect(page.getByText('Bill Preview')).toBeVisible();
+    await page.getByRole('button', { name: 'Proceed to Payment' }).click();
     await expect(page.getByText('Record Payment')).toBeVisible();
 
     // Cash is the default method; enter tendered amount (total = ৳350, we pay ৳370)
@@ -199,6 +203,8 @@ test.describe('payment flow', () => {
     await expect(page.getByText('Lamb Karahi', { exact: true }).last()).toBeVisible();
 
     await page.getByRole('button', { name: 'Close Order' }).click();
+    await expect(page.getByText('Bill Preview')).toBeVisible();
+    await page.getByRole('button', { name: 'Proceed to Payment' }).click();
     await expect(page.getByText('Record Payment')).toBeVisible();
 
     // Select card method

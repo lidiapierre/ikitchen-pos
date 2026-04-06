@@ -20,12 +20,16 @@ ALTER TABLE customers
 
 -- RPC: atomically award loyalty points to a customer and auto-upgrade membership status.
 -- Thresholds: regular → silver (≥100 pts) → gold (≥500 pts)
+-- HUMAN REVIEW REQUIRED: SECURITY DEFINER bypasses RLS on the customers table.
+-- Privilege chain: function runs as DB owner → can read/write any customer row regardless of caller's RLS policies.
+-- Mitigated by: REVOKE from PUBLIC + GRANT to service_role only (see below) and SET search_path = public, pg_temp.
 CREATE OR REPLACE FUNCTION award_loyalty_points(
   p_customer_id UUID,
   p_points INTEGER
 ) RETURNS VOID
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public, pg_temp
 AS $$
 DECLARE
   v_new_points INTEGER;

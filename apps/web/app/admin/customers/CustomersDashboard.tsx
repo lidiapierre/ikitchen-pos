@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import type { JSX } from 'react'
 import Link from 'next/link'
 import { Users, Search, Phone, X, Pencil, Check, CalendarDays, Star, Mail, MapPin } from 'lucide-react'
+import { membershipColor, membershipBadge } from './membershipHelpers'
 import { useUser } from '@/lib/user-context'
 import { formatPrice, DEFAULT_CURRENCY_SYMBOL } from '@/lib/formatPrice'
 import { isoDateToDDMMYYYY, formatDateTimeShort } from '@/lib/dateFormat'
@@ -140,17 +141,7 @@ export default function CustomersDashboard(): JSX.Element {
     setSaveError(null)
   }
 
-  function membershipColor(status: 'regular' | 'silver' | 'gold'): string {
-    if (status === 'gold') return 'text-yellow-400'
-    if (status === 'silver') return 'text-zinc-300'
-    return 'text-zinc-500'
-  }
-
-  function membershipBadge(status: 'regular' | 'silver' | 'gold'): string {
-    if (status === 'gold') return 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/40'
-    if (status === 'silver') return 'bg-zinc-400/20 text-zinc-300 border border-zinc-400/40'
-    return 'bg-zinc-700/60 text-zinc-400 border border-zinc-600/40'
-  }
+  // membershipColor and membershipBadge are imported from ./membershipHelpers
 
   async function saveEdit(customer: Customer): Promise<void> {
     if (!accessToken) return

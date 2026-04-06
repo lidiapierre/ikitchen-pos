@@ -1,37 +1,14 @@
 /**
  * Unit tests for membership badge / colour helper functions (issue #356).
  *
- * The helpers are extracted from CustomersDashboard for testability.
+ * Helpers are imported from membershipHelpers.ts so the tests always verify
+ * the production code — no risk of divergence from copy-pasted duplicates.
+ *
  * Thresholds: regular (0–99 pts) → silver (≥100 pts) → gold (≥500 pts)
  */
 
 import { describe, it, expect } from 'vitest'
-
-// ─── Helpers under test (pure functions extracted from CustomersDashboard) ──────
-
-type MembershipStatus = 'regular' | 'silver' | 'gold'
-
-function membershipColor(status: MembershipStatus): string {
-  if (status === 'gold') return 'text-yellow-400'
-  if (status === 'silver') return 'text-zinc-300'
-  return 'text-zinc-500'
-}
-
-function membershipBadge(status: MembershipStatus): string {
-  if (status === 'gold') return 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/40'
-  if (status === 'silver') return 'bg-zinc-400/20 text-zinc-300 border border-zinc-400/40'
-  return 'bg-zinc-700/60 text-zinc-400 border border-zinc-600/40'
-}
-
-/**
- * Mirrors the tier-upgrade logic in award_loyalty_points() PL/pgSQL RPC.
- * Given total accumulated points, returns the correct membership status.
- */
-function tierForPoints(points: number): MembershipStatus {
-  if (points >= 500) return 'gold'
-  if (points >= 100) return 'silver'
-  return 'regular'
-}
+import { membershipColor, membershipBadge, tierForPoints } from './membershipHelpers'
 
 // ─── Tests ──────────────────────────────────────────────────────────────────────
 

@@ -1461,7 +1461,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
           <span className={['font-semibold text-white flex-1', isComp ? 'line-through' : ''].join(' ')}>
             {item.name}
             {isComp && (
-              <span className="ml-2 text-xs font-bold text-emerald-400 no-underline not-italic" style={{ textDecoration: 'none' }}>
+              <span className="ml-2 text-xs font-bold text-emerald-400 no-underline not-italic [text-decoration:none]">
                 COMP
               </span>
             )}
@@ -2876,7 +2876,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
                       <div className="flex items-center justify-between gap-3">
                         <span className={['font-medium text-white flex-1', isComp ? 'line-through' : ''].join(' ')}>
                           {item.name}
-                          {isComp && <span className="ml-2 text-xs font-bold text-emerald-400 not-italic" style={{ textDecoration: 'none' }}>COMP</span>}
+                          {isComp && <span className="ml-2 text-xs font-bold text-emerald-400 not-italic [text-decoration:none]">COMP</span>}
                         </span>
                         <span className="text-zinc-400">×{item.quantity}</span>
                         <span className="text-zinc-400">{formatPrice(item.price_cents, currencySymbol)}</span>

@@ -8,6 +8,7 @@ import { formatPrice, DEFAULT_CURRENCY_SYMBOL } from '@/lib/formatPrice'
 import type { ShiftRevenue } from './shiftRevenueApi'
 import { useUser } from '@/lib/user-context'
 import { supabase } from '@/lib/supabase'
+import { formatDateTime as fmtDateTime } from '@/lib/dateFormat'
 
 interface ActiveShift {
   shift_id: string
@@ -46,10 +47,7 @@ function saveShiftToStorage(shift: ActiveShift | null): void {
 }
 
 function formatDateTime(iso: string): string {
-  return new Date(iso).toLocaleString(undefined, {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  })
+  return fmtDateTime(iso)
 }
 
 function getDuration(start: string, end: string): string {

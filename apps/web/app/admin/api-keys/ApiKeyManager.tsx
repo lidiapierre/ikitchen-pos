@@ -6,20 +6,12 @@ import { useUser } from '@/lib/user-context'
 import { fetchApiKeys, createApiKey, revokeApiKey } from './apiKeysApi'
 import type { ApiKeyRow, CreatedApiKey } from './apiKeysApi'
 import { CheckCircle2, Check } from 'lucide-react'
+import { formatDate } from '@/lib/dateFormat'
 
 type FeedbackType = 'success' | 'error'
 interface Feedback {
   type: FeedbackType
   message: string
-}
-
-function formatDate(iso: string | null): string {
-  if (!iso) return '—'
-  return new Date(iso).toLocaleDateString(undefined, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  })
 }
 
 function PermissionBadge({ perm }: { perm: string }): JSX.Element {

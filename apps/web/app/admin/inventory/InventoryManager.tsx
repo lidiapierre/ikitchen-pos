@@ -23,6 +23,7 @@ import {
   type WastageReason,
 } from './inventoryApi'
 import AvailabilityPanel from './AvailabilityPanel'
+import { formatDateTime } from '@/lib/dateFormat'
 
 type Tab = 'ingredients' | 'recipes' | 'margins' | 'adjustments' | 'wastage' | 'availability'
 
@@ -858,7 +859,7 @@ function AdjustmentsTab({
                 <div className="flex-1 min-w-0">
                   <span className="font-semibold text-white">{adj.ingredient_name ?? adj.ingredient_id}</span>
                   <span className="text-xs text-zinc-500 ml-2">
-                    {new Date(adj.created_at).toLocaleString()}
+                    {formatDateTime(adj.created_at)}
                   </span>
                 </div>
                 <span className={[
@@ -1166,7 +1167,7 @@ function WastageTab({
               >
                 <div className="flex-1 min-w-0">
                   <span className="font-semibold text-white">{r.ingredient_name ?? r.ingredient_id}</span>
-                  <span className="text-xs text-zinc-500 ml-2">{new Date(r.created_at).toLocaleString()}</span>
+                  <span className="text-xs text-zinc-500 ml-2">{formatDateTime(r.created_at)}</span>
                 </div>
                 <span className="text-sm font-bold text-red-400 shrink-0">
                   −{formatQty(Math.abs(r.quantity_delta))} {r.ingredient_unit ?? ''}

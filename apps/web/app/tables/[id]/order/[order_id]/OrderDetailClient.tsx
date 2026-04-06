@@ -31,6 +31,7 @@ import KotPrintView from '@/components/KotPrintView'
 import BillPrintView from '@/components/BillPrintView'
 import { supabase } from '@/lib/supabase'
 import { useUser } from '@/lib/user-context'
+import { formatDateTime } from '@/lib/dateFormat'
 import { useToast } from '@/hooks/useToast'
 import { ToastContainer } from '@/components/ui/Toast'
 import { callSetCovers, callSetItemSeat } from './splitBillApi'
@@ -544,7 +545,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
 
   function handlePrintSplitBill(mode: 'even' | 'seat'): void {
     setSplitBillPrintMode(mode)
-    setSplitBillTimestamp(new Date().toLocaleString())
+    setSplitBillTimestamp(formatDateTime(new Date().toISOString()))
     setSplitBillPrinting(true)
     setTimeout(() => {
       window.print()
@@ -568,7 +569,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
     const unsentItems = items.filter((item) => !item.sent_to_kitchen)
 
     if (step === 'order' && unsentItems.length > 0 && supabaseUrl && accessToken) {
-      const ts = new Date().toLocaleString()
+      const ts = formatDateTime(new Date().toISOString())
       setKotTimestamp(ts)
       setKotPrintError(null)
 
@@ -666,7 +667,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
 
   // Reprint KOT: show all items (no side effects — does NOT call markItemsSentToKitchen)
   async function handleReprintKot(): Promise<void> {
-    const ts = new Date().toLocaleString()
+    const ts = formatDateTime(new Date().toISOString())
     setKotTimestamp(ts)
     setKotShowAll(true)
     setReprintingKot(true)
@@ -752,7 +753,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
     setCourseActionError(null)
     setFiringCourse(course)
 
-    const ts = new Date().toLocaleString()
+    const ts = formatDateTime(new Date().toISOString())
     setKotTimestamp(ts)
     setKotCourseFilter(course)
 
@@ -840,7 +841,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
 
   // Print Bill: route to cashier printer if available, otherwise browser print
   function handlePrintBill(): void {
-    const ts = new Date().toLocaleString()
+    const ts = formatDateTime(new Date().toISOString())
     setBillTimestamp(ts)
     setPrintingBill(true)
 
@@ -1230,7 +1231,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
     lines.push(restaurantName)
     if (restaurantAddress) lines.push(restaurantAddress)
     lines.push('')
-    lines.push(`Date: ${new Date().toLocaleString()}`)
+    lines.push(`Date: ${formatDateTime(new Date().toISOString())}`)
     if (orderBillNumber) lines.push(`Bill: ${orderBillNumber}`)
     lines.push('─'.repeat(32))
     for (const item of items) {

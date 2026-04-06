@@ -17,6 +17,7 @@ import {
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useUser } from '@/lib/user-context'
+import { formatDate as fmtDate, formatDateTime as fmtDateTime, formatTimeOnly, formatDateShort } from '@/lib/dateFormat'
 import {
   fetchReservations,
   fetchTables,
@@ -31,16 +32,11 @@ import {
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 function formatTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  return formatTimeOnly(iso)
 }
 
 function formatDateTime(iso: string): string {
-  return new Date(iso).toLocaleString([], {
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
+  return fmtDateTime(iso)
 }
 
 function waitTime(createdAt: string): string {
@@ -642,7 +638,7 @@ export default function ReservationsDashboard(): JSX.Element {
                       {r.reservation_time ? (
                         <div>
                           <p className={`font-medium ${isToday(r.reservation_time) ? 'text-indigo-300' : 'text-white'}`}>
-                            {isToday(r.reservation_time) ? 'Today' : new Date(r.reservation_time).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                            {isToday(r.reservation_time) ? 'Today' : formatDateShort(r.reservation_time)}
                           </p>
                           <p className="text-xs text-zinc-400">{formatTime(r.reservation_time)}</p>
                         </div>

@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { Users, Search, Phone, X, Pencil, Check, CalendarDays } from 'lucide-react'
 import { useUser } from '@/lib/user-context'
 import { formatPrice, DEFAULT_CURRENCY_SYMBOL } from '@/lib/formatPrice'
+import { formatDate, formatDateTime } from '@/lib/dateFormat'
 import {
   fetchCustomers,
   fetchCustomerOrders,
@@ -250,9 +251,7 @@ export default function CustomersDashboard(): JSX.Element {
                           </span>
                         </td>
                         <td className="px-4 py-3 text-zinc-400">
-                          {customer.last_visit_at
-                            ? new Date(customer.last_visit_at).toLocaleDateString()
-                            : '—'}
+                          {formatDate(customer.last_visit_at)}
                         </td>
                         <td className="px-4 py-3" onClick={(e) => { e.stopPropagation() }}>
                           {isEditing ? (
@@ -342,7 +341,7 @@ export default function CustomersDashboard(): JSX.Element {
                   <p>{ordinalSuffix(selectedCustomer.visit_count)} visit</p>
                 )}
                 {selectedCustomer.last_visit_at && (
-                  <p>Last visit: {new Date(selectedCustomer.last_visit_at).toLocaleDateString()}</p>
+                  <p>Last visit: {formatDate(selectedCustomer.last_visit_at)}</p>
                 )}
                 {selectedCustomer.notes && (
                   <p className="mt-1 text-zinc-400">{selectedCustomer.notes}</p>
@@ -390,7 +389,7 @@ export default function CustomersDashboard(): JSX.Element {
                                 <p className="text-xs font-mono text-indigo-400">{order.bill_number}</p>
                               )}
                               <p className="text-xs text-zinc-400">
-                                {new Date(order.created_at).toLocaleDateString()}
+                                {formatDate(order.created_at)}
                                 <span className={`ml-2 ${orderTypeColor}`}>{orderTypeLabel}</span>
                               </p>
                             </div>
@@ -436,7 +435,7 @@ export default function CustomersDashboard(): JSX.Element {
                         <div className="flex items-center justify-between gap-2">
                           <span className="text-xs font-medium text-white">
                             {res.reservation_time
-                              ? new Date(res.reservation_time).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+                              ? formatDateTime(res.reservation_time)
                               : 'Walk-in'}
                           </span>
                           <span className={`text-xs px-1.5 py-0.5 rounded-full ${

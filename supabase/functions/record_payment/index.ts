@@ -129,8 +129,9 @@ export async function handler(
 
   try {
     // 1. Fetch the order to verify it exists, is pending_payment, and get final_total_cents
+    //    Also fetch customer_id here to avoid a second roundtrip in the loyalty block (issue #356)
     const orderRes = await fetchFn(
-      `${supabaseUrl}/rest/v1/orders?select=id,restaurant_id,status,final_total_cents,discount_amount_cents,order_comp&id=eq.${orderId}`,
+      `${supabaseUrl}/rest/v1/orders?select=id,restaurant_id,status,final_total_cents,discount_amount_cents,order_comp,customer_id&id=eq.${orderId}`,
       { headers: dbHeaders },
     )
     if (!orderRes.ok) {
@@ -139,7 +140,7 @@ export async function handler(
         { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
       )
     }
-    const orders = (await orderRes.json()) as Array<{ id: string; restaurant_id: string; status: string; final_total_cents: number | null; discount_amount_cents: number | null; order_comp: boolean | null }>
+    const orders = (await orderRes.json()) as Array<{ id: string; restaurant_id: string; status: string; final_total_cents: number | null; discount_amount_cents: number | null; order_comp: boolean | null; customer_id: string | null }>
     if (orders.length === 0) {
       return new Response(
         JSON.stringify({ success: false, error: 'Order not found' }),
@@ -227,6 +228,42 @@ export async function handler(
         JSON.stringify({ success: false, error: 'Failed to write audit log' }),
         { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
       )
+    }
+
+    // 5. Award loyalty points to the linked customer (best-effort — never block payment)
+    //    Points are awarded on payment (not on close) to avoid double-awarding on cancelled/voided orders.
+    //    customer_id was already fetched in step 1 — no extra DB roundtrip needed.
+    try {
+      const customerId = orders[0].customer_id
+      if (customerId && isValidUuid(customerId)) {
+        // Fetch loyalty_points_per_order from config
+        const configRes = await fetchFn(
+          `${supabaseUrl}/rest/v1/config?select=value&restaurant_id=eq.${restaurantId}&key=eq.loyalty_points_per_order&limit=1`,
+          { headers: dbHeaders },
+        )
+        let pointsToAward = 10 // default if not configured
+        if (configRes.ok) {
+          const configRows = (await configRes.json()) as Array<{ value: string }>
+          if (configRows.length > 0) {
+            const parsed = parseInt(configRows[0].value, 10)
+            if (!isNaN(parsed) && parsed >= 0) {
+              pointsToAward = parsed
+            }
+          }
+        }
+        if (pointsToAward > 0) {
+          await fetchFn(
+            `${supabaseUrl}/rest/v1/rpc/award_loyalty_points`,
+            {
+              method: 'POST',
+              headers: { ...dbHeaders, Prefer: 'return=minimal' },
+              body: JSON.stringify({ p_customer_id: customerId, p_points: pointsToAward }),
+            },
+          ).catch(() => { /* Non-fatal */ })
+        }
+      }
+    } catch {
+      // Best-effort: loyalty point awarding must never block payment recording
     }
 
     return new Response(

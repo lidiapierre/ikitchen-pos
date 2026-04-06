@@ -87,6 +87,9 @@ export async function handler(
   const customerMobile = (payload['customer_mobile'] as string | undefined) ?? null
   const deliveryNote = (payload['delivery_note'] as string | undefined) ?? null
   const scheduledTimeRaw = (payload['scheduled_time'] as string | undefined) ?? null
+  const deliveryZoneId = (payload['delivery_zone_id'] as string | undefined) ?? null
+  const deliveryChargeRaw = payload['delivery_charge']
+  const deliveryCharge = typeof deliveryChargeRaw === 'number' ? Math.max(0, Math.round(deliveryChargeRaw)) : 0
 
   // Validate scheduled_time if provided
   let scheduledTime: string | null = null
@@ -202,6 +205,8 @@ export async function handler(
     if (customerMobile !== null) insertBody['customer_mobile'] = customerMobile
     if (deliveryNote !== null) insertBody['delivery_note'] = deliveryNote
     if (scheduledTime !== null) insertBody['scheduled_time'] = scheduledTime
+    if (deliveryZoneId !== null) insertBody['delivery_zone_id'] = deliveryZoneId
+    if (deliveryCharge > 0) insertBody['delivery_charge'] = deliveryCharge
 
     const insertRes = await fetchFn(
       `${supabaseUrl}/rest/v1/orders`,

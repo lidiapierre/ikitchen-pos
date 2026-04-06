@@ -18,6 +18,7 @@ import {
   Settings,
   Heart,
   CalendarDays,
+  Bike,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -53,6 +54,7 @@ const NAV_SECTIONS: NavSection[] = [
       { href: '/admin/settings/restaurant', label: 'Restaurant', icon: Store },
       { href: '/admin/settings/printer', label: 'Printer', icon: Printer },
       { href: '/admin/settings/kds', label: 'KDS', icon: Monitor },
+      { href: '/admin/settings/delivery-zones', label: 'Delivery Zones', icon: Bike },
     ],
   },
 ]

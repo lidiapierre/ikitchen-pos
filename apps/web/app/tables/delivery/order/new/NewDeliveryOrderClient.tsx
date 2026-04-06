@@ -24,6 +24,10 @@ export default function NewDeliveryOrderClient(): JSX.Element {
   const customerPhone = searchParams.get('customerPhone') ?? ''
   const deliveryNote = searchParams.get('deliveryNote') ?? ''
   const scheduledTime = searchParams.get('scheduledTime') ?? ''
+  const deliveryZoneId = searchParams.get('deliveryZoneId') ?? ''
+  const deliveryChargeStr = searchParams.get('deliveryCharge') ?? ''
+  const deliveryZoneName = searchParams.get('deliveryZoneName') ?? ''
+  const deliveryChargeCents = deliveryChargeStr ? parseInt(deliveryChargeStr, 10) : 0
   const { accessToken: _at } = useUser()
   // _at === null means auth is still loading; wait before firing.
   const accessToken = _at ?? ''
@@ -62,6 +66,8 @@ export default function NewDeliveryOrderClient(): JSX.Element {
         ...(customerPhone ? { customerMobile: customerPhone } : {}),
         ...(deliveryNote ? { deliveryNote } : {}),
         scheduledTime,
+        ...(deliveryZoneId ? { deliveryZoneId } : {}),
+        ...(deliveryChargeCents > 0 ? { deliveryChargeCents } : {}),
       },
       controller.signal,
     )
@@ -76,7 +82,7 @@ export default function NewDeliveryOrderClient(): JSX.Element {
       })
 
     return () => { controller.abort() }
-  }, [_at, accessToken, customerName, customerPhone, deliveryNote, scheduledTime, router])
+  }, [_at, accessToken, customerName, customerPhone, deliveryNote, scheduledTime, deliveryZoneId, deliveryChargeCents, router])
 
   if (error !== null) {
     return (
@@ -142,6 +148,19 @@ export default function NewDeliveryOrderClient(): JSX.Element {
               <dt className="text-zinc-500">Delivery Time</dt>
               <dd className="font-semibold text-amber-300">
                 {new Date(scheduledTime).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+              </dd>
+            </div>
+          )}
+          {deliveryZoneName && (
+            <div className="flex gap-3">
+              <dt className="text-zinc-500">Zone</dt>
+              <dd className="text-zinc-300">
+                {deliveryZoneName}
+                {deliveryChargeCents > 0 && (
+                  <span className="ml-2 text-amber-300 font-semibold">
+                    +৳{(deliveryChargeCents / 100).toFixed(0)}
+                  </span>
+                )}
               </dd>
             </div>
           )}

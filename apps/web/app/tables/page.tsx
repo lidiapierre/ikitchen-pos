@@ -64,6 +64,10 @@ export default function TablesPage(): JSX.Element {
   // Customer search state (mobile lookup)
   const [customerSuggestion, setCustomerSuggestion] = useState<{ name: string; mobile: string } | null>(null)
   const customerSearchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Delivery zones (issue #353)
+  interface DeliveryZone { id: string; name: string; charge_amount: number }
+  const [deliveryZones, setDeliveryZones] = useState<DeliveryZone[]>([])
+  const [selectedDeliveryZoneId, setSelectedDeliveryZoneId] = useState<string>('')
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -226,6 +230,43 @@ export default function TablesPage(): JSX.Element {
     }
   }, [deliveryPhone, showDeliveryModal, accessToken])
 
+  // Fetch delivery zones when the delivery modal opens (issue #353)
+  useEffect(() => {
+    if (!showDeliveryModal) return
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ''
+    if (!supabaseUrl || !accessToken) return
+
+    // Get restaurant id first, then zones
+    fetch(`${supabaseUrl}/rest/v1/restaurants?select=id&limit=1`, {
+      headers: { apikey: publishableKey, Authorization: `Bearer ${accessToken}` },
+    })
+      .then((r) => r.ok ? r.json() : Promise.reject(new Error('failed')))
+      .then(async (rows: unknown) => {
+        const rids = rows as Array<{ id: string }>
+        if (rids.length === 0) return
+        const rid = rids[0].id
+        const url = new URL(`${supabaseUrl}/rest/v1/delivery_zones`)
+        url.searchParams.set('restaurant_id', `eq.${rid}`)
+        url.searchParams.set('select', 'id,name,charge_amount')
+        url.searchParams.set('order', 'name.asc')
+        const res = await fetch(url.toString(), {
+          headers: { apikey: publishableKey, Authorization: `Bearer ${accessToken}` },
+        })
+        if (!res.ok) return
+        const zones = (await res.json()) as Array<{ id: string; name: string; charge_amount: number }>
+        setDeliveryZones(zones)
+        // Auto-select first zone if none selected
+        if (zones.length > 0 && !selectedDeliveryZoneId) {
+          setSelectedDeliveryZoneId(zones[0].id)
+        }
+      })
+      .catch(() => {
+        // Non-fatal: zones remain empty → zone selector hidden
+      })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showDeliveryModal, accessToken])
+
   // Open the optional takeaway customer modal before navigating
   function handleCreateTakeaway(): void {
     setTakeawayName('')
@@ -258,12 +299,23 @@ export default function TablesPage(): JSX.Element {
       setCreateOrderError('Delivery Time is required')
       return
     }
+    // Require zone selection only when zones are configured (issue #353)
+    if (deliveryZones.length > 0 && !selectedDeliveryZoneId) {
+      setCreateOrderError('Please select a delivery zone')
+      return
+    }
+
+    const selectedZone = deliveryZones.find((z) => z.id === selectedDeliveryZoneId) ?? null
+
     const params = new URLSearchParams({
       customerName: deliveryCustomerName.trim(),
       ...(deliveryPhone.trim() ? { customerPhone: deliveryPhone.trim() } : {}),
       ...(deliveryNote.trim() ? { deliveryNote: deliveryNote.trim() } : {}),
       // Convert local datetime-local value to ISO string (issue #352)
       scheduledTime: new Date(deliveryScheduledTime).toISOString(),
+      ...(selectedZone ? { deliveryZoneId: selectedZone.id } : {}),
+      ...(selectedZone ? { deliveryCharge: String(selectedZone.charge_amount) } : {}),
+      ...(selectedZone ? { deliveryZoneName: selectedZone.name } : {}),
     })
     setCreateOrderError(null)
     setShowDeliveryModal(false)
@@ -272,6 +324,8 @@ export default function TablesPage(): JSX.Element {
     setDeliveryPhoneTouched(false)
     setDeliveryNote('')
     setDeliveryScheduledTime('')
+    setSelectedDeliveryZoneId('')
+    setDeliveryZones([])
     setCustomerSuggestion(null)
     router.push(`/tables/delivery/order/new?${params.toString()}`)
   }
@@ -684,6 +738,29 @@ export default function TablesPage(): JSX.Element {
               />
             </div>
 
+            {/* Delivery zone selector — only shown when zones are configured (issue #353) */}
+            {deliveryZones.length > 0 && (
+              <div>
+                <label htmlFor="delivery-zone" className="block text-white text-base mb-2 font-body">
+                  Delivery Zone <span className="text-red-400">*</span>
+                </label>
+                <select
+                  id="delivery-zone"
+                  value={selectedDeliveryZoneId}
+                  onChange={(e) => { setSelectedDeliveryZoneId(e.target.value) }}
+                  className="w-full min-h-[48px] px-4 rounded-xl text-base bg-brand-blue text-white border-2 border-brand-grey/40 focus:border-brand-gold focus:outline-none font-body"
+                  required
+                >
+                  <option value="">— Select zone —</option>
+                  {deliveryZones.map((zone) => (
+                    <option key={zone.id} value={zone.id}>
+                      {zone.name} — ৳{(zone.charge_amount / 100).toFixed(0)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             {createOrderError !== null && (
               <p className="text-red-400 text-sm">{createOrderError}</p>
             )}
@@ -695,6 +772,8 @@ export default function TablesPage(): JSX.Element {
                   setShowDeliveryModal(false)
                   setCreateOrderError(null)
                   setCustomerSuggestion(null)
+                  setSelectedDeliveryZoneId('')
+                  setDeliveryZones([])
                 }}
                 className="flex-1 min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold border-2 border-brand-grey/40 text-white hover:border-brand-grey transition-colors font-body"
               >
@@ -703,10 +782,16 @@ export default function TablesPage(): JSX.Element {
               <button
                 type="button"
                 onClick={handleCreateDelivery}
-                disabled={deliveryCustomerName.trim() === '' || !deliveryScheduledTime}
+                disabled={
+                  deliveryCustomerName.trim() === '' ||
+                  !deliveryScheduledTime ||
+                  (deliveryZones.length > 0 && !selectedDeliveryZoneId)
+                }
                 className={[
                   'flex-1 min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold transition-colors font-body',
-                  deliveryCustomerName.trim() === '' || !deliveryScheduledTime
+                  (deliveryCustomerName.trim() === '' ||
+                    !deliveryScheduledTime ||
+                    (deliveryZones.length > 0 && !selectedDeliveryZoneId))
                     ? 'bg-brand-grey/30 text-white/40 cursor-not-allowed'
                     : 'bg-brand-gold hover:bg-brand-gold/90 text-brand-navy',
                 ].join(' ')}

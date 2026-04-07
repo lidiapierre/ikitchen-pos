@@ -711,7 +711,14 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
     // Guard against double-fire (issue #372)
     if (kotReprintGuardRef.current) return
     kotReprintGuardRef.current = true
+    try {
+      await doReprintKot()
+    } finally {
+      kotReprintGuardRef.current = false
+    }
+  }
 
+  async function doReprintKot(): Promise<void> {
     const ts = formatDateTime(new Date().toISOString())
     setKotTimestamp(ts)
     setKotShowAll(true)
@@ -742,13 +749,11 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
         onAfterBrowserPrint: () => {
           setKotShowAll(false)
           setReprintingKot(false)
-          kotReprintGuardRef.current = false
         },
       })
       if (result.method === 'network') {
         setKotShowAll(false)
         setReprintingKot(false)
-        kotReprintGuardRef.current = false
       }
       if (result.errorMessage) {
         setKotPrintError(result.errorMessage)
@@ -783,7 +788,6 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
 
     setKotShowAll(false)
     setReprintingKot(false)
-    kotReprintGuardRef.current = false
 
     if (printErrors.length > 0) {
       setKotPrintError(printErrors.join('\n\n'))

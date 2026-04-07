@@ -6,6 +6,11 @@ import { formatPrice, DEFAULT_CURRENCY_SYMBOL } from '@/lib/formatPrice'
 import { PAYMENT_METHOD_LABELS } from '@/lib/paymentMethods'
 import type { PaymentMethod } from '@/lib/paymentMethods'
 
+export interface SplitPaymentLine {
+  method: PaymentMethod
+  amountCents: number
+}
+
 export interface BillPrintViewProps {
   tableLabel: string
   orderId: string
@@ -18,6 +23,12 @@ export interface BillPrintViewProps {
   paymentMethod: PaymentMethod
   amountTenderedCents?: number
   changeDueCents?: number
+  /**
+   * For split payments: one entry per method used.
+   * When provided, overrides the single-method paymentMethod/amountTenderedCents display.
+   * Format on receipt: `Cash ৳500 | Card ৳800`
+   */
+  splitPayments?: SplitPaymentLine[]
   timestamp: string
   /** Discount amount in cents to show as a line item */
   discountAmountCents?: number
@@ -109,6 +120,7 @@ export default function BillPrintView({
   deliveryChargeCents = 0,
   deliveryZoneName,
   roundBillTotals = false,
+  splitPayments,
 }: BillPrintViewProps): JSX.Element {
   // Use caller-provided vatCents when available (preferred — supports new calculation order).
   // Fall back to derived value for backward compatibility.
@@ -285,24 +297,46 @@ export default function BillPrintView({
         )}
       </div>
 
-      {/* 6. Tendered by */}
+      {/* 6. Tendered by (single or split payment) */}
       {!orderComp && (
         <div className="border-t border-black pt-1 mb-2 text-sm space-y-0.5">
-          <div className="flex justify-between">
-            <span>Tendered by</span>
-            <span>{PAYMENT_METHOD_LABELS[paymentMethod] ?? paymentMethod}</span>
-          </div>
-          {paymentMethod === 'cash' && amountTenderedCents !== undefined && (
-            <div className="flex justify-between">
-              <span>Cash Tendered</span>
-              <span>{formatPrice(amountTenderedCents, DEFAULT_CURRENCY_SYMBOL, roundBillTotals)}</span>
-            </div>
-          )}
-          {paymentMethod === 'cash' && changeDueCents !== undefined && (
-            <div className="flex justify-between">
-              <span>Change Due</span>
-              <span>{formatPrice(changeDueCents, DEFAULT_CURRENCY_SYMBOL, roundBillTotals)}</span>
-            </div>
+          {splitPayments && splitPayments.length > 1 ? (
+            // Split payment: one line per method
+            <>
+              {splitPayments.map((sp, idx) => (
+                <div key={idx} className="flex justify-between">
+                  <span>{PAYMENT_METHOD_LABELS[sp.method] ?? sp.method}</span>
+                  <span>{formatPrice(sp.amountCents, DEFAULT_CURRENCY_SYMBOL, roundBillTotals)}</span>
+                </div>
+              ))}
+              {/* Change due when cash is in the mix */}
+              {splitPayments.some((sp) => sp.method === 'cash') && changeDueCents !== undefined && changeDueCents > 0 && (
+                <div className="flex justify-between">
+                  <span>Change Due</span>
+                  <span>{formatPrice(changeDueCents, DEFAULT_CURRENCY_SYMBOL, roundBillTotals)}</span>
+                </div>
+              )}
+            </>
+          ) : (
+            // Single payment (legacy / quick path)
+            <>
+              <div className="flex justify-between">
+                <span>Tendered by</span>
+                <span>{PAYMENT_METHOD_LABELS[paymentMethod] ?? paymentMethod}</span>
+              </div>
+              {paymentMethod === 'cash' && amountTenderedCents !== undefined && (
+                <div className="flex justify-between">
+                  <span>Cash Tendered</span>
+                  <span>{formatPrice(amountTenderedCents, DEFAULT_CURRENCY_SYMBOL, roundBillTotals)}</span>
+                </div>
+              )}
+              {paymentMethod === 'cash' && changeDueCents !== undefined && (
+                <div className="flex justify-between">
+                  <span>Change Due</span>
+                  <span>{formatPrice(changeDueCents, DEFAULT_CURRENCY_SYMBOL, roundBillTotals)}</span>
+                </div>
+              )}
+            </>
           )}
         </div>
       )}

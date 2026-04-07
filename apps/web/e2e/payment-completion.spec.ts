@@ -147,8 +147,10 @@ test.describe('post-payment completion flow', () => {
     await page.getByRole('button', { name: 'Proceed to Payment' }).click();
     await expect(page.getByText('Record Payment')).toBeVisible();
 
-    // Select card payment and confirm
+    // Split payment builder: select Card, enter full amount (bill = ৳12.00), add, then confirm
     await page.getByRole('button', { name: 'Card' }).click();
+    await page.getByRole('spinbutton').fill('12');
+    await page.getByRole('button', { name: 'Add' }).click();
     await page.getByRole('button', { name: /Confirm Payment/ }).click();
 
     // Success state must appear
@@ -177,8 +179,9 @@ test.describe('post-payment completion flow', () => {
     await page.getByRole('button', { name: 'Proceed to Payment' }).click();
     await expect(page.getByText('Record Payment')).toBeVisible();
 
-    // Cash is default; enter tendered amount
+    // Cash is default; enter tendered amount (bill = ৳12.00, pay ৳15.00 for change)
     await page.getByRole('spinbutton').fill('15.00');
+    await page.getByRole('button', { name: 'Add' }).click();
     await page.getByRole('button', { name: /Confirm Payment/ }).click();
 
     // Change due screen

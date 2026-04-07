@@ -26,6 +26,8 @@ function isValidUuid(value: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)
 }
 
+const VALID_METHODS = ['cash', 'card', 'mobile', 'other']
+
 export async function handler(
   req: Request,
   fetchFn: FetchFn = fetch,
@@ -83,31 +85,6 @@ export async function handler(
       { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
     )
   }
-  if (typeof payload['amount'] !== 'number') {
-    return new Response(
-      JSON.stringify({ success: false, error: 'amount is required' }),
-      { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
-    )
-  }
-  if ((payload['amount'] as number) <= 0) {
-    return new Response(
-      JSON.stringify({ success: false, error: 'amount must be greater than 0' }),
-      { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
-    )
-  }
-  if (typeof payload['method'] !== 'string' || payload['method'] === '') {
-    return new Response(
-      JSON.stringify({ success: false, error: 'method is required' }),
-      { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
-    )
-  }
-  const VALID_METHODS = ['cash', 'card', 'mobile', 'other']
-  if (!VALID_METHODS.includes(payload['method'] as string)) {
-    return new Response(
-      JSON.stringify({ success: false, error: 'method must be one of: cash, card, mobile, other' }),
-      { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
-    )
-  }
 
   const orderId = payload['order_id'] as string
   if (!isValidUuid(orderId)) {
@@ -116,8 +93,73 @@ export async function handler(
       { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
     )
   }
-  const amountCents = payload['amount'] as number
-  const method = payload['method'] as string
+
+  // ── Split-payment path ────────────────────────────────────────────────────
+  // When `payments` array is provided, process all rows atomically.
+  // Single-payment path (legacy) uses top-level `amount` + `method`.
+  // ─────────────────────────────────────────────────────────────────────────
+
+  interface PaymentRow { method: string; amount: number }
+  let paymentsToRecord: PaymentRow[]
+  let isSplitPath = false
+
+  if (Array.isArray(payload['payments'])) {
+    // Split-payment path
+    isSplitPath = true
+    const rawPayments = payload['payments'] as unknown[]
+    if (rawPayments.length === 0) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'payments array must not be empty' }),
+        { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+      )
+    }
+    for (const p of rawPayments) {
+      const row = p as Record<string, unknown>
+      if (typeof row['method'] !== 'string' || !VALID_METHODS.includes(row['method'] as string)) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'each payment must have a valid method' }),
+          { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+        )
+      }
+      if (typeof row['amount'] !== 'number' || (row['amount'] as number) <= 0) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'each payment amount must be a positive number' }),
+          { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+        )
+      }
+    }
+    paymentsToRecord = rawPayments.map((p) => {
+      const row = p as Record<string, unknown>
+      return { method: row['method'] as string, amount: row['amount'] as number }
+    })
+  } else {
+    // Legacy single-payment path
+    if (typeof payload['amount'] !== 'number') {
+      return new Response(
+        JSON.stringify({ success: false, error: 'amount is required' }),
+        { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+      )
+    }
+    if ((payload['amount'] as number) <= 0) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'amount must be greater than 0' }),
+        { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+      )
+    }
+    if (typeof payload['method'] !== 'string' || payload['method'] === '') {
+      return new Response(
+        JSON.stringify({ success: false, error: 'method is required' }),
+        { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+      )
+    }
+    if (!VALID_METHODS.includes(payload['method'] as string)) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'method must be one of: cash, card, mobile, other' }),
+        { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+      )
+    }
+    paymentsToRecord = [{ method: payload['method'] as string, amount: payload['amount'] as number }]
+  }
 
   const { supabaseUrl, serviceKey } = env
   const dbHeaders = {
@@ -164,9 +206,24 @@ export async function handler(
       : Math.max(0, rawFinalTotalCents - discountAmountCents)
 
     const finalTotalCents = effectiveTotalCents
-    const changeDue = method === 'cash'
-      ? Math.max(0, amountCents - finalTotalCents)
+
+    // For split-payment: validate total tendered covers the order total
+    const totalTenderedCents = paymentsToRecord.reduce((s, p) => s + p.amount, 0)
+    if (isSplitPath && totalTenderedCents < finalTotalCents) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Total tendered does not cover the order total' }),
+        { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+      )
+    }
+
+    // Change due: only when cash is part of the mix
+    const hasCash = paymentsToRecord.some((p) => p.method === 'cash')
+    const changeDue = hasCash
+      ? Math.max(0, totalTenderedCents - finalTotalCents)
       : 0
+
+    // Primary payment (for audit + legacy response)
+    const primaryPayment = paymentsToRecord[0]
 
     // 2. Mark the order as paid first (prevents duplicate payment processing)
     const closeRes = await fetchFn(
@@ -184,18 +241,28 @@ export async function handler(
       )
     }
 
-    // 3. Insert payment record
+    // 3. Insert payment record(s)
+    //    For split payments, insert all rows in a single batch POST.
+    const paymentRows = paymentsToRecord.map((p) => ({
+      order_id: orderId,
+      method: p.method,
+      amount_cents: p.amount,
+      discount_amount_cents: discountAmountCents > 0 ? discountAmountCents : undefined,
+    }))
+    // Only spread discount on the first row (it belongs to the order, not per-method)
+    // Reset discount on subsequent rows to avoid double-counting in reports
+    if (paymentRows.length > 1) {
+      for (let i = 1; i < paymentRows.length; i++) {
+        paymentRows[i].discount_amount_cents = undefined
+      }
+    }
+
     const paymentRes = await fetchFn(
       `${supabaseUrl}/rest/v1/payments`,
       {
         method: 'POST',
         headers: dbHeaders,
-        body: JSON.stringify({
-          order_id: orderId,
-          method,
-          amount_cents: amountCents,
-          discount_amount_cents: discountAmountCents > 0 ? discountAmountCents : undefined,
-        }),
+        body: JSON.stringify(paymentRows.length === 1 ? paymentRows[0] : paymentRows),
       },
     )
     if (!paymentRes.ok) {
@@ -219,7 +286,12 @@ export async function handler(
           action: 'record_payment',
           entity_type: 'payments',
           entity_id: paymentId,
-          payload: { order_id: orderId, method, amount_cents: amountCents },
+          payload: {
+            order_id: orderId,
+            method: primaryPayment.method,
+            amount_cents: primaryPayment.amount,
+            ...(isSplitPath ? { split: true, payment_count: paymentsToRecord.length } : {}),
+          },
         }),
       },
     )

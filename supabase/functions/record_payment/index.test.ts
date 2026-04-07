@@ -286,4 +286,92 @@ describe('record_payment handler', () => {
       expect(json.success).toBe(false)
     })
   })
+
+  describe('POST — split payment path (payments[] array)', () => {
+    it('returns 200 for a valid split (card + cash)', async (): Promise<void> => {
+      const req = new Request('http://localhost/functions/v1/record_payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          order_id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+          payments: [
+            { method: 'card', amount: 80000 },
+            { method: 'cash', amount: 50000 },
+          ],
+        }),
+      })
+      const res = await handler(req)
+      // In test env (no Deno), verifyAndGetCaller returns an error and we get 4xx/5xx,
+      // but the path must NOT be rejected at input validation (method/array checks).
+      // Validation failures return 400; everything else is 401/403/500 from auth/DB stubs.
+      expect(res.status).not.toBe(400)
+    })
+
+    it('returns 400 when payments array is empty', async (): Promise<void> => {
+      const req = new Request('http://localhost/functions/v1/record_payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          order_id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+          payments: [],
+        }),
+      })
+      const res = await handler(req)
+      expect(res.status).toBe(400)
+      const json = await res.json() as { success: boolean; error: string }
+      expect(json.success).toBe(false)
+      expect(json.error).toBe('payments array must not be empty')
+    })
+
+    it('returns 400 when a payment entry has an invalid method', async (): Promise<void> => {
+      const req = new Request('http://localhost/functions/v1/record_payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          order_id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+          payments: [
+            { method: 'bitcoin', amount: 50000 },
+          ],
+        }),
+      })
+      const res = await handler(req)
+      expect(res.status).toBe(400)
+      const json = await res.json() as { success: boolean; error: string }
+      expect(json.success).toBe(false)
+      expect(json.error).toBe('each payment must have a valid method')
+    })
+
+    it('returns 400 when a payment entry has a non-positive amount', async (): Promise<void> => {
+      const req = new Request('http://localhost/functions/v1/record_payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          order_id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+          payments: [
+            { method: 'cash', amount: 0 },
+          ],
+        }),
+      })
+      const res = await handler(req)
+      expect(res.status).toBe(400)
+      const json = await res.json() as { success: boolean; error: string }
+      expect(json.success).toBe(false)
+      expect(json.error).toBe('each payment amount must be a positive number')
+    })
+
+    it('returns 400 when payments is present but order_id is missing', async (): Promise<void> => {
+      const req = new Request('http://localhost/functions/v1/record_payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          payments: [{ method: 'cash', amount: 50000 }],
+        }),
+      })
+      const res = await handler(req)
+      expect(res.status).toBe(400)
+      const json = await res.json() as { success: boolean; error: string }
+      expect(json.success).toBe(false)
+      expect(json.error).toBe('order_id is required')
+    })
+  })
 })

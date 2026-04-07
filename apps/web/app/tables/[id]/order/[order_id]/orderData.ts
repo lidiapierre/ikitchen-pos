@@ -1,6 +1,6 @@
 const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ''
 
-export type CourseType = 'starter' | 'main' | 'dessert'
+export type CourseType = 'drinks' | 'starter' | 'main' | 'dessert'
 export type CourseStatus = 'waiting' | 'fired' | 'served'
 
 export interface OrderItem {

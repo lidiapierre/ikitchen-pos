@@ -259,3 +259,73 @@ describe('KotPrintView — new addition label (issue #374)', () => {
     expect(screen.getByText(/Running Table/i)).toBeInTheDocument()
   })
 })
+
+describe('KotPrintView — grouped by course (issue #373)', () => {
+  const mixedItems: Parameters<typeof KotPrintView>[0]['items'] = [
+    {
+      id: '1', name: 'Biryani', quantity: 1, price_cents: 1200, modifier_ids: [], modifier_names: [],
+      sent_to_kitchen: false, comp: false, comp_reason: null, seat: null, course: 'main', course_status: 'waiting',
+      menuId: null, printerType: 'kitchen', item_discount_type: null, item_discount_value: null, notes: null,
+    },
+    {
+      id: '2', name: 'Mango Lassi', quantity: 2, price_cents: 400, modifier_ids: [], modifier_names: [],
+      sent_to_kitchen: false, comp: false, comp_reason: null, seat: null, course: 'drinks', course_status: 'waiting',
+      menuId: null, printerType: 'bar', item_discount_type: null, item_discount_value: null, notes: null,
+    },
+    {
+      id: '3', name: 'Samosa', quantity: 3, price_cents: 200, modifier_ids: [], modifier_names: [],
+      sent_to_kitchen: false, comp: false, comp_reason: null, seat: null, course: 'starter', course_status: 'waiting',
+      menuId: null, printerType: 'kitchen', item_discount_type: null, item_discount_value: null, notes: null,
+    },
+  ]
+
+  it('shows course section headers when items span multiple courses', () => {
+    render(
+      <KotPrintView
+        tableLabel="T-3"
+        orderId="order-abc-12345678"
+        items={mixedItems}
+        timestamp="07/04/2026, 12:00:00"
+      />,
+    )
+    expect(screen.getByText(/── DRINKS ──/i)).toBeInTheDocument()
+    expect(screen.getByText(/── STARTER ──/i)).toBeInTheDocument()
+    expect(screen.getByText(/── MAIN ──/i)).toBeInTheDocument()
+    // Items present
+    expect(screen.getByText(/Mango Lassi/)).toBeInTheDocument()
+    expect(screen.getByText(/Samosa/)).toBeInTheDocument()
+    expect(screen.getByText(/Biryani/)).toBeInTheDocument()
+  })
+
+  it('does not show course headers when all items are the same course', () => {
+    const singleCourseItems = mixedItems.filter((i) => i.course === 'main')
+    render(
+      <KotPrintView
+        tableLabel="T-3"
+        orderId="order-abc-12345678"
+        items={singleCourseItems}
+        timestamp="07/04/2026, 12:00:00"
+      />,
+    )
+    expect(screen.queryByText(/── MAIN ──/i)).not.toBeInTheDocument()
+    expect(screen.getByText(/Biryani/)).toBeInTheDocument()
+  })
+
+  it('groups drinks first, then starter, then main', () => {
+    const { container } = render(
+      <KotPrintView
+        tableLabel="T-3"
+        orderId="order-abc-12345678"
+        items={mixedItems}
+        timestamp="07/04/2026, 12:00:00"
+      />,
+    )
+    const text = container.textContent ?? ''
+    const drinksPos = text.indexOf('DRINKS')
+    const starterPos = text.indexOf('STARTER')
+    const mainPos = text.indexOf('MAIN')
+    expect(drinksPos).toBeGreaterThan(-1)
+    expect(starterPos).toBeGreaterThan(drinksPos)
+    expect(mainPos).toBeGreaterThan(starterPos)
+  })
+})

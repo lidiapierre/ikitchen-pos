@@ -13,7 +13,7 @@ interface KotPrintViewProps {
    * When set, only items matching this course are printed and a course header is shown.
    * Used when firing a specific course (e.g. "STARTER").
    */
-  courseFilter?: 'starter' | 'main' | 'dessert'
+  courseFilter?: 'drinks' | 'starter' | 'main' | 'dessert'
   /** Order type — shows TAKEAWAY or DELIVERY banner at the top of the KOT. */
   orderType?: 'dine_in' | 'takeaway' | 'delivery'
   /** Customer name for delivery orders. */
@@ -33,7 +33,11 @@ interface KotPrintViewProps {
   isNewAddition?: boolean
 }
 
+/** Ordered course sequence for grouped KOT display (issue #373) */
+const COURSE_ORDER: ReadonlyArray<string> = ['drinks', 'starter', 'main', 'dessert']
+
 const COURSE_LABELS: Record<string, string> = {
+  drinks: 'DRINKS',
   starter: 'STARTER',
   main: 'MAIN',
   dessert: 'DESSERT',
@@ -136,37 +140,104 @@ export default function KotPrintView({
           </p>
         )}
       </div>
-      <ul className="space-y-2">
-        {displayItems.map((item) => (
-          <li key={item.id}>
-            <p className="font-bold text-base">
-              {item.quantity}x {item.name}
-            </p>
-            {item.modifier_names.length > 0 && (
-              <ul className="pl-3">
-                {item.modifier_names.map((mod) => (
-                  <li key={mod} className="text-sm">
-                    + {mod}
-                  </li>
-                ))}
-              </ul>
-            )}
-            {item.item_discount_type != null && (
-              <p className="pl-3 text-xs">
-                {item.item_discount_type === 'percent' && item.item_discount_value != null
-                  ? `[disc: -${item.item_discount_value / 100}%]`
-                  : '[disc: flat]'}
-              </p>
-            )}
-            {item.notes && (
-              <p className="pl-3 text-sm italic">↳ {item.notes}</p>
-            )}
-          </li>
-        ))}
-      </ul>
+
+      {/* Items — grouped by course when no courseFilter is set (issue #373) */}
+      {courseFilter !== undefined ? (
+        // Single-course view (fired course or course filter)
+        <ul className="space-y-2">
+          {renderItemList(displayItems)}
+        </ul>
+      ) : (
+        // Grouped view: Drinks → Starter → Main → Dessert → Other
+        renderGroupedItems(displayItems)
+      )}
+
       <div className="border-t border-black mt-2 pt-1 text-center text-xs">
         {displayItems.length} item{displayItems.length !== 1 ? 's' : ''} to prepare
       </div>
+    </div>
+  )
+}
+
+/** Render a flat list of KOT items */
+function renderItemList(items: OrderItem[]): JSX.Element[] {
+  return items.map((item) => (
+    <li key={item.id}>
+      <p className="font-bold text-base">
+        {item.quantity}x {item.name}
+      </p>
+      {item.modifier_names.length > 0 && (
+        <ul className="pl-3">
+          {item.modifier_names.map((mod) => (
+            <li key={mod} className="text-sm">
+              + {mod}
+            </li>
+          ))}
+        </ul>
+      )}
+      {item.item_discount_type != null && (
+        <p className="pl-3 text-xs">
+          {item.item_discount_type === 'percent' && item.item_discount_value != null
+            ? `[disc: -${item.item_discount_value / 100}%]`
+            : '[disc: flat]'}
+        </p>
+      )}
+      {item.notes && (
+        <p className="pl-3 text-sm italic">↳ {item.notes}</p>
+      )}
+    </li>
+  ))
+}
+
+/**
+ * Render items grouped by course in the canonical order:
+ * Drinks → Starter → Main → Dessert → Other (unassigned/unrecognised course)
+ * Only groups with items are rendered.
+ */
+function renderGroupedItems(items: OrderItem[]): JSX.Element {
+  // Build a map from course → items
+  const grouped = new Map<string, OrderItem[]>()
+  for (const item of items) {
+    const course: string = item.course ?? 'other'
+    const bucket = grouped.get(course) ?? []
+    bucket.push(item)
+    grouped.set(course, bucket)
+  }
+
+  // Build section list: known courses in order, then 'other' for anything else
+  const sections: Array<{ key: string; label: string; items: OrderItem[] }> = []
+
+  for (const course of COURSE_ORDER) {
+    const courseItems = grouped.get(course)
+    if (courseItems && courseItems.length > 0) {
+      sections.push({ key: course, label: COURSE_LABELS[course] ?? course.toUpperCase(), items: courseItems })
+      grouped.delete(course)
+    }
+  }
+
+  // Remaining unrecognised courses → "Other"
+  const otherItems: OrderItem[] = []
+  for (const remaining of grouped.values()) {
+    otherItems.push(...remaining)
+  }
+  if (otherItems.length > 0) {
+    sections.push({ key: 'other', label: 'OTHER', items: otherItems })
+  }
+
+  const multipleGroups = sections.length > 1
+
+  return (
+    <div className="space-y-3">
+      {sections.map(({ key, label, items: sectionItems }) => (
+        <div key={key}>
+          {multipleGroups && (
+            <p className="font-bold text-sm border-b border-black pb-0.5 mb-1">── {label} ──</p>
+          )}
+          <ul className="space-y-2">
+            {renderItemList(sectionItems)}
+          </ul>
+        </div>
+      ))}
     </div>
   )
 }

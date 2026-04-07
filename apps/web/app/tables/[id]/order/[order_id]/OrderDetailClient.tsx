@@ -1675,6 +1675,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
   }
 
   const COURSE_SECTIONS: { course: CourseType; label: string }[] = [
+    { course: 'drinks', label: 'Drinks' },
     { course: 'starter', label: 'Starter' },
     { course: 'main', label: 'Main' },
     { course: 'dessert', label: 'Dessert' },

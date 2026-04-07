@@ -239,6 +239,11 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
   const [noteInputValue, setNoteInputValue] = useState('')
   const noteCommittingRef = useRef(false)
 
+  // Guards to prevent duplicate print triggers from rapid double-clicks (issue #372)
+  const kotSendGuardRef = useRef(false)
+  const billPrintGuardRef = useRef(false)
+  const kotReprintGuardRef = useRef(false)
+
   // Comp state
   const [compingItem, setCompingItem] = useState<OrderItem | null>(null)
   const [showOrderCompDialog, setShowOrderCompDialog] = useState(false)
@@ -582,6 +587,17 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
 
   // KOT: send kitchen ticket for unsent items, then navigate back to tables
   async function handleBackToTables(): Promise<void> {
+    // Guard against double-fire from rapid clicks (issue #372)
+    if (kotSendGuardRef.current) return
+    kotSendGuardRef.current = true
+    try {
+      await doBackToTables()
+    } finally {
+      kotSendGuardRef.current = false
+    }
+  }
+
+  async function doBackToTables(): Promise<void> {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 
     // Empty order — just navigate back, keep the order open so the table stays occupied.
@@ -692,6 +708,10 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
 
   // Reprint KOT: show all items (no side effects — does NOT call markItemsSentToKitchen)
   async function handleReprintKot(): Promise<void> {
+    // Guard against double-fire (issue #372)
+    if (kotReprintGuardRef.current) return
+    kotReprintGuardRef.current = true
+
     const ts = formatDateTime(new Date().toISOString())
     setKotTimestamp(ts)
     setKotShowAll(true)
@@ -722,11 +742,13 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
         onAfterBrowserPrint: () => {
           setKotShowAll(false)
           setReprintingKot(false)
+          kotReprintGuardRef.current = false
         },
       })
       if (result.method === 'network') {
         setKotShowAll(false)
         setReprintingKot(false)
+        kotReprintGuardRef.current = false
       }
       if (result.errorMessage) {
         setKotPrintError(result.errorMessage)
@@ -761,6 +783,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
 
     setKotShowAll(false)
     setReprintingKot(false)
+    kotReprintGuardRef.current = false
 
     if (printErrors.length > 0) {
       setKotPrintError(printErrors.join('\n\n'))
@@ -866,6 +889,10 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
 
   // Print Bill: route to cashier printer if available, otherwise browser print
   function handlePrintBill(): void {
+    // Guard against double-fire from rapid clicks (issue #372)
+    if (billPrintGuardRef.current) return
+    billPrintGuardRef.current = true
+
     const ts = formatDateTime(new Date().toISOString())
     setBillTimestamp(ts)
     setPrintingBill(true)
@@ -903,13 +930,14 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
           orderComp: orderIsComp,
         },
         printerProfile: cashierProfile,
-        onAfterBrowserPrint: () => { setPrintingBill(false) },
+        onAfterBrowserPrint: () => { setPrintingBill(false); billPrintGuardRef.current = false },
       }).then((result) => {
         setPrintingBill(false)
+        billPrintGuardRef.current = false
         if (result.errorMessage) {
           setKotPrintError(`Bill print error: ${result.errorMessage}`)
         }
-      }).catch(() => { setPrintingBill(false) })
+      }).catch(() => { setPrintingBill(false); billPrintGuardRef.current = false })
       return
     }
 
@@ -918,6 +946,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
       window.print()
       window.addEventListener('afterprint', () => {
         setPrintingBill(false)
+        billPrintGuardRef.current = false
       }, { once: true })
     }, 200)
   }

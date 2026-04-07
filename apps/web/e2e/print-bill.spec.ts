@@ -177,7 +177,10 @@ test.describe('Print Bill flow', () => {
     await page.getByRole('button', { name: 'Proceed to Payment' }).click();
     await expect(page.getByText('Record Payment')).toBeVisible();
 
+    // Split payment builder: select Card, enter full amount (bill = ৳450.00), add, then confirm
     await page.getByRole('button', { name: 'Card' }).click();
+    await page.getByRole('spinbutton').fill('450');
+    await page.getByRole('button', { name: 'Add' }).click();
     await page.getByRole('button', { name: /Confirm Payment/ }).click();
 
     await expect(page.getByText('Payment recorded — order closed')).toBeVisible();
@@ -226,7 +229,10 @@ test.describe('Print Bill flow', () => {
     await page.getByRole('button', { name: 'Proceed to Payment' }).click();
     await expect(page.getByText('Record Payment')).toBeVisible();
 
+    // Split payment builder: select Card, enter full amount (bill = ৳450.00), add, then confirm
     await page.getByRole('button', { name: 'Card' }).click();
+    await page.getByRole('spinbutton').fill('450');
+    await page.getByRole('button', { name: 'Add' }).click();
     await page.getByRole('button', { name: /Confirm Payment/ }).click();
 
     await expect(page.getByText('Payment recorded — order closed')).toBeVisible();

@@ -40,7 +40,7 @@ describe('callRecordPayment', () => {
 
   it('throws on non-OK HTTP response', async (): Promise<void> => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      new Response(JSON.stringify({ success: false, error: 'Not found' }), { status: 404 }),
+      new Response('', { status: 404 }),
     )
 
     await expect(
@@ -119,7 +119,7 @@ describe('callRecordSplitPayment', () => {
 
   it('throws on non-OK HTTP response', async (): Promise<void> => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      new Response(JSON.stringify({ error: 'Server error' }), { status: 500 }),
+      new Response('', { status: 500 }),
     )
 
     await expect(

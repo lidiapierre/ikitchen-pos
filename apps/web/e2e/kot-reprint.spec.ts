@@ -188,4 +188,81 @@ test.describe('KOT reprint button', () => {
 
     expect(kotApiCalled).toBe(false);
   });
+
+  /**
+   * Grouped-by-course KOT (issue #373)
+   *
+   * When an order has items spanning multiple courses the KOT print view must
+   * render a section header for each course in canonical order
+   * (Drinks → Starter → Main → Dessert).
+   *
+   * The KotPrintView component is intentionally hidden from screen
+   * (className="hidden print:block") so we query the DOM directly rather than
+   * using visibility-based assertions.
+   */
+  test('KOT print view renders DRINKS section before MAIN section when order spans two courses (issue #373)', async ({ page }) => {
+    // Override the order_items route for this test — two unsent items in different courses
+    await page.route('**/rest/v1/order_items**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([
+          {
+            id: 'cccccccc-0000-0000-0000-000000000101',
+            order_id: ORDER_ID,
+            quantity: 2,
+            unit_price_cents: 500,
+            modifier_ids: [],
+            sent_to_kitchen: false,
+            comp: false,
+            comp_reason: null,
+            seat: null,
+            course: 'drinks',
+            course_status: 'waiting',
+            item_discount_type: null,
+            item_discount_value: null,
+            notes: null,
+            menu_items: { name: 'Mango Lassi', menu_id: null },
+          },
+          {
+            id: 'cccccccc-0000-0000-0000-000000000102',
+            order_id: ORDER_ID,
+            quantity: 1,
+            unit_price_cents: 1200,
+            modifier_ids: [],
+            sent_to_kitchen: false,
+            comp: false,
+            comp_reason: null,
+            seat: null,
+            course: 'main',
+            course_status: 'waiting',
+            item_discount_type: null,
+            item_discount_value: null,
+            notes: null,
+            menu_items: { name: 'Chicken Biryani', menu_id: null },
+          },
+        ]),
+      });
+    });
+
+    await page.goto(`/tables/${TABLE_ID}/order/${ORDER_ID}`);
+
+    // Wait for items to render on the visible order page
+    await expect(page.getByText('Mango Lassi').last()).toBeVisible();
+    await expect(page.getByText('Chicken Biryani').last()).toBeVisible();
+
+    // The KotPrintView is hidden by CSS (print-only) but always present in the DOM.
+    // Query its text content directly to assert section header presence and order.
+    const kotContent: string = await page.evaluate(() => {
+      const el = document.querySelector('[aria-hidden="true"].font-mono');
+      return el?.textContent ?? '';
+    });
+
+    const drinksPos = kotContent.indexOf('── DRINKS ──');
+    const mainPos = kotContent.indexOf('── MAIN ──');
+
+    expect(drinksPos, 'DRINKS section header should be present in KOT DOM').toBeGreaterThan(-1);
+    expect(mainPos, 'MAIN section header should be present in KOT DOM').toBeGreaterThan(-1);
+    expect(drinksPos, 'DRINKS section should appear before MAIN in KOT DOM').toBeLessThan(mainPos);
+  });
 });

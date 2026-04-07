@@ -184,6 +184,8 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
   const [kotShowAll, setKotShowAll] = useState(false)
   const [reprintingKot, setReprintingKot] = useState(false)
   const [kotPrintError, setKotPrintError] = useState<string | null>(null)
+  // True when the KOT being sent is adding items to an already-running table (issue #374)
+  const [kotIsNewAddition, setKotIsNewAddition] = useState(false)
 
   // Bill print state
   const [billTimestamp, setBillTimestamp] = useState('')
@@ -618,6 +620,10 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
       // class — without it, global print CSS hides everything and KOT prints blank.
       setKotStatus('Sending to kitchen…')
 
+      // Detect if any items were already sent — if so, mark as NEW ADDITION (issue #374)
+      const alreadySentItemsExist = items.some((i) => i.sent_to_kitchen)
+      setKotIsNewAddition(alreadySentItemsExist)
+
       // Group unsent items by their printer type (kitchen vs bar)
       const itemsByPrinterType = new Map<'kitchen' | 'bar', typeof unsentItems>()
       for (const item of unsentItems) {
@@ -723,6 +729,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
     setKotTimestamp(ts)
     setKotShowAll(true)
     setReprintingKot(true)
+    setKotIsNewAddition(false) // Reprints always show all items — never the new-addition banner (issue #374)
     setKotPrintError(null)
 
     // For reprints, route each item group to the correct printer
@@ -749,11 +756,13 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
         onAfterBrowserPrint: () => {
           setKotShowAll(false)
           setReprintingKot(false)
+          setKotIsNewAddition(false)
         },
       })
       if (result.method === 'network') {
         setKotShowAll(false)
         setReprintingKot(false)
+        setKotIsNewAddition(false)
       }
       if (result.errorMessage) {
         setKotPrintError(result.errorMessage)
@@ -788,6 +797,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
 
     setKotShowAll(false)
     setReprintingKot(false)
+    setKotIsNewAddition(false)
 
     if (printErrors.length > 0) {
       setKotPrintError(printErrors.join('\n\n'))
@@ -1944,6 +1954,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
           deliveryNote={orderDeliveryNote}
           orderNumber={orderNumber}
           scheduledTime={orderScheduledTime}
+          isNewAddition={kotIsNewAddition}
         />
       </div>
 

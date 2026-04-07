@@ -26,6 +26,11 @@ interface KotPrintViewProps {
   orderNumber?: number | null
   /** Scheduled pickup/delivery time for takeaway/delivery orders (issue #352). ISO string or null. */
   scheduledTime?: string | null
+  /**
+   * When true, shows a prominent "★ NEW ADDITION — Running Table ★" header on the KOT.
+   * Set when items are being added to an order that already has sent items (issue #374).
+   */
+  isNewAddition?: boolean
 }
 
 const COURSE_LABELS: Record<string, string> = {
@@ -64,6 +69,7 @@ export default function KotPrintView({
   deliveryNote,
   orderNumber,
   scheduledTime,
+  isNewAddition = false,
 }: KotPrintViewProps): JSX.Element {
   // Base filter: unsent items (or all for reprint)
   let displayItems = showAll ? items : items.filter((item) => !item.sent_to_kitchen)
@@ -83,6 +89,14 @@ export default function KotPrintView({
         <p className="text-sm">KITCHEN ORDER TICKET</p>
         {showAll && !courseFilter && <p className="text-xs">(REPRINT)</p>}
       </div>
+
+      {/* NEW ADDITION banner — shown when items are added to an already-running table (issue #374) */}
+      {isNewAddition && (
+        <div className="border-2 border-black py-1 mb-2 text-center">
+          <p className="text-sm font-bold tracking-widest">★ NEW ADDITION ★</p>
+          <p className="text-xs font-bold">Running Table</p>
+        </div>
+      )}
 
       {/* TAKEAWAY / DELIVERY banner */}
       {(isTakeaway || isDelivery) && (

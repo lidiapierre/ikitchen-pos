@@ -230,3 +230,32 @@ describe('formatKotTime', () => {
     expect(formatKotTime('')).toBe('')
   })
 })
+
+describe('KotPrintView — new addition label (issue #374)', () => {
+  it('does not show the NEW ADDITION banner by default', () => {
+    render(
+      <KotPrintView
+        tableLabel="T-1"
+        orderId="order-abc-12345678"
+        items={mockItems}
+        timestamp="07/04/2026, 12:00:00"
+      />,
+    )
+    expect(screen.queryByText(/NEW ADDITION/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Running Table/i)).not.toBeInTheDocument()
+  })
+
+  it('shows the NEW ADDITION banner when isNewAddition=true', () => {
+    render(
+      <KotPrintView
+        tableLabel="T-1"
+        orderId="order-abc-12345678"
+        items={mockItems}
+        timestamp="07/04/2026, 12:00:00"
+        isNewAddition={true}
+      />,
+    )
+    expect(screen.getByText(/NEW ADDITION/i)).toBeInTheDocument()
+    expect(screen.getByText(/Running Table/i)).toBeInTheDocument()
+  })
+})

@@ -14,6 +14,7 @@ import { callCancelOrder } from './cancelOrderApi'
 import { callApplyDiscount } from './applyDiscountApi'
 import { callApplyItemDiscount } from './applyItemDiscountApi'
 import { updateOrderItemNotes } from './orderItemNotesApi'
+import { updateOrderItemQuantity } from './updateQuantityApi'
 import { callCompItem } from './compApi'
 import { callTransferOrder } from './transferOrderApi'
 import { fetchServerList, callReassignOrderServer } from './reassignServerApi'
@@ -251,6 +252,10 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
   const [editingNoteItemId, setEditingNoteItemId] = useState<string | null>(null)
   const [noteInputValue, setNoteInputValue] = useState('')
   const noteCommittingRef = useRef(false)
+
+  // Quantity editing state (issue #368)
+  const [qtyEditingId, setQtyEditingId] = useState<string | null>(null)
+  const [qtyEditStr, setQtyEditStr] = useState('')
 
   // Guards to prevent duplicate print triggers from rapid double-clicks (issue #372)
   const kotSendGuardRef = useRef(false)
@@ -1577,6 +1582,40 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
       .finally(() => { noteCommittingRef.current = false })
   }
 
+  /**
+   * Commit a quantity change for an order item (issue #368).
+   * newQty = 0 → triggers the void dialog instead of calling the API.
+   * Optimistic update: apply locally first, roll back on failure.
+   */
+  function commitQuantity(item: OrderItem, newQty: number): void {
+    setQtyEditingId(null)
+    setQtyEditStr('')
+
+    // Decrease to 0 → treat as void request
+    if (newQty <= 0) {
+      setVoidingItem(item)
+      setVoidReason('')
+      setVoidError(null)
+      return
+    }
+
+    if (newQty === item.quantity) return
+
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    if (!supabaseUrl || !accessToken) return
+
+    // Optimistic update
+    const prevItems = items
+    setItems((prev) => prev.map((i) => i.id === item.id ? { ...i, quantity: newQty } : i))
+
+    updateOrderItemQuantity(supabaseUrl, accessToken, item.id, newQty)
+      .catch(() => {
+        // Rollback on failure
+        setItems(prevItems)
+        addToast('Failed to update quantity — please retry', 'error')
+      })
+  }
+
   // Render a single item row (shared between course view and read-only view)
   function renderItemRow(item: OrderItem, inOrderStep: boolean): JSX.Element {
     const isComp = item.comp || orderIsComp
@@ -1601,7 +1640,64 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
               </span>
             )}
           </span>
-          <span className="text-zinc-400">×{item.quantity}</span>
+          {/* Quantity controls (issue #368) — editable in order step, read-only otherwise */}
+          {inOrderStep && !isComp ? (
+            <div className="flex items-center gap-1 shrink-0">
+              <button
+                type="button"
+                aria-label="Decrease quantity"
+                onClick={() => { commitQuantity(item, item.quantity - 1) }}
+                className="min-h-[48px] min-w-[48px] flex items-center justify-center rounded-lg bg-zinc-700 hover:bg-zinc-600 text-white text-xl font-bold transition-colors"
+              >
+                −
+              </button>
+              {qtyEditingId === item.id ? (
+                <input
+                  /* inputMode="numeric" opens the numeric keypad on tablets */
+                  inputMode="numeric"
+                  type="text"
+                  value={qtyEditStr}
+                  onChange={(e) => { setQtyEditStr(e.target.value.replace(/[^0-9]/g, '')) }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      const n = parseInt(qtyEditStr, 10)
+                      commitQuantity(item, isNaN(n) ? item.quantity : n)
+                    } else if (e.key === 'Escape') {
+                      setQtyEditingId(null)
+                      setQtyEditStr('')
+                    }
+                  }}
+                  onBlur={() => {
+                    const n = parseInt(qtyEditStr, 10)
+                    commitQuantity(item, isNaN(n) ? item.quantity : n)
+                  }}
+                  className="w-14 text-center text-white font-bold text-base bg-zinc-700 border-2 border-amber-400 rounded-lg px-1 py-2 focus:outline-none"
+                  // eslint-disable-next-line jsx-a11y/no-autofocus
+                  autoFocus
+                />
+              ) : (
+                <button
+                  type="button"
+                  aria-label={`Quantity ${item.quantity}, tap to edit`}
+                  onClick={() => { setQtyEditingId(item.id); setQtyEditStr(String(item.quantity)) }}
+                  className="w-14 text-center text-white font-bold text-base min-h-[48px] rounded-lg bg-zinc-700 hover:bg-zinc-600 transition-colors border-2 border-transparent hover:border-amber-400/50"
+                >
+                  {item.quantity}
+                </button>
+              )}
+              <button
+                type="button"
+                aria-label="Increase quantity"
+                onClick={() => { commitQuantity(item, item.quantity + 1) }}
+                className="min-h-[48px] min-w-[48px] flex items-center justify-center rounded-lg bg-zinc-700 hover:bg-zinc-600 text-white text-xl font-bold transition-colors"
+              >
+                +
+              </button>
+            </div>
+          ) : (
+            <span className="text-zinc-400">×{item.quantity}</span>
+          )}
           {isComp ? (
             <span className="text-emerald-400 text-sm italic">Complimentary</span>
           ) : (

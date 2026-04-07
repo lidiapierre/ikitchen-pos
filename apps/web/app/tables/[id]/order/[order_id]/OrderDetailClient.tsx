@@ -2860,7 +2860,9 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
         {renderItems()}
       </section>
 
-      <footer className="mt-6 pt-4 border-t border-zinc-700">
+      {/* print:hidden ensures this footer (containing the payment-step subtotal breakdown)
+          is never rendered during window.print() — prevents duplicate subtotal on bill (issue #369) */}
+      <footer className="mt-6 pt-4 border-t border-zinc-700 print:hidden">
         <div className="flex items-center justify-between mb-6">
           <span className="text-lg text-zinc-400">Total</span>
           {orderIsComp ? (

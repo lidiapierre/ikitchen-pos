@@ -135,6 +135,27 @@ describe('BillPrintView', () => {
     expect(screen.getByText('৳ 38.00')).toBeInTheDocument()
   })
 
+  it('renders exactly one subtotal line — no duplicate subtotal entries (issue #369)', () => {
+    render(
+      <BillPrintView
+        tableLabel="Table 3"
+        orderId="order-abc-12345678"
+        items={mockItems}
+        subtotalCents={SUBTOTAL}
+        vatPercent={VAT_PERCENT}
+        totalCents={TOTAL}
+        paymentMethod="card"
+        timestamp="25/03/2026, 14:00:00"
+        serviceChargePercent={10}
+        serviceChargeCents={Math.round(SUBTOTAL * 0.1)}
+      />,
+    )
+
+    // Must appear exactly once — regression guard for issue #369
+    const subtotalNodes = screen.getAllByText('Sub Total')
+    expect(subtotalNodes).toHaveLength(1)
+  })
+
   it('renders the VAT line with percent label and amount', () => {
     render(
       <BillPrintView
@@ -187,9 +208,9 @@ describe('BillPrintView', () => {
       />,
     )
 
-    // New label: "Tendered by" with method value "card"
+    // "Tendered by" with the formatted label from PAYMENT_METHOD_LABELS
     expect(screen.getByText('Tendered by')).toBeInTheDocument()
-    expect(screen.getByText('card')).toBeInTheDocument()
+    expect(screen.getByText('Card / POS')).toBeInTheDocument()
   })
 
   it('renders payment method for cash', () => {
@@ -208,7 +229,7 @@ describe('BillPrintView', () => {
       />,
     )
 
-    expect(screen.getByText('cash')).toBeInTheDocument()
+    expect(screen.getByText('Cash')).toBeInTheDocument()
   })
 
   it('renders tendered amount and change due for cash payment', () => {

@@ -37,6 +37,7 @@ export default function RestaurantSettingsPage(): JSX.Element {
   const [registerName, setRegisterName] = useState('')
   const [restaurantAddress, setRestaurantAddress] = useState('')
   const [loyaltyPointsPerOrder, setLoyaltyPointsPerOrder] = useState('10')
+  const [roundBillTotals, setRoundBillTotals] = useState(true)
 
   // Supabase config ref
   const supabaseConfig = useRef<{ url: string; key: string } | null>(null)
@@ -58,18 +59,20 @@ export default function RestaurantSettingsPage(): JSX.Element {
         if (rows.length === 0) throw new Error('No restaurant found')
         const rid = rows[0].id
         setRestaurantId(rid)
-        const [nameVal, binVal, regVal, addrVal, loyaltyVal] = await Promise.all([
+        const [nameVal, binVal, regVal, addrVal, loyaltyVal, roundVal] = await Promise.all([
           fetchConfigValue(supabaseUrl, accessToken, rid, 'restaurant_name', ''),
           fetchConfigValue(supabaseUrl, accessToken, rid, 'bin_number', ''),
           fetchConfigValue(supabaseUrl, accessToken, rid, 'register_name', ''),
           fetchConfigValue(supabaseUrl, accessToken, rid, 'restaurant_address', ''),
           fetchConfigValue(supabaseUrl, accessToken, rid, 'loyalty_points_per_order', '10'),
+          fetchConfigValue(supabaseUrl, accessToken, rid, 'round_bill_totals', 'true'),
         ])
         setRestaurantName(nameVal)
         setBinNumber(binVal)
         setRegisterName(regVal)
         setRestaurantAddress(addrVal)
         setLoyaltyPointsPerOrder(loyaltyVal)
+        setRoundBillTotals(roundVal === 'true')
       })
       .catch((err: unknown) => {
         setFetchError(err instanceof Error ? err.message : 'Failed to load settings')
@@ -115,6 +118,7 @@ export default function RestaurantSettingsPage(): JSX.Element {
           ? callUpsertConfig(config.url, config.key, restaurantId, 'restaurant_address', restaurantAddress.trim())
           : Promise.resolve(),
         callUpsertConfig(config.url, config.key, restaurantId, 'loyalty_points_per_order', String(loyaltyNum)),
+        callUpsertConfig(config.url, config.key, restaurantId, 'round_bill_totals', roundBillTotals ? 'true' : 'false'),
       ])
       showFeedback('success', 'Restaurant settings saved.')
     } catch (err) {
@@ -231,6 +235,39 @@ export default function RestaurantSettingsPage(): JSX.Element {
           <p className="text-xs text-brand-grey">
             Your VAT / BIN registration number printed on every receipt. Leave blank to hide.
           </p>
+        </div>
+
+        {/* Round Bill Totals (issue #371) */}
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex flex-col gap-0.5">
+            <label htmlFor="round-bill-totals" className="text-sm font-medium text-brand-navy/80">
+              Round Bill Totals to Nearest Whole Number
+            </label>
+            <p className="text-xs text-brand-grey">
+              When enabled, all monetary amounts on the bill (subtotal, VAT, service charge, total)
+              are rounded to the nearest integer (half-up). Useful for currencies like BDT where
+              paisa amounts are not used in practice.
+            </p>
+          </div>
+          <button
+            id="round-bill-totals"
+            type="button"
+            role="switch"
+            aria-checked={roundBillTotals}
+            onClick={() => { setRoundBillTotals(!roundBillTotals) }}
+            disabled={submitting}
+            className={[
+              'relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors disabled:opacity-50',
+              roundBillTotals ? 'bg-brand-blue' : 'bg-zinc-600',
+            ].join(' ')}
+          >
+            <span
+              className={[
+                'inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform',
+                roundBillTotals ? 'translate-x-6' : 'translate-x-1',
+              ].join(' ')}
+            />
+          </button>
         </div>
 
         {/* Register Name */}

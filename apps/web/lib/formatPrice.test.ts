@@ -28,3 +28,35 @@ describe('formatPrice', () => {
     expect(formatPrice(10000, '৳')).toBe('৳ 100.00')
   })
 })
+
+describe('formatPrice — roundToWhole (issue #371)', () => {
+  it('rounds down when fraction < 0.5 (8593.20 → 8593)', () => {
+    expect(formatPrice(859320, '৳', true)).toBe('৳ 8,593')
+  })
+
+  it('rounds up when fraction ≥ 0.5 (8593.60 → 8594)', () => {
+    expect(formatPrice(859360, '৳', true)).toBe('৳ 8,594')
+  })
+
+  it('rounds exactly 0.5 up (100.50 → 101)', () => {
+    expect(formatPrice(10050, '৳', true)).toBe('৳ 101')
+  })
+
+  it('shows no decimal places when roundToWhole is true', () => {
+    expect(formatPrice(100, '৳', true)).toBe('৳ 1')
+    expect(formatPrice(10000, '৳', true)).toBe('৳ 100')
+  })
+
+  it('formats zero as 0 (no decimals)', () => {
+    expect(formatPrice(0, '৳', true)).toBe('৳ 0')
+  })
+
+  it('still adds comma separators for large rounded values', () => {
+    expect(formatPrice(1000000, '$', true)).toBe('$ 10,000')
+  })
+
+  it('does not affect regular 2-decimal output when roundToWhole is false (default)', () => {
+    expect(formatPrice(859320, '৳', false)).toBe('৳ 8,593.20')
+    expect(formatPrice(859360, '৳', false)).toBe('৳ 8,593.60')
+  })
+})

@@ -215,6 +215,9 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
   const [taxInclusive, setTaxInclusive] = useState(false)
   const [vatConfigLoading, setVatConfigLoading] = useState(true)
 
+  // Bill rounding setting (issue #371) — fetched once on load
+  const [roundBillTotals, setRoundBillTotals] = useState(false)
+
   // Service charge config state (fetched once on load)
   const [serviceChargePercent, setServiceChargePercent] = useState(0)
   const [serviceChargeApplyDineIn, setServiceChargeApplyDineIn] = useState(true)
@@ -349,7 +352,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
           ).then((r) => r.ok ? r.json() as Promise<Array<{ name: string }>> : Promise.resolve([])),
           // Fetch enhanced bill config keys in a single request
           fetch(
-            `${supabaseUrl}/rest/v1/config?restaurant_id=eq.${restaurantId}&key=in.(bin_number,register_name,restaurant_address)&select=key,value`,
+            `${supabaseUrl}/rest/v1/config?restaurant_id=eq.${restaurantId}&key=in.(bin_number,register_name,restaurant_address,round_bill_totals)&select=key,value`,
             { headers: { apikey: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? '', Authorization: `Bearer ${accessToken}` } },
           ).then((r) => r.ok ? r.json() as Promise<Array<{ key: string; value: string }>> : Promise.resolve([])),
         ]),
@@ -373,6 +376,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
         if (cfgMap.has('bin_number')) setBinNumber(cfgMap.get('bin_number'))
         if (cfgMap.has('register_name')) setRegisterName(cfgMap.get('register_name'))
         if (cfgMap.has('restaurant_address')) setRestaurantAddress(cfgMap.get('restaurant_address') ?? '')
+        if (cfgMap.has('round_bill_totals')) setRoundBillTotals(cfgMap.get('round_bill_totals') === 'true')
       })
       .catch(() => {
         // Non-fatal: fall back to 0% VAT / 0% service charge (safe — no overcharging)
@@ -557,7 +561,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
 
   // Displayed "total" in the order footer is the grand total
   const totalCents = billTotalCents
-  const totalFormatted = formatPrice(totalCents, currencySymbol)
+  const totalFormatted = formatPrice(totalCents, currencySymbol, roundBillTotals)
 
   const billPaymentMethod = (confirmedPaymentMethod ?? paymentMethod) as PaymentMethod
   const billAmountTenderedCents = paymentMethod === 'cash'
@@ -1322,26 +1326,26 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
     for (const item of items) {
       const isComp = item.comp || orderIsComp
       const lineCents = isComp ? 0 : item.quantity * item.price_cents - calcItemDiscountCents(item)
-      const priceStr = isComp ? 'Free' : formatPrice(lineCents, currencySymbol)
+      const priceStr = isComp ? 'Free' : formatPrice(lineCents, currencySymbol, roundBillTotals)
       lines.push(`${item.name} x${item.quantity}  ${priceStr}`)
     }
     lines.push('─'.repeat(32))
     if (!orderIsComp) {
-      lines.push(`Subtotal: ${formatPrice(billSubtotalCents, currencySymbol)}`)
+      lines.push(`Subtotal: ${formatPrice(billSubtotalCents, currencySymbol, roundBillTotals)}`)
       if (appliedDiscountCents > 0) {
-        lines.push(`Discount: -${formatPrice(appliedDiscountCents, currencySymbol)}`)
+        lines.push(`Discount: -${formatPrice(appliedDiscountCents, currencySymbol, roundBillTotals)}`)
       }
       if (effectiveServiceChargePercent > 0 && billServiceChargeCents > 0) {
-        lines.push(`Service Charge (${effectiveServiceChargePercent}%): ${formatPrice(billServiceChargeCents, currencySymbol)}`)
+        lines.push(`Service Charge (${effectiveServiceChargePercent}%): ${formatPrice(billServiceChargeCents, currencySymbol, roundBillTotals)}`)
       }
       if (vatPercent > 0 && billVatCents > 0) {
-        lines.push(`VAT ${vatPercent}%${taxInclusive ? ' (incl.)' : ''}: ${formatPrice(billVatCents, currencySymbol)}`)
+        lines.push(`VAT ${vatPercent}%${taxInclusive ? ' (incl.)' : ''}: ${formatPrice(billVatCents, currencySymbol, roundBillTotals)}`)
       }
       if (billDeliveryChargeCents > 0) {
         const dcLabel = orderDeliveryZoneName ? `Delivery (${orderDeliveryZoneName})` : 'Delivery Charge'
-        lines.push(`${dcLabel}: ${formatPrice(billDeliveryChargeCents, currencySymbol)}`)
+        lines.push(`${dcLabel}: ${formatPrice(billDeliveryChargeCents, currencySymbol, roundBillTotals)}`)
       }
-      lines.push(`Total: ${formatPrice(billTotalCents, currencySymbol)}`)
+      lines.push(`Total: ${formatPrice(billTotalCents, currencySymbol, roundBillTotals)}`)
     } else {
       lines.push('Total: COMPLIMENTARY')
     }
@@ -1992,6 +1996,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
             orderNumber={orderNumber}
             deliveryChargeCents={billDeliveryChargeCents > 0 ? billDeliveryChargeCents : undefined}
             deliveryZoneName={orderDeliveryZoneName ?? undefined}
+            roundBillTotals={roundBillTotals}
           />
         </div>
       )}
@@ -2015,6 +2020,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
             billNumber={orderBillNumber ?? undefined}
             registerName={registerName}
             orderNumber={orderNumber}
+            roundBillTotals={roundBillTotals}
           />
         </div>
       )}
@@ -2966,30 +2972,30 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
             <div className="bg-zinc-800 rounded-xl px-4 py-3 text-sm space-y-1.5">
               <div className="flex justify-between text-zinc-400">
                 <span>Subtotal</span>
-                <span>{formatPrice(billSubtotalCents, currencySymbol)}</span>
+                <span>{formatPrice(billSubtotalCents, currencySymbol, roundBillTotals)}</span>
               </div>
               {appliedDiscountCents > 0 && (
                 <div className="flex justify-between text-emerald-400">
                   <span>Discount{appliedDiscountLabel ? ` (${appliedDiscountLabel})` : ''}</span>
-                  <span>-{formatPrice(appliedDiscountCents, currencySymbol)}</span>
+                  <span>-{formatPrice(appliedDiscountCents, currencySymbol, roundBillTotals)}</span>
                 </div>
               )}
               {effectiveServiceChargePercent > 0 && billServiceChargeCents > 0 && !orderIsComp && (
                 <div className="flex justify-between text-zinc-400">
                   <span>Service Charge ({effectiveServiceChargePercent}%)</span>
-                  <span>{formatPrice(billServiceChargeCents, currencySymbol)}</span>
+                  <span>{formatPrice(billServiceChargeCents, currencySymbol, roundBillTotals)}</span>
                 </div>
               )}
               {billVatCents > 0 && (
                 <div className="flex justify-between text-zinc-400">
                   <span>VAT {vatPercent}%{taxInclusive ? ' (incl.)' : ''}</span>
-                  <span>{formatPrice(billVatCents, currencySymbol)}</span>
+                  <span>{formatPrice(billVatCents, currencySymbol, roundBillTotals)}</span>
                 </div>
               )}
               {billDeliveryChargeCents > 0 && (
                 <div className="flex justify-between text-zinc-400">
                   <span>Delivery Charge{orderDeliveryZoneName ? ` (${orderDeliveryZoneName})` : ''}</span>
-                  <span>{formatPrice(billDeliveryChargeCents, currencySymbol)}</span>
+                  <span>{formatPrice(billDeliveryChargeCents, currencySymbol, roundBillTotals)}</span>
                 </div>
               )}
               {orderIsComp && (
@@ -3003,7 +3009,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
                 {orderIsComp ? (
                   <span className="text-emerald-400">COMPLIMENTARY</span>
                 ) : (
-                  <span>{formatPrice(billTotalCents, currencySymbol)}</span>
+                  <span>{formatPrice(billTotalCents, currencySymbol, roundBillTotals)}</span>
                 )}
               </div>
             </div>
@@ -3135,30 +3141,30 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
             <div className="bg-zinc-800 rounded-xl px-4 py-3 text-sm space-y-1.5">
               <div className="flex justify-between text-zinc-400">
                 <span>Subtotal</span>
-                <span>{formatPrice(billSubtotalCents, currencySymbol)}</span>
+                <span>{formatPrice(billSubtotalCents, currencySymbol, roundBillTotals)}</span>
               </div>
               {appliedDiscountCents > 0 && (
                 <div className="flex justify-between text-emerald-400">
                   <span>Discount{appliedDiscountLabel ? ` (${appliedDiscountLabel})` : ''}</span>
-                  <span>-{formatPrice(appliedDiscountCents, currencySymbol)}</span>
+                  <span>-{formatPrice(appliedDiscountCents, currencySymbol, roundBillTotals)}</span>
                 </div>
               )}
               {effectiveServiceChargePercent > 0 && billServiceChargeCents > 0 && !orderIsComp && (
                 <div className="flex justify-between text-zinc-400">
                   <span>Service Charge ({effectiveServiceChargePercent}%)</span>
-                  <span>{formatPrice(billServiceChargeCents, currencySymbol)}</span>
+                  <span>{formatPrice(billServiceChargeCents, currencySymbol, roundBillTotals)}</span>
                 </div>
               )}
               {billVatCents > 0 && (
                 <div className="flex justify-between text-zinc-400">
                   <span>VAT {vatPercent}%{taxInclusive ? ' (incl.)' : ''}</span>
-                  <span>{formatPrice(billVatCents, currencySymbol)}</span>
+                  <span>{formatPrice(billVatCents, currencySymbol, roundBillTotals)}</span>
                 </div>
               )}
               {billDeliveryChargeCents > 0 && (
                 <div className="flex justify-between text-zinc-400">
                   <span>Delivery Charge{orderDeliveryZoneName ? ` (${orderDeliveryZoneName})` : ''}</span>
-                  <span>{formatPrice(billDeliveryChargeCents, currencySymbol)}</span>
+                  <span>{formatPrice(billDeliveryChargeCents, currencySymbol, roundBillTotals)}</span>
                 </div>
               )}
               {orderIsComp && (
@@ -3172,7 +3178,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
                 {orderIsComp ? (
                   <span className="text-emerald-400">COMPLIMENTARY</span>
                 ) : (
-                  <span>{formatPrice(billTotalCents, currencySymbol)}</span>
+                  <span>{formatPrice(billTotalCents, currencySymbol, roundBillTotals)}</span>
                 )}
               </div>
             </div>

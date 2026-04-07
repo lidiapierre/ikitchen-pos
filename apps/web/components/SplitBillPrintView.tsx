@@ -29,6 +29,11 @@ export interface SplitBillPrintViewProps {
   registerName?: string
   /** Short sequential numeric order number, resets daily per restaurant (issue #349). */
   orderNumber?: number | null
+  /**
+   * When true, all monetary display values are rounded to the nearest whole number (half-up).
+   * Controlled by the `round_bill_totals` restaurant config setting (issue #371).
+   */
+  roundBillTotals?: boolean
 }
 
 /**
@@ -51,6 +56,7 @@ export default function SplitBillPrintView({
   billNumber,
   registerName,
   orderNumber,
+  roundBillTotals = false,
 }: SplitBillPrintViewProps): JSX.Element {
   // For even split: calculate total then divide
   const totalRawCents = items
@@ -186,7 +192,7 @@ export default function SplitBillPrintView({
                       {isComp ? (
                         <span className="italic text-xs">Complimentary</span>
                       ) : (
-                        <span>{formatPrice(lineCents, DEFAULT_CURRENCY_SYMBOL)}</span>
+                        <span>{formatPrice(lineCents, DEFAULT_CURRENCY_SYMBOL, roundBillTotals)}</span>
                       )}
                     </li>
                   )
@@ -210,23 +216,23 @@ export default function SplitBillPrintView({
                     <>
                       <div className="flex justify-between">
                         <span>Subtotal</span>
-                        <span>{formatPrice(section.subtotalCents, DEFAULT_CURRENCY_SYMBOL)}</span>
+                        <span>{formatPrice(section.subtotalCents, DEFAULT_CURRENCY_SYMBOL, roundBillTotals)}</span>
                       </div>
                       {serviceChargePercent > 0 && scCents > 0 && (
                         <div className="flex justify-between">
                           <span>Service Charge ({serviceChargePercent}%)</span>
-                          <span>{formatPrice(scCents, DEFAULT_CURRENCY_SYMBOL)}</span>
+                          <span>{formatPrice(scCents, DEFAULT_CURRENCY_SYMBOL, roundBillTotals)}</span>
                         </div>
                       )}
                       {vatPercent > 0 && !taxInclusive && (
                         <div className="flex justify-between">
                           <span>VAT {vatPercent}%</span>
-                          <span>{formatPrice(vatCents, DEFAULT_CURRENCY_SYMBOL)}</span>
+                          <span>{formatPrice(vatCents, DEFAULT_CURRENCY_SYMBOL, roundBillTotals)}</span>
                         </div>
                       )}
                       <div className="flex justify-between font-bold">
                         <span>Total</span>
-                        <span>{formatPrice(sectionTotal, DEFAULT_CURRENCY_SYMBOL)}</span>
+                        <span>{formatPrice(sectionTotal, DEFAULT_CURRENCY_SYMBOL, roundBillTotals)}</span>
                       </div>
                     </>
                   )
@@ -234,7 +240,7 @@ export default function SplitBillPrintView({
               ) : (
                 <div className="flex justify-between font-bold">
                   <span>Total{taxInclusive && vatPercent > 0 ? ` (incl. VAT ${vatPercent}%)` : ''}</span>
-                  <span>{formatPrice(section.subtotalCents, DEFAULT_CURRENCY_SYMBOL)}</span>
+                  <span>{formatPrice(section.subtotalCents, DEFAULT_CURRENCY_SYMBOL, roundBillTotals)}</span>
                 </div>
               )}
             </div>

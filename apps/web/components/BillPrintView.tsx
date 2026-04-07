@@ -67,6 +67,12 @@ export interface BillPrintViewProps {
   deliveryChargeCents?: number
   /** Delivery zone name for the receipt label (issue #353). */
   deliveryZoneName?: string
+  /**
+   * When true, all monetary display values are rounded to the nearest whole number (half-up).
+   * Controlled by the `round_bill_totals` restaurant config setting (issue #371).
+   * Internal cent values are unchanged — rounding is display-only.
+   */
+  roundBillTotals?: boolean
 }
 
 export default function BillPrintView({
@@ -102,6 +108,7 @@ export default function BillPrintView({
   orderNumber,
   deliveryChargeCents = 0,
   deliveryZoneName,
+  roundBillTotals = false,
 }: BillPrintViewProps): JSX.Element {
   // Use caller-provided vatCents when available (preferred — supports new calculation order).
   // Fall back to derived value for backward compatibility.
@@ -211,14 +218,14 @@ export default function BillPrintView({
                 </span>
                 <span className="w-8 text-right shrink-0">{item.quantity}</span>
                 <span className="w-16 text-right shrink-0">
-                  {isComp ? 'Free' : formatPrice(lineCents, DEFAULT_CURRENCY_SYMBOL)}
+                  {isComp ? 'Free' : formatPrice(lineCents, DEFAULT_CURRENCY_SYMBOL, roundBillTotals)}
                 </span>
               </div>
               {hasItemDiscount && (
                 <div className="pl-6 text-xs text-zinc-500">
                   {item.item_discount_type === 'percent' && item.item_discount_value != null
                     ? `Discount: -${item.item_discount_value / 100}%`
-                    : `Discount: -${formatPrice(itemDiscountCents, DEFAULT_CURRENCY_SYMBOL)}`}
+                    : `Discount: -${formatPrice(itemDiscountCents, DEFAULT_CURRENCY_SYMBOL, roundBillTotals)}`}
                 </div>
               )}
             </div>
@@ -232,41 +239,41 @@ export default function BillPrintView({
           <>
             <div className="flex justify-between">
               <span>Sub Total</span>
-              <span>{formatPrice(subtotalCents, DEFAULT_CURRENCY_SYMBOL)}</span>
+              <span>{formatPrice(subtotalCents, DEFAULT_CURRENCY_SYMBOL, roundBillTotals)}</span>
             </div>
             {discountAmountCents > 0 && (
               <div className="flex justify-between">
                 <span>{discountLabel ? `Discount (${discountLabel})` : 'Discount'}</span>
-                <span>-{formatPrice(discountAmountCents, DEFAULT_CURRENCY_SYMBOL)}</span>
+                <span>-{formatPrice(discountAmountCents, DEFAULT_CURRENCY_SYMBOL, roundBillTotals)}</span>
               </div>
             )}
             {serviceChargePercent > 0 && serviceChargeCents > 0 && (
               <div className="flex justify-between">
                 <span>Service Charge ({serviceChargePercent}%)</span>
-                <span>{formatPrice(serviceChargeCents, DEFAULT_CURRENCY_SYMBOL)}</span>
+                <span>{formatPrice(serviceChargeCents, DEFAULT_CURRENCY_SYMBOL, roundBillTotals)}</span>
               </div>
             )}
             {vatPercent > 0 && (
               <div className="flex justify-between">
                 <span>VAT {vatPercent}%{taxInclusive ? ' (incl.)' : ''}</span>
-                <span>{formatPrice(vatCents, DEFAULT_CURRENCY_SYMBOL)}</span>
+                <span>{formatPrice(vatCents, DEFAULT_CURRENCY_SYMBOL, roundBillTotals)}</span>
               </div>
             )}
             {deliveryChargeCents > 0 && (
               <div className="flex justify-between">
                 <span>{deliveryZoneName ? `Delivery (${deliveryZoneName})` : 'Delivery Charge'}</span>
-                <span>{formatPrice(deliveryChargeCents, DEFAULT_CURRENCY_SYMBOL)}</span>
+                <span>{formatPrice(deliveryChargeCents, DEFAULT_CURRENCY_SYMBOL, roundBillTotals)}</span>
               </div>
             )}
             {roundOffCents !== 0 && (
               <div className="flex justify-between">
                 <span>Round Off</span>
-                <span>{roundOffCents > 0 ? '+' : ''}{formatPrice(Math.abs(roundOffCents), DEFAULT_CURRENCY_SYMBOL)}</span>
+                <span>{roundOffCents > 0 ? '+' : ''}{formatPrice(Math.abs(roundOffCents), DEFAULT_CURRENCY_SYMBOL, roundBillTotals)}</span>
               </div>
             )}
             <div className="flex justify-between font-bold border-t border-black pt-0.5 mt-0.5">
               <span>Pay</span>
-              <span>{formatPrice(payableCents, DEFAULT_CURRENCY_SYMBOL)}</span>
+              <span>{formatPrice(payableCents, DEFAULT_CURRENCY_SYMBOL, roundBillTotals)}</span>
             </div>
           </>
         )}
@@ -288,13 +295,13 @@ export default function BillPrintView({
           {paymentMethod === 'cash' && amountTenderedCents !== undefined && (
             <div className="flex justify-between">
               <span>Cash Tendered</span>
-              <span>{formatPrice(amountTenderedCents, DEFAULT_CURRENCY_SYMBOL)}</span>
+              <span>{formatPrice(amountTenderedCents, DEFAULT_CURRENCY_SYMBOL, roundBillTotals)}</span>
             </div>
           )}
           {paymentMethod === 'cash' && changeDueCents !== undefined && (
             <div className="flex justify-between">
               <span>Change Due</span>
-              <span>{formatPrice(changeDueCents, DEFAULT_CURRENCY_SYMBOL)}</span>
+              <span>{formatPrice(changeDueCents, DEFAULT_CURRENCY_SYMBOL, roundBillTotals)}</span>
             </div>
           )}
         </div>

@@ -1110,7 +1110,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
       // For backward-compat fields used elsewhere
       setConfirmedPaymentMethod(splitPayments.length === 1 ? splitPayments[0].method : 'cash')
 
-      if (splitHasCash) {
+      if (splitHasCash && result.change_due > 0) {
         setChangeDueCents(result.change_due)
         setStep('change')
       } else {

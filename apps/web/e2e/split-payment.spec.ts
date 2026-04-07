@@ -132,7 +132,7 @@ test.describe('split payment builder', () => {
     });
   });
 
-  test('split payment: card + cash covers full bill → payment recorded → navigates to /tables', async ({ page }) => {
+  test('split payment: card + mobile covers full bill → payment recorded → navigates to /tables', async ({ page }) => {
     await page.goto(`/tables/${TABLE_ID}/order/${ORDER_ID}`);
     await expect(page.getByText('Feast Platter', { exact: true }).last()).toBeVisible();
 
@@ -152,8 +152,8 @@ test.describe('split payment builder', () => {
     const confirmBtn = page.getByRole('button', { name: /Confirm Payment/ });
     await expect(confirmBtn).toBeDisabled();
 
-    // Add cash portion: ৳500
-    await page.getByRole('button', { name: 'Cash' }).click();
+    // Add mobile portion: ৳500 (no cash = no change-due step)
+    await page.getByRole('button', { name: 'Mobile' }).click();
     await amountInput.fill('500');
     await page.getByRole('button', { name: /Add/ }).click();
 
@@ -161,7 +161,7 @@ test.describe('split payment builder', () => {
     await expect(confirmBtn).toBeEnabled();
     await confirmBtn.click();
 
-    // Success state
+    // No cash in split → success state shown directly (no change-due step)
     await expect(page.getByText('Payment recorded — order closed')).toBeVisible();
 
     // Auto-navigate to /tables

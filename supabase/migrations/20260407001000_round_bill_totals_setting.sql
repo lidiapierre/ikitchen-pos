@@ -4,9 +4,9 @@
 -- Lahore by iKitchen (and any other restaurant already provisioned) gets
 -- whole-number bill display enabled by default.
 --
--- New restaurants will receive this value via provision_restaurant when that
--- function is updated, but the ON CONFLICT DO NOTHING guard below ensures
--- this migration is idempotent.
+-- New restaurants receive this value via provision_restaurant (also updated in
+-- this migration's PR). The ON CONFLICT DO NOTHING guard below ensures this
+-- migration is idempotent.
 
 INSERT INTO config (restaurant_id, key, value)
 SELECT id, 'round_bill_totals', 'true'

@@ -1669,6 +1669,8 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
                     }
                   }}
                   onBlur={() => {
+                    // Guard: if Enter already committed the value, qtyEditingId is null
+                    if (qtyEditingId !== item.id) return
                     const n = parseInt(qtyEditStr, 10)
                     commitQuantity(item, isNaN(n) ? item.quantity : n)
                   }}

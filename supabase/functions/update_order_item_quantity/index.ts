@@ -2,7 +2,7 @@ import { verifyAndGetCaller } from '../_shared/auth.ts'
 
 export const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-demo-staff-id',
   'Access-Control-Allow-Methods': 'PATCH, GET, OPTIONS',
 }
 
@@ -183,22 +183,27 @@ export async function handler(
       )
     }
 
-    // ── Step 4: audit log ───────────────────────────────────────────────────
-    await fetchFn(
-      `${supabaseUrl}/rest/v1/audit_log`,
-      {
-        method: 'POST',
-        headers: { ...dbHeaders, Prefer: 'return=minimal' },
-        body: JSON.stringify({
-          restaurant_id: restaurantId,
-          user_id: caller.actorId,
-          action: 'update_quantity',
-          entity_type: 'order_items',
-          entity_id: orderItemId,
-          payload: { quantity, order_id: orderId },
-        }),
-      },
-    )
+    // ── Step 4: audit log (non-fatal — network failures must not roll back the update) ───
+    try {
+      await fetchFn(
+        `${supabaseUrl}/rest/v1/audit_log`,
+        {
+          method: 'POST',
+          headers: { ...dbHeaders, Prefer: 'return=minimal' },
+          body: JSON.stringify({
+            restaurant_id: restaurantId,
+            user_id: caller.actorId,
+            action: 'update_quantity',
+            entity_type: 'order_items',
+            entity_id: orderItemId,
+            payload: { quantity, order_id: orderId },
+          }),
+        },
+      )
+    } catch {
+      // Non-fatal: quantity update already succeeded; audit failure should not
+      // cause a 500 response or hide the successful update from the caller.
+    }
 
     return new Response(
       JSON.stringify({ success: true }),

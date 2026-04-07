@@ -20,7 +20,12 @@ export async function updateOrderItemQuantity(
     body: JSON.stringify({ order_item_id: orderItemId, quantity }),
   })
   if (!res.ok) {
-    throw new Error(`HTTP ${res.status}`)
+    let errMsg = `HTTP ${res.status}`
+    try {
+      const body = (await res.json()) as { error?: string }
+      errMsg = body.error ?? errMsg
+    } catch { /* ignore parse failures */ }
+    throw new Error(errMsg)
   }
   const json = (await res.json()) as { success: boolean; error?: string }
   if (!json.success) {

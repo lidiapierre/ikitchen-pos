@@ -184,6 +184,8 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
   const [kotShowAll, setKotShowAll] = useState(false)
   const [reprintingKot, setReprintingKot] = useState(false)
   const [kotPrintError, setKotPrintError] = useState<string | null>(null)
+  // True when the KOT being sent is adding items to an already-running table (issue #374)
+  const [kotIsNewAddition, setKotIsNewAddition] = useState(false)
 
   // Bill print state
   const [billTimestamp, setBillTimestamp] = useState('')
@@ -617,6 +619,10 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
       // Set kotStatus before printing so the wrapper div receives the `print-area`
       // class — without it, global print CSS hides everything and KOT prints blank.
       setKotStatus('Sending to kitchen…')
+
+      // Detect if any items were already sent — if so, mark as NEW ADDITION (issue #374)
+      const alreadySentItemsExist = items.some((i) => i.sent_to_kitchen)
+      setKotIsNewAddition(alreadySentItemsExist)
 
       // Group unsent items by their printer type (kitchen vs bar)
       const itemsByPrinterType = new Map<'kitchen' | 'bar', typeof unsentItems>()
@@ -1944,6 +1950,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
           deliveryNote={orderDeliveryNote}
           orderNumber={orderNumber}
           scheduledTime={orderScheduledTime}
+          isNewAddition={kotIsNewAddition}
         />
       </div>
 

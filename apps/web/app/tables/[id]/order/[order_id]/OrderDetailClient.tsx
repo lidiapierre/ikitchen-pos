@@ -729,6 +729,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
     setKotTimestamp(ts)
     setKotShowAll(true)
     setReprintingKot(true)
+    setKotIsNewAddition(false) // Reprints always show all items — never the new-addition banner (issue #374)
     setKotPrintError(null)
 
     // For reprints, route each item group to the correct printer
@@ -755,11 +756,13 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
         onAfterBrowserPrint: () => {
           setKotShowAll(false)
           setReprintingKot(false)
+          setKotIsNewAddition(false)
         },
       })
       if (result.method === 'network') {
         setKotShowAll(false)
         setReprintingKot(false)
+        setKotIsNewAddition(false)
       }
       if (result.errorMessage) {
         setKotPrintError(result.errorMessage)
@@ -794,6 +797,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
 
     setKotShowAll(false)
     setReprintingKot(false)
+    setKotIsNewAddition(false)
 
     if (printErrors.length > 0) {
       setKotPrintError(printErrors.join('\n\n'))

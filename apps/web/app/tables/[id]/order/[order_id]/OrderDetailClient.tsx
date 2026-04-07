@@ -7,7 +7,8 @@ import type { JSX } from 'react'
 import { fetchOrderItems, fetchOrderSummary, calcItemDiscountCents } from './orderData'
 import type { OrderItem, CourseType } from './orderData'
 import { callCloseOrder } from './closeOrderApi'
-import { callRecordPayment } from './recordPaymentApi'
+import { callRecordSplitPayment } from './recordPaymentApi'
+import type { SplitPaymentEntry } from './recordPaymentApi'
 import { callVoidItem } from './voidItemApi'
 import { callCancelOrder } from './cancelOrderApi'
 import { callApplyDiscount } from './applyDiscountApi'
@@ -29,6 +30,7 @@ import { printKot, printBill, findPrinter } from '@/lib/kotPrint'
 import type { PrinterConfig, PrinterProfile, PrintResult } from '@/lib/kotPrint'
 import KotPrintView from '@/components/KotPrintView'
 import BillPrintView from '@/components/BillPrintView'
+import type { SplitPaymentLine } from '@/components/BillPrintView'
 import { supabase } from '@/lib/supabase'
 import { useUser } from '@/lib/user-context'
 import { formatDateTime, formatDateTimeShort } from '@/lib/dateFormat'
@@ -84,12 +86,18 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState<string | null>(null)
   const [step, setStep] = useState<'order' | 'bill_preview' | 'payment' | 'change' | 'success'>('order')
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash')
   const [paying, setPaying] = useState(false)
   const [paymentError, setPaymentError] = useState<string | null>(null)
   const [changeDueCents, setChangeDueCents] = useState(0)
-  const [amountTenderedDollars, setAmountTenderedDollars] = useState<string>('')
   const [confirmedPaymentMethod, setConfirmedPaymentMethod] = useState<string | null>(null)
+
+  // Split payment builder state (issue #280)
+  const [splitPayments, setSplitPayments] = useState<SplitPaymentEntry[]>([])
+  const [splitEntryMethod, setSplitEntryMethod] = useState<PaymentMethod>('cash')
+  const [splitEntryAmountStr, setSplitEntryAmountStr] = useState<string>('')
+  const [splitEntryError, setSplitEntryError] = useState<string | null>(null)
+  // Confirmed split payments for bill/receipt display
+  const [confirmedSplitPayments, setConfirmedSplitPayments] = useState<SplitPaymentLine[]>([])
 
   // Paid order state (for orders already paid when navigated to directly)
   const [orderIsPaid, setOrderIsPaid] = useState(false)
@@ -295,6 +303,10 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
         // If order is already pending_payment (e.g. user navigated back without paying),
         // skip directly to the payment step (issue #318)
         if (summary.status === 'pending_payment') {
+          setSplitPayments([])
+          setSplitEntryMethod('cash')
+          setSplitEntryAmountStr('')
+          setSplitEntryError(null)
           setStep('payment')
         }
         setOrderType(summary.order_type)
@@ -563,10 +575,13 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
   const totalCents = billTotalCents
   const totalFormatted = formatPrice(totalCents, currencySymbol, roundBillTotals)
 
-  const billPaymentMethod = (confirmedPaymentMethod ?? paymentMethod) as PaymentMethod
-  const billAmountTenderedCents = paymentMethod === 'cash'
-    ? Math.round(parseFloat(amountTenderedDollars || '0') * 100)
+  const billPaymentMethod = (confirmedPaymentMethod ?? (splitPayments.length > 0 ? splitPayments[0].method : 'cash')) as PaymentMethod
+  const billAmountTenderedCents = splitPayments.length === 1 && splitPayments[0].method === 'cash'
+    ? splitPayments[0].amountCents
     : undefined
+  // For BillPrintView: pass split payments when there are multiple methods
+  const billSplitPayments: SplitPaymentLine[] | undefined =
+    confirmedSplitPayments.length > 1 ? confirmedSplitPayments : undefined
 
   function handleCoversChange(newCovers: number): void {
     const clamped = Math.max(1, Math.min(20, newCovers))
@@ -1001,6 +1016,11 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
         throw new Error('Not authenticated')
       }
       await callCloseOrder(supabaseUrl, accessToken, orderId)
+      // Reset split payment builder for fresh start
+      setSplitPayments([])
+      setSplitEntryMethod('cash')
+      setSplitEntryAmountStr('')
+      setSplitEntryError(null)
       setStep('payment')
     } catch (err) {
       setCloseError(err instanceof Error ? err.message : 'Failed to close order')
@@ -1009,24 +1029,68 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
     }
   }
 
-  async function handleRecordPayment(): Promise<void> {
-    setPaymentError(null)
+  // ── Split payment builder helpers (issue #280) ────────────────────────────
 
-    // For cash: amount tendered must cover the effective total (after discount/comp)
-    const amountCentsToTender = paymentMethod === 'cash'
-      ? Math.round(parseFloat(amountTenderedDollars || '0') * 100)
-      : billTotalCents
+  /** Remaining balance to collect = bill total − sum of already-added split payments */
+  const splitRemainingCents = Math.max(
+    0,
+    billTotalCents - splitPayments.reduce((s, p) => s + p.amountCents, 0),
+  )
 
-    // If order is comp'd, allow 0 payment
-    if (!orderIsComp && paymentMethod === 'cash' && amountCentsToTender < billTotalCents) {
-      setPaymentError('Amount tendered must be at least the order total')
+  /** Total tendered so far across all split payment entries */
+  const splitTotalTenderedCents = splitPayments.reduce((s, p) => s + p.amountCents, 0)
+
+  /** True when cash is part of any payment in the builder */
+  const splitHasCash = splitPayments.some((p) => p.method === 'cash')
+
+  /** Change due for the split (only meaningful when cash is in the mix) */
+  const splitChangeDueCents = splitHasCash
+    ? Math.max(0, splitTotalTenderedCents - billTotalCents)
+    : 0
+
+  function handleAddSplitPayment(): void {
+    setSplitEntryError(null)
+    const amountCents = Math.round(parseFloat(splitEntryAmountStr || '0') * 100)
+
+    if (isNaN(amountCents) || amountCents <= 0) {
+      setSplitEntryError('Enter a valid amount')
       return
     }
 
+    // Over-tendering only allowed on cash portions
+    if (splitEntryMethod !== 'cash' && amountCents > splitRemainingCents) {
+      setSplitEntryError('Amount exceeds remaining balance — only cash may over-tender')
+      return
+    }
+
+    setSplitPayments((prev) => [...prev, { method: splitEntryMethod, amountCents }])
+    setSplitEntryAmountStr('')
+    // Default next method to cash if nothing left in remaining
+  }
+
+  function handleRemoveSplitPayment(index: number): void {
+    setSplitPayments((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  async function handleRecordPayment(): Promise<void> {
+    setPaymentError(null)
+
     // Fully comped order (total = ৳0) — skip payment recording, go straight to success
     if (billTotalCents === 0) {
-      setConfirmedPaymentMethod(paymentMethod)
+      setConfirmedPaymentMethod('cash')
       setStep('success')
+      return
+    }
+
+    // Cannot confirm until full amount is covered
+    if (splitTotalTenderedCents < billTotalCents) {
+      setPaymentError('Total tendered must cover the full bill amount')
+      return
+    }
+
+    // Over-tendering only allowed on cash portions
+    if (splitTotalTenderedCents > billTotalCents && !splitHasCash) {
+      setPaymentError('Over-tendering is only allowed on cash payments')
       return
     }
 
@@ -1036,9 +1100,17 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
       if (!supabaseUrl || !accessToken) {
         throw new Error('Not authenticated')
       }
-      const result = await callRecordPayment(supabaseUrl, accessToken, orderId, amountCentsToTender, paymentMethod, billTotalCents)
-      setConfirmedPaymentMethod(paymentMethod)
-      if (paymentMethod === 'cash') {
+
+      const result = await callRecordSplitPayment(supabaseUrl, accessToken, orderId, splitPayments)
+
+      // Store confirmed payments for bill/receipt display
+      setConfirmedSplitPayments(
+        splitPayments.map((p) => ({ method: p.method, amountCents: p.amountCents })),
+      )
+      // For backward-compat fields used elsewhere
+      setConfirmedPaymentMethod(splitPayments.length === 1 ? splitPayments[0].method : 'cash')
+
+      if (splitHasCash) {
         setChangeDueCents(result.change_due)
         setStep('change')
       } else {
@@ -1349,8 +1421,12 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
     } else {
       lines.push('Total: COMPLIMENTARY')
     }
-    const pm = confirmedPaymentMethod ?? paidPaymentMethod ?? 'Unknown'
-    lines.push(`Payment: ${pm.charAt(0).toUpperCase() + pm.slice(1)}`)
+    if (confirmedSplitPayments.length > 1) {
+      lines.push(`Payment: ${confirmedSplitPayments.map((p) => `${PAYMENT_METHOD_LABELS[p.method]} ${formatPrice(p.amountCents, currencySymbol, roundBillTotals)}`).join(' | ')}`)
+    } else {
+      const pm = confirmedPaymentMethod ?? paidPaymentMethod ?? 'Unknown'
+      lines.push(`Payment: ${pm.charAt(0).toUpperCase() + pm.slice(1)}`)
+    }
     lines.push('')
     lines.push('Thank you for dining with us!')
     return lines.join('\n')
@@ -1977,7 +2053,8 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
             totalCents={billTotalCents}
             paymentMethod={billPaymentMethod}
             amountTenderedCents={billAmountTenderedCents}
-            changeDueCents={billPaymentMethod === 'cash' ? changeDueCents : undefined}
+            changeDueCents={(splitHasCash || billPaymentMethod === 'cash') ? changeDueCents : undefined}
+            splitPayments={billSplitPayments}
             timestamp={billTimestamp}
             discountAmountCents={appliedDiscountCents}
             discountLabel={appliedDiscountLabel}
@@ -3248,50 +3325,127 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
               </div>
             )}
 
-            <div>
-              <p className="text-zinc-400 text-base mb-3">Payment method</p>
-              <div className="flex gap-3">
-                {PAYMENT_METHODS.map((method) => (
-                  <button
-                    key={method}
-                    type="button"
-                    onClick={() => { setPaymentMethod(method) }}
-                    className={[
-                      'flex-1 min-h-[56px] rounded-xl text-base font-semibold transition-colors border-2',
-                      paymentMethod === method
-                        ? 'bg-brand-gold text-brand-navy border-2 border-brand-gold'
-                        : 'bg-zinc-800 text-white border-2 border-zinc-600 hover:border-zinc-400',
-                    ].join(' ')}
-                  >
-                    {PAYMENT_METHOD_LABELS[method]}
-                  </button>
-                ))}
-              </div>
-            </div>
+            {/* ── Split Payment Builder (issue #280) ─────────────────── */}
+            {!orderIsComp && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-zinc-300 text-base font-semibold">
+                    {splitRemainingCents > 0
+                      ? `Remaining: ${formatPrice(splitRemainingCents, currencySymbol, roundBillTotals)}`
+                      : splitChangeDueCents > 0
+                        ? `Change due: ${formatPrice(splitChangeDueCents, currencySymbol, roundBillTotals)}`
+                        : 'Full amount covered ✓'}
+                  </p>
+                </div>
 
-            {paymentMethod === 'cash' && !orderIsComp && (
-              <div>
-                <p className="text-zinc-400 text-base mb-2">Amount tendered</p>
-                <input
-                  type="number"
-                  min={(billTotalCents / 100).toFixed(2)}
-                  step="0.01"
-                  placeholder={(billTotalCents / 100).toFixed(2)}
-                  value={amountTenderedDollars}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setAmountTenderedDollars(e.target.value) }}
-                  className="w-full min-h-[48px] px-4 rounded-xl text-base bg-zinc-800 text-white border-2 border-zinc-600 focus:border-amber-400 focus:outline-none"
-                />
+                {/* Already-added payment rows */}
+                {splitPayments.length > 0 && (
+                  <ul className="space-y-1.5">
+                    {splitPayments.map((p, idx) => (
+                      <li key={idx} className="flex items-center gap-2 bg-zinc-800 rounded-xl px-4 py-2.5">
+                        <span className="flex-1 font-semibold text-white text-sm">
+                          {PAYMENT_METHOD_LABELS[p.method]}
+                        </span>
+                        <span className="text-amber-400 font-bold text-sm">
+                          {formatPrice(p.amountCents, currencySymbol, roundBillTotals)}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => { handleRemoveSplitPayment(idx) }}
+                          className="min-h-[36px] min-w-[36px] text-zinc-500 hover:text-red-400 transition-colors flex items-center justify-center"
+                          aria-label="Remove payment"
+                        >
+                          <X size={14} aria-hidden="true" />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+
+                {/* Add payment entry row — only shown when balance > 0 or cash over-tender */}
+                {(splitRemainingCents > 0 || splitPayments.length === 0) && (
+                  <div className="space-y-2">
+                    {/* Method selector */}
+                    <div className="flex gap-2">
+                      {PAYMENT_METHODS.map((method) => (
+                        <button
+                          key={method}
+                          type="button"
+                          onClick={() => { setSplitEntryMethod(method); setSplitEntryError(null) }}
+                          className={[
+                            'flex-1 min-h-[48px] rounded-xl text-sm font-semibold transition-colors border-2',
+                            splitEntryMethod === method
+                              ? 'bg-brand-gold text-brand-navy border-brand-gold'
+                              : 'bg-zinc-800 text-white border-zinc-600 hover:border-zinc-400',
+                          ].join(' ')}
+                        >
+                          {PAYMENT_METHOD_LABELS[method]}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Amount input */}
+                    <div className="flex gap-2">
+                      <input
+                        type="number"
+                        min="0.01"
+                        step="0.01"
+                        placeholder={
+                          splitRemainingCents > 0
+                            ? (splitRemainingCents / 100).toFixed(2)
+                            : '0.00'
+                        }
+                        value={splitEntryAmountStr}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                          setSplitEntryAmountStr(e.target.value)
+                          setSplitEntryError(null)
+                        }}
+                        className="flex-1 min-h-[48px] px-4 rounded-xl text-base bg-zinc-800 text-white border-2 border-zinc-600 focus:border-amber-400 focus:outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddSplitPayment}
+                        className="min-h-[48px] px-5 rounded-xl text-sm font-semibold bg-zinc-700 hover:bg-zinc-600 text-white transition-colors border-2 border-zinc-600 hover:border-zinc-400"
+                      >
+                        Add
+                      </button>
+                    </div>
+
+                    {splitEntryError !== null && (
+                      <p className="text-sm text-red-400">{splitEntryError}</p>
+                    )}
+                  </div>
+                )}
+
+                {/* Summary when balance is covered + change info */}
+                {splitTotalTenderedCents >= billTotalCents && splitPayments.length > 0 && (
+                  <div className="bg-zinc-800/60 rounded-xl px-4 py-3 text-sm space-y-1">
+                    <div className="flex justify-between text-zinc-400">
+                      <span>Total tendered</span>
+                      <span>{formatPrice(splitTotalTenderedCents, currencySymbol, roundBillTotals)}</span>
+                    </div>
+                    {splitHasCash && splitChangeDueCents > 0 && (
+                      <div className="flex justify-between text-amber-400 font-semibold">
+                        <span>Change due (cash)</span>
+                        <span>{formatPrice(splitChangeDueCents, currencySymbol, roundBillTotals)}</span>
+                      </div>
+                    )}
+                    <p className="text-xs text-zinc-500">
+                      {splitPayments.map((p) => `${PAYMENT_METHOD_LABELS[p.method]} ${formatPrice(p.amountCents, currencySymbol, roundBillTotals)}`).join(' | ')}
+                    </p>
+                  </div>
+                )}
               </div>
             )}
 
             <button
               type="button"
               onClick={() => { void handleRecordPayment() }}
-              disabled={paying}
+              disabled={paying || (!orderIsComp && splitTotalTenderedCents < billTotalCents)}
               className={[
                 'w-full min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold transition-colors',
-                paying
-                  ? 'bg-zinc-700 text-zinc-400 cursor-wait'
+                paying || (!orderIsComp && splitTotalTenderedCents < billTotalCents)
+                  ? 'bg-zinc-700 text-zinc-400 cursor-not-allowed'
                   : 'bg-amber-500 hover:bg-amber-400 text-zinc-900',
               ].join(' ')}
             >
@@ -3341,6 +3495,11 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
             <p className="text-4xl font-bold text-amber-400">
               {formatPrice(changeDueCents, currencySymbol)}
             </p>
+            {confirmedSplitPayments.length > 1 && (
+              <p className="text-sm text-zinc-400">
+                {confirmedSplitPayments.map((p) => `${PAYMENT_METHOD_LABELS[p.method]} ${formatPrice(p.amountCents, currencySymbol, roundBillTotals)}`).join(' | ')}
+              </p>
+            )}
             <button
               type="button"
               onClick={() => { setStep('success') }}
@@ -3353,9 +3512,13 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
           <div className="space-y-5 text-center py-4">
             <div className="mb-2 text-green-400 flex justify-center"><CheckCircle2 size={64} aria-hidden="true" /></div>
             <h2 className="text-2xl font-bold text-green-400">Payment recorded — order closed</h2>
-            {confirmedPaymentMethod !== null && (
+            {confirmedSplitPayments.length > 1 ? (
+              <p className="text-zinc-400 text-base">
+                {confirmedSplitPayments.map((p) => `${PAYMENT_METHOD_LABELS[p.method]} ${formatPrice(p.amountCents, currencySymbol, roundBillTotals)}`).join(' | ')}
+              </p>
+            ) : confirmedPaymentMethod !== null ? (
               <p className="text-zinc-400 text-base">Paid by {PAYMENT_METHOD_LABELS[confirmedPaymentMethod as PaymentMethod] ?? confirmedPaymentMethod}</p>
-            )}
+            ) : null}
             <button
               type="button"
               onClick={handlePrintBill}

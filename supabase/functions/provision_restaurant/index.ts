@@ -311,6 +311,8 @@ export async function handler(
     { restaurant_id: restaurant.id, key: 'currency_symbol', value: currencySymbol },
     { restaurant_id: restaurant.id, key: 'vat_percentage', value: vatPercentage },
     { restaurant_id: restaurant.id, key: 'service_charge_percent', value: serviceCharge },
+    // Round bill totals to nearest whole number by default (issue #371)
+    { restaurant_id: restaurant.id, key: 'round_bill_totals', value: 'true' },
   ]
 
   // Best-effort — config seeding failure doesn't abort the provisioning

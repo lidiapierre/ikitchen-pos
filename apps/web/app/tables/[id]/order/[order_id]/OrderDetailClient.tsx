@@ -256,6 +256,8 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
   // Quantity editing state (issue #368)
   const [qtyEditingId, setQtyEditingId] = useState<string | null>(null)
   const [qtyEditStr, setQtyEditStr] = useState('')
+  // Ref-based guard: prevents duplicate commits when Enter unmounts the input and fires onBlur (stale closure problem)
+  const qtyCommittingRef = useRef(false)
 
   // Guards to prevent duplicate print triggers from rapid double-clicks (issue #372)
   const kotSendGuardRef = useRef(false)
@@ -1588,6 +1590,11 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
    * Optimistic update: apply locally first, roll back on failure.
    */
   function commitQuantity(item: OrderItem, newQty: number): void {
+    // Guard: prevents double-fire when Enter unmounts the input and triggers onBlur.
+    // Uses a ref (not state) so it reflects the latest value even in stale closures.
+    if (qtyCommittingRef.current) return
+    qtyCommittingRef.current = true
+
     setQtyEditingId(null)
     setQtyEditStr('')
 
@@ -1596,13 +1603,20 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
       setVoidingItem(item)
       setVoidReason('')
       setVoidError(null)
+      qtyCommittingRef.current = false
       return
     }
 
-    if (newQty === item.quantity) return
+    if (newQty === item.quantity) {
+      qtyCommittingRef.current = false
+      return
+    }
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    if (!supabaseUrl || !accessToken) return
+    if (!supabaseUrl || !accessToken) {
+      qtyCommittingRef.current = false
+      return
+    }
 
     // Optimistic update
     const prevItems = items
@@ -1614,6 +1628,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
         setItems(prevItems)
         addToast('Failed to update quantity — please retry', 'error')
       })
+      .finally(() => { qtyCommittingRef.current = false })
   }
 
   // Render a single item row (shared between course view and read-only view)
@@ -1669,8 +1684,6 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
                     }
                   }}
                   onBlur={() => {
-                    // Guard: if Enter already committed the value, qtyEditingId is null
-                    if (qtyEditingId !== item.id) return
                     const n = parseInt(qtyEditStr, 10)
                     commitQuantity(item, isNaN(n) ? item.quantity : n)
                   }}

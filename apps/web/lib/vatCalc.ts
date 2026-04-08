@@ -13,6 +13,45 @@
  *   total     = gross              (unchanged)
  */
 
+/**
+ * Per-order-type flags for VAT application (issue #382).
+ * Defaults: dine-in = true, takeaway = true, delivery = false.
+ * Delivery orders use a delivery fee instead of VAT.
+ */
+export interface VatApplyConfig {
+  applyDineIn: boolean
+  applyTakeaway: boolean
+  applyDelivery: boolean
+}
+
+/** Default config: VAT applies to dine-in and takeaway, NOT delivery. */
+export const DEFAULT_VAT_APPLY_CONFIG: VatApplyConfig = {
+  applyDineIn: true,
+  applyTakeaway: true,
+  applyDelivery: false,
+}
+
+/**
+ * Determine whether VAT should be applied for the given order type
+ * based on the restaurant's configuration.
+ */
+export function shouldApplyVat(
+  orderType: 'dine_in' | 'takeaway' | 'delivery',
+  config: VatApplyConfig,
+): boolean {
+  switch (orderType) {
+    case 'dine_in': return config.applyDineIn
+    case 'takeaway': return config.applyTakeaway
+    case 'delivery': return config.applyDelivery
+    default: {
+      // TypeScript exhaustiveness check
+      const _exhaustive: never = orderType
+      void _exhaustive
+      return false
+    }
+  }
+}
+
 export interface VatBreakdown {
   /** Net amount before VAT (or extracted net if inclusive) */
   subtotalCents: number

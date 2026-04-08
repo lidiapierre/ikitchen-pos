@@ -6,6 +6,8 @@
  * - vat_rates (menu-specific first, then restaurant default)
  */
 
+import type { VatApplyConfig } from './vatCalc'
+
 const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ''
 
 export interface VatConfig {
@@ -164,6 +166,61 @@ export async function fetchServiceChargeConfig(
     }
   } catch {
     // Non-fatal: default to 0 (disabled)
+  }
+  return defaults
+}
+
+// Re-export VatApplyConfig so callers can import from a single source.
+export type { VatApplyConfig }
+
+/**
+ * Fetch VAT per-order-type apply flags (issue #382).
+ * Keys: vat_apply_dine_in, vat_apply_takeaway, vat_apply_delivery.
+ * Defaults: dine-in = true, takeaway = true, delivery = false.
+ * Returns the shared VatApplyConfig type from vatCalc.ts.
+ */
+export async function fetchVatApplyConfig(
+  supabaseUrl: string,
+  accessToken: string,
+  restaurantId: string,
+): Promise<VatApplyConfig> {
+  const headers = {
+    apikey: publishableKey,
+    Authorization: `Bearer ${accessToken}`,
+  }
+  const defaults: VatApplyConfig = {
+    applyDineIn: true,
+    applyTakeaway: true,
+    applyDelivery: false,
+  }
+  try {
+    const configUrl = new URL(`${supabaseUrl}/rest/v1/config`)
+    configUrl.searchParams.set('restaurant_id', `eq.${restaurantId}`)
+    configUrl.searchParams.set(
+      'key',
+      'in.(vat_apply_dine_in,vat_apply_takeaway,vat_apply_delivery)',
+    )
+    configUrl.searchParams.set('select', 'key,value')
+
+    const configRes = await fetch(configUrl.toString(), { headers })
+    if (configRes.ok) {
+      const rows = (await configRes.json()) as Array<{ key: string; value: string }>
+      const map = new Map(rows.map((r) => [r.key, r.value]))
+
+      return {
+        applyDineIn: map.has('vat_apply_dine_in')
+          ? map.get('vat_apply_dine_in') === 'true'
+          : defaults.applyDineIn,
+        applyTakeaway: map.has('vat_apply_takeaway')
+          ? map.get('vat_apply_takeaway') === 'true'
+          : defaults.applyTakeaway,
+        applyDelivery: map.has('vat_apply_delivery')
+          ? map.get('vat_apply_delivery') === 'true'
+          : defaults.applyDelivery,
+      }
+    }
+  } catch {
+    // Non-fatal: fall back to defaults
   }
   return defaults
 }

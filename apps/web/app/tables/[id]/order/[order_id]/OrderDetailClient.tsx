@@ -24,9 +24,10 @@ import { callFireCourse, callServeCourse } from './fireCourseApi'
 import { formatPrice, DEFAULT_CURRENCY_SYMBOL } from '@/lib/formatPrice'
 import { PAYMENT_METHODS, PAYMENT_METHOD_LABELS } from '@/lib/paymentMethods'
 import type { PaymentMethod } from '@/lib/paymentMethods'
-import { calcVat } from '@/lib/vatCalc'
+import { calcVat, shouldApplyVat } from '@/lib/vatCalc'
 import { calcServiceCharge, shouldApplyServiceCharge } from '@/lib/serviceChargeCalc'
-import { fetchVatConfig, fetchOrderVatContext, fetchServiceChargeConfig } from '@/lib/fetchVatConfig'
+import { fetchVatConfig, fetchOrderVatContext, fetchServiceChargeConfig, fetchVatApplyConfig } from '@/lib/fetchVatConfig'
+import { callUpdateDeliveryCharge } from './waiveDeliveryFeeApi'
 import { printKot, printBill, findPrinter } from '@/lib/kotPrint'
 import type { PrinterConfig, PrinterProfile, PrintResult } from '@/lib/kotPrint'
 import KotPrintView from '@/components/KotPrintView'
@@ -233,6 +234,18 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
   const [serviceChargeApplyTakeaway, setServiceChargeApplyTakeaway] = useState(false)
   const [serviceChargeApplyDelivery, setServiceChargeApplyDelivery] = useState(false)
 
+  // VAT per-order-type config state (issue #382)
+  const [vatApplyDineIn, setVatApplyDineIn] = useState(true)
+  const [vatApplyTakeaway, setVatApplyTakeaway] = useState(true)
+  const [vatApplyDelivery, setVatApplyDelivery] = useState(false)
+
+  // Free delivery override state (issue #382) — tracks whether fee has been waived for this order
+  const [deliveryFeeWaived, setDeliveryFeeWaived] = useState(false)
+  const [waivingDeliveryFee, setWaivingDeliveryFee] = useState(false)
+  const [waiveDeliveryFeeError, setWaiveDeliveryFeeError] = useState<string | null>(null)
+  // Original delivery charge to allow restoring after waiver
+  const [originalDeliveryChargeCents, setOriginalDeliveryChargeCents] = useState<number>(0)
+
   // Discount state
   const [discountType, setDiscountType] = useState<'percent' | 'flat'>('percent')
   const [discountValueStr, setDiscountValueStr] = useState<string>('')
@@ -326,6 +339,11 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
         setOrderScheduledTime(summary.scheduled_time)
         setOrderDeliveryZoneName(summary.delivery_zone_name)
         setOrderDeliveryChargeCents(summary.delivery_charge)
+        setOriginalDeliveryChargeCents(summary.delivery_charge)
+        // Note: We do NOT infer deliveryFeeWaived from delivery_charge === 0 here,
+        // because a delivery zone itself may have a 0-charge (free zone). The waived
+        // state starts as false; once the user clicks "Waive Delivery Fee" the
+        // originalDeliveryChargeCents is used to restore on toggle (issue #382).
         // Fetch linked customer info if customer_id is set (issue #276)
         if (summary.customer_id) {
           const supaUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -364,6 +382,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
         Promise.all([
           fetchVatConfig(supabaseUrl, accessToken, restaurantId, menuId),
           fetchServiceChargeConfig(supabaseUrl, accessToken, restaurantId),
+          fetchVatApplyConfig(supabaseUrl, accessToken, restaurantId),
           // Fetch restaurant name
           fetch(
             `${supabaseUrl}/rest/v1/restaurants?id=eq.${restaurantId}&select=name&limit=1`,
@@ -376,13 +395,17 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
           ).then((r) => r.ok ? r.json() as Promise<Array<{ key: string; value: string }>> : Promise.resolve([])),
         ]),
       )
-      .then(([config, scConfig, restaurantRows, configRows]) => {
+      .then(([config, scConfig, vatApplyConfig, restaurantRows, configRows]) => {
         setVatPercent(config.vatPercent)
         setTaxInclusive(config.taxInclusive)
         setServiceChargePercent(scConfig.percent)
         setServiceChargeApplyDineIn(scConfig.applyDineIn)
         setServiceChargeApplyTakeaway(scConfig.applyTakeaway)
         setServiceChargeApplyDelivery(scConfig.applyDelivery)
+        // VAT per-order-type apply flags (issue #382)
+        setVatApplyDineIn(vatApplyConfig.applyDineIn)
+        setVatApplyTakeaway(vatApplyConfig.applyTakeaway)
+        setVatApplyDelivery(vatApplyConfig.applyDelivery)
         // Restaurant name
         if (Array.isArray(restaurantRows) && restaurantRows.length > 0) {
           setRestaurantName((restaurantRows as Array<{ name: string }>)[0].name)
@@ -567,8 +590,16 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
   const billServiceChargeCents = scBreakdown.serviceChargeCents
 
   // Step 3: apply VAT to (post-discount + service charge) base
+  // VAT is only applied when enabled for this order type (issue #382):
+  //   dine-in → VAT ✓   takeaway → VAT ✓   delivery → no VAT (delivery fee used instead)
+  const vatApplies = !orderIsComp && shouldApplyVat(orderType, {
+    applyDineIn: vatApplyDineIn,
+    applyTakeaway: vatApplyTakeaway,
+    applyDelivery: vatApplyDelivery,
+  })
+  const effectiveVatPercent = vatApplies ? vatPercent : 0
   const vatBase = postDiscountCents + billServiceChargeCents
-  const vatBreakdown = calcVat(vatBase, vatPercent, taxInclusive)
+  const vatBreakdown = calcVat(vatBase, effectiveVatPercent, taxInclusive)
   const { vatCents: billVatCents } = vatBreakdown
 
   // Displayed subtotal = raw items total (before any adjustments)
@@ -1296,6 +1327,30 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
       setCompError(err instanceof Error ? err.message : 'Failed to comp order')
     } finally {
       setCompingInProgress(false)
+    }
+  }
+
+  // ─── Waive / restore delivery fee (issue #382) ───────────────────────────
+  async function handleToggleDeliveryFeeWaiver(): Promise<void> {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    if (!supabaseUrl || !accessToken) return
+    setWaiveDeliveryFeeError(null)
+    setWaivingDeliveryFee(true)
+    const newCharge = deliveryFeeWaived ? originalDeliveryChargeCents : 0
+    // Optimistic update
+    const prevCharge = orderDeliveryChargeCents
+    const prevWaived = deliveryFeeWaived
+    setOrderDeliveryChargeCents(newCharge)
+    setDeliveryFeeWaived(!deliveryFeeWaived)
+    try {
+      await callUpdateDeliveryCharge(supabaseUrl, accessToken, orderId, newCharge)
+    } catch (err) {
+      // Rollback on failure
+      setOrderDeliveryChargeCents(prevCharge)
+      setDeliveryFeeWaived(prevWaived)
+      setWaiveDeliveryFeeError(err instanceof Error ? err.message : 'Failed to update delivery fee')
+    } finally {
+      setWaivingDeliveryFee(false)
     }
   }
 
@@ -3315,6 +3370,34 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
               >
                 Comp entire order
               </button>
+            )}
+
+            {/* Free delivery toggle — delivery orders only (issue #382) */}
+            {orderType === 'delivery' && isAdmin && (
+              <div className="space-y-1">
+                <button
+                  type="button"
+                  onClick={() => { void handleToggleDeliveryFeeWaiver() }}
+                  disabled={waivingDeliveryFee}
+                  className={[
+                    'w-full min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold transition-colors border-2',
+                    waivingDeliveryFee
+                      ? 'border-zinc-700 text-zinc-500 cursor-wait'
+                      : deliveryFeeWaived
+                        ? 'border-amber-600 text-amber-400 hover:border-amber-400 hover:bg-amber-900/20'
+                        : 'border-blue-700 text-blue-400 hover:border-blue-500 hover:bg-blue-900/20',
+                  ].join(' ')}
+                >
+                  {waivingDeliveryFee
+                    ? 'Updating…'
+                    : deliveryFeeWaived
+                      ? '↩ Restore Delivery Fee'
+                      : '🆓 Waive Delivery Fee'}
+                </button>
+                {waiveDeliveryFeeError !== null && (
+                  <p className="text-xs text-red-400">{waiveDeliveryFeeError}</p>
+                )}
+              </div>
             )}
 
             {closeError !== null && (

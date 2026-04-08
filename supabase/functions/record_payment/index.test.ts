@@ -10,12 +10,12 @@ beforeEach(() => {
 
 describe('record_payment handler', () => {
   describe('OPTIONS preflight', () => {
-    it('returns 200 with CORS headers', async (): Promise<void> => {
+    it('returns 204 with CORS headers', async (): Promise<void> => {
       const req = new Request('http://localhost/functions/v1/record_payment', {
         method: 'OPTIONS',
       })
       const res = await handler(req)
-      expect(res.status).toBe(200)
+      expect(res.status).toBe(204)
       expect(res.headers.get('Access-Control-Allow-Origin')).toBe(corsHeaders['Access-Control-Allow-Origin'])
       expect(res.headers.get('Access-Control-Allow-Methods')).toBe(corsHeaders['Access-Control-Allow-Methods'])
     })

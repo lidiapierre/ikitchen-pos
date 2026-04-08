@@ -15,7 +15,7 @@ const TABLES: TableRow[] = [
     order_created_at: null,
     order_item_count: null,
     grid_x: null,
-    grid_y: null, section_id: null, section_name: null, assigned_server_name: null,
+    grid_y: null, section_id: null, section_name: null, assigned_server_name: null, section_sort_order: null, merge_label: null, locked_by_order_id: null, primary_table_id: null,
   },
   {
     id: 'table-2',
@@ -25,7 +25,7 @@ const TABLES: TableRow[] = [
     order_created_at: '2026-03-31T05:00:00Z',
     order_item_count: 3,
     grid_x: null,
-    grid_y: null, section_id: null, section_name: null, assigned_server_name: null,
+    grid_y: null, section_id: null, section_name: null, assigned_server_name: null, section_sort_order: null, merge_label: null, locked_by_order_id: null, primary_table_id: null,
   },
 ]
 

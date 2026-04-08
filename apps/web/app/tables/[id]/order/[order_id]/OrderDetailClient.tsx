@@ -17,6 +17,8 @@ import { updateOrderItemNotes } from './orderItemNotesApi'
 import { updateOrderItemQuantity } from './updateQuantityApi'
 import { callCompItem } from './compApi'
 import { callTransferOrder } from './transferOrderApi'
+import { callMergeTables } from './mergeTablesApi'
+import { callUnmergeTables } from './unmergeTablesApi'
 import { fetchServerList, callReassignOrderServer } from './reassignServerApi'
 import type { ServerOption } from './reassignServerApi'
 import { markItemsSentToKitchen } from './kotApi'
@@ -174,6 +176,21 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
   const [transferTarget, setTransferTarget] = useState<AvailableTable | null>(null)
   const [transferring, setTransferring] = useState(false)
   const [transferError, setTransferError] = useState<string | null>(null)
+
+  // Merge tables state (issue #274)
+  interface MergeableTable { id: string; label: string; order_id: string }
+  const [mergeLabel, setMergeLabel] = useState<string | null>(null)
+  const [showMergeModal, setShowMergeModal] = useState(false)
+  const [mergeableTables, setMergeableTables] = useState<MergeableTable[]>([])
+  const [mergeTablesLoading, setMergeTablesLoading] = useState(false)
+  const [mergeTablesError, setMergeTablesError] = useState<string | null>(null)
+  const [mergeTarget, setMergeTarget] = useState<MergeableTable | null>(null)
+  const [merging, setMerging] = useState(false)
+  const [mergeError, setMergeError] = useState<string | null>(null)
+  // Unmerge state
+  const [showUnmergeConfirm, setShowUnmergeConfirm] = useState(false)
+  const [unmerging, setUnmerging] = useState(false)
+  const [unmergeError, setUnmergeError] = useState<string | null>(null)
 
   // Reassign server state
   const [showReassignModal, setShowReassignModal] = useState(false)
@@ -340,6 +357,8 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
         setOrderDeliveryZoneName(summary.delivery_zone_name)
         setOrderDeliveryChargeCents(summary.delivery_charge)
         setOriginalDeliveryChargeCents(summary.delivery_charge)
+        // Merge label (issue #274) — stored separately; displayed as mergeLabel ?? tableLabel
+        setMergeLabel(summary.merge_label)
         // Note: We do NOT infer deliveryFeeWaived from delivery_charge === 0 here,
         // because a delivery zone itself may have a 0-charge (free zone). The waived
         // state starts as false; once the user clicks "Waive Delivery Fee" the
@@ -1415,6 +1434,95 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
     }
   }
 
+  // ─── Merge / Unmerge Tables (issue #274) ──────────────────────────────────
+  async function openMergeModal(): Promise<void> {
+    setMergeTarget(null)
+    setMergeError(null)
+    setMergeTablesError(null)
+    setShowMergeModal(true)
+    setMergeTablesLoading(true)
+
+    try {
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+      if (!supabaseUrl || !accessToken) throw new Error('API not configured')
+
+      // Fetch all open dine_in orders with their table
+      const ordersUrl = new URL(`${supabaseUrl}/rest/v1/orders`)
+      ordersUrl.searchParams.set('select', 'id,table_id,tables(id,label,locked_by_order_id)')
+      ordersUrl.searchParams.set('status', 'in.(open,pending_payment)')
+      ordersUrl.searchParams.set('order_type', 'eq.dine_in')
+      const ordersRes = await fetch(ordersUrl.toString(), {
+        headers: {
+          apikey: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? '',
+          Authorization: `Bearer ${accessToken}`,
+        },
+      })
+      if (!ordersRes.ok) throw new Error('Failed to fetch active tables')
+
+      const orderRows = (await ordersRes.json()) as Array<{
+        id: string
+        table_id: string | null
+        tables: { id: string; label: string; locked_by_order_id: string | null } | null
+      }>
+
+      // Filter: exclude current table, exclude locked tables
+      const mergeable = orderRows
+        .filter((o) =>
+          o.table_id !== null &&
+          o.table_id !== tableId &&
+          o.tables !== null &&
+          o.tables.locked_by_order_id === null,
+        )
+        .map((o) => ({
+          id: o.tables!.id,
+          label: o.tables!.label,
+          order_id: o.id,
+        }))
+        .sort((a, b) => a.label.localeCompare(b.label))
+
+      setMergeableTables(mergeable)
+    } catch (err) {
+      setMergeTablesError(err instanceof Error ? err.message : 'Failed to load tables')
+    } finally {
+      setMergeTablesLoading(false)
+    }
+  }
+
+  async function handleMergeTables(): Promise<void> {
+    if (!mergeTarget) return
+    setMergeError(null)
+    setMerging(true)
+    try {
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+      if (!supabaseUrl || !accessToken) throw new Error('Not authenticated')
+      const result = await callMergeTables(supabaseUrl, accessToken, orderId, mergeTarget.id)
+      setMergeLabel(result.merge_label)
+      setShowMergeModal(false)
+      addToast(`Tables merged: ${result.merge_label}`, 'success')
+    } catch (err) {
+      setMergeError(err instanceof Error ? err.message : 'Failed to merge tables')
+    } finally {
+      setMerging(false)
+    }
+  }
+
+  async function handleUnmergeTables(): Promise<void> {
+    setUnmergeError(null)
+    setUnmerging(true)
+    try {
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+      if (!supabaseUrl || !accessToken) throw new Error('Not authenticated')
+      await callUnmergeTables(supabaseUrl, accessToken, orderId)
+      setMergeLabel(null)
+      setShowUnmergeConfirm(false)
+      addToast('Tables unmerged', 'success')
+    } catch (err) {
+      setUnmergeError(err instanceof Error ? err.message : 'Failed to unmerge tables')
+    } finally {
+      setUnmerging(false)
+    }
+  }
+
   // ─── Reassign Server (issue #275) ─────────────────────────────────────────
   async function openReassignModal(): Promise<void> {
     setReassignTarget('')
@@ -1685,6 +1793,9 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
       })
       .finally(() => { qtyCommittingRef.current = false })
   }
+
+  // Display label: merge_label takes precedence over raw table label (issue #274)
+  const displayTableLabel = mergeLabel ?? tableLabel
 
   // Render a single item row (shared between course view and read-only view)
   function renderItemRow(item: OrderItem, inOrderStep: boolean): JSX.Element {
@@ -2108,7 +2219,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
             {orderType === 'dine_in' && (
               <div className="flex gap-3">
                 <dt className="text-zinc-500">Table</dt>
-                <dd className="font-semibold text-white">{tableLabel || tableId}</dd>
+                <dd className="font-semibold text-white">{displayTableLabel || tableId}</dd>
               </div>
             )}
             {orderType === 'delivery' && orderCustomerName && (
@@ -2189,7 +2300,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
       {/* KOT print component — only marked as print-area when KOT is actively printing */}
       <div className={kotStatus !== null || reprintingKot || firingCourse !== null ? 'print-area' : ''}>
         <KotPrintView
-          tableLabel={tableLabel || tableId.slice(0, 8)}
+          tableLabel={displayTableLabel || tableId.slice(0, 8)}
           orderId={orderId}
           items={items}
           timestamp={kotTimestamp}
@@ -2209,7 +2320,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
       {!splitBillPrinting && (
         <div className={printingBill ? 'print-area' : ''}>
           <BillPrintView
-            tableLabel={tableLabel || tableId.slice(0, 8)}
+            tableLabel={displayTableLabel || tableId.slice(0, 8)}
             orderId={orderId}
             items={items}
             subtotalCents={billSubtotalCents}
@@ -2248,7 +2359,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
       {splitBillPrinting && (
         <div className="print-area">
           <SplitBillPrintView
-            tableLabel={tableLabel || tableId.slice(0, 8)}
+            tableLabel={displayTableLabel || tableId.slice(0, 8)}
             orderId={orderId}
             items={items}
             covers={covers}
@@ -2511,6 +2622,129 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
             {savingMobile && (
               <p className="text-xs text-zinc-400 text-center">Saving mobile number…</p>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Merge tables modal (issue #274) */}
+      {showMergeModal && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70">
+          <div className="w-full max-w-lg bg-zinc-900 rounded-t-2xl p-6 space-y-4 max-h-[80vh] overflow-y-auto">
+            {mergeTarget === null ? (
+              <>
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xl font-semibold text-white">Merge with…</h2>
+                  <button
+                    type="button"
+                    onClick={() => { setShowMergeModal(false) }}
+                    className="text-zinc-400 hover:text-white px-3 py-2 min-h-[48px] min-w-[48px] flex items-center justify-center"
+                    aria-label="Close"
+                  >
+                    <X size={20} aria-hidden="true" />
+                  </button>
+                </div>
+                <p className="text-zinc-400 text-base">Select a table to combine with {displayTableLabel}:</p>
+                {mergeTablesLoading && <p className="text-zinc-400 text-base">Loading tables…</p>}
+                {mergeTablesError !== null && <p className="text-red-400 text-base">{mergeTablesError}</p>}
+                {!mergeTablesLoading && mergeTablesError === null && mergeableTables.length === 0 && (
+                  <p className="text-zinc-500 text-base">No other occupied tables available to merge.</p>
+                )}
+                {!mergeTablesLoading && mergeableTables.length > 0 && (
+                  <div className="grid grid-cols-2 gap-3">
+                    {mergeableTables.map((t) => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => { setMergeTarget(t); setMergeError(null) }}
+                        className="min-h-[80px] rounded-xl bg-zinc-700 hover:bg-zinc-600 border-2 border-zinc-600 hover:border-purple-400 flex flex-col items-center justify-center gap-1 transition-colors"
+                      >
+                        <span className="text-white font-bold text-lg">{t.label}</span>
+                        <span className="text-xs font-semibold text-amber-400 bg-amber-900/40 px-2 py-0.5 rounded-full">Occupied</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                <h2 className="text-xl font-semibold text-white">Confirm Merge</h2>
+                <p className="text-zinc-300 text-base">
+                  Merge <span className="font-semibold text-white">{displayTableLabel}</span> with{' '}
+                  <span className="font-semibold text-white">{mergeTarget.label}</span>?
+                </p>
+                <p className="text-zinc-500 text-sm">
+                  All items from {mergeTarget.label} will be combined into this order.
+                  The combined table will be shown as &ldquo;{displayTableLabel} + {mergeTarget.label}&rdquo;.
+                </p>
+                {mergeError !== null && (
+                  <p className="text-red-400 text-base">{mergeError}</p>
+                )}
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => { setMergeTarget(null); setMergeError(null) }}
+                    disabled={merging}
+                    className="flex-1 min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold border-2 border-zinc-600 text-zinc-300 hover:border-zinc-400 transition-colors disabled:opacity-50"
+                  >
+                    Back
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { void handleMergeTables() }}
+                    disabled={merging}
+                    className={[
+                      'flex-1 min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold transition-colors',
+                      merging
+                        ? 'bg-zinc-700 text-zinc-400 cursor-wait'
+                        : 'bg-purple-600 hover:bg-purple-500 text-white',
+                    ].join(' ')}
+                  >
+                    {merging ? 'Merging…' : 'Confirm Merge'}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Unmerge confirmation dialog (issue #274) */}
+      {showUnmergeConfirm && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70">
+          <div className="w-full max-w-lg bg-zinc-900 rounded-t-2xl p-6 space-y-4">
+            <h2 className="text-xl font-semibold text-white">Unmerge Tables</h2>
+            <p className="text-zinc-300 text-base">
+              Split <span className="font-semibold text-white">{displayTableLabel}</span> back into individual tables?
+            </p>
+            <p className="text-zinc-500 text-sm">
+              All items will remain on this order. Secondary tables will become available again.
+            </p>
+            {unmergeError !== null && (
+              <p className="text-red-400 text-base">{unmergeError}</p>
+            )}
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => { setShowUnmergeConfirm(false); setUnmergeError(null) }}
+                disabled={unmerging}
+                className="flex-1 min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold border-2 border-zinc-600 text-zinc-300 hover:border-zinc-400 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => { void handleUnmergeTables() }}
+                disabled={unmerging}
+                className={[
+                  'flex-1 min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold transition-colors',
+                  unmerging
+                    ? 'bg-zinc-700 text-zinc-400 cursor-wait'
+                    : 'bg-purple-600 hover:bg-purple-500 text-white',
+                ].join(' ')}
+              >
+                {unmerging ? 'Unmerging…' : 'Confirm Unmerge'}
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -2994,7 +3228,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
           {orderType === 'dine_in' && (
             <div className="flex gap-3">
               <dt className="text-zinc-500">Table</dt>
-              <dd className="font-semibold text-white">{tableLabel || tableId}</dd>
+              <dd className="font-semibold text-white">{displayTableLabel || tableId}</dd>
             </div>
           )}
           {orderType === 'delivery' && orderCustomerName && (
@@ -3145,10 +3379,10 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
                   <span className="font-bold text-amber-400">#{String(orderNumber).padStart(3, '0')}</span>
                 </div>
               )}
-              {orderType === 'dine_in' && tableLabel && (
+              {orderType === 'dine_in' && displayTableLabel && (
                 <div className="flex justify-between text-zinc-300">
                   <span className="text-zinc-400">Table</span>
-                  <span className="font-semibold">{tableLabel}</span>
+                  <span className="font-semibold">{displayTableLabel}</span>
                 </div>
               )}
               {orderType === 'takeaway' && (
@@ -3332,6 +3566,26 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
                 className="w-full min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold text-zinc-400 hover:text-amber-400 border-2 border-zinc-700 hover:border-amber-600 transition-colors mb-3"
               >
                 ↔ Move Table
+              </button>
+            )}
+
+            {/* Merge / Unmerge (issue #274) — dine-in only */}
+            {orderType === 'dine_in' && mergeLabel === null && (
+              <button
+                type="button"
+                onClick={() => { void openMergeModal() }}
+                className="w-full min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold text-zinc-400 hover:text-purple-400 border-2 border-zinc-700 hover:border-purple-600 transition-colors mb-3"
+              >
+                ⊕ Merge with…
+              </button>
+            )}
+            {orderType === 'dine_in' && mergeLabel !== null && (
+              <button
+                type="button"
+                onClick={() => { setUnmergeError(null); setShowUnmergeConfirm(true) }}
+                className="w-full min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold text-purple-400 hover:text-white border-2 border-purple-700 hover:border-purple-400 hover:bg-purple-900/30 transition-colors mb-3"
+              >
+                ⊘ Unmerge ({mergeLabel})
               </button>
             )}
 

@@ -6,24 +6,28 @@ import type { TableRow } from './tablesData'
  */
 export const OVERDUE_THRESHOLD_MINUTES = 120
 
-export type TableStatus = 'available' | 'seated' | 'ordered' | 'overdue'
+export type TableStatus = 'available' | 'seated' | 'ordered' | 'overdue' | 'merged'
 
 /**
  * Derive a table's display status from its current data snapshot.
  *
  * Priority rules:
- *  1. No active order → available
- *  2. Order created_at > 2 h ago → overdue  (takes priority over seated/ordered)
- *  3. At least one non-voided item → ordered
- *  4. Order exists but zero non-voided items → seated
+ *  1. locked_by_order_id set → merged (secondary table, part of a merge)
+ *  2. No active order → available
+ *  3. Order created_at > 2 h ago → overdue  (takes priority over seated/ordered)
+ *  4. At least one non-voided item → ordered
+ *  5. Order exists but zero non-voided items → seated
  *
- * `pending_payment` orders are treated the same as `open` orders — there is no
+ * `pending_payment` orders are treated the same as `open` orders - there is no
  * longer a separate `bill_requested` status.
  */
 export function getTableStatus(
   table: TableRow,
   nowMs: number = Date.now(),
 ): TableStatus {
+  // Secondary table locked in a merge - show as "Merged"
+  if (table.locked_by_order_id !== null && table.open_order_id === null) return 'merged'
+
   if (table.open_order_id === null) return 'available'
 
   if (table.order_created_at !== null) {
@@ -58,7 +62,7 @@ export const STATUS_CONFIG: Record<TableStatus, StatusConfig> = {
   },
   ordered: {
     label: 'Ordered',
-    // Gold is the highest-signal “active order” state in the new palette.
+    // Gold is the highest-signal "active order" state in the new palette.
     cardClass: 'bg-brand-gold/20 border-brand-gold hover:bg-brand-gold/25 shadow-sm',
     badgeClass: 'bg-brand-gold text-brand-navy border border-brand-gold',
     labelClass: 'text-brand-navy',
@@ -69,5 +73,12 @@ export const STATUS_CONFIG: Record<TableStatus, StatusConfig> = {
     cardClass: 'bg-red-50 border-red-500 hover:bg-red-100 shadow-sm',
     badgeClass: 'bg-red-600 text-white border border-red-600',
     labelClass: 'text-red-900',
+  },
+  merged: {
+    label: 'Merged',
+    // Purple/violet to clearly distinguish from other states (issue #274).
+    cardClass: 'bg-purple-50 border-purple-400 hover:bg-purple-100 shadow-sm',
+    badgeClass: 'bg-purple-600 text-white border border-purple-600',
+    labelClass: 'text-purple-900',
   },
 }

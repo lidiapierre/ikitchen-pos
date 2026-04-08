@@ -159,6 +159,18 @@ export default function FloorPlanView({ tables }: Props): JSX.Element {
     setTapError(null)
     setTappingTableId(table.id)
     try {
+      // Secondary merged table: navigate to the primary order (issue #274)
+      if (table.locked_by_order_id !== null && table.open_order_id === null) {
+        if (table.primary_table_id !== null) {
+          setTappingTableId(null)
+          router.push(`/tables/${table.primary_table_id}/order/${table.locked_by_order_id}`)
+        } else {
+          setTapError('Cannot navigate — primary table not found')
+          setTappingTableId(null)
+        }
+        return
+      }
+
       if (table.open_order_id !== null) {
         setTappingTableId(null)
         router.push(`/tables/${table.id}/order/${table.open_order_id}`)
@@ -251,6 +263,9 @@ export default function FloorPlanView({ tables }: Props): JSX.Element {
         const { label: statusLabel, cardClass, labelClass, badgeClass } = STATUS_CONFIG[status]
         const isLoading = tappingTableId === table.id
 
+        // Display merge_label for primary merged tables; own label for others (issue #274)
+        const displayLabel = table.merge_label ?? table.label
+
         cells.push(
           <div key={table.id} className="aspect-square p-[3px] min-w-12">
             <button
@@ -265,8 +280,8 @@ export default function FloorPlanView({ tables }: Props): JSX.Element {
                 cardClass,
               ].join(' ')}
             >
-              <span className={["font-bold text-sm leading-tight", labelClass].join(' ')}>
-                {table.label}
+              <span className={["font-bold text-sm leading-tight text-center break-all", labelClass].join(' ')}>
+                {displayLabel}
               </span>
               <span className={[
                 'mt-1 rounded-full px-2 py-0.5 text-[11px] font-semibold border',

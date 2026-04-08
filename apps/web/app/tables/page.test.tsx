@@ -34,9 +34,9 @@ vi.mock('@/lib/tablesCache', () => ({
 }))
 
 const MOCK_TABLES: TableRow[] = [
-  { id: 'table-uuid-001', label: '1', open_order_id: null, order_status: null, order_created_at: null, order_item_count: null, grid_x: null, grid_y: null, section_id: null, section_name: null, assigned_server_name: null, section_sort_order: null },
-  { id: 'table-uuid-002', label: '2', open_order_id: 'order-uuid-001', order_status: 'open', order_created_at: '2026-03-27T10:00:00Z', order_item_count: 1, grid_x: null, grid_y: null, section_id: null, section_name: null, assigned_server_name: null, section_sort_order: null },
-  { id: 'table-uuid-003', label: '3', open_order_id: null, order_status: null, order_created_at: null, order_item_count: null, grid_x: null, grid_y: null, section_id: null, section_name: null, assigned_server_name: null, section_sort_order: null },
+  { id: 'table-uuid-001', label: '1', open_order_id: null, order_status: null, order_created_at: null, order_item_count: null, grid_x: null, grid_y: null, section_id: null, section_name: null, assigned_server_name: null, section_sort_order: null, merge_label: null, locked_by_order_id: null, primary_table_id: null },
+  { id: 'table-uuid-002', label: '2', open_order_id: 'order-uuid-001', order_status: 'open', order_created_at: '2026-03-27T10:00:00Z', order_item_count: 1, grid_x: null, grid_y: null, section_id: null, section_name: null, assigned_server_name: null, section_sort_order: null, merge_label: null, locked_by_order_id: null, primary_table_id: null },
+  { id: 'table-uuid-003', label: '3', open_order_id: null, order_status: null, order_created_at: null, order_item_count: null, grid_x: null, grid_y: null, section_id: null, section_name: null, assigned_server_name: null, section_sort_order: null, merge_label: null, locked_by_order_id: null, primary_table_id: null },
 ]
 
 const originalEnv = process.env

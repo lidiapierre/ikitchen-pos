@@ -15,6 +15,10 @@ function makeTable(overrides: Partial<TableRow> = {}): TableRow {
     section_id: null,
     section_name: null,
     assigned_server_name: null,
+    section_sort_order: null,
+    merge_label: null,
+    locked_by_order_id: null,
+    primary_table_id: null,
     ...overrides,
   }
 }

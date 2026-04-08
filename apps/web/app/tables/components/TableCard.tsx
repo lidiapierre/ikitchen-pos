@@ -15,8 +15,16 @@ export default function TableCard({ table }: TableCardProps): JSX.Element {
   const status = getTableStatus(table)
   const { label: statusLabel, cardClass, badgeClass, labelClass } = STATUS_CONFIG[status]
   const isOccupied = table.open_order_id !== null
+  // Secondary merged table: locked but no own order (issue #274)
+  const isMergedSecondary = table.locked_by_order_id !== null && table.open_order_id === null
 
   function handleTap(): void {
+    // Secondary merged table — navigate to the primary order (issue #274)
+    if (isMergedSecondary && table.locked_by_order_id !== null && table.primary_table_id !== null) {
+      router.push(`/tables/${table.primary_table_id}/order/${table.locked_by_order_id}`)
+      return
+    }
+
     if (isOccupied && table.open_order_id) {
       router.push(`/tables/${table.id}/order/${table.open_order_id}`)
       return
@@ -25,6 +33,9 @@ export default function TableCard({ table }: TableCardProps): JSX.Element {
     // Optimistic navigation — order is created on the loading page (issue #298)
     router.push(`/tables/${table.id}/order/new`)
   }
+
+  // Display label: primary merged table shows merge_label (e.g. "Table 3 + Table 4")
+  const displayLabel = table.merge_label ?? table.label
 
   return (
     <button
@@ -38,7 +49,7 @@ export default function TableCard({ table }: TableCardProps): JSX.Element {
       ].join(' ')}
     >
       <span className={['text-3xl font-bold', labelClass].join(' ')}>
-        {table.label}
+        {displayLabel}
       </span>
       <span
         className={[

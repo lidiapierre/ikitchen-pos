@@ -83,6 +83,9 @@ const emptyTable: TableRow = {
   section_name: null,
   assigned_server_name: null,
   section_sort_order: null,
+  merge_label: null,
+  locked_by_order_id: null,
+  primary_table_id: null,
 }
 
 const occupiedTable: TableRow = {
@@ -98,6 +101,9 @@ const occupiedTable: TableRow = {
   section_name: null,
   assigned_server_name: null,
   section_sort_order: null,
+  merge_label: null,
+  locked_by_order_id: null,
+  primary_table_id: null,
 }
 
 describe('FloorPlanView', () => {
@@ -157,6 +163,9 @@ describe('FloorPlanView', () => {
         section_name: null,
         assigned_server_name: null,
         section_sort_order: null,
+  merge_label: null,
+  locked_by_order_id: null,
+  primary_table_id: null,
       }
 
       render(<FloorPlanView tables={[positionedTable]} />)

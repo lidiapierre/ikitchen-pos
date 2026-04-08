@@ -74,6 +74,11 @@ export interface OrderSummary {
   delivery_zone_name: string | null
   /** Delivery charge in cents — snapshotted at order creation (issue #353). */
   delivery_charge: number
+  /**
+   * Merge label when this order is a primary in a table merge (issue #274).
+   * E.g. "Table 3 + Table 4". Null when not merged.
+   */
+  merge_label: string | null
 }
 
 interface OrderItemRow {
@@ -217,7 +222,7 @@ export async function fetchOrderSummary(
 
   const orderUrl = new URL(`${supabaseUrl}/rest/v1/orders`)
   orderUrl.searchParams.set('id', `eq.${orderId}`)
-  orderUrl.searchParams.set('select', 'status,order_type,customer_name,delivery_note,customer_mobile,bill_number,reservation_id,customer_id,order_number,scheduled_time,delivery_zone_id,delivery_charge,delivery_zones(name)')
+  orderUrl.searchParams.set('select', 'status,order_type,customer_name,delivery_note,customer_mobile,bill_number,reservation_id,customer_id,order_number,scheduled_time,delivery_zone_id,delivery_charge,merge_label,delivery_zones(name)')
 
   const orderRes = await fetch(orderUrl.toString(), { headers })
   if (!orderRes.ok) {
@@ -238,6 +243,7 @@ export async function fetchOrderSummary(
     scheduled_time: string | null
     delivery_zone_id: string | null
     delivery_charge: number | null
+    merge_label: string | null
     delivery_zones: { name: string } | null
   }>
   if (orders.length === 0) {
@@ -257,6 +263,7 @@ export async function fetchOrderSummary(
   const deliveryZoneId = orders[0].delivery_zone_id ?? null
   const deliveryZoneName = orders[0].delivery_zones?.name ?? null
   const deliveryCharge = orders[0].delivery_charge ?? 0
+  const mergeLabel = orders[0].merge_label ?? null
 
   if (status !== 'paid') {
     return {
@@ -274,6 +281,7 @@ export async function fetchOrderSummary(
       delivery_zone_id: deliveryZoneId,
       delivery_zone_name: deliveryZoneName,
       delivery_charge: deliveryCharge,
+      merge_label: mergeLabel,
     }
   }
 
@@ -299,6 +307,7 @@ export async function fetchOrderSummary(
       delivery_zone_id: deliveryZoneId,
       delivery_zone_name: deliveryZoneName,
       delivery_charge: deliveryCharge,
+      merge_label: mergeLabel,
     }
   }
 
@@ -318,5 +327,6 @@ export async function fetchOrderSummary(
     delivery_zone_id: deliveryZoneId,
     delivery_zone_name: deliveryZoneName,
     delivery_charge: deliveryCharge,
+    merge_label: mergeLabel,
   }
 }

@@ -15,6 +15,23 @@ export interface TableRow {
   assigned_server_name: string | null
   /** Section sort_order for ordering in card grid view */
   section_sort_order: number | null
+  /**
+   * Merge label on the primary order (issue #274).
+   * Set when this table's order has secondary tables merged in (e.g. "Table 3 + Table 4").
+   * Null when not part of a merge.
+   */
+  merge_label: string | null
+  /**
+   * When non-null, this table is a secondary partner in a merge (issue #274).
+   * Points to the primary order that locked this table.
+   * The table is displayed as "Merged" and clicking navigates to the primary order.
+   */
+  locked_by_order_id: string | null
+  /**
+   * For locked (secondary) tables, the primary table's ID for navigation (issue #274).
+   * Used to build the URL: /tables/${primary_table_id}/order/${locked_by_order_id}
+   */
+  primary_table_id: string | null
 }
 
 export interface TakeawayDeliveryOrder {
@@ -36,6 +53,7 @@ interface TableApiRow {
   grid_x: number | null
   grid_y: number | null
   section_id: string | null
+  locked_by_order_id: string | null
 }
 
 interface SectionApiRow {
@@ -56,6 +74,7 @@ interface OrderApiRow {
   table_id: string | null
   status: string
   created_at: string
+  merge_label: string | null
 }
 
 interface TakeawayDeliveryApiRow {
@@ -80,7 +99,7 @@ export async function fetchTables(
   }
 
   const tablesUrl = new URL(`${supabaseUrl}/rest/v1/tables`)
-  tablesUrl.searchParams.set('select', 'id,label,grid_x,grid_y,section_id')
+  tablesUrl.searchParams.set('select', 'id,label,grid_x,grid_y,section_id,locked_by_order_id')
 
   const tablesRes = await fetch(tablesUrl.toString(), { headers })
 
@@ -90,7 +109,7 @@ export async function fetchTables(
   }
 
   const ordersUrl = new URL(`${supabaseUrl}/rest/v1/orders`)
-  ordersUrl.searchParams.set('select', 'id,table_id,status,created_at')
+  ordersUrl.searchParams.set('select', 'id,table_id,status,created_at,merge_label')
   ordersUrl.searchParams.set('status', 'in.(open,pending_payment)')
   ordersUrl.searchParams.set('order_type', 'eq.dine_in')
 
@@ -136,7 +155,9 @@ export async function fetchTables(
   }
 
   const openOrderByTable = new Map<string, OrderApiRow>()
+  const openOrderById = new Map<string, OrderApiRow>()
   for (const order of orders) {
+    openOrderById.set(order.id, order)
     if (order.table_id !== null) {
       openOrderByTable.set(order.table_id, order)
     }
@@ -167,6 +188,15 @@ export async function fetchTables(
     const order = openOrderByTable.get(table.id)
     const sec = table.section_id ? sectionMap.get(table.section_id) : null
     const serverName = sec?.assigned_server_id ? serverNameMap.get(sec.assigned_server_id) ?? null : null
+
+    // Resolve primary table ID for locked (secondary merge) tables
+    const lockedByOrderId = table.locked_by_order_id ?? null
+    let primaryTableId: string | null = null
+    if (lockedByOrderId !== null) {
+      const primaryOrder = openOrderById.get(lockedByOrderId)
+      primaryTableId = primaryOrder?.table_id ?? null
+    }
+
     return {
       id: table.id,
       label: table.label,
@@ -180,6 +210,9 @@ export async function fetchTables(
       section_name: sec?.name ?? null,
       assigned_server_name: serverName,
       section_sort_order: sec?.sort_order ?? null,
+      merge_label: order?.merge_label ?? null,
+      locked_by_order_id: lockedByOrderId,
+      primary_table_id: primaryTableId,
     }
   })
 }

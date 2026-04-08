@@ -194,11 +194,14 @@ test.describe('Table Merge & Split', () => {
     // Should show confirmation step
     await expect(page.getByText(/Confirm Merge/i)).toBeVisible()
 
+    // Set up waitForRequest BEFORE clicking confirm (guarantees the handler completes before assertion)
+    const mergeRequest = page.waitForRequest(MERGE_TABLES_PATTERN)
+
     // Confirm merge
     await page.getByRole('button', { name: /Confirm Merge/i }).click()
 
-    // Edge function should have been called
-    await page.waitForFunction(() => true) // allow async to settle
+    // Wait for the actual network request to the edge function
+    await mergeRequest
     expect(mergeCalled).toBe(true)
     expect((mergePayload as Record<string, string>)['primary_order_id']).toBe(PRIMARY_ORDER.id)
     expect((mergePayload as Record<string, string>)['secondary_table_id']).toBe(SECONDARY_TABLE.id)
@@ -346,10 +349,14 @@ test.describe('Table Merge & Split', () => {
     // Confirmation dialog appears
     await expect(page.getByText(/Unmerge Tables/i)).toBeVisible()
 
+    // Set up waitForRequest BEFORE clicking confirm
+    const unmergeRequest = page.waitForRequest(UNMERGE_TABLES_PATTERN)
+
     // Confirm
     await page.getByRole('button', { name: /Confirm Unmerge/i }).click()
 
-    await page.waitForFunction(() => true)
+    // Wait for the actual network request to the edge function
+    await unmergeRequest
     expect(unmergeCalled).toBe(true)
     expect((unmergePayload as Record<string, string>)['order_id']).toBe(PRIMARY_ORDER.id)
   })

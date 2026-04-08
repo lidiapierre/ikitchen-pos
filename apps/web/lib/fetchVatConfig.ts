@@ -168,6 +168,66 @@ export async function fetchServiceChargeConfig(
   return defaults
 }
 
+export interface VatApplyConfigResult {
+  /** Whether VAT applies to dine-in orders (default: true). */
+  applyDineIn: boolean
+  /** Whether VAT applies to takeaway orders (default: true). */
+  applyTakeaway: boolean
+  /** Whether VAT applies to delivery orders (default: false — delivery uses delivery fee instead). */
+  applyDelivery: boolean
+}
+
+/**
+ * Fetch VAT per-order-type apply flags (issue #382).
+ * Keys: vat_apply_dine_in, vat_apply_takeaway, vat_apply_delivery.
+ * Defaults: dine-in = true, takeaway = true, delivery = false.
+ */
+export async function fetchVatApplyConfig(
+  supabaseUrl: string,
+  accessToken: string,
+  restaurantId: string,
+): Promise<VatApplyConfigResult> {
+  const headers = {
+    apikey: publishableKey,
+    Authorization: `Bearer ${accessToken}`,
+  }
+  const defaults: VatApplyConfigResult = {
+    applyDineIn: true,
+    applyTakeaway: true,
+    applyDelivery: false,
+  }
+  try {
+    const configUrl = new URL(`${supabaseUrl}/rest/v1/config`)
+    configUrl.searchParams.set('restaurant_id', `eq.${restaurantId}`)
+    configUrl.searchParams.set(
+      'key',
+      'in.(vat_apply_dine_in,vat_apply_takeaway,vat_apply_delivery)',
+    )
+    configUrl.searchParams.set('select', 'key,value')
+
+    const configRes = await fetch(configUrl.toString(), { headers })
+    if (configRes.ok) {
+      const rows = (await configRes.json()) as Array<{ key: string; value: string }>
+      const map = new Map(rows.map((r) => [r.key, r.value]))
+
+      return {
+        applyDineIn: map.has('vat_apply_dine_in')
+          ? map.get('vat_apply_dine_in') === 'true'
+          : defaults.applyDineIn,
+        applyTakeaway: map.has('vat_apply_takeaway')
+          ? map.get('vat_apply_takeaway') === 'true'
+          : defaults.applyTakeaway,
+        applyDelivery: map.has('vat_apply_delivery')
+          ? map.get('vat_apply_delivery') === 'true'
+          : defaults.applyDelivery,
+      }
+    }
+  } catch {
+    // Non-fatal: fall back to defaults
+  }
+  return defaults
+}
+
 /**
  * Fetch the restaurant_id and (optionally) the menu_id of the first item
  * in the order — used to look up per-menu VAT rates.

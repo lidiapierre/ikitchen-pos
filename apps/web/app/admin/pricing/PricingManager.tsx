@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import type { JSX } from 'react'
 import Link from 'next/link'
 import { fetchPricingAdminData, fetchConfigValue } from './pricingAdminData'
-import { fetchServiceChargeConfig } from '@/lib/fetchVatConfig'
+import { fetchServiceChargeConfig, fetchVatApplyConfig } from '@/lib/fetchVatConfig'
 import type { VatRate, PricingCategory, PricingMenuItem } from './pricingAdminData'
 import {
   callCreateVatRate,
@@ -80,6 +80,11 @@ export default function PricingManager(): JSX.Element {
   const [serviceChargeApplyTakeaway, setServiceChargeApplyTakeaway] = useState<boolean>(false)
   const [serviceChargeApplyDelivery, setServiceChargeApplyDelivery] = useState<boolean>(false)
   const [savingServiceChargeApply, setSavingServiceChargeApply] = useState<boolean>(false)
+  // VAT per-order-type apply state (issue #382)
+  const [vatApplyDineIn, setVatApplyDineIn] = useState<boolean>(true)
+  const [vatApplyTakeaway, setVatApplyTakeaway] = useState<boolean>(true)
+  const [vatApplyDelivery, setVatApplyDelivery] = useState<boolean>(false)
+  const [savingVatApply, setSavingVatApply] = useState<boolean>(false)
   const [currencyCode, setCurrencyCode] = useState<string>('BDT')
   const [currencySymbol, setCurrencySymbol] = useState<string>('৳')
   const [currencyCodeInput, setCurrencyCodeInput] = useState<string>('BDT')
@@ -126,15 +131,22 @@ export default function PricingManager(): JSX.Element {
         setCurrencySymbol(data.currencySymbol)
         setCurrencyCodeInput(data.currencyCode)
         // Fetch service charge config (percent + per-order-type flags) using shared utility
-        return fetchServiceChargeConfig(supabaseUrl, accessToken, data.restaurantId)
-          .then((scConfig) => {
-            setServiceChargePercent(scConfig.percent)
-            setServiceChargeInput(String(scConfig.percent))
-            setServiceChargeApplyDineIn(scConfig.applyDineIn)
-            setServiceChargeApplyTakeaway(scConfig.applyTakeaway)
-            setServiceChargeApplyDelivery(scConfig.applyDelivery)
-          })
-          .catch(() => { /* non-fatal */ })
+        return Promise.all([
+          fetchServiceChargeConfig(supabaseUrl, accessToken, data.restaurantId)
+            .then((scConfig) => {
+              setServiceChargePercent(scConfig.percent)
+              setServiceChargeInput(String(scConfig.percent))
+              setServiceChargeApplyDineIn(scConfig.applyDineIn)
+              setServiceChargeApplyTakeaway(scConfig.applyTakeaway)
+              setServiceChargeApplyDelivery(scConfig.applyDelivery)
+            }),
+          fetchVatApplyConfig(supabaseUrl, accessToken, data.restaurantId)
+            .then((vatApplyConfig) => {
+              setVatApplyDineIn(vatApplyConfig.applyDineIn)
+              setVatApplyTakeaway(vatApplyConfig.applyTakeaway)
+              setVatApplyDelivery(vatApplyConfig.applyDelivery)
+            }),
+        ]).catch(() => { /* non-fatal */ })
       })
       .catch((err: unknown) => {
         setFetchError(err instanceof Error ? err.message : 'Failed to load pricing data')
@@ -260,6 +272,32 @@ export default function PricingManager(): JSX.Element {
       showFeedback('error', err instanceof Error ? err.message : 'Failed to save service charge settings.')
     } finally {
       setSavingServiceChargeApply(false)
+    }
+  }
+
+  async function handleSaveVatApply(): Promise<void> {
+    const config = supabaseConfig.current
+    if (!config || !restaurantId) return
+    setSavingVatApply(true)
+    try {
+      const results = await Promise.allSettled([
+        callUpsertConfig(config.url, config.key, restaurantId, 'vat_apply_dine_in', String(vatApplyDineIn)),
+        callUpsertConfig(config.url, config.key, restaurantId, 'vat_apply_takeaway', String(vatApplyTakeaway)),
+        callUpsertConfig(config.url, config.key, restaurantId, 'vat_apply_delivery', String(vatApplyDelivery)),
+      ])
+      const failed = results.filter((r) => r.status === 'rejected')
+      if (failed.length > 0) {
+        const msg = (failed[0] as PromiseRejectedResult).reason instanceof Error
+          ? (failed[0] as PromiseRejectedResult).reason.message
+          : 'Failed to save some VAT settings'
+        showFeedback('error', `Partial save failure (${failed.length}/3 keys): ${msg}`)
+      } else {
+        showFeedback('success', 'VAT order type settings saved.')
+      }
+    } catch (err) {
+      showFeedback('error', err instanceof Error ? err.message : 'Failed to save VAT settings.')
+    } finally {
+      setSavingVatApply(false)
     }
   }
 
@@ -665,6 +703,44 @@ export default function PricingManager(): JSX.Element {
             className="mt-3 min-h-[48px] px-5 py-2 rounded-xl bg-brand-navy text-white text-sm font-medium hover:bg-brand-blue transition-colors disabled:opacity-50"
           >
             {savingServiceChargeApply ? 'Saving…' : 'Save order type settings'}
+          </button>
+        </div>
+      </div>
+
+      {/* VAT per-order-type section (issue #382) */}
+      <div className="bg-white border border-brand-grey rounded-2xl p-5 flex flex-col gap-4">
+        <div>
+          <p className="text-base font-semibold text-brand-navy">VAT — Apply to Order Types</p>
+          <p className="text-sm text-brand-navy/60 mt-1">
+            Choose which order types incur VAT. Delivery orders typically use a delivery fee instead of VAT.
+          </p>
+        </div>
+        <div className="pt-2 border-t border-brand-grey/30">
+          <p className="text-sm font-medium text-brand-navy/80 mb-3">Apply VAT to:</p>
+          <div className="flex flex-col gap-2">
+            {[
+              { key: 'dine_in', label: 'Dine-in', value: vatApplyDineIn, setter: setVatApplyDineIn },
+              { key: 'takeaway', label: 'Takeaway', value: vatApplyTakeaway, setter: setVatApplyTakeaway },
+              { key: 'delivery', label: 'Delivery', value: vatApplyDelivery, setter: setVatApplyDelivery },
+            ].map(({ key, label, value, setter }) => (
+              <label key={key} className="flex items-center gap-3 cursor-pointer select-none min-h-[48px]">
+                <input
+                  type="checkbox"
+                  checked={value}
+                  onChange={(e) => { setter(e.target.checked) }}
+                  disabled={savingVatApply || !restaurantId}
+                  className="w-5 h-5 rounded accent-brand-navy disabled:opacity-50"
+                />
+                <span className="text-sm text-brand-navy">{label}</span>
+              </label>
+            ))}
+          </div>
+          <button
+            onClick={() => { void handleSaveVatApply() }}
+            disabled={savingVatApply || !restaurantId}
+            className="mt-3 min-h-[48px] px-5 py-2 rounded-xl bg-brand-navy text-white text-sm font-medium hover:bg-brand-blue transition-colors disabled:opacity-50"
+          >
+            {savingVatApply ? 'Saving…' : 'Save VAT order type settings'}
           </button>
         </div>
       </div>

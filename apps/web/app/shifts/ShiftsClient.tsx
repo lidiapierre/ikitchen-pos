@@ -238,9 +238,23 @@ export default function ShiftsClient(): JSX.Element {
                   <dd className="text-white font-semibold">{formatPrice(closedSummary.revenue.totalCents, DEFAULT_CURRENCY_SYMBOL)}</dd>
                 </div>
                 <div className="flex justify-between">
-                  <dt className="text-zinc-400">Cash</dt>
+                  <dt className="text-zinc-400">Cash (billed)</dt>
                   <dd className="text-white">{formatPrice(closedSummary.revenue.cashCents, DEFAULT_CURRENCY_SYMBOL)}</dd>
                 </div>
+                {closedSummary.revenue.cashTenderedCents > 0 && (
+                  <>
+                    <div className="flex justify-between">
+                      <dt className="text-zinc-400">Cash tendered</dt>
+                      <dd className="text-white">{formatPrice(closedSummary.revenue.cashTenderedCents, DEFAULT_CURRENCY_SYMBOL)}</dd>
+                    </div>
+                    {closedSummary.revenue.changeDueCents > 0 && (
+                      <div className="flex justify-between">
+                        <dt className="text-zinc-400">Change given</dt>
+                        <dd className="text-amber-400">− {formatPrice(closedSummary.revenue.changeDueCents, DEFAULT_CURRENCY_SYMBOL)}</dd>
+                      </div>
+                    )}
+                  </>
+                )}
                 <div className="flex justify-between">
                   <dt className="text-zinc-400">Card</dt>
                   <dd className="text-white">{formatPrice(closedSummary.revenue.cardCents, DEFAULT_CURRENCY_SYMBOL)}</dd>

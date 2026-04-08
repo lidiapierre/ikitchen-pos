@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { handler, corsHeaders } from './index'
+import type { FetchFn, HandlerEnv } from './index'
 
 const FIXED_UUID = '33333333-3333-3333-3333-333333333333'
 
@@ -373,5 +374,179 @@ describe('record_payment handler', () => {
       expect(json.success).toBe(false)
       expect(json.error).toBe('order_id is required')
     })
+  })
+})
+
+// ── tendered_amount_cents integration tests (issue #351) ─────────────────────
+// These use a mock fetchFn + TEST_ENV so they exercise the full handler path.
+
+const TEST_ENV: HandlerEnv = {
+  supabaseUrl: 'http://test-supabase.local',
+  serviceKey: 'test-service-key',
+}
+
+const VALID_ORDER_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
+const ACTOR_ID = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'
+const RESTAURANT_ID = 'cccccccc-cccc-cccc-cccc-cccccccccccc'
+const PAYMENT_ID = 'dddddddd-dddd-dddd-dddd-dddddddddddd'
+
+type InsertedPaymentRow = {
+  order_id: string
+  method: string
+  amount_cents: number
+  tendered_amount_cents: number
+  discount_amount_cents?: number
+}
+
+/** Build a mock fetchFn for record_payment tests.
+ *  Captures the payments POST body for assertion.
+ */
+function buildMockFetch(
+  orderTotalCents: number,
+  captured: { paymentInsertBody?: unknown } = {},
+): FetchFn {
+  return vi.fn(async (url: string, init?: RequestInit): Promise<Response> => {
+    // Auth – verifyAndGetCaller: /auth/v1/user
+    if (url.includes('/auth/v1/user')) {
+      return new Response(JSON.stringify({ id: ACTOR_ID }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    }
+    // Auth – verifyAndGetCaller: /rest/v1/users for role
+    if (url.includes('/rest/v1/users')) {
+      return new Response(JSON.stringify([{ id: ACTOR_ID, role: 'owner' }]), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    }
+    // Order lookup (GET)
+    if (url.includes('/rest/v1/orders') && (!init?.method || init?.method === 'GET')) {
+      return new Response(
+        JSON.stringify([{
+          id: VALID_ORDER_ID,
+          restaurant_id: RESTAURANT_ID,
+          status: 'pending_payment',
+          final_total_cents: orderTotalCents,
+          discount_amount_cents: 0,
+          order_comp: false,
+          customer_id: null,
+        }]),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      )
+    }
+    // Order status PATCH
+    if (url.includes('/rest/v1/orders') && init?.method === 'PATCH') {
+      return new Response(null, { status: 204 })
+    }
+    // Payments POST – capture inserted body for assertion
+    if (url.includes('/rest/v1/payments') && init?.method === 'POST') {
+      captured.paymentInsertBody = JSON.parse(init.body as string)
+      return new Response(JSON.stringify([{ id: PAYMENT_ID }]), {
+        status: 201,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    }
+    // Audit log POST
+    if (url.includes('/rest/v1/audit_log')) {
+      return new Response(null, { status: 204 })
+    }
+    // Default – should not be reached
+    return new Response(JSON.stringify({ error: `Unhandled: ${url}` }), { status: 500 })
+  })
+}
+
+describe('record_payment — tendered_amount_cents (issue #351)', () => {
+  it('stores tendered_amount_cents = amount_cents for card payment (no change)', async (): Promise<void> => {
+    const captured: { paymentInsertBody?: unknown } = {}
+    const mockFetch = buildMockFetch(95000, captured)
+    const req = new Request('http://localhost/functions/v1/record_payment', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer test-jwt' },
+      body: JSON.stringify({
+        order_id: VALID_ORDER_ID,
+        payments: [{ method: 'card', amount: 95000 }],
+      }),
+    })
+    const res = await handler(req, mockFetch, TEST_ENV)
+    expect(res.status).toBe(200)
+    const row = captured.paymentInsertBody as InsertedPaymentRow
+    expect(row.amount_cents).toBe(95000)
+    expect(row.tendered_amount_cents).toBe(95000)
+  })
+
+  it('stores tendered_amount_cents = tendered cash and amount_cents = bill amount for over-tendered cash', async (): Promise<void> => {
+    // Bill: 950 (in cents), customer hands 1000 cash → change due 50
+    const captured: { paymentInsertBody?: unknown } = {}
+    const mockFetch = buildMockFetch(95000, captured)
+    const req = new Request('http://localhost/functions/v1/record_payment', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer test-jwt' },
+      body: JSON.stringify({
+        order_id: VALID_ORDER_ID,
+        payments: [{ method: 'cash', amount: 100000 }],
+      }),
+    })
+    const res = await handler(req, mockFetch, TEST_ENV)
+    expect(res.status).toBe(200)
+    const json = await res.json() as { success: boolean; data: { change_due: number } }
+    expect(json.data.change_due).toBe(5000) // 1000 - 950 = 50 (in cents)
+
+    const row = captured.paymentInsertBody as InsertedPaymentRow
+    // amount_cents = bill amount (what customer owes)
+    expect(row.amount_cents).toBe(95000)
+    // tendered_amount_cents = physical cash given
+    expect(row.tendered_amount_cents).toBe(100000)
+  })
+
+  it('stores correct amount_cents and tendered_amount_cents for split cash+card with cash over-tender', async (): Promise<void> => {
+    // Bill: 950 (95000 cents). Card: 500 (50000 cents), Cash: 600 (60000 cents — over-tender by 150)
+    const captured: { paymentInsertBody?: unknown } = {}
+    const mockFetch = buildMockFetch(95000, captured)
+    const req = new Request('http://localhost/functions/v1/record_payment', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer test-jwt' },
+      body: JSON.stringify({
+        order_id: VALID_ORDER_ID,
+        payments: [
+          { method: 'card', amount: 50000 },
+          { method: 'cash', amount: 60000 },
+        ],
+      }),
+    })
+    const res = await handler(req, mockFetch, TEST_ENV)
+    expect(res.status).toBe(200)
+    const json = await res.json() as { success: boolean; data: { change_due: number } }
+    expect(json.data.change_due).toBe(15000) // (50000 + 60000) - 95000 = 15000
+
+    const rows = captured.paymentInsertBody as InsertedPaymentRow[]
+    const cardRow = rows.find((r) => r.method === 'card')!
+    const cashRow = rows.find((r) => r.method === 'cash')!
+
+    // Card: exact — amount_cents = tendered_amount_cents
+    expect(cardRow.amount_cents).toBe(50000)
+    expect(cardRow.tendered_amount_cents).toBe(50000)
+
+    // Cash: bill portion = 95000 - 50000 = 45000; tendered = 60000
+    expect(cashRow.amount_cents).toBe(45000)
+    expect(cashRow.tendered_amount_cents).toBe(60000)
+  })
+
+  it('stores tendered_amount_cents = amount_cents for exact cash payment (no change)', async (): Promise<void> => {
+    const captured: { paymentInsertBody?: unknown } = {}
+    const mockFetch = buildMockFetch(95000, captured)
+    const req = new Request('http://localhost/functions/v1/record_payment', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer test-jwt' },
+      body: JSON.stringify({
+        order_id: VALID_ORDER_ID,
+        payments: [{ method: 'cash', amount: 95000 }],
+      }),
+    })
+    const res = await handler(req, mockFetch, TEST_ENV)
+    expect(res.status).toBe(200)
+    const row = captured.paymentInsertBody as InsertedPaymentRow
+    expect(row.amount_cents).toBe(95000)
+    expect(row.tendered_amount_cents).toBe(95000)
   })
 })

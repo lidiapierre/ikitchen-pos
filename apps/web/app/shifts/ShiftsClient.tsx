@@ -172,7 +172,7 @@ export default function ShiftsClient(): JSX.Element {
       setActiveShift(null)
       saveShiftToStorage(null)
 
-      let revenue: ShiftRevenue = { orderCount: 0, totalCents: 0, cashCents: 0, cardCents: 0 }
+      let revenue: ShiftRevenue = { orderCount: 0, totalCents: 0, cashCents: 0, cardCents: 0, cashTenderedCents: 0, changeDueCents: 0 }
       try {
         revenue = await fetchShiftRevenue(startedAt, endedAt, accessToken)
       } catch (err: unknown) {
@@ -238,9 +238,23 @@ export default function ShiftsClient(): JSX.Element {
                   <dd className="text-white font-semibold">{formatPrice(closedSummary.revenue.totalCents, DEFAULT_CURRENCY_SYMBOL)}</dd>
                 </div>
                 <div className="flex justify-between">
-                  <dt className="text-zinc-400">Cash</dt>
+                  <dt className="text-zinc-400">Cash (billed)</dt>
                   <dd className="text-white">{formatPrice(closedSummary.revenue.cashCents, DEFAULT_CURRENCY_SYMBOL)}</dd>
                 </div>
+                {closedSummary.revenue.cashTenderedCents > closedSummary.revenue.cashCents && (
+                  <>
+                    <div className="flex justify-between">
+                      <dt className="text-zinc-400">Cash tendered</dt>
+                      <dd className="text-white">{formatPrice(closedSummary.revenue.cashTenderedCents, DEFAULT_CURRENCY_SYMBOL)}</dd>
+                    </div>
+                    {closedSummary.revenue.changeDueCents > 0 && (
+                      <div className="flex justify-between">
+                        <dt className="text-zinc-400">Change given</dt>
+                        <dd className="text-amber-400">− {formatPrice(closedSummary.revenue.changeDueCents, DEFAULT_CURRENCY_SYMBOL)}</dd>
+                      </div>
+                    )}
+                  </>
+                )}
                 <div className="flex justify-between">
                   <dt className="text-zinc-400">Card</dt>
                   <dd className="text-white">{formatPrice(closedSummary.revenue.cardCents, DEFAULT_CURRENCY_SYMBOL)}</dd>

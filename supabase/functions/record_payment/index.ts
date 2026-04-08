@@ -243,18 +243,40 @@ export async function handler(
 
     // 3. Insert payment record(s)
     //    For split payments, insert all rows in a single batch POST.
-    const paymentRows = paymentsToRecord.map((p) => ({
-      order_id: orderId,
-      method: p.method,
-      amount_cents: p.amount,
-      discount_amount_cents: discountAmountCents > 0 ? discountAmountCents : undefined,
-    }))
+    //
+    //    amount_cents      = the bill portion attributed to this payment method.
+    //    tendered_amount_cents = the physical amount handed over by the customer.
+    //      • For card/mobile: tendered = amount (no change given).
+    //      • For cash: tendered may exceed amount (change is given back to customer).
+    //
+    //    Non-cash entries are exact (UI prevents over-tendering on non-cash), so
+    //    their amount_cents = their tendered amount. The remaining bill balance is
+    //    attributed to cash entries in order; any excess is the change due.
+    const nonCashBillCents = paymentsToRecord
+      .filter((p) => p.method !== 'cash')
+      .reduce((s, p) => s + p.amount, 0)
+    let cashBillRemaining = Math.max(0, finalTotalCents - nonCashBillCents)
+
+    const paymentRows = paymentsToRecord.map((p) => {
+      let billAmountCents: number
+      if (p.method === 'cash') {
+        billAmountCents = Math.min(p.amount, cashBillRemaining)
+        cashBillRemaining = Math.max(0, cashBillRemaining - billAmountCents)
+      } else {
+        billAmountCents = p.amount // exact for card/mobile
+      }
+      return {
+        order_id: orderId,
+        method: p.method,
+        amount_cents: billAmountCents,
+        tendered_amount_cents: p.amount, // physical amount handed over (same as bill for non-cash)
+        discount_amount_cents: undefined as number | undefined,
+      }
+    })
     // Only spread discount on the first row (it belongs to the order, not per-method)
     // Reset discount on subsequent rows to avoid double-counting in reports
-    if (paymentRows.length > 1) {
-      for (let i = 1; i < paymentRows.length; i++) {
-        paymentRows[i].discount_amount_cents = undefined
-      }
+    if (discountAmountCents > 0) {
+      paymentRows[0].discount_amount_cents = discountAmountCents
     }
 
     const paymentRes = await fetchFn(

@@ -139,6 +139,7 @@ export default function BillPrintView({
       {/* 1. Restaurant name + address */}
       <div className="text-center mb-1">
         <p className="text-base font-bold">{restaurantName}</p>
+        <p className="text-sm">BILL RECEIPT</p>
         <p className="text-xs">{restaurantAddress}</p>
       </div>
 
@@ -239,6 +240,16 @@ export default function BillPrintView({
                     ? `Discount: -${item.item_discount_value / 100}%`
                     : `Discount: -${formatPrice(itemDiscountCents, DEFAULT_CURRENCY_SYMBOL, roundBillTotals)}`}
                 </div>
+              )}
+              {item.modifier_names.length > 0 && (
+                <ul className="pl-6">
+                  {item.modifier_names.map((mod) => (
+                    <li key={mod} className="text-xs text-zinc-600">+ {mod}</li>
+                  ))}
+                </ul>
+              )}
+              {item.notes && (
+                <p className="pl-6 text-xs text-zinc-500 italic">↳ {item.notes}</p>
               )}
             </div>
           )

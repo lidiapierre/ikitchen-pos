@@ -118,8 +118,10 @@ test.describe('Table Merge & Split', () => {
   test('merge flow: selecting secondary table calls merge_tables function', async ({ page }) => {
     await page.route(ORDERS_API_PATTERN, (route, request) => {
       const url = request.url()
-      // Merge modal fetches orders with select including tables(...)
-      if (url.includes('tables(')) {
+      // Merge modal fetch: select includes "table_id" and the embedded tables() relation.
+      // The URL is URL-encoded so "tables(" becomes "tables%28" — check for table_id
+      // which is present in the merge modal request but not the order summary request.
+      if (url.includes('table_id') && (url.includes('tables%28') || url.includes('tables('))) {
         return route.fulfill({
           status: 200,
           contentType: 'application/json',

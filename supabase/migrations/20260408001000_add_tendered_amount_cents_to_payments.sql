@@ -12,3 +12,7 @@ ALTER TABLE payments ADD COLUMN tendered_amount_cents integer;
 -- Backfill existing rows: we don't know historical tendered vs bill split,
 -- so default to amount_cents (no change given — safe conservative assumption).
 UPDATE payments SET tendered_amount_cents = amount_cents WHERE tendered_amount_cents IS NULL;
+
+-- Enforce the invariant at DB level: tendered >= billed (NULL exempt for backcompat).
+ALTER TABLE payments ADD CONSTRAINT chk_tendered_gte_amount
+  CHECK (tendered_amount_cents IS NULL OR tendered_amount_cents >= amount_cents);

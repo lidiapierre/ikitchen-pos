@@ -172,7 +172,7 @@ export default function ShiftsClient(): JSX.Element {
       setActiveShift(null)
       saveShiftToStorage(null)
 
-      let revenue: ShiftRevenue = { orderCount: 0, totalCents: 0, cashCents: 0, cardCents: 0 }
+      let revenue: ShiftRevenue = { orderCount: 0, totalCents: 0, cashCents: 0, cardCents: 0, cashTenderedCents: 0, changeDueCents: 0 }
       try {
         revenue = await fetchShiftRevenue(startedAt, endedAt, accessToken)
       } catch (err: unknown) {
@@ -241,7 +241,7 @@ export default function ShiftsClient(): JSX.Element {
                   <dt className="text-zinc-400">Cash (billed)</dt>
                   <dd className="text-white">{formatPrice(closedSummary.revenue.cashCents, DEFAULT_CURRENCY_SYMBOL)}</dd>
                 </div>
-                {closedSummary.revenue.cashTenderedCents > 0 && (
+                {closedSummary.revenue.cashTenderedCents > closedSummary.revenue.cashCents && (
                   <>
                     <div className="flex justify-between">
                       <dt className="text-zinc-400">Cash tendered</dt>

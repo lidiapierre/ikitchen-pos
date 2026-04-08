@@ -182,7 +182,7 @@ export async function handler(
     }
 
     // Emit audit log — waiving/restoring a delivery fee is a financial action (issue #382)
-    await fetchFn(
+    const auditRes = await fetchFn(
       `${supabaseUrl}/rest/v1/audit_log`,
       {
         method: 'POST',
@@ -201,6 +201,13 @@ export async function handler(
         }),
       },
     )
+    if (!auditRes.ok) {
+      const auditErr = await auditRes.text().catch(() => '')
+      return new Response(
+        JSON.stringify({ success: false, error: `Failed to write audit log: ${auditErr}` }),
+        { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+      )
+    }
 
     return new Response(
       JSON.stringify({ success: true }),

@@ -241,5 +241,13 @@ describe('waive_delivery_fee handler', () => {
       const json = await res.json() as { success: boolean }
       expect(json.success).toBe(false)
     })
+
+    it('returns 500 when audit log insert fails', async (): Promise<void> => {
+      const req = makeRequest({ order_id: TEST_ORDER_ID, delivery_charge_cents: 0 })
+      const res = await handler(req, makeFetch({ auditStatus: 500 }), mockEnv)
+      expect(res.status).toBe(500)
+      const json = await res.json() as { success: boolean }
+      expect(json.success).toBe(false)
+    })
   })
 })

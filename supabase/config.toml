@@ -383,6 +383,9 @@ verify_jwt = false
 
 [functions.void_item]
 verify_jwt = false
+
+[functions.waive_delivery_fee]
+verify_jwt = false
 [functions.create_menu]
 verify_jwt = false
 

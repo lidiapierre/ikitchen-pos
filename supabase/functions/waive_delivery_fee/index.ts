@@ -161,6 +161,8 @@ export async function handler(
       )
     }
 
+    const restaurantId = orderRows[0].restaurant_id
+
     // Update the delivery charge
     const updateRes = await fetchFn(
       `${supabaseUrl}/rest/v1/orders?id=eq.${orderId}`,
@@ -178,6 +180,26 @@ export async function handler(
         { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
       )
     }
+
+    // Emit audit log — waiving/restoring a delivery fee is a financial action (issue #382)
+    await fetchFn(
+      `${supabaseUrl}/rest/v1/audit_log`,
+      {
+        method: 'POST',
+        headers: { ...dbHeaders, Prefer: 'return=minimal' },
+        body: JSON.stringify({
+          restaurant_id: restaurantId,
+          user_id: caller.actorId,
+          action: 'waive_delivery_fee',
+          entity_type: 'orders',
+          entity_id: orderId,
+          payload: {
+            delivery_charge_cents: deliveryChargeCents,
+            waived: deliveryChargeCents === 0,
+          },
+        }),
+      },
+    )
 
     return new Response(
       JSON.stringify({ success: true }),

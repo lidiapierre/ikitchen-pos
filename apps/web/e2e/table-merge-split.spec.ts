@@ -193,8 +193,8 @@ test.describe('Table Merge & Split', () => {
     // Select secondary table
     await page.getByRole('button', { name: /Table 4/i }).click()
 
-    // Should show confirmation step
-    await expect(page.getByText(/Confirm Merge/i)).toBeVisible()
+    // Should show confirmation step (check heading specifically to avoid strict mode violation)
+    await expect(page.getByRole('heading', { name: /Confirm Merge/i })).toBeVisible()
 
     // Set up waitForRequest BEFORE clicking confirm (guarantees the handler completes before assertion)
     const mergeRequest = page.waitForRequest(MERGE_TABLES_PATTERN)

@@ -6,6 +6,8 @@
  * - vat_rates (menu-specific first, then restaurant default)
  */
 
+import type { VatApplyConfig } from './vatCalc'
+
 const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ''
 
 export interface VatConfig {
@@ -168,30 +170,25 @@ export async function fetchServiceChargeConfig(
   return defaults
 }
 
-export interface VatApplyConfigResult {
-  /** Whether VAT applies to dine-in orders (default: true). */
-  applyDineIn: boolean
-  /** Whether VAT applies to takeaway orders (default: true). */
-  applyTakeaway: boolean
-  /** Whether VAT applies to delivery orders (default: false — delivery uses delivery fee instead). */
-  applyDelivery: boolean
-}
+// Re-export VatApplyConfig so callers can import from a single source.
+export type { VatApplyConfig }
 
 /**
  * Fetch VAT per-order-type apply flags (issue #382).
  * Keys: vat_apply_dine_in, vat_apply_takeaway, vat_apply_delivery.
  * Defaults: dine-in = true, takeaway = true, delivery = false.
+ * Returns the shared VatApplyConfig type from vatCalc.ts.
  */
 export async function fetchVatApplyConfig(
   supabaseUrl: string,
   accessToken: string,
   restaurantId: string,
-): Promise<VatApplyConfigResult> {
+): Promise<VatApplyConfig> {
   const headers = {
     apikey: publishableKey,
     Authorization: `Bearer ${accessToken}`,
   }
-  const defaults: VatApplyConfigResult = {
+  const defaults: VatApplyConfig = {
     applyDineIn: true,
     applyTakeaway: true,
     applyDelivery: false,

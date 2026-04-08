@@ -340,10 +340,10 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
         setOrderDeliveryZoneName(summary.delivery_zone_name)
         setOrderDeliveryChargeCents(summary.delivery_charge)
         setOriginalDeliveryChargeCents(summary.delivery_charge)
-        // If delivery charge is already 0 and order type is delivery, it may already be waived
-        if (summary.order_type === 'delivery' && summary.delivery_charge === 0) {
-          setDeliveryFeeWaived(true)
-        }
+        // Note: We do NOT infer deliveryFeeWaived from delivery_charge === 0 here,
+        // because a delivery zone itself may have a 0-charge (free zone). The waived
+        // state starts as false; once the user clicks "Waive Delivery Fee" the
+        // originalDeliveryChargeCents is used to restore on toggle (issue #382).
         // Fetch linked customer info if customer_id is set (issue #276)
         if (summary.customer_id) {
           const supaUrl = process.env.NEXT_PUBLIC_SUPABASE_URL

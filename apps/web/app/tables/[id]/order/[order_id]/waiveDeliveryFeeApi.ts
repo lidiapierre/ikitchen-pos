@@ -1,13 +1,12 @@
 /**
  * Waive or restore the delivery fee for an order (issue #382).
- * Updates orders.delivery_charge directly.
+ * Calls the waive_delivery_fee edge function (admin role required).
  */
 
-const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ''
-
 /**
- * Update the delivery charge on an order.
+ * Update the delivery charge on a delivery order via the Action API.
  * Pass 0 to waive the fee; pass the original charge to restore it.
+ * Requires admin/owner role — enforced server-side.
  */
 export async function callUpdateDeliveryCharge(
   supabaseUrl: string,
@@ -15,18 +14,21 @@ export async function callUpdateDeliveryCharge(
   orderId: string,
   deliveryChargeCents: number,
 ): Promise<void> {
-  const res = await fetch(`${supabaseUrl}/rest/v1/orders?id=eq.${orderId}`, {
-    method: 'PATCH',
+  const res = await fetch(`${supabaseUrl}/functions/v1/waive_delivery_fee`, {
+    method: 'POST',
     headers: {
-      apikey: publishableKey,
-      Authorization: `Bearer ${accessToken}`,
       'Content-Type': 'application/json',
-      Prefer: 'return=minimal',
+      Authorization: `Bearer ${accessToken}`,
     },
-    body: JSON.stringify({ delivery_charge: deliveryChargeCents }),
+    body: JSON.stringify({ order_id: orderId, delivery_charge_cents: deliveryChargeCents }),
   })
   if (!res.ok) {
     const body = await res.text().catch(() => '')
-    throw new Error(`Failed to update delivery charge: ${res.status} — ${body}`)
+    let message = `Failed to update delivery charge: ${res.status}`
+    try {
+      const json = JSON.parse(body) as { error?: string }
+      if (json.error) message = json.error
+    } catch { /* ignore */ }
+    throw new Error(message)
   }
 }

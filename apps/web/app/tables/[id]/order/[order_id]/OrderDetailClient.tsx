@@ -1498,6 +1498,8 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
       const result = await callMergeTables(supabaseUrl, accessToken, orderId, mergeTarget.id)
       setMergeLabel(result.merge_label)
       setShowMergeModal(false)
+      // Reload items so the secondary table's items appear immediately (issue #274)
+      loadItems()
       addToast(`Tables merged: ${result.merge_label}`, 'success')
     } catch (err) {
       setMergeError(err instanceof Error ? err.message : 'Failed to merge tables')

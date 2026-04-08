@@ -22,6 +22,12 @@ function readEnv(): HandlerEnv | null {
   return { supabaseUrl, serviceKey }
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+function isValidUuid(val: string): boolean {
+  return UUID_RE.test(val)
+}
+
 export async function handler(
   req: Request,
   fetchFn: FetchFn = fetch,
@@ -79,6 +85,20 @@ export async function handler(
 
   const primaryOrderId = payload['primary_order_id'] as string
   const secondaryTableId = payload['secondary_table_id'] as string
+
+  // UUID format validation (issue: typed error codes)
+  if (!isValidUuid(primaryOrderId)) {
+    return new Response(
+      JSON.stringify({ success: false, error: 'primary_order_id must be a valid UUID' }),
+      { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    )
+  }
+  if (!isValidUuid(secondaryTableId)) {
+    return new Response(
+      JSON.stringify({ success: false, error: 'secondary_table_id must be a valid UUID' }),
+      { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    )
+  }
 
   const { supabaseUrl, serviceKey } = env
   const dbHeaders = {
@@ -151,9 +171,9 @@ export async function handler(
     }
     const primaryTableLabel = primaryTables[0].label
 
-    // 3. Fetch the secondary table — must exist and not already be locked
+    // 3. Fetch the secondary table label (pre-flight read for merge label, no lock check here)
     const secondaryTableRes = await fetchFn(
-      `${supabaseUrl}/rest/v1/tables?select=id,label,locked_by_order_id&id=eq.${secondaryTableId}`,
+      `${supabaseUrl}/rest/v1/tables?select=id,label&id=eq.${secondaryTableId}`,
       { headers: dbHeaders },
     )
     if (!secondaryTableRes.ok) {
@@ -162,24 +182,14 @@ export async function handler(
         { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
       )
     }
-    const secondaryTables = (await secondaryTableRes.json()) as Array<{
-      id: string
-      label: string
-      locked_by_order_id: string | null
-    }>
-    if (secondaryTables.length === 0) {
+    const secondaryTableRows = (await secondaryTableRes.json()) as Array<{ id: string; label: string }>
+    if (secondaryTableRows.length === 0) {
       return new Response(
         JSON.stringify({ success: false, error: 'Secondary table not found' }),
         { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
       )
     }
-    const secondaryTable = secondaryTables[0]
-    if (secondaryTable.locked_by_order_id !== null) {
-      return new Response(
-        JSON.stringify({ success: false, error: 'Secondary table is already part of a merge' }),
-        { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
-      )
-    }
+    const secondaryTableLabel = secondaryTableRows[0].label
 
     // 4. Find the secondary table's open order
     const secondaryOrderRes = await fetchFn(
@@ -201,7 +211,35 @@ export async function handler(
     }
     const secondaryOrderId = secondaryOrders[0].id
 
-    // 5. Move all order_items from secondary order to primary order
+    // 5. LOCK THE SECONDARY TABLE FIRST — atomic conditional PATCH.
+    // The filter includes `locked_by_order_id=is.null` so if another request
+    // already acquired the lock, PostgREST returns an empty array (0 rows updated).
+    // This prevents the race condition where two concurrent merges both pass the
+    // pre-flight check and corrupt state.
+    const lockTableRes = await fetchFn(
+      `${supabaseUrl}/rest/v1/tables?id=eq.${secondaryTableId}&locked_by_order_id=is.null`,
+      {
+        method: 'PATCH',
+        headers: { ...dbHeaders, Prefer: 'return=representation' },
+        body: JSON.stringify({ locked_by_order_id: primaryOrderId }),
+      },
+    )
+    if (!lockTableRes.ok) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Failed to lock secondary table' }),
+        { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+      )
+    }
+    const lockedRows = (await lockTableRes.json()) as unknown[]
+    if (lockedRows.length === 0) {
+      // Another concurrent request already locked this table
+      return new Response(
+        JSON.stringify({ success: false, error: 'Secondary table is already part of a merge' }),
+        { status: 409, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+      )
+    }
+
+    // 6. Move all order_items from secondary order to primary order
     const moveItemsRes = await fetchFn(
       `${supabaseUrl}/rest/v1/order_items?order_id=eq.${secondaryOrderId}`,
       {
@@ -211,13 +249,22 @@ export async function handler(
       },
     )
     if (!moveItemsRes.ok) {
+      // Attempt to rollback the lock
+      await fetchFn(
+        `${supabaseUrl}/rest/v1/tables?id=eq.${secondaryTableId}&locked_by_order_id=eq.${primaryOrderId}`,
+        {
+          method: 'PATCH',
+          headers: { ...dbHeaders, Prefer: 'return=minimal' },
+          body: JSON.stringify({ locked_by_order_id: null }),
+        },
+      ).catch(() => { /* best-effort rollback */ })
       return new Response(
         JSON.stringify({ success: false, error: 'Failed to move order items' }),
         { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
       )
     }
 
-    // 6. Cancel the secondary order
+    // 7. Cancel the secondary order
     const cancelSecondaryRes = await fetchFn(
       `${supabaseUrl}/rest/v1/orders?id=eq.${secondaryOrderId}`,
       {
@@ -233,24 +280,8 @@ export async function handler(
       )
     }
 
-    // 7. Lock the secondary table: set locked_by_order_id → primary order
-    const lockTableRes = await fetchFn(
-      `${supabaseUrl}/rest/v1/tables?id=eq.${secondaryTableId}`,
-      {
-        method: 'PATCH',
-        headers: { ...dbHeaders, Prefer: 'return=minimal' },
-        body: JSON.stringify({ locked_by_order_id: primaryOrderId }),
-      },
-    )
-    if (!lockTableRes.ok) {
-      return new Response(
-        JSON.stringify({ success: false, error: 'Failed to lock secondary table' }),
-        { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
-      )
-    }
-
     // 8. Compute the new merge_label.
-    // If primary order already has a merge_label, append to it.
+    // If the primary order already has a merge_label, append to it.
     // Otherwise build from scratch: "PrimaryLabel + SecondaryLabel"
     const existingMergeLabelRes = await fetchFn(
       `${supabaseUrl}/rest/v1/orders?select=merge_label&id=eq.${primaryOrderId}`,
@@ -263,7 +294,7 @@ export async function handler(
         baseLabel = rows[0].merge_label
       }
     }
-    const newMergeLabel = `${baseLabel} + ${secondaryTable.label}`
+    const newMergeLabel = `${baseLabel} + ${secondaryTableLabel}`
 
     // 9. Update primary order with the new merge_label
     const labelUpdateRes = await fetchFn(

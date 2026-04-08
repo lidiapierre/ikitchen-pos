@@ -72,6 +72,15 @@ export async function handler(
   }
 
   const orderId = payload['order_id'] as string
+  // UUID format validation
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+  if (!UUID_RE.test(orderId)) {
+    return new Response(
+      JSON.stringify({ success: false, error: 'order_id must be a valid UUID' }),
+      { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    )
+  }
+
   const { supabaseUrl, serviceKey } = env
   const dbHeaders = {
     apikey: serviceKey,
@@ -80,7 +89,11 @@ export async function handler(
   }
 
   try {
-    // 1. Fetch the primary order — must exist and have a merge_label
+    // 1. Fetch the primary order — must exist and have a merge_label.
+    // NOTE: We intentionally do NOT check order status here. The unlock
+    // operation is safe on any order status (open, pending_payment, paid, etc.).
+    // Skipping the status check prevents secondary tables from being permanently
+    // locked after the primary order is paid (close_order does not call unmerge).
     const orderRes = await fetchFn(
       `${supabaseUrl}/rest/v1/orders?select=id,status,merge_label&id=eq.${orderId}`,
       { headers: dbHeaders },
@@ -99,12 +112,6 @@ export async function handler(
       )
     }
     const order = orders[0]
-    if (!['open', 'pending_payment'].includes(order.status)) {
-      return new Response(
-        JSON.stringify({ success: false, error: 'Order is not open' }),
-        { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
-      )
-    }
     if (!order.merge_label) {
       return new Response(
         JSON.stringify({ success: false, error: 'Order is not part of a merge' }),

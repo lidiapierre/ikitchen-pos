@@ -402,4 +402,89 @@ describe('BillPrintView', () => {
 
     expect(screen.getByText('Cashier 1')).toBeInTheDocument()
   })
+
+  // --- issue #354: standardized KOT and bill layout ---
+
+  it('renders BILL RECEIPT subtitle below restaurant name (issue #354)', () => {
+    render(
+      <BillPrintView
+        tableLabel="Table 3"
+        orderId="order-abc-12345678"
+        items={mockItems}
+        subtotalCents={SUBTOTAL}
+        vatPercent={VAT_PERCENT}
+        totalCents={TOTAL}
+        paymentMethod="card"
+        timestamp="25/03/2026, 14:00:00"
+      />,
+    )
+
+    expect(screen.getByText('BILL RECEIPT')).toBeInTheDocument()
+  })
+
+  it('renders modifier names below item row (issue #354)', () => {
+    const itemsWithModifiers: OrderItem[] = [
+      {
+        id: '1',
+        name: 'Chicken Tikka',
+        quantity: 1,
+        price_cents: 1200,
+        modifier_ids: ['m1'],
+        modifier_names: ['Extra Spicy', 'No Onion'],
+        sent_to_kitchen: true, comp: false, comp_reason: null, seat: null,
+        course: 'main' as const, course_status: 'waiting' as const,
+        menuId: null, printerType: 'kitchen' as const,
+        item_discount_type: null, item_discount_value: null, notes: null,
+      },
+    ]
+
+    render(
+      <BillPrintView
+        tableLabel="Table 3"
+        orderId="order-abc-12345678"
+        items={itemsWithModifiers}
+        subtotalCents={1200}
+        vatPercent={0}
+        totalCents={1200}
+        paymentMethod="card"
+        timestamp="25/03/2026, 14:00:00"
+      />,
+    )
+
+    expect(screen.getByText('+ Extra Spicy')).toBeInTheDocument()
+    expect(screen.getByText('+ No Onion')).toBeInTheDocument()
+  })
+
+  it('renders item notes below item row (issue #354)', () => {
+    const itemsWithNotes: OrderItem[] = [
+      {
+        id: '1',
+        name: 'Karahi',
+        quantity: 1,
+        price_cents: 1500,
+        modifier_ids: [],
+        modifier_names: [],
+        sent_to_kitchen: true, comp: false, comp_reason: null, seat: null,
+        course: 'main' as const, course_status: 'waiting' as const,
+        menuId: null, printerType: 'kitchen' as const,
+        item_discount_type: null, item_discount_value: null,
+        notes: 'Less oil please',
+      },
+    ]
+
+    render(
+      <BillPrintView
+        tableLabel="Table 3"
+        orderId="order-abc-12345678"
+        items={itemsWithNotes}
+        subtotalCents={1500}
+        vatPercent={0}
+        totalCents={1500}
+        paymentMethod="card"
+        timestamp="25/03/2026, 14:00:00"
+      />,
+    )
+
+    expect(screen.getByText('↳ Less oil please')).toBeInTheDocument()
+  })
 })

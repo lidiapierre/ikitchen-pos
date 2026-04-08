@@ -136,6 +136,7 @@ export default function SplitBillPrintView({
             {/* Header */}
             <div className="text-center mb-1">
               <p className="text-base font-bold">{restaurantName}</p>
+              <p className="text-sm">BILL RECEIPT</p>
               <p className="text-xs">{restaurantAddress}</p>
             </div>
 
@@ -179,20 +180,32 @@ export default function SplitBillPrintView({
 
             {/* Items (only for by-seat split) */}
             {!evenSplit && section.items.length > 0 && (
-              <ul className="mb-2">
+              <ul className="mb-2 space-y-0.5">
                 {section.items.map((item) => {
                   const lineCents = item.quantity * item.price_cents
                   const isComp = item.comp
                   return (
-                    <li key={item.id} className="flex justify-between text-sm">
-                      <span>
-                        {item.quantity}× {item.name}
-                        {isComp && <span className="ml-1 text-xs">[COMP]</span>}
-                      </span>
-                      {isComp ? (
-                        <span className="italic text-xs">Complimentary</span>
-                      ) : (
-                        <span>{formatPrice(lineCents, DEFAULT_CURRENCY_SYMBOL, roundBillTotals)}</span>
+                    <li key={item.id}>
+                      <div className="flex justify-between text-sm">
+                        <span>
+                          {item.quantity}× {item.name}
+                          {isComp && <span className="ml-1 text-xs">[COMP]</span>}
+                        </span>
+                        {isComp ? (
+                          <span className="italic text-xs">Complimentary</span>
+                        ) : (
+                          <span>{formatPrice(lineCents, DEFAULT_CURRENCY_SYMBOL, roundBillTotals)}</span>
+                        )}
+                      </div>
+                      {item.modifier_names.length > 0 && (
+                        <ul className="pl-4">
+                          {item.modifier_names.map((mod) => (
+                            <li key={mod} className="text-xs text-zinc-600">+ {mod}</li>
+                          ))}
+                        </ul>
+                      )}
+                      {item.notes && (
+                        <p className="pl-4 text-xs text-zinc-500 italic">↳ {item.notes}</p>
                       )}
                     </li>
                   )

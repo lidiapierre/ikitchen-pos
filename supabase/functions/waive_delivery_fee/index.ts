@@ -13,7 +13,7 @@ import { verifyAndGetCaller } from '../_shared/auth.ts'
 
 export const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-demo-staff-id',
   'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
 }
 
@@ -121,7 +121,7 @@ export async function handler(
     const orderCheckUrl = new URL(`${supabaseUrl}/rest/v1/orders`)
     orderCheckUrl.searchParams.set('id', `eq.${orderId}`)
     orderCheckUrl.searchParams.set('order_type', 'eq.delivery')
-    orderCheckUrl.searchParams.set('select', 'id,restaurant_id')
+    orderCheckUrl.searchParams.set('select', 'id,restaurant_id,delivery_charge')
     orderCheckUrl.searchParams.set('limit', '1')
 
     const orderCheckRes = await fetchFn(orderCheckUrl.toString(), { headers: dbHeaders })
@@ -131,7 +131,7 @@ export async function handler(
         { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
       )
     }
-    const orderRows = (await orderCheckRes.json()) as Array<{ id: string; restaurant_id: string }>
+    const orderRows = (await orderCheckRes.json()) as Array<{ id: string; restaurant_id: string; delivery_charge: number }>
     if (orderRows.length === 0) {
       return new Response(
         JSON.stringify({ success: false, error: 'Delivery order not found' }),
@@ -140,10 +140,10 @@ export async function handler(
     }
 
     // Verify caller's restaurant
-    const callerResUrl = new URL(`${supabaseUrl}/rest/v1/restaurant_users`)
+    const callerResUrl = new URL(`${supabaseUrl}/rest/v1/user_restaurants`)
     callerResUrl.searchParams.set('user_id', `eq.${caller.actorId}`)
     callerResUrl.searchParams.set('restaurant_id', `eq.${orderRows[0].restaurant_id}`)
-    callerResUrl.searchParams.set('select', 'restaurant_id')
+    callerResUrl.searchParams.set('select', 'user_id')
     callerResUrl.searchParams.set('limit', '1')
 
     const callerResRes = await fetchFn(callerResUrl.toString(), { headers: dbHeaders })
@@ -153,7 +153,7 @@ export async function handler(
         { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
       )
     }
-    const callerResRows = (await callerResRes.json()) as Array<{ restaurant_id: string }>
+    const callerResRows = (await callerResRes.json()) as Array<{ user_id: string }>
     if (callerResRows.length === 0) {
       return new Response(
         JSON.stringify({ success: false, error: 'Not authorised to modify this order' }),
@@ -194,6 +194,7 @@ export async function handler(
           entity_type: 'orders',
           entity_id: orderId,
           payload: {
+            previous_charge_cents: orderRows[0].delivery_charge,
             delivery_charge_cents: deliveryChargeCents,
             waived: deliveryChargeCents === 0,
           },

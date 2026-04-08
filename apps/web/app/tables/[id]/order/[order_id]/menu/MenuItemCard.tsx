@@ -8,6 +8,8 @@ import ModifierSelectionModal from './ModifierSelectionModal'
 import { formatPrice, DEFAULT_CURRENCY_SYMBOL } from '@/lib/formatPrice'
 import { useUser } from '@/lib/user-context'
 import { Check } from 'lucide-react'
+import UnifiedPricePanel from '@/components/UnifiedPricePanel'
+import type { UnifiedPricingConfig } from '@/lib/unifiedPricing'
 
 type CourseType = 'starter' | 'main' | 'dessert'
 
@@ -30,9 +32,15 @@ interface MenuItemCardProps {
   /** Called with the same priceCents if the add API call fails, so the caller can roll back its running total. */
   onItemFailed?: (priceCents: number) => void
   currencySymbol?: string
+  /**
+   * Optional unified pricing config (issue #359).
+   * When provided, a price-breakdown panel is shown beneath the item price
+   * displaying the final price for dine-in, takeaway, and delivery.
+   */
+  pricingConfig?: UnifiedPricingConfig
 }
 
-export default function MenuItemCard({ item, orderId, onItemAdded, onItemFailed, currencySymbol = DEFAULT_CURRENCY_SYMBOL }: MenuItemCardProps): JSX.Element {
+export default function MenuItemCard({ item, orderId, onItemAdded, onItemFailed, currencySymbol = DEFAULT_CURRENCY_SYMBOL, pricingConfig }: MenuItemCardProps): JSX.Element {
   const { accessToken: _at } = useUser(); const accessToken = _at ?? ''
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
@@ -165,6 +173,14 @@ export default function MenuItemCard({ item, orderId, onItemAdded, onItemFailed,
             )}
           </div>
           <span className="text-lg font-bold text-brand-gold">{priceFormatted}</span>
+          {/* Unified price panel — issue #359 */}
+          {pricingConfig !== undefined && (
+            <UnifiedPricePanel
+              baseCents={item.price_cents}
+              config={pricingConfig}
+              currencySymbol={currencySymbol}
+            />
+          )}
           {item.modifiers.length > 0 && (
             <span className="text-sm text-zinc-400">{item.modifiers.length} option{item.modifiers.length !== 1 ? 's' : ''}</span>
           )}

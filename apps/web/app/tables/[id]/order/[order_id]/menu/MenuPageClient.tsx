@@ -16,6 +16,9 @@ import { ToastContainer } from '@/components/ui/Toast'
 import VoiceOrderButton from './VoiceOrderButton'
 import { callAddItemToOrder } from './addItemApi'
 import { useUser } from '@/lib/user-context'
+import { fetchUnifiedPricingConfig } from '@/lib/unifiedPricing'
+import type { UnifiedPricingConfig } from '@/lib/unifiedPricing'
+import { fetchOrderVatContext } from '@/lib/fetchVatConfig'
 
 interface MenuPageClientProps {
   tableId: string
@@ -29,6 +32,7 @@ export default function MenuPageClient({ tableId, orderId }: MenuPageClientProps
   const [categories, setCategories] = useState<MenuCategory[]>([])
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState<string | null>(null)
+  const [pricingConfig, setPricingConfig] = useState<UnifiedPricingConfig | undefined>(undefined)
   const [searchQuery, setSearchQuery] = useState('')
   const [filters, setFilters] = useState<MenuFilters>(EMPTY_FILTERS)
   const [addingVoiceItems, setAddingVoiceItems] = useState(false)
@@ -56,6 +60,19 @@ export default function MenuPageClient({ tableId, orderId }: MenuPageClientProps
       })
       .finally(() => {
         setLoading(false)
+      })
+
+    // Fetch unified pricing config for the price-guide panel (issue #359).
+    // Non-blocking: menu loads and renders independently; panel appears when config arrives.
+    fetchOrderVatContext(supabaseUrl, accessToken, orderId)
+      .then(({ restaurantId }) =>
+        fetchUnifiedPricingConfig(supabaseUrl, accessToken, restaurantId),
+      )
+      .then((config) => {
+        setPricingConfig(config)
+      })
+      .catch(() => {
+        // Non-fatal: panel simply won't render if pricing config is unavailable
       })
   }, [orderId, accessToken])
 
@@ -144,6 +161,7 @@ export default function MenuPageClient({ tableId, orderId }: MenuPageClientProps
               orderId={orderId}
               onItemAdded={handleItemAdded}
               onItemFailed={handleItemFailed}
+              pricingConfig={pricingConfig}
             />
           ))}
         </div>
@@ -163,6 +181,7 @@ export default function MenuPageClient({ tableId, orderId }: MenuPageClientProps
                   orderId={orderId}
                   onItemAdded={handleItemAdded}
                   onItemFailed={handleItemFailed}
+                  pricingConfig={pricingConfig}
                 />
               ))}
             </div>

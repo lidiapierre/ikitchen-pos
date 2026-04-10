@@ -162,8 +162,9 @@ export async function handler(
       )
     }
 
-    // 3. Audit log
-    await fetchFn(
+    // 3. Audit log — required (CLAUDE.md: every destructive action must be audited).
+    // Fail loudly like close_order does: a transient write failure should be retried by the caller.
+    const auditRes = await fetchFn(
       `${supabaseUrl}/rest/v1/audit_log`,
       {
         method: 'POST',
@@ -177,7 +178,13 @@ export async function handler(
           payload: { previous_status: 'open', new_status: 'due' },
         }),
       },
-    ).catch(() => { /* Non-fatal */ })
+    )
+    if (!auditRes.ok) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Failed to write audit log' }),
+        { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+      )
+    }
 
     return new Response(
       JSON.stringify({ success: true, data: { status: 'due' } }),

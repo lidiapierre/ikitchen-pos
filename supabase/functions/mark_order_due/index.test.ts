@@ -147,4 +147,36 @@ describe('mark_order_due handler', () => {
       expect(res.status).toBe(500)
     })
   })
+
+  describe('POST — order not found', () => {
+    it('returns 404 when order does not exist', async (): Promise<void> => {
+      const emptyOrderFetch: FetchFn = vi.fn(async (url: string): Promise<Response> => {
+        if (url.includes('/auth/v1/user')) {
+          return new Response(JSON.stringify({ id: ACTOR_ID }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          })
+        }
+        if (url.includes('/rest/v1/users')) {
+          return new Response(JSON.stringify([{ id: ACTOR_ID, role: 'owner' }]), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          })
+        }
+        if (url.includes('/rest/v1/orders')) {
+          return new Response(JSON.stringify([]), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          })
+        }
+        return new Response(null, { status: 200 })
+      }) as FetchFn
+
+      const res = await handler(makeRequest({ order_id: VALID_ORDER_ID }), emptyOrderFetch, TEST_ENV)
+      expect(res.status).toBe(404)
+      const json = await res.json() as { success: boolean; error: string }
+      expect(json.success).toBe(false)
+      expect(json.error).toBe('Order not found')
+    })
+  })
 })

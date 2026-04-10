@@ -1581,7 +1581,6 @@ describe('OrderDetailClient', () => {
 
     it('allows adding a cash amount that exceeds the bill total (cash tip / rounding)', async (): Promise<void> => {
       // Bill total = ৳54.50 (5450 cents). Customer tenders ৳60.00 — over-tender by ৳5.50.
-      render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
       await openPaymentStepForIssue390()
 
       // Enter cash 60.00 (exceeds 54.50 bill)
@@ -1606,7 +1605,6 @@ describe('OrderDetailClient', () => {
 
     it('allows adding a card amount that exceeds the bill total (tip on card)', async (): Promise<void> => {
       // Bill total = ৳54.50. Customer pays ৳60.00 by card — card tip of ৳5.50.
-      render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
       await openPaymentStepForIssue390()
 
       // Select Card method
@@ -1635,7 +1633,6 @@ describe('OrderDetailClient', () => {
     it('allows split: cash first, then card that slightly exceeds remaining balance', async (): Promise<void> => {
       // Bill: ৳54.50 (5450 cents). Cash: ৳4.50 (450 cents), Card: ৳50.10 (5010 cents).
       // Card 5010 > remaining (5450 - 450 = 5000) by 10 cents — should be allowed.
-      render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
       await openPaymentStepForIssue390()
 
       // Add cash 4.50
@@ -1669,7 +1666,6 @@ describe('OrderDetailClient', () => {
       const { callRecordSplitPayment } = await import('./recordPaymentApi')
       vi.mocked(callRecordSplitPayment).mockResolvedValue({ change_due: 550 })
 
-      render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
       await openPaymentStepForIssue390()
 
       // Add card 60.00 (over-tenders ৳54.50 bill by ৳5.50)

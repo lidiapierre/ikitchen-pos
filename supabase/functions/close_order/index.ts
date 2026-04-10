@@ -143,7 +143,8 @@ export async function handler(
         { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
       )
     }
-    if (orders[0].status !== 'open') {
+    // Allow both 'open' and 'due' orders to proceed to payment (issue #370)
+    if (orders[0].status !== 'open' && orders[0].status !== 'due') {
       return new Response(
         JSON.stringify({ success: false, error: 'Order is not open' }),
         { status: 409, headers: { 'Content-Type': 'application/json', ...corsHeaders } },

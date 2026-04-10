@@ -6,7 +6,7 @@ import type { TableRow } from './tablesData'
  */
 export const OVERDUE_THRESHOLD_MINUTES = 120
 
-export type TableStatus = 'available' | 'seated' | 'ordered' | 'overdue' | 'merged'
+export type TableStatus = 'available' | 'seated' | 'ordered' | 'overdue' | 'merged' | 'due'
 
 /**
  * Derive a table's display status from its current data snapshot.
@@ -14,9 +14,10 @@ export type TableStatus = 'available' | 'seated' | 'ordered' | 'overdue' | 'merg
  * Priority rules:
  *  1. locked_by_order_id set → merged (secondary table, part of a merge)
  *  2. No active order → available
- *  3. Order created_at > 2 h ago → overdue  (takes priority over seated/ordered)
- *  4. At least one non-voided item → ordered
- *  5. Order exists but zero non-voided items → seated
+ *  3. order_status === 'due' → due (bill presented, payment deferred — issue #370)
+ *  4. Order created_at > 2 h ago → overdue  (takes priority over seated/ordered)
+ *  5. At least one non-voided item → ordered
+ *  6. Order exists but zero non-voided items → seated
  *
  * `pending_payment` orders are treated the same as `open` orders - there is no
  * longer a separate `bill_requested` status.
@@ -29,6 +30,9 @@ export function getTableStatus(
   if (table.locked_by_order_id !== null && table.open_order_id === null) return 'merged'
 
   if (table.open_order_id === null) return 'available'
+
+  // Due status: bill presented, awaiting deferred payment (issue #370)
+  if (table.order_status === 'due') return 'due'
 
   if (table.order_created_at !== null) {
     const ageMs = nowMs - new Date(table.order_created_at).getTime()
@@ -80,5 +84,12 @@ export const STATUS_CONFIG: Record<TableStatus, StatusConfig> = {
     cardClass: 'bg-purple-50 border-purple-400 hover:bg-purple-100 shadow-sm',
     badgeClass: 'bg-purple-600 text-white border border-purple-600',
     labelClass: 'text-purple-900',
+  },
+  due: {
+    label: 'Due',
+    // Orange to indicate bill presented, payment pending (issue #370).
+    cardClass: 'bg-orange-50 border-orange-400 hover:bg-orange-100 shadow-sm',
+    badgeClass: 'bg-orange-500 text-white border border-orange-500',
+    labelClass: 'text-orange-900',
   },
 }

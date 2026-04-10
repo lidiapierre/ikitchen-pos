@@ -44,9 +44,31 @@ describe('buildKotEscPos', () => {
       timestamp: '2026-01-01 12:00',
     })
     const text = new TextDecoder('latin1').decode(result)
+    // TABLE label present (issue #396)
+    expect(text).toContain('TABLE')
     expect(text).toContain('T5')
     expect(text).toContain('abc12345')
     expect(text).toContain('2026-01-01 12:00')
+  })
+
+  it('shows sequential KOT number when orderNumber is provided (issue #396)', () => {
+    const result = buildKotEscPos(sampleItems, {
+      tableId: 'T5',
+      orderNumber: 7,
+    })
+    const text = new TextDecoder('latin1').decode(result)
+    expect(text).toContain('KOT #007')
+    // UUID prefix should not appear when orderNumber is available
+    expect(text).not.toContain('KOT:')
+  })
+
+  it('falls back to orderId prefix when orderNumber is not provided', () => {
+    const result = buildKotEscPos(sampleItems, {
+      tableId: 'T5',
+      orderId: 'abc12345-xxxx',
+    })
+    const text = new TextDecoder('latin1').decode(result)
+    expect(text).toContain('KOT: abc12345')
   })
 
   it('handles empty items array without throwing', () => {

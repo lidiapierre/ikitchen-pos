@@ -223,7 +223,7 @@ export function buildBillEscPos(
  */
 export function buildKotEscPos(
   items: Array<{ name: string; qty: number }>,
-  header?: { tableId?: string; orderId?: string; timestamp?: string },
+  header?: { tableId?: string; orderId?: string; orderNumber?: number | null; timestamp?: string },
 ): Uint8Array {
   const bytes: number[] = []
 
@@ -249,7 +249,12 @@ export function buildKotEscPos(
     bytes.push(...CMD_ALIGN_LEFT)
   }
   // KOT / order number — secondary (issue #396)
-  if (header?.orderId) {
+  // Prefer sequential orderNumber (matches browser KOT); fall back to UUID prefix
+  if (header?.orderNumber != null) {
+    bytes.push(...CMD_ALIGN_CENTER)
+    bytes.push(...line(`KOT #${String(header.orderNumber).padStart(3, '0')}`))
+    bytes.push(...CMD_ALIGN_LEFT)
+  } else if (header?.orderId) {
     bytes.push(...CMD_ALIGN_CENTER)
     bytes.push(...line(`KOT: ${header.orderId.slice(0, 8)}`))
     bytes.push(...CMD_ALIGN_LEFT)

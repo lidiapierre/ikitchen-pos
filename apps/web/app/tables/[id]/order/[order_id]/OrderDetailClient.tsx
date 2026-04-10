@@ -1073,8 +1073,13 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
    * Print a pre-payment "DUE BILL" copy — available before payment is recorded (issue #370).
    * Renders BillPrintView with isDue=true, then triggers browser print.
    * Available for dine-in and takeaway orders only (not delivery).
+   * Shares billPrintGuardRef with handlePrintBill to prevent double-print from rapid clicks.
    */
   function handlePrintPreBill(): void {
+    // Guard against double-fire from rapid clicks (same ref used by handlePrintBill)
+    if (billPrintGuardRef.current) return
+    billPrintGuardRef.current = true
+
     const ts = formatDateTime(new Date().toISOString())
     setBillTimestamp(ts)
     setPrintingPreBill(true)
@@ -1082,6 +1087,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
       window.print()
       window.addEventListener('afterprint', () => {
         setPrintingPreBill(false)
+        billPrintGuardRef.current = false
       }, { once: true })
     }, 200)
   }

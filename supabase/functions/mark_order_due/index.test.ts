@@ -74,9 +74,10 @@ describe('mark_order_due handler', () => {
 
   describe('POST — validation', () => {
     it('returns 400 when body is malformed JSON', async (): Promise<void> => {
+      // Must include Authorization so auth passes; body is invalid JSON
       const req = new Request('http://localhost/functions/v1/mark_order_due', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer test-jwt' },
         body: 'not-json',
       })
       const res = await handler(req, buildMockFetch('open'), TEST_ENV)

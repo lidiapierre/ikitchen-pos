@@ -1,13 +1,8 @@
 /**
  * API client for the mark_order_due edge function (issue #370).
  * Transitions a dine-in order from 'open' → 'due' (deferred payment / tab).
+ * Throws if the request fails or the server returns success: false.
  */
-
-export interface MarkOrderDueResponse {
-  success: boolean
-  data?: { status: string }
-  error?: string
-}
 
 export async function callMarkOrderDue(
   supabaseUrl: string,
@@ -29,7 +24,7 @@ export async function callMarkOrderDue(
     } catch { /* ignore non-JSON error bodies */ }
     throw new Error(errMsg)
   }
-  const json = (await res.json()) as MarkOrderDueResponse
+  const json = (await res.json()) as { success: boolean; error?: string }
   if (!json.success) {
     throw new Error(json.error ?? 'Failed to mark order as due')
   }

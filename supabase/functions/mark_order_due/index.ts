@@ -137,6 +137,8 @@ export async function handler(
       )
     }
 
+    // null order_type is treated as 'dine_in' (convention for legacy rows without a type set,
+    // mirroring close_order behaviour). Only explicitly non-dine-in types are rejected.
     if ((order.order_type ?? 'dine_in') !== 'dine_in') {
       return new Response(
         JSON.stringify({ success: false, error: 'Mark as Due is only available for dine-in orders' }),

@@ -4,7 +4,8 @@ import type { OrderItem } from '@/app/tables/[id]/order/[order_id]/orderData'
 
 interface KotPrintViewProps {
   tableLabel: string
-  orderId: string
+  /** Internal order UUID. No longer rendered in the KOT layout (issue #396); kept optional for call-site compatibility. */
+  orderId?: string
   items: OrderItem[]
   timestamp: string
   /** When true, prints all items instead of only unsent items (used for reprint). */
@@ -62,7 +63,6 @@ export function formatKotTime(iso: string | null | undefined): string {
 
 export default function KotPrintView({
   tableLabel,
-  orderId,
   items,
   timestamp,
   showAll = false,

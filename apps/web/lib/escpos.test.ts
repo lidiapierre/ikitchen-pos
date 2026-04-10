@@ -51,10 +51,12 @@ describe('buildKotEscPos', () => {
     expect(text).toContain('2026-01-01 12:00')
   })
 
-  it('shows sequential KOT number when orderNumber is provided (issue #396)', () => {
+  it('shows sequential KOT number when orderNumber is provided, suppressing UUID fallback (issue #396)', () => {
+    // Pass both orderNumber and orderId to confirm orderNumber takes precedence
     const result = buildKotEscPos(sampleItems, {
       tableId: 'T5',
       orderNumber: 7,
+      orderId: 'abc12345-xxxx',
     })
     const text = new TextDecoder('latin1').decode(result)
     expect(text).toContain('KOT #007')

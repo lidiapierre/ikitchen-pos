@@ -84,6 +84,37 @@ describe('KotPrintView', () => {
     expect(screen.queryByText('Table')).not.toBeInTheDocument()
   })
 
+  it('renders KOT number on takeaway orders when orderNumber is provided (issue #396)', () => {
+    render(
+      <KotPrintView
+        tableLabel="Takeaway"
+        orderId="order-abc-12345678"
+        items={mockItems}
+        timestamp="06/04/2026, 12:00:00"
+        orderType="takeaway"
+        orderNumber={5}
+      />,
+    )
+
+    expect(screen.getByText('KOT #005')).toBeInTheDocument()
+  })
+
+  it('renders KOT number on delivery orders when orderNumber is provided (issue #396)', () => {
+    render(
+      <KotPrintView
+        tableLabel="Delivery"
+        orderId="order-abc-12345678"
+        items={mockItems}
+        timestamp="06/04/2026, 12:00:00"
+        orderType="delivery"
+        customerName="Ahmed Khan"
+        orderNumber={12}
+      />,
+    )
+
+    expect(screen.getByText('KOT #012')).toBeInTheDocument()
+  })
+
   it('renders order number badge when orderNumber is provided (issue #349)', () => {
     render(
       <KotPrintView

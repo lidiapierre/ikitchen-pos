@@ -53,6 +53,37 @@ describe('KotPrintView', () => {
     expect(screen.getByText('T-5')).toBeInTheDocument()
   })
 
+  it('does not render prominent table block for takeaway orders (issue #396)', () => {
+    render(
+      <KotPrintView
+        tableLabel="Takeaway"
+        orderId="order-abc-12345678"
+        items={mockItems}
+        timestamp="06/04/2026, 12:00:00"
+        orderType="takeaway"
+      />,
+    )
+
+    // The prominent "TABLE" label should not appear for takeaway
+    expect(screen.queryByText('Table')).not.toBeInTheDocument()
+  })
+
+  it('does not render prominent table block for delivery orders (issue #396)', () => {
+    render(
+      <KotPrintView
+        tableLabel="Delivery"
+        orderId="order-abc-12345678"
+        items={mockItems}
+        timestamp="06/04/2026, 12:00:00"
+        orderType="delivery"
+        customerName="Ahmed Khan"
+      />,
+    )
+
+    // The prominent "TABLE" label should not appear for delivery
+    expect(screen.queryByText('Table')).not.toBeInTheDocument()
+  })
+
   it('renders order number badge when orderNumber is provided (issue #349)', () => {
     render(
       <KotPrintView
@@ -79,7 +110,7 @@ describe('KotPrintView', () => {
       />,
     )
 
-    expect(screen.queryByText(/^#\d+$/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/^KOT #\d+$/)).not.toBeInTheDocument()
   })
 
   it('does not render order number badge when orderNumber is not provided', () => {
@@ -92,7 +123,7 @@ describe('KotPrintView', () => {
       />,
     )
 
-    expect(screen.queryByText(/^#\d+$/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/^KOT #\d+$/)).not.toBeInTheDocument()
   })
 
   it('formats order number with leading zeros (e.g. #001 for 1)', () => {

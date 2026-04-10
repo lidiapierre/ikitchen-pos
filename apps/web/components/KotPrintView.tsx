@@ -136,7 +136,7 @@ export default function KotPrintView({
       {/* KOT / order number — secondary, below the table number (issue #396) */}
       {orderNumber != null && (
         <div className="text-center border border-black py-1 mb-2">
-          <p className="text-xs">KOT #{String(orderNumber).padStart(3, '0')}</p>
+          <p className="text-sm">KOT #{String(orderNumber).padStart(3, '0')}</p>
         </div>
       )}
 

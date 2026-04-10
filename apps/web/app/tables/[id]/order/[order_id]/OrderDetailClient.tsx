@@ -288,6 +288,9 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
   const [qtyEditStr, setQtyEditStr] = useState('')
   // Ref-based guard: prevents duplicate commits when Enter unmounts the input and fires onBlur (stale closure problem)
   const qtyCommittingRef = useRef(false)
+  // Per-item debounce state for +/− button taps (issue #389)
+  // Stores { originalItems snapshot for rollback, pending timeout, final target qty } per item id
+  const qtyButtonDebounceRef = useRef<Map<string, { originalItems: OrderItem[]; timeout: ReturnType<typeof setTimeout>; targetQty: number }>>(new Map())
 
   // Guards to prevent duplicate print triggers from rapid double-clicks (issue #372)
   const kotSendGuardRef = useRef(false)
@@ -1796,6 +1799,62 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
       .finally(() => { qtyCommittingRef.current = false })
   }
 
+  /**
+   * Handle a +/− button tap on an order item (issue #389).
+   *
+   * Unlike `commitQuantity` (which uses a shared ref guard for the inline
+   * text-input double-commit problem), this function debounces rapid button
+   * taps so that:
+   *   1. Local state updates IMMEDIATELY on every tap (good UX).
+   *   2. A single API call is made after 400 ms of no further taps.
+   *   3. On failure, state rolls back to what it was before the entire
+   *      tap sequence started.
+   */
+  function handleQtyButton(item: OrderItem, delta: number): void {
+    const pending = qtyButtonDebounceRef.current.get(item.id)
+
+    // Compute the target qty based on the currently-displayed value (pending or actual)
+    const baseQty = pending ? pending.targetQty : item.quantity
+    const newQty = baseQty + delta
+
+    // Tapping − to reach 0 → open the void dialog
+    if (newQty <= 0) {
+      if (pending) {
+        clearTimeout(pending.timeout)
+        qtyButtonDebounceRef.current.delete(item.id)
+      }
+      setVoidingItem(item)
+      setVoidReason('')
+      setVoidError(null)
+      return
+    }
+
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    if (!supabaseUrl || !accessToken) return
+
+    // Snapshot the pre-sequence items list for rollback (only on the first tap in a sequence)
+    const originalItems = pending ? pending.originalItems : items
+
+    // Immediate optimistic update — every tap is reflected in the UI at once
+    setItems((prev) => prev.map((i) => i.id === item.id ? { ...i, quantity: newQty } : i))
+
+    // Cancel the previous debounce timer for this item
+    if (pending) clearTimeout(pending.timeout)
+
+    // Schedule a single API call after 400 ms of inactivity
+    const timeout = setTimeout(() => {
+      qtyButtonDebounceRef.current.delete(item.id)
+      updateOrderItemQuantity(supabaseUrl, accessToken, item.id, newQty)
+        .catch(() => {
+          // Roll back to the state before the entire tap sequence started
+          setItems(originalItems)
+          addToast('Failed to update quantity — please retry', 'error')
+        })
+    }, 400)
+
+    qtyButtonDebounceRef.current.set(item.id, { originalItems, timeout, targetQty: newQty })
+  }
+
   // Display label: merge_label takes precedence over raw table label (issue #274)
   const displayTableLabel = mergeLabel ?? tableLabel
 
@@ -1829,7 +1888,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
               <button
                 type="button"
                 aria-label="Decrease quantity"
-                onClick={() => { commitQuantity(item, item.quantity - 1) }}
+                onClick={() => { handleQtyButton(item, -1) }}
                 className="min-h-[48px] min-w-[48px] flex items-center justify-center rounded-lg bg-zinc-700 hover:bg-zinc-600 text-white text-xl font-bold transition-colors"
               >
                 −
@@ -1864,15 +1923,20 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
                   type="button"
                   aria-label={`Quantity ${item.quantity}, tap to edit`}
                   onClick={() => { setQtyEditingId(item.id); setQtyEditStr(String(item.quantity)) }}
-                  className="w-14 text-center text-white font-bold text-base min-h-[48px] rounded-lg bg-zinc-700 hover:bg-zinc-600 transition-colors border-2 border-transparent hover:border-amber-400/50"
+                  className={[
+                    'w-14 text-center font-bold text-base min-h-[48px] rounded-lg transition-colors border-2',
+                    item.quantity > 1
+                      ? 'bg-amber-500/20 border-amber-400 text-amber-300'
+                      : 'bg-zinc-700 hover:bg-zinc-600 text-white border-transparent hover:border-amber-400/50',
+                  ].join(' ')}
                 >
-                  {item.quantity}
+                  {item.quantity > 1 ? `×${item.quantity}` : item.quantity}
                 </button>
               )}
               <button
                 type="button"
                 aria-label="Increase quantity"
-                onClick={() => { commitQuantity(item, item.quantity + 1) }}
+                onClick={() => { handleQtyButton(item, 1) }}
                 className="min-h-[48px] min-w-[48px] flex items-center justify-center rounded-lg bg-zinc-700 hover:bg-zinc-600 text-white text-xl font-bold transition-colors"
               >
                 +

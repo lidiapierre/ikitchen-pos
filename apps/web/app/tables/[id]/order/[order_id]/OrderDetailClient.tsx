@@ -585,6 +585,15 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
     return () => { clearTimeout(timer) }
   }, [step, router, printingBill])
 
+  // Clean up any pending qty-button debounce timers when the component unmounts (issue #389)
+  useEffect(() => {
+    const ref = qtyButtonDebounceRef.current
+    return () => {
+      ref.forEach(({ timeout }) => { clearTimeout(timeout) })
+      ref.clear()
+    }
+  }, [])
+
   // Exclude comp'd items from the subtotal.
   // Apply per-item discounts first (issue #254), then order-level discount below.
   const rawItemsTotalCents = items
@@ -1822,6 +1831,10 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
       if (pending) {
         clearTimeout(pending.timeout)
         qtyButtonDebounceRef.current.delete(item.id)
+        // Roll back any intermediate optimistic updates from the tap sequence
+        // so the UI shows the original qty while the void dialog is open.
+        // If the user cancels the void, they see the correct quantity.
+        setItems(pending.originalItems)
       }
       setVoidingItem(item)
       setVoidReason('')

@@ -69,6 +69,10 @@ vi.mock('./orderItemNotesApi', () => ({
   updateOrderItemNotes: vi.fn().mockResolvedValue(undefined),
 }))
 
+vi.mock('./updateQuantityApi', () => ({
+  updateOrderItemQuantity: vi.fn().mockResolvedValue(undefined),
+}))
+
 vi.mock('@/lib/fetchVatConfig', () => ({
   fetchOrderVatContext: vi.fn().mockResolvedValue({ restaurantId: 'rest-1', menuId: null }),
   fetchVatConfig: vi.fn().mockResolvedValue({ vatPercent: 15, taxInclusive: false }),
@@ -115,9 +119,12 @@ describe('OrderDetailClient', () => {
     render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
 
     await screen.findByText('Bruschetta')
-    const spans = screen.getAllByText(/^×\d+$/)
-    expect(spans.length).toBeGreaterThanOrEqual(2)
-    expect(screen.getByText('×1')).toBeInTheDocument()
+    // qty > 1 items show ×N badge (amber highlight, issue #389)
+    const qtyBadges = screen.getAllByText(/^×\d+$/)
+    expect(qtyBadges.length).toBeGreaterThanOrEqual(2) // ×2 for Bruschetta and House Wine
+    // qty = 1 item shows plain number (no × prefix)
+    const qtyOne = screen.getByRole('button', { name: 'Quantity 1, tap to edit' })
+    expect(qtyOne).toHaveTextContent('1')
   })
 
   it('renders per-item prices', async (): Promise<void> => {
@@ -1442,6 +1449,111 @@ describe('OrderDetailClient', () => {
       await waitFor((): void => {
         expect(mockPush).toHaveBeenCalledWith('/tables')
       })
+    })
+  })
+
+  describe('handleQtyButton — + and − quantity controls (issue #389)', () => {
+    beforeEach(async (): Promise<void> => {
+      // Provide a real access token so handleQtyButton doesn't early-return on !accessToken
+      const { useUser } = await import('@/lib/user-context')
+      vi.mocked(useUser).mockReturnValue({
+        accessToken: 'test-token', isAdmin: false, role: 'server', loading: false,
+      })
+    })
+
+    it('tapping + immediately shows incremented quantity (optimistic update)', async (): Promise<void> => {
+      render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
+      await screen.findByText('Grilled Salmon') // wait for items to load; Grilled Salmon has qty=1
+
+      // Grilled Salmon is the second item; click its + button
+      const plusButtons = screen.getAllByRole('button', { name: 'Increase quantity' })
+      fireEvent.click(plusButtons[1]) // index 1 = Grilled Salmon
+
+      // Optimistic update: qty=1 → qty=2; badge now shows ×2 (amber, issue #389)
+      await waitFor((): void => {
+        expect(screen.getAllByRole('button', { name: 'Quantity 2, tap to edit' }).length).toBeGreaterThanOrEqual(1)
+      })
+    })
+
+    it('coalesces rapid + taps into a single API call after the debounce delay', async (): Promise<void> => {
+      const { updateOrderItemQuantity } = await import('./updateQuantityApi')
+
+      render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
+      await screen.findByText('Bruschetta') // Bruschetta is first item, qty=2
+
+      // Tap Bruschetta's + button three times quickly
+      const plusButtons = screen.getAllByRole('button', { name: 'Increase quantity' })
+      fireEvent.click(plusButtons[0])
+      fireEvent.click(plusButtons[0])
+      fireEvent.click(plusButtons[0])
+
+      // No API call yet — still within debounce window
+      expect(updateOrderItemQuantity).not.toHaveBeenCalled()
+
+      // Advance past the 400 ms debounce window
+      await act(async (): Promise<void> => {
+        vi.advanceTimersByTime(500)
+      })
+
+      // Exactly one API call with the final coalesced qty (2 + 3 taps = 5)
+      expect(updateOrderItemQuantity).toHaveBeenCalledTimes(1)
+      expect(updateOrderItemQuantity).toHaveBeenCalledWith(
+        'https://example.supabase.co',
+        'test-token',
+        '1', // Bruschetta id
+        5,   // started at qty=2, tapped + 3 times → 5
+      )
+    })
+
+    it('rolls back to original quantity when the API call fails', async (): Promise<void> => {
+      const { updateOrderItemQuantity } = await import('./updateQuantityApi')
+      let rejectQty!: (err: Error) => void
+      vi.mocked(updateOrderItemQuantity).mockReturnValueOnce(
+        new Promise<void>((_, reject) => { rejectQty = reject }),
+      )
+
+      render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
+      await screen.findByText('Grilled Salmon') // qty=1
+
+      // Click Grilled Salmon's + button (index 1)
+      const plusButtons = screen.getAllByRole('button', { name: 'Increase quantity' })
+      fireEvent.click(plusButtons[1])
+
+      // Advance past debounce — API call fires
+      await act(async (): Promise<void> => {
+        vi.advanceTimersByTime(500)
+      })
+
+      // Reject the API call
+      await act(async (): Promise<void> => {
+        rejectQty(new Error('Network error'))
+        await Promise.resolve()
+      })
+
+      // UI must roll back to the original qty=1 (plain number button, no × prefix)
+      await waitFor((): void => {
+        expect(screen.getByRole('button', { name: 'Quantity 1, tap to edit' })).toBeInTheDocument()
+      })
+    })
+
+    it('rapid − taps to 0 open the void dialog and roll back intermediate optimistic state', async (): Promise<void> => {
+      render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
+      await screen.findByText('Bruschetta') // qty=2
+
+      // Tap Bruschetta's − twice:
+      //   Tap 1: qty=2→1 (optimistic), debounce starts, originalItems snapshot captured
+      //   Tap 2: newQty=0 → void path: cancel pending, roll back to snapshot (qty=2), open dialog
+      const minusButtons = screen.getAllByRole('button', { name: 'Decrease quantity' })
+      fireEvent.click(minusButtons[0]) // optimistic: qty 2→1
+      fireEvent.click(minusButtons[0]) // newQty=0 → void dialog + rollback
+
+      // Void dialog should be open
+      await waitFor((): void => {
+        expect(screen.getByText('Void Item')).toBeInTheDocument()
+      })
+
+      // Bruschetta qty badge should have rolled back to ×2 (not show 1 or 0)
+      expect(screen.getAllByRole('button', { name: 'Quantity 2, tap to edit' }).length).toBeGreaterThanOrEqual(1)
     })
   })
 })

@@ -246,7 +246,6 @@ export async function handler(
     //
     //    amount_cents      = the bill portion attributed to this payment method.
     //    tendered_amount_cents = the physical amount handed over by the customer.
-    //    amount_cents          = the portion of the bill covered by this method.
     //
     //    Payments are applied in order; each method covers as much of the remaining
     //    bill balance as possible (capped at that method's tendered amount).

@@ -602,6 +602,18 @@ describe('record_payment — overpayment and tips (issue #390)', () => {
     const json = await res.json() as { success: boolean; data: { change_due: number } }
     expect(json.success).toBe(true)
     expect(json.data.change_due).toBe(1700)
+
+    const rows = captured.paymentInsertBody as InsertedPaymentRow[]
+    const cashRow = rows.find((r) => r.method === 'cash')!
+    const cardRow = rows.find((r) => r.method === 'card')!
+
+    // Cash: covers its full tendered amount (no over-tender on cash side)
+    expect(cashRow.amount_cents).toBe(15000)
+    expect(cashRow.tendered_amount_cents).toBe(15000)
+
+    // Card: amount_cents = remaining bill (198300), tendered = 200000 (over-tender by 1700)
+    expect(cardRow.amount_cents).toBe(198300)
+    expect(cardRow.tendered_amount_cents).toBe(200000)
   })
 
   it('returns 400 when total tendered is less than bill total (under-payment)', async (): Promise<void> => {

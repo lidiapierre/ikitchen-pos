@@ -46,6 +46,8 @@ export interface KotPrintOptions {
   items: KotItem[]
   tableId?: string
   orderId?: string
+  /** Sequential human-readable order number — forwarded to ESC/POS as e.g. "KOT #007" (issue #396). */
+  orderNumber?: number | null
   timestamp?: string
   /**
    * Multi-printer: a specific printer profile to use (from the `printers` table).
@@ -152,6 +154,7 @@ export async function printKot(options: KotPrintOptions): Promise<PrintResult> {
     items,
     tableId,
     orderId,
+    orderNumber,
     timestamp,
     printerProfile,
     printerConfig,
@@ -163,7 +166,7 @@ export async function printKot(options: KotPrintOptions): Promise<PrintResult> {
 
   if (networkTarget) {
     try {
-      const escposBytes = buildKotEscPos(items, { tableId, orderId, timestamp })
+      const escposBytes = buildKotEscPos(items, { tableId, orderId, orderNumber, timestamp })
       await sendToBridge(networkTarget.ip, networkTarget.port, escposBytes)
       return { method: 'network', success: true }
     } catch (err) {

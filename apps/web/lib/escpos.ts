@@ -218,7 +218,7 @@ export function buildBillEscPos(
  * Build ESC/POS bytes for a KOT.
  *
  * @param items   Array of { name, qty } objects representing order items.
- * @param header  Optional header fields (tableId, orderId, timestamp).
+ * @param header  Optional header fields (tableId, orderId, orderNumber, timestamp).
  * @returns       Uint8Array of raw ESC/POS bytes ready to send to the printer.
  */
 export function buildKotEscPos(

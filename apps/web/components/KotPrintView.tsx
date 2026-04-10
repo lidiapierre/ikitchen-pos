@@ -125,14 +125,22 @@ export default function KotPrintView({
         </div>
       )}
 
+      {/* Table number — most prominent element on the KOT (issue #396) */}
+      {!isTakeaway && !isDelivery && (
+        <div className="text-center border-2 border-black py-1 mb-2">
+          <p className="text-xs font-bold tracking-widest uppercase">Table</p>
+          <p className="text-3xl font-bold tracking-widest">{tableLabel}</p>
+        </div>
+      )}
+
+      {/* KOT / order number — secondary, below the table number (issue #396) */}
       {orderNumber != null && (
         <div className="text-center border border-black py-1 mb-2">
-          <p className="text-2xl font-bold tracking-widest">#{String(orderNumber).padStart(3, '0')}</p>
+          <p className="text-xs">KOT #{String(orderNumber).padStart(3, '0')}</p>
         </div>
       )}
 
       <div className="border-t border-b border-black py-1 mb-2 text-sm">
-        {!isTakeaway && !isDelivery && <p>Table: {tableLabel}</p>}
         <p>Time: {timestamp}</p>
         {courseFilter !== undefined && (
           <p className="font-bold text-base mt-1">

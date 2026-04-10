@@ -49,7 +49,8 @@ describe('KotPrintView', () => {
       />,
     )
 
-    expect(screen.getByText('Table: T-5')).toBeInTheDocument()
+    // Table label is now shown prominently on its own (issue #396)
+    expect(screen.getByText('T-5')).toBeInTheDocument()
   })
 
   it('renders order number badge when orderNumber is provided (issue #349)', () => {
@@ -63,8 +64,8 @@ describe('KotPrintView', () => {
       />,
     )
 
-    // Zero-padded 3-digit badge
-    expect(screen.getByText('#007')).toBeInTheDocument()
+    // KOT number shown secondary below table number (issue #396)
+    expect(screen.getByText('KOT #007')).toBeInTheDocument()
   })
 
   it('does not render order number badge when orderNumber is null', () => {
@@ -105,7 +106,7 @@ describe('KotPrintView', () => {
       />,
     )
 
-    expect(screen.getByText('#001')).toBeInTheDocument()
+    expect(screen.getByText('KOT #001')).toBeInTheDocument()
   })
 
   it('formats large order numbers without truncation (e.g. #123)', () => {
@@ -119,7 +120,7 @@ describe('KotPrintView', () => {
       />,
     )
 
-    expect(screen.getByText('#123')).toBeInTheDocument()
+    expect(screen.getByText('KOT #123')).toBeInTheDocument()
   })
 
   // Scheduled time display (issue #352)

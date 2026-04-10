@@ -239,11 +239,19 @@ export function buildKotEscPos(
   bytes.push(...CMD_ALIGN_LEFT)
   bytes.push(...divider())
 
+  // Table number — most prominent (issue #396)
   if (header?.tableId) {
-    bytes.push(...line(`Table : ${header.tableId}`))
+    bytes.push(...CMD_ALIGN_CENTER)
+    bytes.push(...CMD_LARGE_BOLD)
+    bytes.push(...line(header.tableId))
+    bytes.push(...CMD_NORMAL)
+    bytes.push(...CMD_ALIGN_LEFT)
   }
+  // KOT / order number — secondary (issue #396)
   if (header?.orderId) {
-    bytes.push(...line(`Order : ${header.orderId.slice(0, 8)}`))
+    bytes.push(...CMD_ALIGN_CENTER)
+    bytes.push(...line(`KOT: ${header.orderId.slice(0, 8)}`))
+    bytes.push(...CMD_ALIGN_LEFT)
   }
   if (header?.timestamp) {
     bytes.push(...line(`Time  : ${header.timestamp}`))

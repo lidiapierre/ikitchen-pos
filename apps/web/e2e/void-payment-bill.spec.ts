@@ -306,6 +306,15 @@ test.describe('void item, payment, and bill print flows', () => {
     const errors: string[] = []
     page.on('pageerror', (err) => { errors.push(err.message) })
 
+    // Override record_payment mock: card payment for exact amount has no change due
+    await page.route('**/functions/v1/record_payment**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ success: true, data: { payment_id: 'pay-uuid', change_due: 0 } }),
+      })
+    })
+
     await page.route('**/rest/v1/order_items**', async (route) => {
       const url = route.request().url()
       await route.fulfill({

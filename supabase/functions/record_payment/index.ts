@@ -216,11 +216,11 @@ export async function handler(
       )
     }
 
-    // Change due: only when cash is part of the mix
-    const hasCash = paymentsToRecord.some((p) => p.method === 'cash')
-    const changeDue = hasCash
-      ? Math.max(0, totalTenderedCents - finalTotalCents)
-      : 0
+    // Change / tip due: tendered minus bill total.
+    // For cash entries this is physical change returned to the customer.
+    // For card/mobile-only over-tender it is a tip — the cashier sees the amount and
+    // no physical change is expected from the card terminal.
+    const changeDue = Math.max(0, totalTenderedCents - finalTotalCents)
 
     // Primary payment (for audit + legacy response)
     const primaryPayment = paymentsToRecord[0]
@@ -246,30 +246,26 @@ export async function handler(
     //
     //    amount_cents      = the bill portion attributed to this payment method.
     //    tendered_amount_cents = the physical amount handed over by the customer.
-    //      • For card/mobile: tendered = amount (no change given).
-    //      • For cash: tendered may exceed amount (change is given back to customer).
     //
-    //    Non-cash entries are exact (UI prevents over-tendering on non-cash), so
-    //    their amount_cents = their tendered amount. The remaining bill balance is
-    //    attributed to cash entries in order; any excess is the change due.
-    const nonCashBillCents = paymentsToRecord
-      .filter((p) => p.method !== 'cash')
-      .reduce((s, p) => s + p.amount, 0)
-    let cashBillRemaining = Math.max(0, finalTotalCents - nonCashBillCents)
-
+    //    Payments are applied in order; each method covers as much of the remaining
+    //    bill balance as possible (capped at that method's tendered amount).
+    //    Any tendered amount above the bill balance (tip / change) is stored only in
+    //    tendered_amount_cents and in the top-level change_due — it is NOT included in
+    //    amount_cents, keeping revenue reports accurate.
+    //
+    //      • For card/mobile: typically tendered = bill portion (no change). If the
+    //        customer over-tenders (tip on card), amount_cents = bill portion,
+    //        tendered_amount_cents = full card charge.
+    //      • For cash: tendered may exceed the bill portion; change is given back.
+    let billRemaining = finalTotalCents
     const paymentRows = paymentsToRecord.map((p) => {
-      let billAmountCents: number
-      if (p.method === 'cash') {
-        billAmountCents = Math.min(p.amount, cashBillRemaining)
-        cashBillRemaining = Math.max(0, cashBillRemaining - billAmountCents)
-      } else {
-        billAmountCents = p.amount // exact for card/mobile
-      }
+      const billAmountCents = Math.min(p.amount, billRemaining)
+      billRemaining = Math.max(0, billRemaining - billAmountCents)
       return {
         order_id: orderId,
         method: p.method,
         amount_cents: billAmountCents,
-        tendered_amount_cents: p.amount, // physical amount handed over (same as bill for non-cash)
+        tendered_amount_cents: p.amount,
         discount_amount_cents: undefined as number | undefined,
       }
     })

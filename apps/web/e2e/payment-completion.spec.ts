@@ -138,6 +138,15 @@ test.describe('post-payment completion flow', () => {
   test('full flow: close order → card payment → success state → /tables shows table as available', async ({ page }) => {
     await page.goto(`/tables/${TABLE_ID}/order/${ORDER_ID}`);
 
+    // Override record_payment mock for this test: card payment for exact amount has no change due
+    await page.route('**/functions/v1/record_payment**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ success: true, data: { payment_id: 'pay-e2e-1', change_due: 0 } }),
+      });
+    });
+
     // Wait for items to load
     await expect(page.getByText('Margherita Pizza', { exact: true }).last()).toBeVisible();
 
@@ -153,7 +162,7 @@ test.describe('post-payment completion flow', () => {
     await page.getByRole('button', { name: 'Add' }).click();
     await page.getByRole('button', { name: /Confirm Payment/ }).click();
 
-    // Success state must appear
+    // Success state must appear (no change due screen for exact card payment)
     await expect(page.getByText('Payment recorded — order closed')).toBeVisible();
 
     // Wait for auto-navigation to /tables (1.5s)

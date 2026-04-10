@@ -550,3 +550,87 @@ describe('record_payment — tendered_amount_cents (issue #351)', () => {
     expect(row.tendered_amount_cents).toBe(95000)
   })
 })
+
+// ── Overpayment / tip tests (issue #390) ─────────────────────────────────────
+
+describe('record_payment — overpayment and tips (issue #390)', () => {
+  it('returns change_due > 0 for card-only over-tender (tip on card)', async (): Promise<void> => {
+    // Bill: 1000 BDT (100000 cents). Customer pays 1200 BDT by card (tip of 200 BDT).
+    const captured: { paymentInsertBody?: unknown } = {}
+    const mockFetch = buildMockFetch(100000, captured)
+    const req = new Request('http://localhost/functions/v1/record_payment', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer test-jwt' },
+      body: JSON.stringify({
+        order_id: VALID_ORDER_ID,
+        payments: [{ method: 'card', amount: 120000 }],
+      }),
+    })
+    const res = await handler(req, mockFetch, TEST_ENV)
+    expect(res.status).toBe(200)
+    const json = await res.json() as { success: boolean; data: { change_due: number } }
+    expect(json.success).toBe(true)
+    // change_due should reflect the overpayment (tip) even for card
+    expect(json.data.change_due).toBe(20000) // 1200 - 1000 = 200 BDT (in cents)
+
+    const row = captured.paymentInsertBody as InsertedPaymentRow
+    // amount_cents = the bill portion only (revenue-safe, same semantics as cash).
+    // The overpayment (tip) is in change_due and tendered_amount_cents − amount_cents.
+    expect(row.amount_cents).toBe(100000) // bill total (not the full 120000 card charge)
+    expect(row.tendered_amount_cents).toBe(120000)
+  })
+
+  it('accepts split payment where cash entered first, then card slightly over-tenders', async (): Promise<void> => {
+    // Bill: 2133 BDT (213300 cents). Cash: 150 (15000), Card: 2000 (200000).
+    // Card amount (200000) exceeds remaining balance (213300 - 15000 = 198300) by 1700 cents.
+    // Total tendered = 215000 > 213300 → change_due = 1700 cents (17 BDT).
+    const captured: { paymentInsertBody?: unknown } = {}
+    const mockFetch = buildMockFetch(213300, captured)
+    const req = new Request('http://localhost/functions/v1/record_payment', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer test-jwt' },
+      body: JSON.stringify({
+        order_id: VALID_ORDER_ID,
+        payments: [
+          { method: 'cash', amount: 15000 },
+          { method: 'card', amount: 200000 },
+        ],
+      }),
+    })
+    const res = await handler(req, mockFetch, TEST_ENV)
+    expect(res.status).toBe(200)
+    const json = await res.json() as { success: boolean; data: { change_due: number } }
+    expect(json.success).toBe(true)
+    expect(json.data.change_due).toBe(1700)
+
+    const rows = captured.paymentInsertBody as InsertedPaymentRow[]
+    const cashRow = rows.find((r) => r.method === 'cash')!
+    const cardRow = rows.find((r) => r.method === 'card')!
+
+    // Cash: covers its full tendered amount (no over-tender on cash side)
+    expect(cashRow.amount_cents).toBe(15000)
+    expect(cashRow.tendered_amount_cents).toBe(15000)
+
+    // Card: amount_cents = remaining bill (198300), tendered = 200000 (over-tender by 1700)
+    expect(cardRow.amount_cents).toBe(198300)
+    expect(cardRow.tendered_amount_cents).toBe(200000)
+  })
+
+  it('returns 400 when total tendered is less than bill total (under-payment)', async (): Promise<void> => {
+    // Bill: 1000 BDT (100000 cents). Customer only pays 900 BDT.
+    const mockFetch = buildMockFetch(100000)
+    const req = new Request('http://localhost/functions/v1/record_payment', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer test-jwt' },
+      body: JSON.stringify({
+        order_id: VALID_ORDER_ID,
+        payments: [{ method: 'cash', amount: 90000 }],
+      }),
+    })
+    const res = await handler(req, mockFetch, TEST_ENV)
+    expect(res.status).toBe(400)
+    const json = await res.json() as { success: boolean; error: string }
+    expect(json.success).toBe(false)
+    expect(json.error).toBe('Total tendered does not cover the order total')
+  })
+})

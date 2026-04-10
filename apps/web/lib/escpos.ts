@@ -218,12 +218,12 @@ export function buildBillEscPos(
  * Build ESC/POS bytes for a KOT.
  *
  * @param items   Array of { name, qty } objects representing order items.
- * @param header  Optional header fields (tableId, orderId, timestamp).
+ * @param header  Optional header fields (tableId, orderId, orderNumber, timestamp).
  * @returns       Uint8Array of raw ESC/POS bytes ready to send to the printer.
  */
 export function buildKotEscPos(
   items: Array<{ name: string; qty: number }>,
-  header?: { tableId?: string; orderId?: string; timestamp?: string },
+  header?: { tableId?: string; orderId?: string; orderNumber?: number | null; timestamp?: string },
 ): Uint8Array {
   const bytes: number[] = []
 
@@ -239,11 +239,25 @@ export function buildKotEscPos(
   bytes.push(...CMD_ALIGN_LEFT)
   bytes.push(...divider())
 
+  // Table number — most prominent (issue #396)
   if (header?.tableId) {
-    bytes.push(...line(`Table : ${header.tableId}`))
+    bytes.push(...CMD_ALIGN_CENTER)
+    bytes.push(...line('TABLE'))        // label in normal text, matching browser KOT
+    bytes.push(...CMD_LARGE_BOLD)
+    bytes.push(...line(header.tableId))
+    bytes.push(...CMD_NORMAL)
+    bytes.push(...CMD_ALIGN_LEFT)
   }
-  if (header?.orderId) {
-    bytes.push(...line(`Order : ${header.orderId.slice(0, 8)}`))
+  // KOT / order number — secondary (issue #396)
+  // Prefer sequential orderNumber (matches browser KOT); fall back to UUID prefix
+  if (header?.orderNumber != null) {
+    bytes.push(...CMD_ALIGN_CENTER)
+    bytes.push(...line(`KOT #${String(header.orderNumber).padStart(3, '0')}`))
+    bytes.push(...CMD_ALIGN_LEFT)
+  } else if (header?.orderId) {
+    bytes.push(...CMD_ALIGN_CENTER)
+    bytes.push(...line(`KOT: ${header.orderId.slice(0, 8)}`))
+    bytes.push(...CMD_ALIGN_LEFT)
   }
   if (header?.timestamp) {
     bytes.push(...line(`Time  : ${header.timestamp}`))

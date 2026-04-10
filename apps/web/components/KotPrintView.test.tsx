@@ -49,7 +49,70 @@ describe('KotPrintView', () => {
       />,
     )
 
-    expect(screen.getByText('Table: T-5')).toBeInTheDocument()
+    // Table label is now shown prominently on its own (issue #396)
+    expect(screen.getByText('T-5')).toBeInTheDocument()
+  })
+
+  it('does not render prominent table block for takeaway orders (issue #396)', () => {
+    render(
+      <KotPrintView
+        tableLabel="Takeaway"
+        orderId="order-abc-12345678"
+        items={mockItems}
+        timestamp="06/04/2026, 12:00:00"
+        orderType="takeaway"
+      />,
+    )
+
+    // The prominent "TABLE" label should not appear for takeaway
+    expect(screen.queryByText('Table')).not.toBeInTheDocument()
+  })
+
+  it('does not render prominent table block for delivery orders (issue #396)', () => {
+    render(
+      <KotPrintView
+        tableLabel="Delivery"
+        orderId="order-abc-12345678"
+        items={mockItems}
+        timestamp="06/04/2026, 12:00:00"
+        orderType="delivery"
+        customerName="Ahmed Khan"
+      />,
+    )
+
+    // The prominent "TABLE" label should not appear for delivery
+    expect(screen.queryByText('Table')).not.toBeInTheDocument()
+  })
+
+  it('renders KOT number on takeaway orders when orderNumber is provided (issue #396)', () => {
+    render(
+      <KotPrintView
+        tableLabel="Takeaway"
+        orderId="order-abc-12345678"
+        items={mockItems}
+        timestamp="06/04/2026, 12:00:00"
+        orderType="takeaway"
+        orderNumber={5}
+      />,
+    )
+
+    expect(screen.getByText('KOT #005')).toBeInTheDocument()
+  })
+
+  it('renders KOT number on delivery orders when orderNumber is provided (issue #396)', () => {
+    render(
+      <KotPrintView
+        tableLabel="Delivery"
+        orderId="order-abc-12345678"
+        items={mockItems}
+        timestamp="06/04/2026, 12:00:00"
+        orderType="delivery"
+        customerName="Ahmed Khan"
+        orderNumber={12}
+      />,
+    )
+
+    expect(screen.getByText('KOT #012')).toBeInTheDocument()
   })
 
   it('renders order number badge when orderNumber is provided (issue #349)', () => {
@@ -63,8 +126,8 @@ describe('KotPrintView', () => {
       />,
     )
 
-    // Zero-padded 3-digit badge
-    expect(screen.getByText('#007')).toBeInTheDocument()
+    // KOT number shown secondary below table number (issue #396)
+    expect(screen.getByText('KOT #007')).toBeInTheDocument()
   })
 
   it('does not render order number badge when orderNumber is null', () => {
@@ -78,7 +141,7 @@ describe('KotPrintView', () => {
       />,
     )
 
-    expect(screen.queryByText(/^#\d+$/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/^KOT #\d+$/)).not.toBeInTheDocument()
   })
 
   it('does not render order number badge when orderNumber is not provided', () => {
@@ -91,7 +154,7 @@ describe('KotPrintView', () => {
       />,
     )
 
-    expect(screen.queryByText(/^#\d+$/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/^KOT #\d+$/)).not.toBeInTheDocument()
   })
 
   it('formats order number with leading zeros (e.g. #001 for 1)', () => {
@@ -105,7 +168,7 @@ describe('KotPrintView', () => {
       />,
     )
 
-    expect(screen.getByText('#001')).toBeInTheDocument()
+    expect(screen.getByText('KOT #001')).toBeInTheDocument()
   })
 
   it('formats large order numbers without truncation (e.g. #123)', () => {
@@ -119,7 +182,7 @@ describe('KotPrintView', () => {
       />,
     )
 
-    expect(screen.getByText('#123')).toBeInTheDocument()
+    expect(screen.getByText('KOT #123')).toBeInTheDocument()
   })
 
   // Scheduled time display (issue #352)

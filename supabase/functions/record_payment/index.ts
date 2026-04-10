@@ -216,11 +216,12 @@ export async function handler(
       )
     }
 
-    // Change due: only when cash is part of the mix
+    // Change / tip due: tendered minus bill total.
+    // For cash entries this is physical change returned to the customer.
+    // For card/mobile-only over-tender it is a tip — the cashier sees the amount and
+    // no physical change is expected from the card terminal.
     const hasCash = paymentsToRecord.some((p) => p.method === 'cash')
-    const changeDue = hasCash
-      ? Math.max(0, totalTenderedCents - finalTotalCents)
-      : 0
+    const changeDue = Math.max(0, totalTenderedCents - finalTotalCents)
 
     // Primary payment (for audit + legacy response)
     const primaryPayment = paymentsToRecord[0]

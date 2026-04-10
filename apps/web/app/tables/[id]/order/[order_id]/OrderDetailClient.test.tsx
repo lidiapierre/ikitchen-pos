@@ -20,6 +20,7 @@ vi.mock('./closeOrderApi', () => ({
 
 vi.mock('./recordPaymentApi', () => ({
   callRecordPayment: vi.fn(),
+  callRecordSplitPayment: vi.fn(),
 }))
 
 vi.mock('./orderData', () => ({
@@ -1554,6 +1555,138 @@ describe('OrderDetailClient', () => {
 
       // Bruschetta qty badge should have rolled back to ×2 (not show 1 or 0)
       expect(screen.getAllByRole('button', { name: 'Quantity 2, tap to edit' }).length).toBeGreaterThanOrEqual(1)
+    })
+  })
+
+  describe('overpayment / tip (issue #390)', () => {
+    // Helpers shared across tests in this block
+    async function openPaymentStepForIssue390(): Promise<void> {
+      const { callCloseOrder } = await import('./closeOrderApi')
+      vi.mocked(callCloseOrder).mockResolvedValue(undefined)
+      const { fetchOrderSummary } = await import('./orderData')
+      vi.mocked(fetchOrderSummary).mockResolvedValue({
+        status: 'open', payment_method: null, order_type: 'dine_in',
+        customer_name: null, delivery_note: null, customer_mobile: null,
+        bill_number: null, reservation_id: null, customer_id: null,
+        order_number: null, scheduled_time: null, delivery_zone_name: null,
+        delivery_zone_id: null, delivery_charge: 0, merge_label: null,
+      })
+      render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
+      await screen.findByText('Bruschetta')
+      fireEvent.click(screen.getByRole('button', { name: /Close Order/ }))
+      await waitFor((): void => { expect(screen.getByRole('button', { name: /Proceed to Payment/ })).toBeInTheDocument() })
+      fireEvent.click(screen.getByRole('button', { name: /Proceed to Payment/ }))
+      await waitFor((): void => { expect(screen.getByRole('button', { name: /Confirm Payment/ })).toBeInTheDocument() })
+    }
+
+    it('allows adding a cash amount that exceeds the bill total (cash tip / rounding)', async (): Promise<void> => {
+      // Bill total = ৳54.50 (5450 cents). Customer tenders ৳60.00 — over-tender by ৳5.50.
+      render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
+      await openPaymentStepForIssue390()
+
+      // Enter cash 60.00 (exceeds 54.50 bill)
+      const amountInput = screen.getByRole('spinbutton')
+      fireEvent.change(amountInput, { target: { value: '60.00' } })
+      fireEvent.click(screen.getByRole('button', { name: 'Add' }))
+
+      // No error should appear
+      await waitFor((): void => {
+        expect(screen.queryByText(/exceeds remaining balance/i)).not.toBeInTheDocument()
+      })
+
+      // Summary should show tendered amount and change
+      await waitFor((): void => {
+        expect(screen.getByText('Total tendered')).toBeInTheDocument()
+        expect(screen.getByText('Change due')).toBeInTheDocument()
+      })
+
+      // Confirm Payment button must be enabled
+      expect(screen.getByRole('button', { name: /Confirm Payment/ })).not.toBeDisabled()
+    })
+
+    it('allows adding a card amount that exceeds the bill total (tip on card)', async (): Promise<void> => {
+      // Bill total = ৳54.50. Customer pays ৳60.00 by card — card tip of ৳5.50.
+      render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
+      await openPaymentStepForIssue390()
+
+      // Select Card method
+      fireEvent.click(screen.getByRole('button', { name: 'Card' }))
+
+      // Enter card 60.00
+      const amountInput = screen.getByRole('spinbutton')
+      fireEvent.change(amountInput, { target: { value: '60.00' } })
+      fireEvent.click(screen.getByRole('button', { name: 'Add' }))
+
+      // No validation error
+      await waitFor((): void => {
+        expect(screen.queryByText(/exceeds remaining balance/i)).not.toBeInTheDocument()
+      })
+
+      // Summary shows tip / overpayment label for non-cash
+      await waitFor((): void => {
+        expect(screen.getByText('Total tendered')).toBeInTheDocument()
+        expect(screen.getByText('Tip / overpayment')).toBeInTheDocument()
+      })
+
+      // Confirm button is enabled
+      expect(screen.getByRole('button', { name: /Confirm Payment/ })).not.toBeDisabled()
+    })
+
+    it('allows split: cash first, then card that slightly exceeds remaining balance', async (): Promise<void> => {
+      // Bill: ৳54.50 (5450 cents). Cash: ৳4.50 (450 cents), Card: ৳50.10 (5010 cents).
+      // Card 5010 > remaining (5450 - 450 = 5000) by 10 cents — should be allowed.
+      render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
+      await openPaymentStepForIssue390()
+
+      // Add cash 4.50
+      const amountInput = screen.getByRole('spinbutton')
+      fireEvent.change(amountInput, { target: { value: '4.50' } })
+      fireEvent.click(screen.getByRole('button', { name: 'Add' }))
+
+      // Remaining now shown (50.00)
+      await waitFor((): void => {
+        expect(screen.getByText(/Remaining/)).toBeInTheDocument()
+      })
+
+      // Select Card, enter 50.10
+      fireEvent.click(screen.getByRole('button', { name: 'Card' }))
+      const amountInput2 = screen.getByRole('spinbutton')
+      fireEvent.change(amountInput2, { target: { value: '50.10' } })
+      fireEvent.click(screen.getByRole('button', { name: 'Add' }))
+
+      // No error
+      await waitFor((): void => {
+        expect(screen.queryByText(/exceeds remaining balance/i)).not.toBeInTheDocument()
+      })
+
+      // Confirm button enabled
+      await waitFor((): void => {
+        expect(screen.getByRole('button', { name: /Confirm Payment/ })).not.toBeDisabled()
+      })
+    })
+
+    it('shows change/tip step after overpayment by non-cash method', async (): Promise<void> => {
+      const { callRecordSplitPayment } = await import('./recordPaymentApi')
+      vi.mocked(callRecordSplitPayment).mockResolvedValue({ change_due: 550 })
+
+      render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
+      await openPaymentStepForIssue390()
+
+      // Add card 60.00 (over-tenders ৳54.50 bill by ৳5.50)
+      fireEvent.click(screen.getByRole('button', { name: 'Card' }))
+      const amountInput = screen.getByRole('spinbutton')
+      fireEvent.change(amountInput, { target: { value: '60.00' } })
+      fireEvent.click(screen.getByRole('button', { name: 'Add' }))
+
+      await waitFor((): void => {
+        expect(screen.getByRole('button', { name: /Confirm Payment/ })).not.toBeDisabled()
+      })
+      fireEvent.click(screen.getByRole('button', { name: /Confirm Payment/ }))
+
+      // Should show tip/overpayment step (not "Change Due" since no cash)
+      await waitFor((): void => {
+        expect(screen.getByText('Tip / Overpayment')).toBeInTheDocument()
+      })
     })
   })
 })

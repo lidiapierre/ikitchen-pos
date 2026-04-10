@@ -1028,7 +1028,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
           totalCents: billTotalCents,
           paymentMethod: billPaymentMethod,
           amountTenderedCents: billAmountTenderedCents,
-          changeDueCents: billPaymentMethod === 'cash' ? changeDueCents : undefined,
+          changeDueCents: changeDueCents > 0 ? changeDueCents : undefined,
           orderComp: orderIsComp,
         },
         printerProfile: cashierProfile,
@@ -1112,10 +1112,10 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
   /** True when cash is part of any payment in the builder */
   const splitHasCash = splitPayments.some((p) => p.method === 'cash')
 
-  /** Change due for the split (only meaningful when cash is in the mix) */
-  const splitChangeDueCents = splitHasCash
-    ? Math.max(0, splitTotalTenderedCents - billTotalCents)
-    : 0
+  /** Change / tip due: difference when tendered exceeds bill total.
+   *  For cash entries this is physical change returned to the customer.
+   *  For card/mobile-only over-tender it represents a tip. */
+  const splitChangeDueCents = Math.max(0, splitTotalTenderedCents - billTotalCents)
 
   function handleAddSplitPayment(): void {
     setSplitEntryError(null)
@@ -1126,15 +1126,12 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
       return
     }
 
-    // Over-tendering only allowed on cash portions
-    if (splitEntryMethod !== 'cash' && amountCents > splitRemainingCents) {
-      setSplitEntryError('Amount exceeds remaining balance — only cash may over-tender')
-      return
-    }
+    // Over-tendering is allowed on any method (covers tips and rounding scenarios).
+    // For non-cash methods (card/mobile) the excess is treated as a tip — no physical
+    // change is handed back. Change is only calculated and displayed for cash entries.
 
     setSplitPayments((prev) => [...prev, { method: splitEntryMethod, amountCents }])
     setSplitEntryAmountStr('')
-    // Default next method to cash if nothing left in remaining
   }
 
   function handleRemoveSplitPayment(index: number): void {
@@ -1156,12 +1153,8 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
       setPaymentError('Total tendered must cover the full bill amount')
       return
     }
-
-    // Over-tendering only allowed on cash portions
-    if (splitTotalTenderedCents > billTotalCents && !splitHasCash) {
-      setPaymentError('Over-tendering is only allowed on cash payments')
-      return
-    }
+    // Over-tendering (tips / rounding) is accepted for any payment method.
+    // For cash the excess is returned as change; for card/mobile it is treated as a tip.
 
     setPaying(true)
     try {
@@ -1179,7 +1172,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
       // For backward-compat fields used elsewhere
       setConfirmedPaymentMethod(splitPayments.length === 1 ? splitPayments[0].method : 'cash')
 
-      if (splitHasCash && result.change_due > 0) {
+      if (result.change_due > 0) {
         setChangeDueCents(result.change_due)
         setStep('change')
       } else {
@@ -2409,7 +2402,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
             totalCents={billTotalCents}
             paymentMethod={billPaymentMethod}
             amountTenderedCents={billAmountTenderedCents}
-            changeDueCents={(splitHasCash || billPaymentMethod === 'cash') ? changeDueCents : undefined}
+            changeDueCents={changeDueCents > 0 ? changeDueCents : undefined}
             splitPayments={billSplitPayments}
             timestamp={billTimestamp}
             discountAmountCents={appliedDiscountCents}
@@ -3889,7 +3882,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
                   </ul>
                 )}
 
-                {/* Add payment entry row — only shown when balance > 0 or cash over-tender */}
+                {/* Add payment entry row — shown while there is outstanding balance or no payment has been added yet */}
                 {(splitRemainingCents > 0 || splitPayments.length === 0) && (
                   <div className="space-y-2">
                     {/* Method selector */}
@@ -3951,9 +3944,9 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
                       <span>Total tendered</span>
                       <span>{formatPrice(splitTotalTenderedCents, currencySymbol, roundBillTotals)}</span>
                     </div>
-                    {splitHasCash && splitChangeDueCents > 0 && (
+                    {splitChangeDueCents > 0 && (
                       <div className="flex justify-between text-amber-400 font-semibold">
-                        <span>Change due (cash)</span>
+                        <span>{splitHasCash ? 'Change due' : 'Tip / overpayment'}</span>
                         <span>{formatPrice(splitChangeDueCents, currencySymbol, roundBillTotals)}</span>
                       </div>
                     )}
@@ -4018,7 +4011,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
           </div>
         ) : step === 'change' ? (
           <div className="space-y-5">
-            <h2 className="text-xl font-semibold text-white">Change Due</h2>
+            <h2 className="text-xl font-semibold text-white">{splitHasCash ? 'Change Due' : 'Tip / Overpayment'}</h2>
             <p className="text-4xl font-bold text-amber-400">
               {formatPrice(changeDueCents, currencySymbol)}
             </p>

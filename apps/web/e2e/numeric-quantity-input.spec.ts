@@ -169,9 +169,6 @@ test.describe('numeric quantity input', () => {
   });
 
   test('pressing + increases quantity and calls edge function', async ({ page }) => {
-    let updateCalled = false;
-    let patchBody: unknown;
-
     await page.route('**/rest/v1/order_items**', async (route) => {
       await route.fulfill({
         status: 200,
@@ -180,33 +177,28 @@ test.describe('numeric quantity input', () => {
       });
     });
 
-    await page.route('**/functions/v1/update_order_item_quantity**', async (route) => {
-      updateCalled = true;
-      patchBody = JSON.parse(route.request().postData() ?? '{}');
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ success: true }),
-      });
-    });
-
     await page.goto(`/tables/${TABLE_ID}/order/${ORDER_ID}`);
     await expect(page.getByText('Chicken Biryani', { exact: true }).last()).toBeVisible();
 
     const increaseBtn = page.getByRole('button', { name: /increase quantity/i });
+
+    // Set up request listener before the click so we catch the debounced call
+    // (handleQtyButton fires the API after a 400 ms idle window — issue #389)
+    const updateRequestPromise = page.waitForRequest('**/functions/v1/update_order_item_quantity**');
     await increaseBtn.click();
 
+    // Wait for the debounce to fire and capture the outgoing request
+    const updateRequest = await updateRequestPromise;
+    const patchBody = JSON.parse(updateRequest.postData() ?? '{}') as { order_item_id: string; quantity: number };
+
     // Edge function must have been called with qty 3
-    expect(updateCalled).toBe(true);
     expect(patchBody).toMatchObject({ order_item_id: ORDER_ITEM_ID, quantity: 3 });
 
-    // Optimistic UI: quantity badge shows 3
+    // Optimistic UI: quantity badge already shows 3 (updated immediately on tap)
     await expect(page.getByRole('button', { name: /Quantity 3, tap to edit/i })).toBeVisible();
   });
 
   test('pressing − decreases quantity and calls edge function', async ({ page }) => {
-    let patchBody: unknown;
-
     await page.route('**/rest/v1/order_items**', async (route) => {
       await route.fulfill({
         status: 200,
@@ -215,20 +207,17 @@ test.describe('numeric quantity input', () => {
       });
     });
 
-    await page.route('**/functions/v1/update_order_item_quantity**', async (route) => {
-      patchBody = JSON.parse(route.request().postData() ?? '{}');
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ success: true }),
-      });
-    });
-
     await page.goto(`/tables/${TABLE_ID}/order/${ORDER_ID}`);
     await expect(page.getByText('Chicken Biryani', { exact: true }).last()).toBeVisible();
 
     const decreaseBtn = page.getByRole('button', { name: /decrease quantity/i });
+
+    // Set up request listener before the click (debounce — issue #389)
+    const updateRequestPromise = page.waitForRequest('**/functions/v1/update_order_item_quantity**');
     await decreaseBtn.click();
+
+    const updateRequest = await updateRequestPromise;
+    const patchBody = JSON.parse(updateRequest.postData() ?? '{}') as { order_item_id: string; quantity: number };
 
     expect(patchBody).toMatchObject({ order_item_id: ORDER_ITEM_ID, quantity: 2 });
     await expect(page.getByRole('button', { name: /Quantity 2, tap to edit/i })).toBeVisible();

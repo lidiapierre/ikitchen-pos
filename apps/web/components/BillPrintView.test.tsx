@@ -487,4 +487,98 @@ describe('BillPrintView', () => {
 
     expect(screen.getByText('↳ Less oil please')).toBeInTheDocument()
   })
+
+  // Issue #370: pre-payment due bill
+  describe('isDue prop', () => {
+    it('shows "DUE BILL" header instead of "BILL RECEIPT" when isDue=true', () => {
+      render(
+        <BillPrintView
+          tableLabel="Table 3"
+          orderId="order-abc-12345678"
+          items={mockItems}
+          subtotalCents={SUBTOTAL}
+          vatPercent={VAT_PERCENT}
+          totalCents={TOTAL}
+          paymentMethod="card"
+          timestamp="25/03/2026, 14:00:00"
+          isDue
+        />,
+      )
+      expect(screen.getByText('DUE BILL')).toBeInTheDocument()
+      expect(screen.queryByText('BILL RECEIPT')).not.toBeInTheDocument()
+    })
+
+    it('shows AMOUNT DUE banner when isDue=true', () => {
+      render(
+        <BillPrintView
+          tableLabel="Table 3"
+          orderId="order-abc-12345678"
+          items={mockItems}
+          subtotalCents={SUBTOTAL}
+          vatPercent={VAT_PERCENT}
+          totalCents={TOTAL}
+          paymentMethod="card"
+          timestamp="25/03/2026, 14:00:00"
+          isDue
+        />,
+      )
+      expect(screen.getByText(/AMOUNT DUE.*UNPAID/i)).toBeInTheDocument()
+    })
+
+    it('shows "Amount Due" instead of "Pay" when isDue=true', () => {
+      render(
+        <BillPrintView
+          tableLabel="Table 3"
+          orderId="order-abc-12345678"
+          items={mockItems}
+          subtotalCents={SUBTOTAL}
+          vatPercent={VAT_PERCENT}
+          totalCents={TOTAL}
+          paymentMethod="card"
+          timestamp="25/03/2026, 14:00:00"
+          isDue
+        />,
+      )
+      expect(screen.getByText('Amount Due')).toBeInTheDocument()
+      expect(screen.queryByText('Pay')).not.toBeInTheDocument()
+    })
+
+    it('hides "Tendered by" section when isDue=true', () => {
+      render(
+        <BillPrintView
+          tableLabel="Table 3"
+          orderId="order-abc-12345678"
+          items={mockItems}
+          subtotalCents={SUBTOTAL}
+          vatPercent={VAT_PERCENT}
+          totalCents={TOTAL}
+          paymentMethod="cash"
+          amountTenderedCents={5000}
+          changeDueCents={630}
+          timestamp="25/03/2026, 14:00:00"
+          isDue
+        />,
+      )
+      expect(screen.queryByText('Tendered by')).not.toBeInTheDocument()
+      expect(screen.queryByText('Cash Tendered')).not.toBeInTheDocument()
+      expect(screen.queryByText('Change Due')).not.toBeInTheDocument()
+    })
+
+    it('shows "BILL RECEIPT" header when isDue=false (default)', () => {
+      render(
+        <BillPrintView
+          tableLabel="Table 3"
+          orderId="order-abc-12345678"
+          items={mockItems}
+          subtotalCents={SUBTOTAL}
+          vatPercent={VAT_PERCENT}
+          totalCents={TOTAL}
+          paymentMethod="card"
+          timestamp="25/03/2026, 14:00:00"
+        />,
+      )
+      expect(screen.getByText('BILL RECEIPT')).toBeInTheDocument()
+      expect(screen.queryByText('DUE BILL')).not.toBeInTheDocument()
+    })
+  })
 })

@@ -26,6 +26,7 @@ const STATUS_LEGEND: { status: TableStatus; label: string; dotClass: string }[] 
   { status: 'ordered', label: 'Ordered', dotClass: 'bg-brand-gold' },
   { status: 'overdue', label: 'Overdue (>2h)', dotClass: 'bg-red-500' },
   { status: 'merged', label: 'Merged', dotClass: 'bg-purple-500' },
+  { status: 'due', label: 'Due (bill pending)', dotClass: 'bg-orange-500' },
 ]
 
 /** Returns a human-readable order age string from an ISO timestamp. */

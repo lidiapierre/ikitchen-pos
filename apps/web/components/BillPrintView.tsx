@@ -84,6 +84,12 @@ export interface BillPrintViewProps {
    * Internal cent values are unchanged — rounding is display-only.
    */
   roundBillTotals?: boolean
+  /**
+   * When true, renders a pre-payment "DUE BILL" instead of a paid receipt.
+   * Shows a prominent "AMOUNT DUE — UNPAID" banner and hides the payment/tendered section.
+   * Issue #370 — pre-payment bill copy for dine-in and takeaway orders.
+   */
+  isDue?: boolean
 }
 
 export default function BillPrintView({
@@ -121,6 +127,7 @@ export default function BillPrintView({
   deliveryZoneName,
   roundBillTotals = false,
   splitPayments,
+  isDue = false,
 }: BillPrintViewProps): JSX.Element {
   // Use caller-provided vatCents when available (preferred — supports new calculation order).
   // Fall back to derived value for backward compatibility.
@@ -139,7 +146,7 @@ export default function BillPrintView({
       {/* 1. Restaurant name + address */}
       <div className="text-center mb-1">
         <p className="text-base font-bold">{restaurantName}</p>
-        <p className="text-sm">BILL RECEIPT</p>
+        <p className="text-sm">{isDue ? 'DUE BILL' : 'BILL RECEIPT'}</p>
         <p className="text-xs">{restaurantAddress}</p>
       </div>
 
@@ -203,6 +210,13 @@ export default function BillPrintView({
       {orderComp && (
         <div className="text-center border border-black py-1 mb-2 text-sm font-bold tracking-widest">
           ★ COMPLIMENTARY ★
+        </div>
+      )}
+
+      {/* DUE / UNPAID banner — pre-payment bill copy (issue #370) */}
+      {isDue && (
+        <div className="text-center border-2 border-black py-1 mb-2 text-sm font-bold tracking-widest">
+          *** AMOUNT DUE — UNPAID ***
         </div>
       )}
 
@@ -295,7 +309,7 @@ export default function BillPrintView({
               </div>
             )}
             <div className="flex justify-between font-bold border-t border-black pt-0.5 mt-0.5">
-              <span>Pay</span>
+              <span>{isDue ? 'Amount Due' : 'Pay'}</span>
               <span>{formatPrice(payableCents, DEFAULT_CURRENCY_SYMBOL, roundBillTotals)}</span>
             </div>
           </>
@@ -308,8 +322,8 @@ export default function BillPrintView({
         )}
       </div>
 
-      {/* 6. Tendered by (single or split payment) */}
-      {!orderComp && (
+      {/* 6. Tendered by (single or split payment) — hidden on pre-payment due bills */}
+      {!orderComp && !isDue && (
         <div className="border-t border-black pt-1 mb-2 text-sm space-y-0.5">
           {splitPayments && splitPayments.length > 1 ? (
             // Split payment: one line per method

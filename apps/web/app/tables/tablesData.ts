@@ -110,7 +110,7 @@ export async function fetchTables(
 
   const ordersUrl = new URL(`${supabaseUrl}/rest/v1/orders`)
   ordersUrl.searchParams.set('select', 'id,table_id,status,created_at,merge_label')
-  ordersUrl.searchParams.set('status', 'in.(open,pending_payment)')
+  ordersUrl.searchParams.set('status', 'in.(open,due,pending_payment)')
   ordersUrl.searchParams.set('order_type', 'eq.dine_in')
 
   const ordersRes = await fetch(ordersUrl.toString(), { headers })

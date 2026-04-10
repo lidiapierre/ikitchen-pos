@@ -119,4 +119,26 @@ describe('getTableStatus', () => {
     })
     expect(getTableStatus(table, NOW)).toBe('seated')
   })
+
+  // Issue #370: due status
+  it('returns "due" when order_status is "due"', () => {
+    const table = makeTable({
+      open_order_id: 'order-1',
+      order_status: 'due',
+      order_created_at: RECENT,
+      order_item_count: 3,
+    })
+    expect(getTableStatus(table, NOW)).toBe('due')
+  })
+
+  it('returns "due" even when the order would otherwise be overdue', () => {
+    const table = makeTable({
+      open_order_id: 'order-1',
+      order_status: 'due',
+      order_created_at: OVERDUE_AT,
+      order_item_count: 3,
+    })
+    // 'due' takes priority over 'overdue' — payment is pending, not the table being old
+    expect(getTableStatus(table, NOW)).toBe('due')
+  })
 })

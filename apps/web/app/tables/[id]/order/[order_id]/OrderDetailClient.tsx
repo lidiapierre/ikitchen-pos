@@ -7,6 +7,7 @@ import type { JSX } from 'react'
 import { fetchOrderItems, fetchOrderSummary, calcItemDiscountCents } from './orderData'
 import type { OrderItem, CourseType } from './orderData'
 import { callCloseOrder } from './closeOrderApi'
+import { callMarkOrderDue } from './markOrderDueApi'
 import { callRecordSplitPayment } from './recordPaymentApi'
 import type { SplitPaymentEntry } from './recordPaymentApi'
 import { callVoidItem } from './voidItemApi'
@@ -217,6 +218,12 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
   // Bill print state
   const [billTimestamp, setBillTimestamp] = useState('')
   const [printingBill, setPrintingBill] = useState(false)
+  // Pre-payment bill print state (issue #370) — true while printing a "DUE BILL" before payment
+  const [printingPreBill, setPrintingPreBill] = useState(false)
+  // Mark-as-Due state (issue #370) — dine-in only
+  const [orderIsDue, setOrderIsDue] = useState(false)
+  const [markingDue, setMarkingDue] = useState(false)
+  const [markDueError, setMarkDueError] = useState<string | null>(null)
 
   // Course management state
   const [firingCourse, setFiringCourse] = useState<CourseType | null>(null)
@@ -339,6 +346,10 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
         if (summary.status === 'paid') {
           setOrderIsPaid(true)
           setPaidPaymentMethod(summary.payment_method)
+        }
+        // If order is 'due' (deferred payment / tab), flag it so UI shows "Settle Bill" (issue #370)
+        if (summary.status === 'due') {
+          setOrderIsDue(true)
         }
         // If order is already pending_payment (e.g. user navigated back without paying),
         // skip directly to the payment step (issue #318)
@@ -575,15 +586,16 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
   }, [orderReservationId, accessToken])
 
   // Auto-navigate to /tables after success state is shown for 1.5s
-  // Paused while bill is printing (printingBill) to avoid tearing down page during print dialog
+  // Paused while bill is printing (printingBill or printingPreBill) to avoid tearing down page during print dialog
   useEffect(() => {
     if (step !== 'success') return
     if (printingBill) return
+    if (printingPreBill) return
     const timer = setTimeout(() => {
       router.push('/tables')
     }, 1500)
     return () => { clearTimeout(timer) }
-  }, [step, router, printingBill])
+  }, [step, router, printingBill, printingPreBill])
 
   // Clean up any pending qty-button debounce timers when the component unmounts (issue #389)
   useEffect(() => {
@@ -1055,6 +1067,48 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
         billPrintGuardRef.current = false
       }, { once: true })
     }, 200)
+  }
+
+  /**
+   * Print a pre-payment "DUE BILL" copy — available before payment is recorded (issue #370).
+   * Renders BillPrintView with isDue=true, then triggers browser print.
+   * Available for dine-in and takeaway orders only (not delivery).
+   * Shares billPrintGuardRef with handlePrintBill to prevent double-print from rapid clicks.
+   */
+  function handlePrintPreBill(): void {
+    // Guard against double-fire from rapid clicks (same ref used by handlePrintBill)
+    if (billPrintGuardRef.current) return
+    billPrintGuardRef.current = true
+
+    const ts = formatDateTime(new Date().toISOString())
+    setBillTimestamp(ts)
+    setPrintingPreBill(true)
+    setTimeout(() => {
+      window.print()
+      window.addEventListener('afterprint', () => {
+        setPrintingPreBill(false)
+        billPrintGuardRef.current = false
+      }, { once: true })
+    }, 200)
+  }
+
+  /**
+   * Mark a dine-in order as "due" — bill presented, payment deferred (tab) (issue #370).
+   * Transitions status: open → due.
+   */
+  async function handleMarkAsDue(): Promise<void> {
+    setMarkDueError(null)
+    setMarkingDue(true)
+    try {
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+      if (!supabaseUrl || !accessToken) throw new Error('Not authenticated')
+      await callMarkOrderDue(supabaseUrl, accessToken, orderId)
+      setOrderIsDue(true)
+    } catch (err) {
+      setMarkDueError(err instanceof Error ? err.message : 'Failed to mark order as due')
+    } finally {
+      setMarkingDue(false)
+    }
   }
 
   async function handleCloseOrder(): Promise<void> {
@@ -2394,7 +2448,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
 
       {/* Bill print component — only marked as print-area when bill is actively printing */}
       {!splitBillPrinting && (
-        <div className={printingBill ? 'print-area' : ''}>
+        <div className={(printingBill || printingPreBill) ? 'print-area' : ''}>
           <BillPrintView
             tableLabel={displayTableLabel || tableId.slice(0, 8)}
             orderId={orderId}
@@ -2427,6 +2481,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
             deliveryChargeCents={billDeliveryChargeCents > 0 ? billDeliveryChargeCents : undefined}
             deliveryZoneName={orderDeliveryZoneName ?? undefined}
             roundBillTotals={roundBillTotals}
+            isDue={printingPreBill}
           />
         </div>
       )}
@@ -3597,6 +3652,14 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
           </div>
         ) : step === 'order' && !statusLoading ? (
           <>
+            {/* Due status badge — visible when order has been marked as due (issue #370) */}
+            {orderIsDue && (
+              <div className="mb-3 flex items-center gap-2 bg-orange-900/30 border border-orange-600 rounded-xl px-4 py-2">
+                <span className="text-orange-400 font-bold text-sm">⏳ BILL DUE</span>
+                <span className="text-orange-300 text-sm">Payment pending — settle when guest is ready</span>
+              </div>
+            )}
+
             <div className="flex gap-4 mb-3">
               <Link
                 href={`/tables/${tableId}/order/${orderId}/menu`}
@@ -3612,12 +3675,53 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
                   'flex-1 min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold transition-colors',
                   closing
                     ? 'bg-zinc-700 text-zinc-400 cursor-wait'
-                    : 'bg-red-700 hover:bg-red-600 text-white',
+                    : orderIsDue
+                      ? 'bg-amber-600 hover:bg-amber-500 text-white'
+                      : 'bg-red-700 hover:bg-red-600 text-white',
                 ].join(' ')}
               >
-                {closing ? 'Closing…' : 'Close Order'}
+                {closing ? 'Processing…' : orderIsDue ? '💰 Settle Bill' : 'Close Order'}
               </button>
             </div>
+
+            {/* Pre-payment bill print — dine-in and takeaway only (issue #370) */}
+            {items.length >= 1 && orderType !== 'delivery' && (
+              <button
+                type="button"
+                onClick={handlePrintPreBill}
+                disabled={printingPreBill}
+                className={[
+                  'w-full min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold transition-colors mb-3',
+                  printingPreBill
+                    ? 'bg-zinc-700 text-zinc-400 cursor-wait'
+                    : 'bg-zinc-800 hover:bg-zinc-700 text-amber-400 border-2 border-amber-700 hover:border-amber-500',
+                ].join(' ')}
+              >
+                {printingPreBill ? 'Printing…' : <span className='inline-flex items-center gap-1'><PrinterIcon size={16} aria-hidden='true' />Print Bill (DUE)</span>}
+              </button>
+            )}
+
+            {/* Mark as Due — dine-in only, not already due (issue #370) */}
+            {orderType === 'dine_in' && !orderIsDue && items.length >= 1 && (
+              <div className="space-y-1 mb-3">
+                <button
+                  type="button"
+                  onClick={() => { void handleMarkAsDue() }}
+                  disabled={markingDue}
+                  className={[
+                    'w-full min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold transition-colors',
+                    markingDue
+                      ? 'bg-zinc-700 text-zinc-400 cursor-wait'
+                      : 'bg-zinc-800 hover:bg-zinc-700 text-orange-400 border-2 border-orange-700 hover:border-orange-500',
+                  ].join(' ')}
+                >
+                  {markingDue ? 'Marking…' : '⏳ Mark as Due'}
+                </button>
+                {markDueError !== null && (
+                  <p className="text-xs text-red-400">{markDueError}</p>
+                )}
+              </div>
+            )}
 
             {items.length >= 1 && (
               <button

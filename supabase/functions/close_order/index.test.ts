@@ -312,6 +312,33 @@ describe('close_order handler', () => {
     })
   })
 
+  // Issue #370: due → pending_payment transition (settle due/deferred bill)
+  describe('POST — due order (settle due bill, issue #370)', () => {
+    it('returns 200 success for a due order — transitions due → pending_payment', async (): Promise<void> => {
+      const mockFetch = buildMockFetch('due')
+      const req = makeRequest({ order_id: VALID_ORDER_ID })
+      const res = await handler(req, mockFetch, TEST_ENV)
+      expect(res.status).toBe(200)
+      const json = (await res.json()) as { success: boolean; data: { final_total_cents: number } }
+      expect(json.success).toBe(true)
+      expect(typeof json.data.final_total_cents).toBe('number')
+    })
+
+    it('PATCHes the order status to pending_payment for a due order', async (): Promise<void> => {
+      const mockFetch = buildMockFetch('due')
+      const req = makeRequest({ order_id: VALID_ORDER_ID })
+      await handler(req, mockFetch, TEST_ENV)
+
+      const calls = (mockFetch as ReturnType<typeof vi.fn>).mock.calls as Array<[string, RequestInit?]>
+      const patchCalls = calls.filter(
+        ([url, init]) => url.includes('/rest/v1/orders') && init?.method === 'PATCH',
+      )
+      expect(patchCalls.length).toBeGreaterThan(0)
+      const patchBody = JSON.parse(patchCalls[0][1]?.body as string) as { status: string }
+      expect(patchBody.status).toBe('pending_payment')
+    })
+  })
+
   describe('POST — invalid state transitions', () => {
     it('returns 409 when order is closed/paid', async (): Promise<void> => {
       const mockFetch = buildMockFetch('paid')

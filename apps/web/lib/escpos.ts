@@ -242,6 +242,7 @@ export function buildKotEscPos(
   // Table number — most prominent (issue #396)
   if (header?.tableId) {
     bytes.push(...CMD_ALIGN_CENTER)
+    bytes.push(...line('TABLE'))        // label in normal text, matching browser KOT
     bytes.push(...CMD_LARGE_BOLD)
     bytes.push(...line(header.tableId))
     bytes.push(...CMD_NORMAL)

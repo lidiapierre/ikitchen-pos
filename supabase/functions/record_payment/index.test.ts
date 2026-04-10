@@ -574,9 +574,9 @@ describe('record_payment — overpayment and tips (issue #390)', () => {
     expect(json.data.change_due).toBe(20000) // 1200 - 1000 = 200 BDT (in cents)
 
     const row = captured.paymentInsertBody as InsertedPaymentRow
-    // For card, amount_cents = tendered_amount_cents (card is charged the full amount).
-    // The overpayment (tip) is reflected in change_due, not split between columns.
-    expect(row.amount_cents).toBe(120000)
+    // amount_cents = the bill portion only (revenue-safe, same semantics as cash).
+    // The overpayment (tip) is in change_due and tendered_amount_cents − amount_cents.
+    expect(row.amount_cents).toBe(100000) // bill total (not the full 120000 card charge)
     expect(row.tendered_amount_cents).toBe(120000)
   })
 

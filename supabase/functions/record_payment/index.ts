@@ -246,12 +246,13 @@ export async function handler(
     //
     //    amount_cents      = the bill portion attributed to this payment method.
     //    tendered_amount_cents = the physical amount handed over by the customer.
-    //      • For card/mobile: tendered = amount (no change given).
+    //      • For card/mobile: tendered = amount (card is charged the full tendered
+    //        amount, including any tip — the excess is reflected in change_due).
     //      • For cash: tendered may exceed amount (change is given back to customer).
     //
-    //    Non-cash entries are exact (UI prevents over-tendering on non-cash), so
-    //    their amount_cents = their tendered amount. The remaining bill balance is
-    //    attributed to cash entries in order; any excess is the change due.
+    //    Non-cash entries: amount_cents = tendered_amount_cents (card/mobile is charged
+    //    the full tendered amount, including any tip). The remaining bill balance is
+    //    attributed to cash entries in order; any excess is returned as change due.
     const nonCashBillCents = paymentsToRecord
       .filter((p) => p.method !== 'cash')
       .reduce((s, p) => s + p.amount, 0)

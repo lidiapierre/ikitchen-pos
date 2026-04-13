@@ -350,7 +350,7 @@ export default function TablesPage(): JSX.Element {
       if (selectedZone) return selectedZone.charge_amount
       if (deliveryFreeShipping) return 0
       const custom = parseFloat(deliveryCustomChargeStr || '0')
-      return isNaN(custom) ? 0 : Math.round(custom * 100)
+      return isNaN(custom) || custom < 0 ? 0 : Math.round(custom * 100)
     })()
 
     const params = new URLSearchParams({
@@ -852,13 +852,13 @@ export default function TablesPage(): JSX.Element {
                       if (!deliveryFreeShipping) setDeliveryCustomChargeStr('')
                     }}
                     className={[
-                      'text-sm font-semibold px-3 min-h-[36px] rounded-lg border-2 transition-colors font-body',
+                      'text-sm font-semibold px-3 min-h-[48px] rounded-lg border-2 transition-colors font-body',
                       deliveryFreeShipping
                         ? 'border-amber-600 text-amber-400 hover:border-amber-400 hover:bg-amber-900/20'
                         : 'border-emerald-700 text-emerald-400 hover:border-emerald-500 hover:bg-emerald-900/20',
                     ].join(' ')}
                   >
-                    {deliveryFreeShipping ? '↩ Add charge' : '🆓 Free Delivery'}
+                    {deliveryFreeShipping ? '↩ Restore charge' : '🆓 Mark as Free'}
                   </button>
                 </div>
                 {deliveryFreeShipping ? (

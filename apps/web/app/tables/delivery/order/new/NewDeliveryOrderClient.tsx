@@ -27,7 +27,8 @@ export default function NewDeliveryOrderClient(): JSX.Element {
   const deliveryZoneId = searchParams.get('deliveryZoneId') ?? ''
   const deliveryChargeStr = searchParams.get('deliveryCharge') ?? ''
   const deliveryZoneName = searchParams.get('deliveryZoneName') ?? ''
-  const deliveryChargeCents = deliveryChargeStr ? parseInt(deliveryChargeStr, 10) : 0
+  const parsedCharge = parseInt(deliveryChargeStr, 10)
+  const deliveryChargeCents = deliveryChargeStr !== '' && !Number.isNaN(parsedCharge) ? parsedCharge : 0
   const { accessToken: _at } = useUser()
   // _at === null means auth is still loading; wait before firing.
   const accessToken = _at ?? ''

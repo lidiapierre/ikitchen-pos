@@ -12,6 +12,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import type { JSX } from 'react'
 import { Receipt, Printer, ChevronDown, ChevronUp, Search, RefreshCw, CalendarDays } from 'lucide-react'
 import { useUser } from '@/lib/user-context'
+import { supabase } from '@/lib/supabase'
 import {
   fetchBillHistory,
   fetchOrderForReprint,
@@ -420,7 +421,7 @@ function ReceiptRow({
 }
 
 export default function ReceiptsClient(): JSX.Element {
-  const { isAdmin, loading: userLoading, accessToken, userId: currentUserId } = useUser()
+  const { isAdmin, loading: userLoading, accessToken } = useUser()
   const [orders, setOrders] = useState<BillHistoryOrder[]>([])
   const [totalDailyCents, setTotalDailyCents] = useState(0)
   const [truncated, setTruncated] = useState(false)
@@ -446,13 +447,12 @@ export default function ReceiptsClient(): JSX.Element {
   // Re-print state
   const [reprintOrder, setReprintOrder] = useState<BillHistoryOrder | null>(null)
 
-  // Active shift data (loaded from localStorage once on mount)
-  const [shiftData, setShiftData] = useState<ShiftData | null>(null)
+  // Current user ID for staff shift filtering (resolved from supabase session)
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
 
-  // Load active shift from localStorage on mount
-  useEffect(() => {
-    setShiftData(loadShiftFromStorage())
-  }, [])
+  // Lazy initialiser reads localStorage once at mount — no useEffect + setState needed.
+  // loadShiftFromStorage() already guards against SSR (typeof window check).
+  const [shiftData] = useState<ShiftData | null>(() => loadShiftFromStorage())
 
   const load = useCallback(async () => {
     if (!accessToken) return
@@ -498,6 +498,20 @@ export default function ReceiptsClient(): JSX.Element {
       setLoading(false)
     }
   }, [accessToken, isAdmin, currentUserId, shiftData, committedParams])
+
+  // Resolve current user ID for staff shift filtering.
+  // Must resolve before non-admin fetches fire (the load guard checks this).
+  useEffect(() => {
+    async function fetchUserId(): Promise<void> {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        setError('Could not identify the current user. Please log out and back in.')
+        return
+      }
+      setCurrentUserId(user.id)
+    }
+    void fetchUserId()
+  }, [])
 
   // Load config once
   useEffect(() => {

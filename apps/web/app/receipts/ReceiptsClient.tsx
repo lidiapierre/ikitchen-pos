@@ -12,7 +12,6 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import type { JSX } from 'react'
 import { Receipt, Printer, ChevronDown, ChevronUp, Search, RefreshCw, CalendarDays } from 'lucide-react'
 import { useUser } from '@/lib/user-context'
-import { supabase } from '@/lib/supabase'
 import {
   fetchBillHistory,
   fetchOrderForReprint,
@@ -259,7 +258,7 @@ function ReprintModal({
         </div>
 
         {printed && (
-          <p className="text-brand-gold text-xs text-center">Print dialog opened. Use your browser's print controls.</p>
+          <p className="text-brand-gold text-xs text-center">Print dialog opened. Use your browser&apos;s print controls.</p>
         )}
 
         <div className="flex gap-3">
@@ -421,7 +420,7 @@ function ReceiptRow({
 }
 
 export default function ReceiptsClient(): JSX.Element {
-  const { isAdmin, loading: userLoading, accessToken } = useUser()
+  const { isAdmin, loading: userLoading, accessToken, userId: currentUserId } = useUser()
   const [orders, setOrders] = useState<BillHistoryOrder[]>([])
   const [totalDailyCents, setTotalDailyCents] = useState(0)
   const [truncated, setTruncated] = useState(false)
@@ -438,22 +437,11 @@ export default function ReceiptsClient(): JSX.Element {
   // Re-print state
   const [reprintOrder, setReprintOrder] = useState<BillHistoryOrder | null>(null)
 
-  // Current user ID for staff shift filtering
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+  // Active shift data (loaded from localStorage once on mount)
   const [shiftData, setShiftData] = useState<ShiftData | null>(null)
 
-  // Load current user ID for staff shift filter
+  // Load active shift from localStorage on mount
   useEffect(() => {
-    async function fetchUserId(): Promise<void> {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        setError('Could not identify the current user. Please log out and back in.')
-        return
-      }
-      setCurrentUserId(user.id)
-    }
-    void fetchUserId()
-    // Load active shift from localStorage
     setShiftData(loadShiftFromStorage())
   }, [])
 

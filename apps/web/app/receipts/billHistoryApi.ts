@@ -481,7 +481,7 @@ export async function fetchRestaurantConfig(
   }
 
   return {
-    restaurantName: restaurantName || 'Lahore by iKitchen',
+    restaurantName: restaurantName || '',
     restaurantAddress: cfgMap.get('restaurant_address') ?? '',
     binNumber: cfgMap.get('bin_number'),
     registerName: cfgMap.get('register_name'),

@@ -49,7 +49,8 @@ function loadShiftFromStorage(): ShiftData | null {
 }
 
 function getTodayIso(): string {
-  return new Date().toISOString().slice(0, 10)
+  // Use local date (consistent with billHistoryApi.ts localDayRange)
+  return new Date().toLocaleDateString('en-CA')
 }
 
 /** Format ISO as HH:mm for compact time-only display */
@@ -470,8 +471,8 @@ export default function ReceiptsClient(): JSX.Element {
         // Staff: filter to their own orders, on the shift date
         if (currentUserId) params.serverId = currentUserId
         if (shiftData) {
-          // Use the date of the shift start as the date filter
-          params.date = shiftData.started_at.slice(0, 10)
+          // Convert UTC ISO timestamp to local date — avoids off-by-one for UTC+N restaurants
+          params.date = new Date(shiftData.started_at).toLocaleDateString('en-CA')
         } else {
           params.date = getTodayIso()
         }

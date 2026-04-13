@@ -363,7 +363,7 @@ describe('fetchRestaurantConfig', () => {
 
     const cfg = await fetchRestaurantConfig(BASE_URL, TOKEN)
 
-    expect(cfg.restaurantName).toBe('Lahore by iKitchen')
+    expect(cfg.restaurantName).toBe('')
     expect(cfg.vatPercent).toBe(0)
     expect(cfg.roundBillTotals).toBe(false)
     expect(cfg.currencySymbol).toBe('৳')
@@ -404,7 +404,7 @@ describe('fetchRestaurantConfig', () => {
     // Should not throw — all errors are silently swallowed
     const cfg = await fetchRestaurantConfig(BASE_URL, TOKEN)
     expect(cfg.vatPercent).toBe(0)
-    expect(cfg.restaurantName).toBe('Lahore by iKitchen')
+    expect(cfg.restaurantName).toBe('')
     expect(cfg.roundBillTotals).toBe(false)
   })
 })

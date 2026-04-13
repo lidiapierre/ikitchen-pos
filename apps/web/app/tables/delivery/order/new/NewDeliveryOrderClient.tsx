@@ -27,7 +27,8 @@ export default function NewDeliveryOrderClient(): JSX.Element {
   const deliveryZoneId = searchParams.get('deliveryZoneId') ?? ''
   const deliveryChargeStr = searchParams.get('deliveryCharge') ?? ''
   const deliveryZoneName = searchParams.get('deliveryZoneName') ?? ''
-  const deliveryChargeCents = deliveryChargeStr ? parseInt(deliveryChargeStr, 10) : 0
+  const parsedCharge = parseInt(deliveryChargeStr, 10)
+  const deliveryChargeCents = deliveryChargeStr !== '' && !Number.isNaN(parsedCharge) ? parsedCharge : 0
   const { accessToken: _at } = useUser()
   // _at === null means auth is still loading; wait before firing.
   const accessToken = _at ?? ''
@@ -164,13 +165,17 @@ export default function NewDeliveryOrderClient(): JSX.Element {
           {deliveryZoneName && (
             <div className="flex gap-3">
               <dt className="text-zinc-500">Zone</dt>
-              <dd className="text-zinc-300">
-                {deliveryZoneName}
-                {deliveryChargeCents > 0 && (
-                  <span className="ml-2 text-amber-300 font-semibold">
-                    +৳{(deliveryChargeCents / 100).toFixed(2)}
-                  </span>
-                )}
+              <dd className="text-zinc-300">{deliveryZoneName}</dd>
+            </div>
+          )}
+          {/* ── Delivery fee — always shown when deliveryCharge param was provided (issue #393) ── */}
+          {deliveryChargeStr !== '' && (
+            <div className="flex gap-3">
+              <dt className="text-zinc-500">Delivery Fee</dt>
+              <dd className={deliveryChargeCents > 0 ? 'font-semibold text-amber-300' : 'font-semibold text-emerald-400'}>
+                {deliveryChargeCents > 0
+                  ? `৳${(deliveryChargeCents / 100).toFixed(2)}`
+                  : 'Free Delivery'}
               </dd>
             </div>
           )}

@@ -1296,6 +1296,80 @@ describe('OrderDetailClient', () => {
 
       expect(screen.getByText('No items on this order.')).toBeInTheDocument()
     })
+
+    it('shows Delivery Fee row in paid read-only view for delivery orders (issue #393)', async (): Promise<void> => {
+      // Regression guard: the Delivery Fee row added to the paid-order <dl> in OrderDetailClient.tsx
+      // must render for delivery orders with a non-zero charge. Previously all paid-order tests
+      // used order_type: 'dine_in' + delivery_charge: 0, leaving this render path uncovered.
+      vi.useRealTimers()
+
+      const { fetchOrderSummary } = await import('./orderData')
+      const { fetchOrderItems } = await import('./orderData')
+
+      vi.mocked(fetchOrderSummary).mockResolvedValue({
+        status: 'paid',
+        payment_method: 'cash',
+        order_type: 'delivery',
+        customer_name: 'Ahmed Khan',
+        delivery_note: 'Road 12, House 5',
+        customer_mobile: '+880 1711 123456',
+        bill_number: null,
+        reservation_id: null,
+        customer_id: null,
+        order_number: 99,
+        scheduled_time: null,
+        delivery_zone_name: 'Zone A',
+        delivery_charge: 9900,
+        delivery_zone_id: 'zone-1',
+        merge_label: null,
+      })
+      vi.mocked(fetchOrderItems).mockResolvedValue([])
+
+      render(<OrderDetailClient tableId="delivery" orderId="order-paid-delivery-99" />)
+
+      await waitFor((): void => {
+        expect(screen.getByText('Paid')).toBeInTheDocument()
+      }, { timeout: 10000 })
+
+      // "Delivery Fee" label and the formatted amount should both appear in the paid view
+      expect(screen.getAllByText('Delivery Fee').length).toBeGreaterThanOrEqual(1)
+      expect(screen.getByText('৳ 99.00')).toBeInTheDocument()
+    })
+
+    it('shows Free Delivery in paid read-only view for delivery orders with zero charge (issue #393)', async (): Promise<void> => {
+      vi.useRealTimers()
+
+      const { fetchOrderSummary } = await import('./orderData')
+      const { fetchOrderItems } = await import('./orderData')
+
+      vi.mocked(fetchOrderSummary).mockResolvedValue({
+        status: 'paid',
+        payment_method: 'cash',
+        order_type: 'delivery',
+        customer_name: 'Ahmed Khan',
+        delivery_note: 'Road 12, House 5',
+        customer_mobile: '+880 1711 123456',
+        bill_number: null,
+        reservation_id: null,
+        customer_id: null,
+        order_number: 100,
+        scheduled_time: null,
+        delivery_zone_name: null,
+        delivery_charge: 0,
+        delivery_zone_id: null,
+        merge_label: null,
+      })
+      vi.mocked(fetchOrderItems).mockResolvedValue([])
+
+      render(<OrderDetailClient tableId="delivery" orderId="order-paid-delivery-free" />)
+
+      await waitFor((): void => {
+        expect(screen.getByText('Paid')).toBeInTheDocument()
+      }, { timeout: 10000 })
+
+      expect(screen.getAllByText('Delivery Fee').length).toBeGreaterThanOrEqual(1)
+      expect(screen.getByText('Free Delivery')).toBeInTheDocument()
+    })
   })
 
   describe('reprint KOT', () => {
@@ -1683,6 +1757,74 @@ describe('OrderDetailClient', () => {
       await waitFor((): void => {
         expect(screen.getByText('Tip / Overpayment')).toBeInTheDocument()
       })
+    })
+  })
+
+  // ─── Delivery fee visibility — issue #393 ─────────────────────────────────
+  // NOTE: these tests use vi.useRealTimers() locally because vi.useFakeTimers()
+  // (set in beforeEach) prevents waitFor's internal polling from advancing,
+  // causing all async tests to time-out (pre-existing infra issue).
+  describe('delivery fee visibility (issue #393)', () => {
+    it('shows Delivery Fee in the order header for a delivery order', async (): Promise<void> => {
+      vi.useRealTimers()
+
+      const { fetchOrderSummary } = await import('./orderData')
+      vi.mocked(fetchOrderSummary).mockResolvedValue({
+        status: 'open',
+        payment_method: null,
+        order_type: 'delivery',
+        customer_name: 'Ahmed Khan',
+        delivery_note: 'Road 12, House 5',
+        customer_mobile: '+880 1711 123456',
+        bill_number: null,
+        reservation_id: null,
+        customer_id: null,
+        order_number: 42,
+        scheduled_time: '2026-04-06T18:00:00.000Z',
+        delivery_zone_name: 'Zone A',
+        delivery_charge: 9900,
+        delivery_zone_id: 'zone-1',
+        merge_label: null,
+      })
+
+      render(<OrderDetailClient tableId="delivery" orderId="order-delivery-1" />)
+
+      await waitFor((): void => {
+        expect(screen.getAllByText('Delivery Fee').length).toBeGreaterThanOrEqual(1)
+      }, { timeout: 10000 })
+    })
+
+    it('shows Waive Delivery Fee button for non-admin staff on delivery orders (issue #393)', async (): Promise<void> => {
+      vi.useRealTimers()
+
+      const { fetchOrderSummary } = await import('./orderData')
+      vi.mocked(fetchOrderSummary).mockResolvedValue({
+        status: 'open',
+        payment_method: null,
+        order_type: 'delivery',
+        customer_name: 'Ahmed Khan',
+        delivery_note: 'Road 12, House 5',
+        customer_mobile: '+880 1711 123456',
+        bill_number: null,
+        reservation_id: null,
+        customer_id: null,
+        order_number: 42,
+        scheduled_time: '2026-04-06T18:00:00.000Z',
+        delivery_zone_name: 'Zone A',
+        delivery_charge: 9900,
+        delivery_zone_id: 'zone-1',
+        merge_label: null,
+      })
+
+      // Non-admin user — previously this button was admin-only
+      const { useUser } = await import('@/lib/user-context')
+      vi.mocked(useUser).mockReturnValue({ accessToken: 'test-token', isAdmin: false, role: 'waiter', loading: false })
+
+      render(<OrderDetailClient tableId="delivery" orderId="order-delivery-1" />)
+
+      await waitFor((): void => {
+        expect(screen.getByRole('button', { name: /waive delivery fee/i })).toBeInTheDocument()
+      }, { timeout: 10000 })
     })
   })
 })

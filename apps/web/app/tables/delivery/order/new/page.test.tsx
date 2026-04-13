@@ -199,4 +199,145 @@ describe('NewDeliveryOrderPage', () => {
       expect(mockReplace).not.toHaveBeenCalled()
     })
   })
+
+  describe('delivery fee display (issue #393)', () => {
+    it('shows the delivery fee prominently when deliveryCharge param is provided and > 0', async () => {
+      mockSearchParamsGet.mockImplementation((key: string) => {
+        const params: Record<string, string> = {
+          customerName: 'Ahmed Khan',
+          customerPhone: '+880 1711 123456',
+          deliveryNote: 'Road 12, House 5',
+          scheduledTime: '2026-04-06T18:00:00.000Z',
+          deliveryZoneName: 'Zone A',
+          deliveryCharge: '9900',  // ৳99.00 in cents
+        }
+        return params[key] ?? null
+      })
+
+      const { callCreateOrder } = await import('../../../components/createOrderApi')
+      vi.mocked(callCreateOrder).mockReturnValue(new Promise(() => { /* never resolves */ }))
+
+      render(<NewDeliveryOrderClient />)
+
+      // Delivery Fee label and amount visible immediately
+      expect(screen.getByText('Delivery Fee')).toBeInTheDocument()
+      expect(screen.getByText('৳99.00')).toBeInTheDocument()
+    })
+
+    it('shows "Free Delivery" when deliveryCharge param is 0', async () => {
+      mockSearchParamsGet.mockImplementation((key: string) => {
+        const params: Record<string, string> = {
+          customerName: 'Ahmed Khan',
+          customerPhone: '+880 1711 123456',
+          deliveryNote: 'Road 12, House 5',
+          scheduledTime: '2026-04-06T18:00:00.000Z',
+          deliveryCharge: '0',  // Free delivery
+        }
+        return params[key] ?? null
+      })
+
+      const { callCreateOrder } = await import('../../../components/createOrderApi')
+      vi.mocked(callCreateOrder).mockReturnValue(new Promise(() => { /* never resolves */ }))
+
+      render(<NewDeliveryOrderClient />)
+
+      expect(screen.getByText('Delivery Fee')).toBeInTheDocument()
+      expect(screen.getByText('Free Delivery')).toBeInTheDocument()
+    })
+
+    it('callCreateOrder is called without deliveryChargeCents when deliveryCharge is 0 (free delivery)', async () => {
+      // Regression guard: deliveryChargeCents must NOT be sent when charge = 0
+      // (charge=0 means free delivery; omitting the field keeps the API call minimal)
+      mockSearchParamsGet.mockImplementation((key: string) => {
+        const params: Record<string, string> = {
+          customerName: 'Ahmed Khan',
+          customerPhone: '+880 1711 123456',
+          deliveryNote: 'Road 12, House 5',
+          scheduledTime: '2026-04-06T18:00:00.000Z',
+          deliveryCharge: '0',  // Free delivery
+        }
+        return params[key] ?? null
+      })
+
+      const { callCreateOrder } = await import('../../../components/createOrderApi')
+      vi.mocked(callCreateOrder).mockResolvedValue({ order_id: 'delivery-order-free' })
+
+      render(<NewDeliveryOrderClient />)
+
+      await waitFor(() => {
+        expect(callCreateOrder).toHaveBeenCalledWith(
+          'https://test.supabase.co',
+          'test-token',
+          expect.not.objectContaining({ deliveryChargeCents: expect.anything() }),
+          expect.any(AbortSignal),
+        )
+      })
+    })
+
+    it('shows "Free Delivery" for invalid (non-numeric) deliveryCharge param — NaN guard', async () => {
+      // Regression guard for parseInt NaN on a corrupt URL param
+      mockSearchParamsGet.mockImplementation((key: string) => {
+        const params: Record<string, string> = {
+          customerName: 'Ahmed Khan',
+          customerPhone: '+880 1711 123456',
+          deliveryNote: 'Road 12, House 5',
+          scheduledTime: '2026-04-06T18:00:00.000Z',
+          deliveryCharge: 'INVALID',
+        }
+        return params[key] ?? null
+      })
+
+      const { callCreateOrder } = await import('../../../components/createOrderApi')
+      vi.mocked(callCreateOrder).mockReturnValue(new Promise(() => { /* never resolves */ }))
+
+      render(<NewDeliveryOrderClient />)
+
+      // deliveryChargeStr is non-empty but NaN after parseInt — treated as free
+      expect(screen.getByText('Delivery Fee')).toBeInTheDocument()
+      expect(screen.getByText('Free Delivery')).toBeInTheDocument()
+    })
+
+    it('does not show Delivery Fee row when deliveryCharge param is absent (backward compat)', async () => {
+      // No deliveryCharge param (old URL format)
+      mockSearchParamsGet.mockImplementation((key: string) => {
+        const params: Record<string, string> = {
+          customerName: 'Ahmed Khan',
+          customerPhone: '+880 1711 123456',
+          deliveryNote: 'Road 12, House 5',
+          scheduledTime: '2026-04-06T18:00:00.000Z',
+        }
+        return params[key] ?? null
+      })
+
+      const { callCreateOrder } = await import('../../../components/createOrderApi')
+      vi.mocked(callCreateOrder).mockReturnValue(new Promise(() => { /* never resolves */ }))
+
+      render(<NewDeliveryOrderClient />)
+
+      expect(screen.queryByText('Delivery Fee')).not.toBeInTheDocument()
+    })
+
+    it('shows zone name separately from the fee', async () => {
+      mockSearchParamsGet.mockImplementation((key: string) => {
+        const params: Record<string, string> = {
+          customerName: 'Ahmed Khan',
+          customerPhone: '+880 1711 123456',
+          deliveryNote: 'Road 12, House 5',
+          scheduledTime: '2026-04-06T18:00:00.000Z',
+          deliveryZoneName: 'Zone B',
+          deliveryCharge: '19900',  // ৳199.00 in cents
+        }
+        return params[key] ?? null
+      })
+
+      const { callCreateOrder } = await import('../../../components/createOrderApi')
+      vi.mocked(callCreateOrder).mockReturnValue(new Promise(() => { /* never resolves */ }))
+
+      render(<NewDeliveryOrderClient />)
+
+      // Zone and fee are shown as separate rows
+      expect(screen.getByText('Zone B')).toBeInTheDocument()
+      expect(screen.getByText('৳199.00')).toBeInTheDocument()
+    })
+  })
 })

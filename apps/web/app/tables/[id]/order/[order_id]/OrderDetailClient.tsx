@@ -2370,6 +2370,17 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
                 <dd className="font-semibold text-amber-300">{formatDateTimeShort(orderScheduledTime)}</dd>
               </div>
             )}
+            {/* Delivery fee in paid-order read-only view (issue #393) */}
+            {orderType === 'delivery' && (
+              <div className="flex gap-3">
+                <dt className="text-zinc-500">Delivery Fee</dt>
+                <dd className={orderDeliveryChargeCents > 0 ? 'font-semibold text-amber-300' : 'font-semibold text-emerald-400'}>
+                  {orderDeliveryChargeCents > 0
+                    ? formatPrice(orderDeliveryChargeCents, currencySymbol)
+                    : 'Free Delivery'}
+                </dd>
+              </div>
+            )}
             {paidPaymentMethod !== null && (
               <div className="flex gap-3">
                 <dt className="text-zinc-500">Payment method</dt>
@@ -3380,6 +3391,20 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
               <dd className="font-semibold text-amber-300">{formatDateTimeShort(orderScheduledTime)}</dd>
             </div>
           )}
+          {/* ── Delivery fee — always visible in the order header for delivery orders (issue #393) ── */}
+          {orderType === 'delivery' && (
+            <div className="flex gap-3">
+              <dt className="text-zinc-500">Delivery Fee</dt>
+              <dd
+                data-testid="delivery-fee-header"
+                className={orderDeliveryChargeCents > 0 ? 'font-semibold text-amber-300' : 'font-semibold text-emerald-400'}
+              >
+                {orderDeliveryChargeCents > 0
+                  ? formatPrice(orderDeliveryChargeCents, currencySymbol)
+                  : 'Free Delivery'}
+              </dd>
+            </div>
+          )}
         </dl>
         {/* Reservation info block — shown when order was created via Seat action (issue #277) */}
         {orderReservationInfo !== null && (
@@ -3806,8 +3831,9 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
               </button>
             )}
 
-            {/* Free delivery toggle — delivery orders only (issue #382) */}
-            {orderType === 'delivery' && isAdmin && (
+            {/* Free delivery toggle — delivery orders only (issues #382, #393) */}
+            {/* Available to all staff (not just admin) so any role can waive on the spot */}
+            {orderType === 'delivery' && (
               <div className="space-y-1">
                 <button
                   type="button"

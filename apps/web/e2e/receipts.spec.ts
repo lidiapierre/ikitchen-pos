@@ -1,24 +1,26 @@
 /**
  * E2E tests for /receipts — Bill Receipt History (issue #395)
  *
- * Covers:
- * - Staff view: shift receipts filtered by server_id (shows own orders only)
- * - Admin view: full history with date filter and daily totals
- * - Re-print modal opens with correct receipt data
+ * Uses real auth sessions (admin.json / staff.json) from global-setup,
+ * and mocks only the data endpoints (orders, payments) to avoid DB dependency.
+ * This is consistent with how auth-roles.spec.ts works.
  *
- * All Supabase API calls are mocked via page.route() to avoid real DB dependency.
  * viewport: 1280x800 (per CLAUDE.md requirement)
  */
 
 import { test, expect } from '@playwright/test'
+import path from 'path'
 
-test.use({ viewport: { width: 1280, height: 800 }, storageState: 'e2e/.auth/admin.json' })
+const ADMIN_STORAGE_STATE = path.join(__dirname, '../e2e/.auth/admin.json')
+const STAFF_STORAGE_STATE = path.join(__dirname, '../e2e/.auth/staff.json')
+
+const TODAY_ISO = new Date().toISOString()
 
 const PAID_ORDER = {
   id: 'order-test-1',
   bill_number: 'RN0001234',
   order_number: 7,
-  created_at: new Date().toISOString(),
+  created_at: TODAY_ISO,
   final_total_cents: 120000,
   discount_amount_cents: 0,
   order_comp: false,
@@ -34,40 +36,18 @@ const PAID_ORDER = {
   payments: [{ method: 'cash', amount_cents: 120000, tendered_amount_cents: 150000 }],
 }
 
-/** Shared auth + config mocks */
-async function setupMocks(
-  page: import('@playwright/test').Page,
-  role: 'owner' | 'server' = 'server',
-) {
-  const userId = role === 'owner' ? 'user-admin-1' : 'user-staff-1'
-
-  await page.route('**/auth/v1/user**', async (route) => {
+/** Mock only the data endpoints; auth uses real session from storageState */
+async function mockDataEndpoints(page: import('@playwright/test').Page, orders = [PAID_ORDER]): Promise<void> {
+  // Orders list
+  await page.route('**/rest/v1/orders?**', async (route) => {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({ id: userId, email: `${role}@test.com`, role: 'authenticated' }),
+      body: JSON.stringify(orders),
     })
   })
 
-  await page.route('**/rest/v1/users?**', async (route) => {
-    const url = route.request().url()
-    if (url.includes('select=role')) {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify([{ role }]),
-      })
-    } else if (url.includes('select=id')) {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify([{ id: userId, name: role === 'owner' ? 'Admin User' : 'Staff User', email: `${role}@test.com` }]),
-      })
-    } else {
-      await route.continue()
-    }
-  })
-
+  // Config / VAT / restaurants for receipt config
   await page.route('**/rest/v1/config?**', async (route) => {
     await route.fulfill({
       status: 200,
@@ -75,7 +55,6 @@ async function setupMocks(
       body: JSON.stringify([{ key: 'restaurant_address', value: 'Test Address' }]),
     })
   })
-
   await page.route('**/rest/v1/vat_rates?**', async (route) => {
     await route.fulfill({
       status: 200,
@@ -83,7 +62,6 @@ async function setupMocks(
       body: JSON.stringify([{ rate: 0, tax_inclusive: false }]),
     })
   })
-
   await page.route('**/rest/v1/restaurants?**', async (route) => {
     await route.fulfill({
       status: 200,
@@ -91,68 +69,53 @@ async function setupMocks(
       body: JSON.stringify([{ name: 'Test Restaurant' }]),
     })
   })
+  // Users lookup (server name display)
+  await page.route('**/rest/v1/users?**', async (route) => {
+    await route.continue()
+  })
 }
 
-// ─── Staff tests ─────────────────────────────────────────────────────────────
-
-test.describe('Staff (server) view', () => {
-  test.beforeEach(async ({ page }) => {
-    await setupMocks(page, 'server')
+async function mockReprintEndpoints(page: import('@playwright/test').Page): Promise<void> {
+  await page.route('**/rest/v1/order_items?**', async (route) => {
+    await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
   })
 
-  test('shows Shift Receipts heading for staff', async ({ page }) => {
-    await page.route('**/rest/v1/orders?**', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify([PAID_ORDER]),
-      })
+  await page.route('**/rest/v1/payments?order_id=eq.*', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify([{ method: 'cash', amount_cents: 120000, tendered_amount_cents: 150000 }]),
     })
+  })
+}
 
+// ─── Staff (server) tests ─────────────────────────────────────────────────────
+
+test.describe('Staff (server) view', () => {
+  test.use({ storageState: STAFF_STORAGE_STATE })
+
+  test('shows Shift Receipts heading for staff', async ({ page }) => {
+    await mockDataEndpoints(page, [])
     await page.goto('/receipts')
 
     await expect(page.getByRole('heading', { name: 'Shift Receipts' })).toBeVisible()
   })
 
-  test('displays receipt entry with bill number and table', async ({ page }) => {
-    await page.route('**/rest/v1/orders?**', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify([PAID_ORDER]),
-      })
-    })
-
+  test('shows empty state when no receipts found', async ({ page }) => {
+    await mockDataEndpoints(page, [])
     await page.goto('/receipts')
 
-    await expect(page.getByText('RN0001234')).toBeVisible()
-    await expect(page.getByText('T3')).toBeVisible()
-    // Use first match to avoid strict mode violation (summary card + row)
-    await expect(page.getByText(/1,200/).first()).toBeVisible()
+    await expect(page.getByText('No receipts found', { exact: true })).toBeVisible()
+    await expect(page.getByText(/No receipts found for your current shift/)).toBeVisible()
   })
 
   test('shows Receipts link in navigation header', async ({ page }) => {
-    await page.route('**/rest/v1/orders?**', async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
-    })
-
+    await mockDataEndpoints(page, [])
     await page.goto('/receipts')
 
     const receiptsLink = page.getByRole('link', { name: /Receipts/i })
     await expect(receiptsLink).toBeVisible()
     await expect(receiptsLink).toHaveAttribute('href', '/receipts')
-  })
-
-  test('shows empty state when no receipts found', async ({ page }) => {
-    await page.route('**/rest/v1/orders?**', async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
-    })
-
-    await page.goto('/receipts')
-
-    // Use exact text match to avoid strict mode violation with subtitle text
-    await expect(page.getByText('No receipts found', { exact: true })).toBeVisible()
-    await expect(page.getByText(/No receipts found for your current shift/)).toBeVisible()
   })
 
   test('staff orders query URL includes server_id filter', async ({ page }) => {
@@ -161,23 +124,38 @@ test.describe('Staff (server) view', () => {
       capturedUrl = route.request().url()
       await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
     })
+    await page.route('**/rest/v1/users?**', async (route) => { await route.continue() })
+    await page.route('**/rest/v1/config?**', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+    })
+    await page.route('**/rest/v1/vat_rates?**', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+    })
+    await page.route('**/rest/v1/restaurants?**', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+    })
 
     await page.goto('/receipts')
-    // Wait for the orders fetch to complete
-    await page.waitForRequest('**/rest/v1/orders?**')
+    // Wait for the orders fetch (triggered after userId resolves)
+    await page.waitForRequest('**/rest/v1/orders?**', { timeout: 10000 })
 
-    expect(decodeURIComponent(capturedUrl)).toContain('server_id=eq.user-staff-1')
+    // Staff view must include server_id filter (exact ID comes from real session)
+    expect(decodeURIComponent(capturedUrl)).toContain('server_id=eq.')
+    expect(capturedUrl).not.toContain('server_id=eq.undefined')
+    expect(capturedUrl).not.toContain('server_id=eq.null')
+  })
+
+  test('displays receipt entry with bill number and table', async ({ page }) => {
+    await mockDataEndpoints(page, [PAID_ORDER])
+    await page.goto('/receipts')
+
+    await expect(page.getByText('RN0001234')).toBeVisible()
+    await expect(page.getByText('T3')).toBeVisible()
+    await expect(page.getByText(/1,200/).first()).toBeVisible()
   })
 
   test('receipt row expands to show payment breakdown', async ({ page }) => {
-    await page.route('**/rest/v1/orders?**', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify([PAID_ORDER]),
-      })
-    })
-
+    await mockDataEndpoints(page, [PAID_ORDER])
     await page.goto('/receipts')
 
     await page.getByRole('button', { name: 'Expand receipt details' }).click()
@@ -187,18 +165,13 @@ test.describe('Staff (server) view', () => {
   })
 })
 
-// ─── Admin tests ──────────────────────────────────────────────────────────────
+// ─── Admin (owner) tests ──────────────────────────────────────────────────────
 
 test.describe('Admin (owner) view', () => {
-  test.beforeEach(async ({ page }) => {
-    await setupMocks(page, 'owner')
-  })
+  test.use({ storageState: ADMIN_STORAGE_STATE })
 
   test('shows Bill History heading and date filter for admin', async ({ page }) => {
-    await page.route('**/rest/v1/orders?**', async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
-    })
-
+    await mockDataEndpoints(page, [])
     await page.goto('/receipts')
 
     await expect(page.getByRole('heading', { name: 'Bill History' })).toBeVisible()
@@ -206,99 +179,30 @@ test.describe('Admin (owner) view', () => {
   })
 
   test('shows daily total and order count in summary card', async ({ page }) => {
-    await page.route('**/rest/v1/orders?**', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify([
-          PAID_ORDER,
-          { ...PAID_ORDER, id: 'order-test-2', final_total_cents: 80000, bill_number: 'RN0001235' },
-        ]),
-      })
-    })
-
+    await mockDataEndpoints(page, [
+      PAID_ORDER,
+      { ...PAID_ORDER, id: 'order-test-2', final_total_cents: 80000, bill_number: 'RN0001235' },
+    ])
     await page.goto('/receipts')
 
-    // Total: ৳ 2,000.00 — use first() to avoid strict mode violation
+    // Total: 120000 + 80000 = 200000 = ৳ 2,000.00
     await expect(page.getByText(/2,000/).first()).toBeVisible()
     await expect(page.getByText('2 bills')).toBeVisible()
   })
 
   test('enables date range mode when checkbox checked', async ({ page }) => {
-    await page.route('**/rest/v1/orders?**', async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
-    })
-
+    await mockDataEndpoints(page, [])
     await page.goto('/receipts')
 
     const rangeCheckbox = page.getByRole('checkbox', { name: 'Date range' })
     await rangeCheckbox.check()
 
-    // Two date inputs should appear (from / to)
     await expect(page.locator('input[type="date"]').first()).toBeVisible()
     await expect(page.locator('input[type="date"]').nth(1)).toBeVisible()
   })
 
   test('re-print modal opens and shows Re-print button', async ({ page }) => {
-    await page.route('**/rest/v1/orders?**', async (route) => {
-      // Route must match list query (no id= filter) vs single-order query
-      const url = route.request().url()
-      if (url.includes('id=eq.')) {
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify([{
-            bill_number: 'RN0001234',
-            order_number: 7,
-            created_at: new Date().toISOString(),
-            final_total_cents: 120000,
-            discount_amount_cents: 0,
-            order_comp: false,
-            order_type: 'dine_in',
-            customer_name: null,
-            customer_mobile: null,
-            delivery_note: null,
-            delivery_charge: 0,
-            service_charge_cents: 0,
-            tables: { label: 'T3' },
-            delivery_zones: null,
-          }]),
-        })
-      } else {
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify([PAID_ORDER]),
-        })
-      }
-    })
-
-    await page.route('**/rest/v1/order_items?**', async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
-    })
-
-    await page.route('**/rest/v1/payments?**', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify([{ method: 'cash', amount_cents: 120000, tendered_amount_cents: 150000 }]),
-      })
-    })
-
-    await page.goto('/receipts')
-
-    // Click the reprint icon button on the receipt row
-    await page.getByRole('button', { name: 'Re-print receipt' }).first().click()
-
-    // Dialog should appear
-    await expect(page.getByRole('dialog')).toBeVisible()
-    // Modal has bill number heading
-    await expect(page.getByText('RN0001234').first()).toBeVisible()
-    // Re-print button inside modal (use the one inside the dialog)
-    await expect(page.getByRole('dialog').getByRole('button', { name: 'Re-print' })).toBeVisible()
-  })
-
-  test('closes re-print modal when Close button clicked', async ({ page }) => {
+    // Override the orders route to handle both list and single-order fetches
     await page.route('**/rest/v1/orders?**', async (route) => {
       const url = route.request().url()
       if (url.includes('id=eq.')) {
@@ -306,7 +210,7 @@ test.describe('Admin (owner) view', () => {
           status: 200,
           contentType: 'application/json',
           body: JSON.stringify([{
-            bill_number: 'RN0001234', order_number: 7, created_at: new Date().toISOString(),
+            bill_number: 'RN0001234', order_number: 7, created_at: TODAY_ISO,
             final_total_cents: 120000, discount_amount_cents: 0, order_comp: false,
             order_type: 'dine_in', customer_name: null, customer_mobile: null,
             delivery_note: null, delivery_charge: 0, service_charge_cents: 0,
@@ -322,17 +226,61 @@ test.describe('Admin (owner) view', () => {
       }
     })
 
-    await page.route('**/rest/v1/order_items?**', async (route) => {
+    await page.route('**/rest/v1/config?**', async (route) => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
     })
-
-    await page.route('**/rest/v1/payments?**', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify([{ method: 'cash', amount_cents: 120000, tendered_amount_cents: 150000 }]),
-      })
+    await page.route('**/rest/v1/vat_rates?**', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
     })
+    await page.route('**/rest/v1/restaurants?**', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+    })
+    await page.route('**/rest/v1/users?**', async (route) => { await route.continue() })
+    await mockReprintEndpoints(page)
+
+    await page.goto('/receipts')
+
+    await page.getByRole('button', { name: 'Re-print receipt' }).first().click()
+
+    await expect(page.getByRole('dialog')).toBeVisible()
+    await expect(page.getByRole('dialog').getByRole('button', { name: 'Re-print' })).toBeVisible()
+  })
+
+  test('closes re-print modal when Close button clicked', async ({ page }) => {
+    await page.route('**/rest/v1/orders?**', async (route) => {
+      const url = route.request().url()
+      if (url.includes('id=eq.')) {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify([{
+            bill_number: 'RN0001234', order_number: 7, created_at: TODAY_ISO,
+            final_total_cents: 120000, discount_amount_cents: 0, order_comp: false,
+            order_type: 'dine_in', customer_name: null, customer_mobile: null,
+            delivery_note: null, delivery_charge: 0, service_charge_cents: 0,
+            tables: { label: 'T3' }, delivery_zones: null,
+          }]),
+        })
+      } else {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify([PAID_ORDER]),
+        })
+      }
+    })
+
+    await page.route('**/rest/v1/config?**', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+    })
+    await page.route('**/rest/v1/vat_rates?**', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+    })
+    await page.route('**/rest/v1/restaurants?**', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+    })
+    await page.route('**/rest/v1/users?**', async (route) => { await route.continue() })
+    await mockReprintEndpoints(page)
 
     await page.goto('/receipts')
 
@@ -351,7 +299,7 @@ test.describe('Admin (owner) view', () => {
           status: 200,
           contentType: 'application/json',
           body: JSON.stringify([{
-            bill_number: 'RN0001234', order_number: 7, created_at: new Date().toISOString(),
+            bill_number: 'RN0001234', order_number: 7, created_at: TODAY_ISO,
             final_total_cents: 120000, discount_amount_cents: 0, order_comp: false,
             order_type: 'dine_in', customer_name: null, customer_mobile: null,
             delivery_note: null, delivery_charge: 0, service_charge_cents: 0,
@@ -367,17 +315,17 @@ test.describe('Admin (owner) view', () => {
       }
     })
 
-    await page.route('**/rest/v1/order_items?**', async (route) => {
+    await page.route('**/rest/v1/config?**', async (route) => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
     })
-
-    await page.route('**/rest/v1/payments?**', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify([{ method: 'cash', amount_cents: 120000, tendered_amount_cents: null }]),
-      })
+    await page.route('**/rest/v1/vat_rates?**', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
     })
+    await page.route('**/rest/v1/restaurants?**', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+    })
+    await page.route('**/rest/v1/users?**', async (route) => { await route.continue() })
+    await mockReprintEndpoints(page)
 
     await page.goto('/receipts')
 

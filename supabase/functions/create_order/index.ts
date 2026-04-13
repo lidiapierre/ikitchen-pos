@@ -118,6 +118,20 @@ export async function handler(
     )
   }
 
+  // Takeaway orders require customer_name and customer_mobile (issue #392)
+  if (orderType === 'takeaway' && (!customerName || customerName.trim() === '')) {
+    return new Response(
+      JSON.stringify({ success: false, error: 'customer_name is required for takeaway orders' }),
+      { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    )
+  }
+  if (orderType === 'takeaway' && (!customerMobile || customerMobile.trim() === '')) {
+    return new Response(
+      JSON.stringify({ success: false, error: 'customer_mobile is required for takeaway orders' }),
+      { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    )
+  }
+
   // Delivery orders require customer_name, customer_mobile, and delivery_note (issue #358)
   if (orderType === 'delivery' && (!customerName || customerName.trim() === '')) {
     return new Response(

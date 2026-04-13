@@ -277,20 +277,32 @@ export default function TablesPage(): JSX.Element {
     setTakeawayMobile('')
     setTakeawayScheduledTime('')
     setTakeawaySuggestion(null)
+    setCreateOrderError(null)
     setShowTakeawayModal(true)
   }
 
-  // Confirm takeaway — navigate to /order/new with optional search params (issue #317 + #276 + #352)
+  // Confirm takeaway — navigate to /order/new with required search params (issue #317 + #276 + #352 + #392)
+  // Note: button is disabled when any field is empty, so these early-returns are safety guards only.
   function handleConfirmTakeaway(): void {
+    if (!takeawayName.trim()) {
+      return // button is disabled; guard for safety
+    }
+    if (!takeawayMobile.trim()) {
+      return // button is disabled; guard for safety
+    }
     if (!takeawayScheduledTime) {
       return // button is disabled; guard for safety
     }
     const params = new URLSearchParams()
-    if (takeawayName.trim()) params.set('customerName', takeawayName.trim())
-    if (takeawayMobile.trim()) params.set('customerPhone', takeawayMobile.trim())
+    params.set('customerName', takeawayName.trim())
+    params.set('customerPhone', takeawayMobile.trim())
     // Convert local datetime-local value to ISO string for the edge function
     params.set('scheduledTime', new Date(takeawayScheduledTime).toISOString())
+    setCreateOrderError(null)
     setShowTakeawayModal(false)
+    setTakeawayName('')
+    setTakeawayMobile('')
+    setTakeawayScheduledTime('')
     router.push(`/tables/takeaway/order/new?${params.toString()}`)
   }
 
@@ -401,7 +413,7 @@ export default function TablesPage(): JSX.Element {
         </button>
       </div>
 
-      {createOrderError !== null && !showDeliveryModal && (
+      {createOrderError !== null && !showDeliveryModal && !showTakeawayModal && (
         <p className="text-red-400 text-sm mb-4">{createOrderError}</p>
       )}
 
@@ -526,12 +538,12 @@ export default function TablesPage(): JSX.Element {
                         <span className="text-xs text-brand-navy/60">{orderAge(order.created_at)}</span>
                       </div>
 
-                      {/* Customer name (delivery only) */}
-                      {isDelivery && order.customer_name && (
+                      {/* Customer name (takeaway and delivery) */}
+                      {order.customer_name && (
                         <p className="text-white font-semibold text-base">{order.customer_name}</p>
                       )}
-                      {/* Phone number (delivery only) */}
-                      {isDelivery && order.customer_mobile && (
+                      {/* Phone number (takeaway and delivery) */}
+                      {order.customer_mobile && (
                         <p className="text-white/70 text-sm">📞 {order.customer_mobile}</p>
                       )}
 
@@ -559,7 +571,7 @@ export default function TablesPage(): JSX.Element {
         </>
       )}
 
-      {/* Takeaway order modal — optional name + mobile (issue #276) */}
+      {/* Takeaway order modal — mandatory name + mobile (issue #276 + #392) */}
       {showTakeawayModal && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70">
           <div className="w-full max-w-lg bg-brand-navy rounded-t-2xl p-6 space-y-4">
@@ -579,7 +591,7 @@ export default function TablesPage(): JSX.Element {
 
             <div>
               <label htmlFor="takeaway-name" className="block text-white text-base mb-2 font-body">
-                Customer Name <span className="text-brand-grey">(optional)</span>
+                Customer Name <span className="text-red-400">*</span>
               </label>
               <input
                 id="takeaway-name"
@@ -594,7 +606,7 @@ export default function TablesPage(): JSX.Element {
 
             <div>
               <label htmlFor="takeaway-mobile" className="block text-white text-base mb-2 font-body">
-                Phone Number <span className="text-brand-grey">(optional)</span>
+                Phone Number <span className="text-red-400">*</span>
               </label>
               <input
                 id="takeaway-mobile"
@@ -641,10 +653,10 @@ export default function TablesPage(): JSX.Element {
               <button
                 type="button"
                 onClick={handleConfirmTakeaway}
-                disabled={!takeawayScheduledTime}
+                disabled={!takeawayScheduledTime || !takeawayName.trim() || !takeawayMobile.trim()}
                 className={[
                   'flex-1 min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold transition-colors font-body',
-                  !takeawayScheduledTime
+                  (!takeawayScheduledTime || !takeawayName.trim() || !takeawayMobile.trim())
                     ? 'bg-brand-grey/30 text-white/40 cursor-not-allowed'
                     : 'bg-brand-gold hover:bg-brand-gold/90 text-brand-navy',
                 ].join(' ')}

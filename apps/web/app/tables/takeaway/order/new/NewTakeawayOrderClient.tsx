@@ -14,8 +14,9 @@ import { ShoppingBag } from 'lucide-react'
  * useSearchParams() — without Suspense Next.js would de-opt the whole route to
  * dynamic rendering.
  *
- * customerName and customerPhone are optionally passed as URL search params
- * by handleConfirmTakeaway() in tables/page.tsx (issue #276).
+ * customerName and customerPhone are mandatory URL search params set by
+ * handleConfirmTakeaway() in tables/page.tsx (issue #276, #392).
+ * The component validates both fields are present before firing the API call.
  */
 export default function NewTakeawayOrderClient(): JSX.Element {
   const router = useRouter()
@@ -45,6 +46,16 @@ export default function NewTakeawayOrderClient(): JSX.Element {
       return
     }
 
+    // Customer name and mobile are mandatory for takeaway orders (issue #392)
+    if (!customerName) {
+      void Promise.resolve().then(() => { setError('Customer name is required for takeaway orders') })
+      return
+    }
+    if (!customerPhone) {
+      void Promise.resolve().then(() => { setError('Mobile number is required for takeaway orders') })
+      return
+    }
+
     const controller = new AbortController()
 
     callCreateOrder(
@@ -52,8 +63,8 @@ export default function NewTakeawayOrderClient(): JSX.Element {
       accessToken,
       {
         orderType: 'takeaway',
-        ...(customerName ? { customerName } : {}),
-        ...(customerPhone ? { customerMobile: customerPhone } : {}),
+        customerName,
+        customerMobile: customerPhone,
         scheduledTime,
       },
       controller.signal,

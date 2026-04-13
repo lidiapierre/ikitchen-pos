@@ -169,14 +169,23 @@ function ReprintModal({
   }
 
   const subtotalCents = computeSubtotal(data, config.vatPercent, config.taxInclusive)
+  // Build splitPayments for BillPrintView: include ALL payments (single or multi) so the
+  // receipt always shows a per-method labelled breakdown, consistent with the live-payment
+  // success screen fix in OrderDetailClient (issue #391).
   const splitPayments: SplitPaymentLine[] | undefined =
-    data.payments.length > 1
-      ? data.payments.map((p) => ({ method: p.method, amountCents: p.amount_cents }))
+    data.payments.length > 0
+      ? data.payments.map((p) => ({ method: p.method as PaymentMethod, amountCents: p.amount_cents }))
       : undefined
 
   const singlePayment = data.payments[0]
+  // amountTenderedCents: physical cash handed over by the customer (for single-cash receipt)
   const cashTendered = singlePayment?.method === 'cash' ? (singlePayment.tendered_amount_cents ?? singlePayment.amount_cents) : undefined
-  const changeDue = cashTendered !== undefined ? Math.max(0, cashTendered - data.finalTotalCents) : undefined
+  // changeDue: sum of all tendered amounts minus bill total — only non-zero when cash is involved
+  const hasCash = data.payments.some((p) => p.method === 'cash')
+  const totalTendered = data.payments.reduce((sum, p) => sum + (p.tendered_amount_cents ?? p.amount_cents), 0)
+  const changeDue = hasCash && totalTendered > data.finalTotalCents
+    ? totalTendered - data.finalTotalCents
+    : undefined
 
   const billTimestamp = formatDateTime(data.createdAt)
 

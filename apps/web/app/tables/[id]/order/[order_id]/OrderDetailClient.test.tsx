@@ -94,7 +94,7 @@ describe('OrderDetailClient', () => {
     const { fetchOrderItems } = await import('./orderData')
     vi.mocked(fetchOrderItems).mockResolvedValue(mockItems)
     const { fetchOrderSummary } = await import('./orderData')
-    vi.mocked(fetchOrderSummary).mockResolvedValue({ status: 'open', payment_method: null, order_type: 'dine_in', customer_name: null, delivery_note: null, customer_mobile: null, bill_number: null, reservation_id: null, customer_id: null, order_number: null, scheduled_time: null, delivery_zone_name: null, delivery_charge: 0, delivery_zone_id: null, merge_label: null })
+    vi.mocked(fetchOrderSummary).mockResolvedValue({ status: 'open', payment_method: null, order_type: 'dine_in', customer_name: null, delivery_note: null, customer_mobile: null, bill_number: null, reservation_id: null, customer_id: null, order_number: null, scheduled_time: null, delivery_zone_name: null, delivery_charge: 0, delivery_zone_id: null, merge_label: null, payment_lines: [] })
   })
 
   afterEach((): void => {
@@ -1040,7 +1040,7 @@ describe('OrderDetailClient', () => {
       const { fetchOrderSummary } = await import('./orderData')
       const { fetchOrderItems } = await import('./orderData')
 
-      vi.mocked(fetchOrderSummary).mockResolvedValue({ status: 'paid', payment_method: 'card', order_type: 'dine_in', customer_name: null, delivery_note: null, customer_mobile: null, bill_number: null, reservation_id: null, customer_id: null, order_number: null, scheduled_time: null, delivery_zone_id: null, delivery_zone_name: null, delivery_charge: 0, merge_label: null })
+      vi.mocked(fetchOrderSummary).mockResolvedValue({ status: 'paid', payment_method: 'card', order_type: 'dine_in', customer_name: null, delivery_note: null, customer_mobile: null, bill_number: null, reservation_id: null, customer_id: null, order_number: null, scheduled_time: null, delivery_zone_id: null, delivery_zone_name: null, delivery_charge: 0, merge_label: null, payment_lines: [] })
       vi.mocked(fetchOrderItems).mockResolvedValue([
         {
           id: '1',
@@ -1150,7 +1150,7 @@ describe('OrderDetailClient', () => {
   describe('paid order read-only view', () => {
     it('shows read-only paid state when navigating to an already-paid order', async (): Promise<void> => {
       const { fetchOrderSummary } = await import('./orderData')
-      vi.mocked(fetchOrderSummary).mockResolvedValue({ status: 'paid', payment_method: 'card', order_type: 'dine_in', customer_name: null, delivery_note: null, customer_mobile: null, bill_number: null, reservation_id: null, customer_id: null, order_number: null, scheduled_time: null, delivery_zone_id: null, delivery_zone_name: null, delivery_charge: 0, merge_label: null })
+      vi.mocked(fetchOrderSummary).mockResolvedValue({ status: 'paid', payment_method: 'card', order_type: 'dine_in', customer_name: null, delivery_note: null, customer_mobile: null, bill_number: null, reservation_id: null, customer_id: null, order_number: null, scheduled_time: null, delivery_zone_id: null, delivery_zone_name: null, delivery_charge: 0, merge_label: null, payment_lines: [] })
 
       render(<OrderDetailClient tableId="5" orderId="order-paid-123" />)
 
@@ -1161,7 +1161,7 @@ describe('OrderDetailClient', () => {
 
     it('shows payment method in paid read-only view', async (): Promise<void> => {
       const { fetchOrderSummary } = await import('./orderData')
-      vi.mocked(fetchOrderSummary).mockResolvedValue({ status: 'paid', payment_method: 'cash', order_type: 'dine_in', customer_name: null, delivery_note: null, customer_mobile: null, bill_number: null, reservation_id: null, customer_id: null, order_number: null, scheduled_time: null, delivery_zone_id: null, delivery_zone_name: null, delivery_charge: 0, merge_label: null })
+      vi.mocked(fetchOrderSummary).mockResolvedValue({ status: 'paid', payment_method: 'cash', order_type: 'dine_in', customer_name: null, delivery_note: null, customer_mobile: null, bill_number: null, reservation_id: null, customer_id: null, order_number: null, scheduled_time: null, delivery_zone_id: null, delivery_zone_name: null, delivery_charge: 0, merge_label: null, payment_lines: [] })
 
       render(<OrderDetailClient tableId="5" orderId="order-paid-123" />)
 
@@ -1173,7 +1173,7 @@ describe('OrderDetailClient', () => {
 
     it('does not show Close Order or Add Items in paid read-only view', async (): Promise<void> => {
       const { fetchOrderSummary } = await import('./orderData')
-      vi.mocked(fetchOrderSummary).mockResolvedValue({ status: 'paid', payment_method: 'card', order_type: 'dine_in', customer_name: null, delivery_note: null, customer_mobile: null, bill_number: null, reservation_id: null, customer_id: null, order_number: null, scheduled_time: null, delivery_zone_id: null, delivery_zone_name: null, delivery_charge: 0, merge_label: null })
+      vi.mocked(fetchOrderSummary).mockResolvedValue({ status: 'paid', payment_method: 'card', order_type: 'dine_in', customer_name: null, delivery_note: null, customer_mobile: null, bill_number: null, reservation_id: null, customer_id: null, order_number: null, scheduled_time: null, delivery_zone_id: null, delivery_zone_name: null, delivery_charge: 0, merge_label: null, payment_lines: [] })
 
       render(<OrderDetailClient tableId="5" orderId="order-paid-123" />)
 
@@ -1187,7 +1187,7 @@ describe('OrderDetailClient', () => {
 
     it('shows order total in paid read-only view', async (): Promise<void> => {
       const { fetchOrderSummary } = await import('./orderData')
-      vi.mocked(fetchOrderSummary).mockResolvedValue({ status: 'paid', payment_method: 'card', order_type: 'dine_in', customer_name: null, delivery_note: null, customer_mobile: null, bill_number: null, reservation_id: null, customer_id: null, order_number: null, scheduled_time: null, delivery_zone_id: null, delivery_zone_name: null, delivery_charge: 0, merge_label: null })
+      vi.mocked(fetchOrderSummary).mockResolvedValue({ status: 'paid', payment_method: 'card', order_type: 'dine_in', customer_name: null, delivery_note: null, customer_mobile: null, bill_number: null, reservation_id: null, customer_id: null, order_number: null, scheduled_time: null, delivery_zone_id: null, delivery_zone_name: null, delivery_charge: 0, merge_label: null, payment_lines: [] })
 
       render(<OrderDetailClient tableId="5" orderId="order-paid-123" />)
 
@@ -1200,7 +1200,7 @@ describe('OrderDetailClient', () => {
 
     it('Back to tables link has minimum 48px touch target in paid view', async (): Promise<void> => {
       const { fetchOrderSummary } = await import('./orderData')
-      vi.mocked(fetchOrderSummary).mockResolvedValue({ status: 'paid', payment_method: 'card', order_type: 'dine_in', customer_name: null, delivery_note: null, customer_mobile: null, bill_number: null, reservation_id: null, customer_id: null, order_number: null, scheduled_time: null, delivery_zone_id: null, delivery_zone_name: null, delivery_charge: 0, merge_label: null })
+      vi.mocked(fetchOrderSummary).mockResolvedValue({ status: 'paid', payment_method: 'card', order_type: 'dine_in', customer_name: null, delivery_note: null, customer_mobile: null, bill_number: null, reservation_id: null, customer_id: null, order_number: null, scheduled_time: null, delivery_zone_id: null, delivery_zone_name: null, delivery_charge: 0, merge_label: null, payment_lines: [] })
 
       render(<OrderDetailClient tableId="5" orderId="order-paid-123" />)
 
@@ -1250,7 +1250,7 @@ describe('OrderDetailClient', () => {
       const { fetchOrderSummary } = await import('./orderData')
       const { fetchOrderItems } = await import('./orderData')
 
-      vi.mocked(fetchOrderSummary).mockResolvedValue({ status: 'paid', payment_method: 'card', order_type: 'dine_in', customer_name: null, delivery_note: null, customer_mobile: null, bill_number: null, reservation_id: null, customer_id: null, order_number: null, scheduled_time: null, delivery_zone_id: null, delivery_zone_name: null, delivery_charge: 0, merge_label: null })
+      vi.mocked(fetchOrderSummary).mockResolvedValue({ status: 'paid', payment_method: 'card', order_type: 'dine_in', customer_name: null, delivery_note: null, customer_mobile: null, bill_number: null, reservation_id: null, customer_id: null, order_number: null, scheduled_time: null, delivery_zone_id: null, delivery_zone_name: null, delivery_charge: 0, merge_label: null, payment_lines: [] })
       // fetchOrderItems never resolves — items remain in loading state
       vi.mocked(fetchOrderItems).mockReturnValue(new Promise<never>(() => {}))
 
@@ -1267,7 +1267,7 @@ describe('OrderDetailClient', () => {
       const { fetchOrderSummary } = await import('./orderData')
       const { fetchOrderItems } = await import('./orderData')
 
-      vi.mocked(fetchOrderSummary).mockResolvedValue({ status: 'paid', payment_method: 'card', order_type: 'dine_in', customer_name: null, delivery_note: null, customer_mobile: null, bill_number: null, reservation_id: null, customer_id: null, order_number: null, scheduled_time: null, delivery_zone_id: null, delivery_zone_name: null, delivery_charge: 0, merge_label: null })
+      vi.mocked(fetchOrderSummary).mockResolvedValue({ status: 'paid', payment_method: 'card', order_type: 'dine_in', customer_name: null, delivery_note: null, customer_mobile: null, bill_number: null, reservation_id: null, customer_id: null, order_number: null, scheduled_time: null, delivery_zone_id: null, delivery_zone_name: null, delivery_charge: 0, merge_label: null, payment_lines: [] })
       vi.mocked(fetchOrderItems).mockRejectedValue(new Error('Items load failed'))
 
       render(<OrderDetailClient tableId="5" orderId="order-paid-err" />)
@@ -1285,7 +1285,7 @@ describe('OrderDetailClient', () => {
       const { fetchOrderSummary } = await import('./orderData')
       const { fetchOrderItems } = await import('./orderData')
 
-      vi.mocked(fetchOrderSummary).mockResolvedValue({ status: 'paid', payment_method: 'card', order_type: 'dine_in', customer_name: null, delivery_note: null, customer_mobile: null, bill_number: null, reservation_id: null, customer_id: null, order_number: null, scheduled_time: null, delivery_zone_id: null, delivery_zone_name: null, delivery_charge: 0, merge_label: null })
+      vi.mocked(fetchOrderSummary).mockResolvedValue({ status: 'paid', payment_method: 'card', order_type: 'dine_in', customer_name: null, delivery_note: null, customer_mobile: null, bill_number: null, reservation_id: null, customer_id: null, order_number: null, scheduled_time: null, delivery_zone_id: null, delivery_zone_name: null, delivery_charge: 0, merge_label: null, payment_lines: [] })
       vi.mocked(fetchOrderItems).mockResolvedValue([])
 
       render(<OrderDetailClient tableId="5" orderId="order-paid-empty" />)
@@ -1321,7 +1321,7 @@ describe('OrderDetailClient', () => {
         delivery_zone_name: 'Zone A',
         delivery_charge: 9900,
         delivery_zone_id: 'zone-1',
-        merge_label: null,
+        merge_label: null, payment_lines: [],
       })
       vi.mocked(fetchOrderItems).mockResolvedValue([])
 
@@ -1357,7 +1357,7 @@ describe('OrderDetailClient', () => {
         delivery_zone_name: null,
         delivery_charge: 0,
         delivery_zone_id: null,
-        merge_label: null,
+        merge_label: null, payment_lines: [],
       })
       vi.mocked(fetchOrderItems).mockResolvedValue([])
 
@@ -1643,7 +1643,7 @@ describe('OrderDetailClient', () => {
         customer_name: null, delivery_note: null, customer_mobile: null,
         bill_number: null, reservation_id: null, customer_id: null,
         order_number: null, scheduled_time: null, delivery_zone_name: null,
-        delivery_zone_id: null, delivery_charge: 0, merge_label: null,
+        delivery_zone_id: null, delivery_charge: 0, merge_label: null, payment_lines: [],
       })
       render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
       await screen.findByText('Bruschetta')
@@ -1784,7 +1784,7 @@ describe('OrderDetailClient', () => {
         delivery_zone_name: 'Zone A',
         delivery_charge: 9900,
         delivery_zone_id: 'zone-1',
-        merge_label: null,
+        merge_label: null, payment_lines: [],
       })
 
       render(<OrderDetailClient tableId="delivery" orderId="order-delivery-1" />)
@@ -1813,7 +1813,7 @@ describe('OrderDetailClient', () => {
         delivery_zone_name: 'Zone A',
         delivery_charge: 9900,
         delivery_zone_id: 'zone-1',
-        merge_label: null,
+        merge_label: null, payment_lines: [],
       })
 
       // Non-admin user — previously this button was admin-only
@@ -1826,5 +1826,170 @@ describe('OrderDetailClient', () => {
         expect(screen.getByRole('button', { name: /waive delivery fee/i })).toBeInTheDocument()
       }, { timeout: 10000 })
     })
+  })
+})
+
+// ─── Post-payment breakdown — issue #391 ───────────────────────────────────────
+// Separate describe outside the main suite: uses vi.useRealTimers() to avoid
+// the fake-timer deadlock that affects most tests inside the main suite.
+describe('OrderDetailClient — post-payment payment breakdown (issue #391)', () => {
+  const mockItems391 = [
+    { id: '1', name: 'Bruschetta', quantity: 2, price_cents: 850, modifier_ids: [], modifier_names: [], sent_to_kitchen: true, comp: false, comp_reason: null, seat: null, course: 'main' as const, course_status: 'waiting' as const, menuId: null, printerType: 'kitchen' as const, item_discount_type: null, item_discount_value: null, notes: null },
+    { id: '2', name: 'Grilled Salmon', quantity: 1, price_cents: 1850, modifier_ids: [], modifier_names: [], sent_to_kitchen: true, comp: false, comp_reason: null, seat: null, course: 'main' as const, course_status: 'waiting' as const, menuId: null, printerType: 'kitchen' as const, item_discount_type: null, item_discount_value: null, notes: null },
+    { id: '3', name: 'Bruschetta2', quantity: 2, price_cents: 950, modifier_ids: [], modifier_names: [], sent_to_kitchen: true, comp: false, comp_reason: null, seat: null, course: 'main' as const, course_status: 'waiting' as const, menuId: null, printerType: 'kitchen' as const, item_discount_type: null, item_discount_value: null, notes: null },
+  ]
+
+  beforeEach(async (): Promise<void> => {
+    vi.clearAllMocks()
+    vi.useRealTimers()
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://example.supabase.co')
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY', 'test-publishable-key')
+    const { fetchOrderItems } = await import('./orderData')
+    vi.mocked(fetchOrderItems).mockResolvedValue(mockItems391)
+    const { fetchOrderSummary } = await import('./orderData')
+    vi.mocked(fetchOrderSummary).mockResolvedValue({
+      status: 'open', payment_method: null, order_type: 'dine_in',
+      customer_name: null, delivery_note: null, customer_mobile: null,
+      bill_number: null, reservation_id: null, customer_id: null,
+      order_number: null, scheduled_time: null, delivery_zone_name: null,
+      delivery_zone_id: null, delivery_charge: 0, merge_label: null, payment_lines: [],
+    })
+    const { callCloseOrder } = await import('./closeOrderApi')
+    vi.mocked(callCloseOrder).mockResolvedValue(undefined)
+  })
+
+  afterEach((): void => {
+    vi.unstubAllEnvs()
+  })
+
+  async function openPaymentStep391(): Promise<void> {
+    render(<OrderDetailClient tableId="5" orderId="order-abc-391" />)
+    await screen.findByText('Bruschetta')
+    fireEvent.click(screen.getByRole('button', { name: /Close Order/ }))
+    await waitFor((): void => { expect(screen.getByRole('button', { name: /Proceed to Payment/ })).toBeInTheDocument() })
+    fireEvent.click(screen.getByRole('button', { name: /Proceed to Payment/ }))
+    await waitFor((): void => { expect(screen.getByRole('button', { name: /Confirm Payment/ })).toBeInTheDocument() })
+  }
+
+  it('shows "Payment breakdown" section and bill total on success screen after card payment', async (): Promise<void> => {
+    const { callRecordSplitPayment } = await import('./recordPaymentApi')
+    vi.mocked(callRecordSplitPayment).mockResolvedValue({ change_due: 0 })
+
+    await openPaymentStep391()
+    fireEvent.click(screen.getByRole('button', { name: 'Card' }))
+    fireEvent.click(screen.getByRole('button', { name: /Confirm Payment/ }))
+
+    await waitFor((): void => {
+      expect(screen.getByText('Payment recorded — order closed')).toBeInTheDocument()
+    })
+
+    expect(screen.getByText('Payment breakdown')).toBeInTheDocument()
+    expect(screen.getByText('Bill total')).toBeInTheDocument()
+    // Card / POS method shown in breakdown
+    expect(screen.getAllByText('Card / POS').length).toBeGreaterThanOrEqual(1)
+  })
+
+  it('shows breakdown with method, bill total, tendered, and change on change screen', async (): Promise<void> => {
+    const { callRecordSplitPayment } = await import('./recordPaymentApi')
+    vi.mocked(callRecordSplitPayment).mockResolvedValue({ change_due: 250 })
+
+    await openPaymentStep391()
+    // cash 57.00 on a 54.50 bill → change 2.50
+    const input = screen.getByRole('spinbutton')
+    fireEvent.change(input, { target: { value: '57.00' } })
+    fireEvent.click(screen.getByRole('button', { name: /Confirm Payment/ }))
+
+    await waitFor((): void => {
+      expect(screen.getByText('Change Due')).toBeInTheDocument()
+    })
+
+    expect(screen.getByText('Payment breakdown')).toBeInTheDocument()
+    expect(screen.getByText('Bill total')).toBeInTheDocument()
+    expect(screen.getByText('Total tendered')).toBeInTheDocument()
+    expect(screen.getByText('Change to return')).toBeInTheDocument()
+  })
+
+  it('shows both methods in breakdown on success screen for split cash+card payment', async (): Promise<void> => {
+    const { callRecordSplitPayment } = await import('./recordPaymentApi')
+    vi.mocked(callRecordSplitPayment).mockResolvedValue({ change_due: 0 })
+
+    await openPaymentStep391()
+
+    // Add cash 30.00
+    const cashInput = screen.getByRole('spinbutton')
+    fireEvent.change(cashInput, { target: { value: '30.00' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }))
+
+    // Add card to cover remaining
+    await waitFor((): void => { expect(screen.getByText(/Remaining/)).toBeInTheDocument() })
+    fireEvent.click(screen.getByRole('button', { name: 'Card' }))
+    const cardInput = screen.getByRole('spinbutton')
+    fireEvent.change(cardInput, { target: { value: '24.50' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }))
+
+    await waitFor((): void => {
+      expect(screen.getByRole('button', { name: /Confirm Payment/ })).not.toBeDisabled()
+    })
+    fireEvent.click(screen.getByRole('button', { name: /Confirm Payment/ }))
+
+    await waitFor((): void => {
+      expect(screen.getByText('Payment recorded — order closed')).toBeInTheDocument()
+    })
+
+    // Both methods visible in the breakdown card
+    expect(screen.getAllByText('Cash').length).toBeGreaterThanOrEqual(1)
+    expect(screen.getAllByText('Card / POS').length).toBeGreaterThanOrEqual(1)
+    expect(screen.getByText('Bill total')).toBeInTheDocument()
+  })
+
+  it('change screen → Done button advances to success screen showing "Change given" (issue #391)', async (): Promise<void> => {
+    const { callRecordSplitPayment } = await import('./recordPaymentApi')
+    vi.mocked(callRecordSplitPayment).mockResolvedValue({ change_due: 500 })
+
+    await openPaymentStep391()
+    // Cash 59.50 on a 54.50 bill → ৳5 change
+    const input = screen.getByRole('spinbutton')
+    fireEvent.change(input, { target: { value: '59.50' } })
+    fireEvent.click(screen.getByRole('button', { name: /Confirm Payment/ }))
+
+    await waitFor((): void => {
+      expect(screen.getByText('Change Due')).toBeInTheDocument()
+    })
+    // "Done" button on change screen
+    fireEvent.click(screen.getByRole('button', { name: /Done/ }))
+
+    await waitFor((): void => {
+      expect(screen.getByText('Payment recorded — order closed')).toBeInTheDocument()
+    })
+    // Success screen shows payment breakdown and change given
+    expect(screen.getByText('Payment breakdown')).toBeInTheDocument()
+    expect(screen.getByText('Change given')).toBeInTheDocument()
+  })
+
+  it('paid order header shows per-method breakdown when paidPaymentLines are populated (issue #391)', async (): Promise<void> => {
+    const { fetchOrderSummary } = await import('./orderData')
+    vi.mocked(fetchOrderSummary).mockResolvedValue({
+      status: 'paid',
+      payment_method: 'cash',
+      order_type: 'dine_in',
+      customer_name: null, delivery_note: null, customer_mobile: null,
+      bill_number: null, reservation_id: null, customer_id: null,
+      order_number: null, scheduled_time: null, delivery_zone_name: null,
+      delivery_zone_id: null, delivery_charge: 0, merge_label: null,
+      payment_lines: [
+        { method: 'cash', amount_cents: 60000 },
+        { method: 'card', amount_cents: 54500 },
+      ],
+    })
+
+    render(<OrderDetailClient tableId="5" orderId="order-paid-391" />)
+
+    await waitFor((): void => {
+      expect(screen.getByText('Cash')).toBeInTheDocument()
+    })
+    expect(screen.getByText('Card / POS')).toBeInTheDocument()
+    // Both method amounts shown
+    expect(screen.getByText('৳ 600.00')).toBeInTheDocument()
+    expect(screen.getByText('৳ 545.00')).toBeInTheDocument()
   })
 })

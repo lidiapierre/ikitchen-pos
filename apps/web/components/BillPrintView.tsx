@@ -322,11 +322,11 @@ export default function BillPrintView({
         )}
       </div>
 
-      {/* 6. Tendered by (single or split payment) — hidden on pre-payment due bills */}
+      {/* 6. Payment breakdown — hidden on pre-payment due bills (issue #391) */}
       {!orderComp && !isDue && (
         <div className="border-t border-black pt-1 mb-2 text-sm space-y-0.5">
-          {splitPayments && splitPayments.length > 1 ? (
-            // Split payment: one line per method
+          {splitPayments && splitPayments.length > 0 ? (
+            // One line per payment method (single or split) — always shows amount (issue #391)
             <>
               {splitPayments.map((sp, idx) => (
                 <div key={idx} className="flex justify-between">
@@ -334,16 +334,30 @@ export default function BillPrintView({
                   <span>{formatPrice(sp.amountCents, DEFAULT_CURRENCY_SYMBOL, roundBillTotals)}</span>
                 </div>
               ))}
-              {/* Change due when cash is in the mix */}
-              {splitPayments.some((sp) => sp.method === 'cash') && changeDueCents !== undefined && changeDueCents > 0 && (
+              {/* Total Paid line — only shown for split (multi-method) payments */}
+              {splitPayments.length > 1 && (
+                <div className="flex justify-between font-semibold border-t border-dashed border-black pt-0.5">
+                  <span>Total Paid</span>
+                  <span>{formatPrice(splitPayments.reduce((s, sp) => s + sp.amountCents, 0), DEFAULT_CURRENCY_SYMBOL, roundBillTotals)}</span>
+                </div>
+              )}
+              {/* Cash tendered — show when a single cash payment has overpayment info */}
+              {splitPayments.length === 1 && splitPayments[0].method === 'cash' && amountTenderedCents !== undefined && amountTenderedCents !== splitPayments[0].amountCents && (
                 <div className="flex justify-between">
+                  <span>Cash Tendered</span>
+                  <span>{formatPrice(amountTenderedCents, DEFAULT_CURRENCY_SYMBOL, roundBillTotals)}</span>
+                </div>
+              )}
+              {/* Change due whenever cash is in the mix and change > 0 */}
+              {splitPayments.some((sp) => sp.method === 'cash') && changeDueCents !== undefined && changeDueCents > 0 && (
+                <div className="flex justify-between font-semibold">
                   <span>Change Due</span>
                   <span>{formatPrice(changeDueCents, DEFAULT_CURRENCY_SYMBOL, roundBillTotals)}</span>
                 </div>
               )}
             </>
           ) : (
-            // Single payment (legacy / quick path)
+            // Legacy / fallback path (splitPayments prop not provided)
             <>
               <div className="flex justify-between">
                 <span>Tendered by</span>
@@ -355,7 +369,7 @@ export default function BillPrintView({
                   <span>{formatPrice(amountTenderedCents, DEFAULT_CURRENCY_SYMBOL, roundBillTotals)}</span>
                 </div>
               )}
-              {paymentMethod === 'cash' && changeDueCents !== undefined && (
+              {paymentMethod === 'cash' && changeDueCents !== undefined && changeDueCents > 0 && (
                 <div className="flex justify-between">
                   <span>Change Due</span>
                   <span>{formatPrice(changeDueCents, DEFAULT_CURRENCY_SYMBOL, roundBillTotals)}</span>

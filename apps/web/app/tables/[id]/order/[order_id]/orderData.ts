@@ -47,9 +47,26 @@ export function calcItemDiscountCents(item: Pick<OrderItem, 'quantity' | 'price_
   return Math.min(item.item_discount_value, grossCents)
 }
 
+/**
+ * One row from the `payments` table.
+ * Returned by `fetchOrderSummary` for paid orders.
+ */
+export interface PaymentLine {
+  method: string
+  /** Amount applied to the bill in cents */
+  amount_cents: number
+  /** Physical amount handed over (>= amount_cents for cash; null for legacy rows) */
+  tendered_amount_cents: number | null
+}
+
 export interface OrderSummary {
   status: string
   payment_method: string | null
+  /**
+   * All payment rows for this order (only populated for status==='paid').
+   * Allows the UI to show a full per-method breakdown for split payments.
+   */
+  payment_lines: PaymentLine[]
   /** Order type — dine_in (default), takeaway, or delivery */
   order_type: 'dine_in' | 'takeaway' | 'delivery'
   /** Customer name for delivery orders */
@@ -269,6 +286,7 @@ export async function fetchOrderSummary(
     return {
       status,
       payment_method: null,
+      payment_lines: [],
       order_type: orderType,
       customer_name: customerName,
       delivery_note: deliveryNote,
@@ -285,16 +303,18 @@ export async function fetchOrderSummary(
     }
   }
 
+  // Fetch ALL payment rows (needed for split-payment audit trail — issue #391)
   const paymentUrl = new URL(`${supabaseUrl}/rest/v1/payments`)
   paymentUrl.searchParams.set('order_id', `eq.${orderId}`)
-  paymentUrl.searchParams.set('select', 'method')
-  paymentUrl.searchParams.set('limit', '1')
+  paymentUrl.searchParams.set('select', 'method,amount_cents,tendered_amount_cents')
+  paymentUrl.searchParams.set('order', 'created_at.asc')
 
   const paymentRes = await fetch(paymentUrl.toString(), { headers })
   if (!paymentRes.ok) {
     return {
       status,
       payment_method: null,
+      payment_lines: [],
       order_type: orderType,
       customer_name: customerName,
       delivery_note: deliveryNote,
@@ -311,10 +331,17 @@ export async function fetchOrderSummary(
     }
   }
 
-  const payments = (await paymentRes.json()) as Array<{ method: string }>
+  const payments = (await paymentRes.json()) as Array<{ method: string; amount_cents: number; tendered_amount_cents: number | null }>
+  const paymentLines: PaymentLine[] = payments.map((p) => ({
+    method: p.method,
+    amount_cents: p.amount_cents,
+    tendered_amount_cents: p.tendered_amount_cents,
+  }))
+
   return {
     status,
-    payment_method: payments.length > 0 ? payments[0].method : null,
+    payment_method: paymentLines.length > 0 ? paymentLines[0].method : null,
+    payment_lines: paymentLines,
     order_type: orderType,
     customer_name: customerName,
     delivery_note: deliveryNote,

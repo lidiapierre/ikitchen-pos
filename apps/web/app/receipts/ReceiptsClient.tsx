@@ -421,7 +421,7 @@ function ReceiptRow({
 }
 
 export default function ReceiptsClient(): JSX.Element {
-  const { role, isAdmin, loading: userLoading, accessToken } = useUser()
+  const { isAdmin, loading: userLoading, accessToken } = useUser()
   const [orders, setOrders] = useState<BillHistoryOrder[]>([])
   const [totalDailyCents, setTotalDailyCents] = useState(0)
   const [truncated, setTruncated] = useState(false)
@@ -446,7 +446,11 @@ export default function ReceiptsClient(): JSX.Element {
   useEffect(() => {
     async function fetchUserId(): Promise<void> {
       const { data: { user } } = await supabase.auth.getUser()
-      setCurrentUserId(user?.id ?? null)
+      if (!user) {
+        setError('Could not identify the current user. Please log out and back in.')
+        return
+      }
+      setCurrentUserId(user.id)
     }
     void fetchUserId()
     // Load active shift from localStorage

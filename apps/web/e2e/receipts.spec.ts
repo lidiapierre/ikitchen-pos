@@ -155,6 +155,20 @@ test.describe('Staff (server) view', () => {
     await expect(page.getByText(/No receipts found for your current shift/)).toBeVisible()
   })
 
+  test('staff orders query URL includes server_id filter', async ({ page }) => {
+    let capturedUrl = ''
+    await page.route('**/rest/v1/orders?**', async (route) => {
+      capturedUrl = route.request().url()
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+    })
+
+    await page.goto('/receipts')
+    // Wait for the orders fetch to complete
+    await page.waitForRequest('**/rest/v1/orders?**')
+
+    expect(decodeURIComponent(capturedUrl)).toContain('server_id=eq.user-staff-1')
+  })
+
   test('receipt row expands to show payment breakdown', async ({ page }) => {
     await page.route('**/rest/v1/orders?**', async (route) => {
       await route.fulfill({

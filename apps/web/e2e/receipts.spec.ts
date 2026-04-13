@@ -119,9 +119,7 @@ test.describe('Staff (server) view', () => {
   })
 
   test('staff orders query URL includes server_id filter', async ({ page }) => {
-    let capturedUrl = ''
     await page.route('**/rest/v1/orders?**', async (route) => {
-      capturedUrl = route.request().url()
       await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
     })
     await page.route('**/rest/v1/users?**', async (route) => { await route.continue() })
@@ -135,14 +133,18 @@ test.describe('Staff (server) view', () => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
     })
 
+    // Start waiting for the request BEFORE navigation so we don't miss it.
+    // Using waitForRequest returns the Request object directly — avoids the
+    // race condition where a captured-URL closure variable isn't set yet.
+    const ordersRequestPromise = page.waitForRequest('**/rest/v1/orders?**', { timeout: 15000 })
     await page.goto('/receipts')
-    // Wait for the orders fetch (triggered after userId resolves)
-    await page.waitForRequest('**/rest/v1/orders?**', { timeout: 10000 })
+    const ordersRequest = await ordersRequestPromise
 
     // Staff view must include server_id filter (exact ID comes from real session)
-    expect(decodeURIComponent(capturedUrl)).toContain('server_id=eq.')
-    expect(capturedUrl).not.toContain('server_id=eq.undefined')
-    expect(capturedUrl).not.toContain('server_id=eq.null')
+    const url = decodeURIComponent(ordersRequest.url())
+    expect(url).toContain('server_id=eq.')
+    expect(url).not.toContain('server_id=eq.undefined')
+    expect(url).not.toContain('server_id=eq.null')
   })
 
   test('displays receipt entry with bill number and table', async ({ page }) => {

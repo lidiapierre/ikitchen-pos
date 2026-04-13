@@ -2,7 +2,7 @@
  * Tests for billHistoryApi — issue #395 bill receipt history.
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { fetchBillHistory, fetchOrderForReprint, fetchRestaurantConfig } from './billHistoryApi'
 
 const BASE_URL = 'https://test.supabase.co'
@@ -34,6 +34,10 @@ function makeOrder(overrides: Record<string, unknown> = {}) {
 describe('fetchBillHistory', () => {
   beforeEach(() => {
     vi.resetAllMocks()
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
   })
 
   it('returns orders and total_daily_cents for a single paid order', async () => {
@@ -90,7 +94,8 @@ describe('fetchBillHistory', () => {
     const result = await fetchBillHistory({ supabaseUrl: BASE_URL, accessToken: TOKEN })
 
     expect(result.orders[0].is_split).toBe(true)
-    expect(result.orders[0].payment_summary).toBe('Cash + Card')
+    // Uses PAYMENT_METHOD_LABELS from @/lib/paymentMethods: 'Card / POS'
+    expect(result.orders[0].payment_summary).toBe('Cash + Card / POS')
   })
 
   it('filters by serverId when provided', async () => {
@@ -137,9 +142,13 @@ describe('fetchBillHistory', () => {
       to: '2026-04-13',
     })
 
+    // API converts YYYY-MM-DD to local-timezone UTC ISO timestamps.
+    // Exact values depend on the test runner's local timezone, so we only
+    // verify the filter params are present and that the ISO timestamps include 2026.
     const url = decodeURIComponent(mockFetch.mock.calls[0][0] as string)
-    expect(url).toContain('2026-04-01T00:00:00.000Z')
-    expect(url).toContain('2026-04-13T23:59:59.999Z')
+    expect(url).toContain('created_at=gte.')
+    expect(url).toContain('created_at=lte.')
+    expect(url).toContain('2026') // year appears in both timestamps
   })
 
   it('uses today as default date range when no filter provided', async () => {
@@ -152,7 +161,8 @@ describe('fetchBillHistory', () => {
 
     await fetchBillHistory({ supabaseUrl: BASE_URL, accessToken: TOKEN })
 
-    const today = new Date().toISOString().slice(0, 10)
+    // Use the same local-date logic as the API to get the expected date string
+    const today = new Date().toLocaleDateString('en-CA')
     const url = decodeURIComponent(mockFetch.mock.calls[0][0] as string)
     expect(url).toContain(today)
   })
@@ -177,9 +187,59 @@ describe('fetchBillHistory', () => {
 
     expect(result.total_daily_cents).toBe(150000)
   })
+
+  it('sets truncated=true when result count equals limit', async () => {
+    const limit = 3
+    const orders = Array.from({ length: limit }, (_, i) =>
+      makeOrder({ id: `order-${i}` }),
+    )
+    const mockFetch = vi.fn()
+    mockFetch.mockResolvedValueOnce({ ok: true, json: async () => orders } as unknown as Response)
+    mockFetch.mockResolvedValueOnce({ ok: true, json: async () => [] } as unknown as Response)
+
+    vi.stubGlobal('fetch', mockFetch)
+
+    const result = await fetchBillHistory({ supabaseUrl: BASE_URL, accessToken: TOKEN, limit })
+
+    expect(result.truncated).toBe(true)
+  })
+
+  it('sets truncated=false when result count is below limit', async () => {
+    const mockFetch = vi.fn()
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => [makeOrder()],
+    } as unknown as Response)
+    mockFetch.mockResolvedValueOnce({ ok: true, json: async () => [] } as unknown as Response)
+
+    vi.stubGlobal('fetch', mockFetch)
+
+    const result = await fetchBillHistory({ supabaseUrl: BASE_URL, accessToken: TOKEN, limit: 100 })
+
+    expect(result.truncated).toBe(false)
+  })
+
+  it('uses local timezone when constructing date boundaries', async () => {
+    const mockFetch = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => [],
+    } as unknown as Response)
+
+    vi.stubGlobal('fetch', mockFetch)
+
+    await fetchBillHistory({ supabaseUrl: BASE_URL, accessToken: TOKEN, date: '2026-04-13' })
+
+    // The API uses new Date('2026-04-13T00:00:00').toISOString() which respects local TZ.
+    // Verify it does NOT blindly append Z (UTC):
+    const rawUrl = mockFetch.mock.calls[0][0] as string
+    expect(rawUrl).not.toContain('2026-04-13T00%3A00%3A00.000Z') // hardcoded UTC midnight NOT expected
+  })
 })
 
 describe('fetchOrderForReprint', () => {
+  beforeEach(() => { vi.resetAllMocks() })
+  afterEach(() => { vi.restoreAllMocks() })
+
   it('fetches order, items, and payments in parallel', async () => {
     const mockFetch = vi.fn()
     // order
@@ -254,9 +314,45 @@ describe('fetchOrderForReprint', () => {
 
     await expect(fetchOrderForReprint(BASE_URL, TOKEN, 'bad-id')).rejects.toThrow('Order not found')
   })
+
+  it('throws when items fetch fails', async () => {
+    const mockFetch = vi.fn()
+    mockFetch.mockResolvedValueOnce({ ok: true, json: async () => [{ bill_number: 'B1', order_number: 1, created_at: '2026-04-13T08:00:00Z', final_total_cents: 10000, discount_amount_cents: 0, order_comp: false, order_type: 'dine_in', customer_name: null, customer_mobile: null, delivery_note: null, delivery_charge: 0, service_charge_cents: 0, tables: { label: 'T1' }, delivery_zones: null }] } as unknown as Response)
+    mockFetch.mockResolvedValueOnce({ ok: false, status: 500, statusText: 'Server Error' } as unknown as Response)
+    mockFetch.mockResolvedValueOnce({ ok: true, json: async () => [] } as unknown as Response)
+
+    vi.stubGlobal('fetch', mockFetch)
+
+    await expect(fetchOrderForReprint(BASE_URL, TOKEN, 'order-1')).rejects.toThrow('500')
+  })
+
+  it('uses correct tableLabel fallback for delivery orders', async () => {
+    const mockFetch = vi.fn()
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => [{
+        bill_number: null, order_number: 1, created_at: '2026-04-13T08:00:00Z',
+        final_total_cents: 5000, discount_amount_cents: 0, order_comp: false,
+        order_type: 'delivery', customer_name: 'Ali', customer_mobile: null,
+        delivery_note: '123 Street', delivery_charge: 500, service_charge_cents: 0,
+        tables: null, delivery_zones: null,
+      }],
+    } as unknown as Response)
+    mockFetch.mockResolvedValueOnce({ ok: true, json: async () => [] } as unknown as Response)
+    mockFetch.mockResolvedValueOnce({ ok: true, json: async () => [] } as unknown as Response)
+
+    vi.stubGlobal('fetch', mockFetch)
+
+    const result = await fetchOrderForReprint(BASE_URL, TOKEN, 'order-1')
+    expect(result.tableLabel).toBe('Delivery')
+    expect(result.orderType).toBe('delivery')
+  })
 })
 
 describe('fetchRestaurantConfig', () => {
+  beforeEach(() => { vi.resetAllMocks() })
+  afterEach(() => { vi.restoreAllMocks() })
+
   it('returns defaults when config rows are empty', async () => {
     const mockFetch = vi.fn()
     mockFetch.mockResolvedValueOnce({ ok: true, json: async () => [] } as unknown as Response) // config
@@ -299,5 +395,16 @@ describe('fetchRestaurantConfig', () => {
     expect(cfg.binNumber).toBe('BIN123')
     expect(cfg.roundBillTotals).toBe(true)
     expect(cfg.restaurantName).toBe('Test Restaurant')
+  })
+
+  it('gracefully falls back when all fetch calls fail', async () => {
+    const mockFetch = vi.fn().mockResolvedValue({ ok: false, status: 503 } as unknown as Response)
+    vi.stubGlobal('fetch', mockFetch)
+
+    // Should not throw — all errors are silently swallowed
+    const cfg = await fetchRestaurantConfig(BASE_URL, TOKEN)
+    expect(cfg.vatPercent).toBe(0)
+    expect(cfg.restaurantName).toBe('Lahore by iKitchen')
+    expect(cfg.roundBillTotals).toBe(false)
   })
 })

@@ -7,6 +7,7 @@
  */
 
 import type { PaymentMethod } from '@/lib/paymentMethods'
+import { PAYMENT_METHOD_LABELS } from '@/lib/paymentMethods'
 import type { OrderItem } from '@/app/tables/[id]/order/[order_id]/orderData'
 
 const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ''
@@ -44,8 +45,12 @@ export interface BillHistoryOrder {
 
 export interface BillHistoryResult {
   orders: BillHistoryOrder[]
-  /** Total count (may be capped at limit) */
   total_daily_cents: number
+  /**
+   * True when the result was capped at `limit`.
+   * The daily total will be incomplete when true — display a warning in the UI.
+   */
+  truncated: boolean
 }
 
 export interface FetchBillHistoryParams {
@@ -97,13 +102,6 @@ interface UserNameRow {
   email: string
 }
 
-const PAYMENT_METHOD_LABELS: Record<string, string> = {
-  cash: 'Cash',
-  card: 'Card',
-  mobile: 'Mobile',
-  other: 'Other',
-}
-
 /**
  * Fetch bill history from the database.
  * Queries the orders table directly via PostgREST with embedded payments + table joins.
@@ -120,20 +118,43 @@ export async function fetchBillHistory(
   )
   url.searchParams.set('status', 'eq.paid')
 
-  // Date range filter
-  if (date) {
-    url.searchParams.set('created_at', `gte.${date}T00:00:00.000Z`)
-    url.searchParams.append('created_at', `lte.${date}T23:59:59.999Z`)
-  } else if (from && to) {
-    url.searchParams.set('created_at', `gte.${from}T00:00:00.000Z`)
-    url.searchParams.append('created_at', `lte.${to}T23:59:59.999Z`)
-  } else {
-    // Default: today
-    const today = new Date().toISOString().slice(0, 10)
-    url.searchParams.set('created_at', `gte.${today}T00:00:00.000Z`)
-    url.searchParams.append('created_at', `lte.${today}T23:59:59.999Z`)
+  /**
+   * Build UTC timestamps from a local YYYY-MM-DD date string.
+   * Uses the browser's local timezone so orders placed after local midnight
+   * but before UTC midnight are included correctly (e.g. UTC+6 restaurants).
+   * `new Date('YYYY-MM-DDT00:00:00')` (no Z) parses in local time.
+   */
+  function localDayRange(d: string): { start: string; end: string } {
+    return {
+      start: new Date(`${d}T00:00:00`).toISOString(),
+      end: new Date(`${d}T23:59:59.999`).toISOString(),
+    }
   }
 
+  // Date range filter
+  if (date) {
+    const { start, end } = localDayRange(date)
+    url.searchParams.set('created_at', `gte.${start}`)
+    url.searchParams.append('created_at', `lte.${end}`)
+  } else if (from && to) {
+    const { start } = localDayRange(from)
+    const { end } = localDayRange(to)
+    url.searchParams.set('created_at', `gte.${start}`)
+    url.searchParams.append('created_at', `lte.${end}`)
+  } else {
+    // Default: today (local)
+    const today = new Date().toLocaleDateString('en-CA') // YYYY-MM-DD in local TZ
+    const { start, end } = localDayRange(today)
+    url.searchParams.set('created_at', `gte.${start}`)
+    url.searchParams.append('created_at', `lte.${end}`)
+  }
+
+  // HUMAN REVIEW REQUIRED — RLS note:
+  // The restaurant_isolation policy scopes reads by restaurant_id only.
+  // Staff self-view is enforced by the client-side serverId filter below.
+  // A staff member with direct PostgREST access could bypass this filter and
+  // read all orders for the restaurant. If stricter enforcement is required,
+  // add a server_id = auth.uid() RLS condition for non-owner/manager roles.
   if (serverId) {
     url.searchParams.set('server_id', `eq.${serverId}`)
   }
@@ -178,6 +199,7 @@ export async function fetchBillHistory(
     }
   }
 
+  const truncated = rows.length === limit
   let totalDailyCents = 0
 
   const orders: BillHistoryOrder[] = rows.map((row) => {
@@ -198,6 +220,7 @@ export async function fetchBillHistory(
       bill_number: row.bill_number,
       order_number: row.order_number,
       created_at: row.created_at,
+      // Fallback depends on order type — delivery orders have no table
       table_label: row.tables?.label ?? null,
       order_type: (row.order_type ?? 'dine_in') as BillHistoryOrder['order_type'],
       final_total_cents: finalTotal,
@@ -217,7 +240,7 @@ export async function fetchBillHistory(
     }
   })
 
-  return { orders, total_daily_cents: totalDailyCents }
+  return { orders, total_daily_cents: totalDailyCents, truncated }
 }
 
 export interface ReprintOrderData {
@@ -374,10 +397,12 @@ export async function fetchOrderForReprint(
     tendered_amount_cents: p.tendered_amount_cents,
   }))
 
+  const orderType = (order.order_type ?? 'dine_in') as ReprintOrderData['orderType']
   return {
     items,
-    tableLabel: order.tables?.label ?? 'Takeaway',
-    orderType: (order.order_type ?? 'dine_in') as ReprintOrderData['orderType'],
+    // Use type-appropriate fallback: delivery orders have no table
+    tableLabel: order.tables?.label ?? (orderType === 'delivery' ? 'Delivery' : 'Takeaway'),
+    orderType,
     billNumber: order.bill_number,
     orderNumber: order.order_number,
     finalTotalCents: order.final_total_cents ?? 0,
@@ -449,15 +474,15 @@ export async function fetchRestaurantConfig(
     }
   }
 
-  let restaurantName = 'Lahore by iKitchen'
+  let restaurantName = ''
   if (restaurantRes.ok) {
     const restRows = (await restaurantRes.json()) as Array<{ name: string }>
     if (restRows.length > 0) restaurantName = restRows[0].name
   }
 
   return {
-    restaurantName,
-    restaurantAddress: cfgMap.get('restaurant_address') ?? 'Lahore by iKitchen, Dhaka',
+    restaurantName: restaurantName || 'Lahore by iKitchen',
+    restaurantAddress: cfgMap.get('restaurant_address') ?? '',
     binNumber: cfgMap.get('bin_number'),
     registerName: cfgMap.get('register_name'),
     locationName: undefined,

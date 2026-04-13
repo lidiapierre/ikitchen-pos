@@ -89,6 +89,16 @@ function ReprintModal({
   const [printed, setPrinted] = useState(false)
   const printRef = useRef<HTMLDivElement>(null)
   const printGuardRef = useRef(false)
+  const titleId = 'reprint-modal-title'
+
+  // Close on Escape key
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent): void {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [onClose])
 
   useEffect(() => {
     let cancelled = false
@@ -121,7 +131,12 @@ function ReprintModal({
 
   if (loading) {
     return (
-      <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Loading receipt"
+        className="fixed inset-0 bg-black/60 flex items-center justify-center z-50"
+      >
         <div className="bg-brand-navy rounded-2xl p-8 flex flex-col items-center gap-4 min-w-[260px]">
           <RefreshCw className="w-8 h-8 text-brand-gold animate-spin" />
           <p className="text-white">Loading receipt…</p>
@@ -132,7 +147,12 @@ function ReprintModal({
 
   if (error || !data) {
     return (
-      <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Receipt error"
+        className="fixed inset-0 bg-black/60 flex items-center justify-center z-50"
+      >
         <div className="bg-brand-navy rounded-2xl p-8 flex flex-col items-center gap-4 min-w-[280px]">
           <p className="text-red-400 text-sm text-center">{error ?? 'Failed to load receipt'}</p>
           <button
@@ -160,7 +180,12 @@ function ReprintModal({
   const billTimestamp = formatDateTime(data.createdAt)
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby={titleId}
+      className="fixed inset-0 bg-black/60 flex items-center justify-center z-50"
+    >
       {/* Hidden print area — only visible during window.print() */}
       <div ref={printRef} aria-hidden="true">
         <BillPrintView
@@ -200,9 +225,9 @@ function ReprintModal({
       {/* Modal UI */}
       <div className="bg-brand-navy rounded-2xl p-6 flex flex-col gap-4 min-w-[300px] max-w-sm mx-4">
         <div className="flex items-center gap-3">
-          <Receipt className="w-6 h-6 text-brand-gold" />
+          <Receipt className="w-6 h-6 text-brand-gold" aria-hidden="true" />
           <div>
-            <p className="text-white font-semibold">
+            <p id={titleId} className="text-white font-semibold">
               {data.billNumber ?? `Order #${data.orderNumber ?? order.id.slice(0, 8)}`}
             </p>
             <p className="text-white/60 text-sm">{billTimestamp}</p>
@@ -320,6 +345,7 @@ function ReceiptRow({
             aria-label="Re-print receipt"
             onClick={() => onReprint(order)}
             className="p-2 rounded-lg text-brand-navy/60 hover:text-brand-navy hover:bg-brand-offwhite transition-colors"
+            data-testid="reprint-btn"
           >
             <Printer className="w-4 h-4" />
           </button>
@@ -397,6 +423,7 @@ export default function ReceiptsClient(): JSX.Element {
   const { role, isAdmin, loading: userLoading, accessToken } = useUser()
   const [orders, setOrders] = useState<BillHistoryOrder[]>([])
   const [totalDailyCents, setTotalDailyCents] = useState(0)
+  const [truncated, setTruncated] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [config, setConfig] = useState<RestaurantConfig | null>(null)
@@ -427,6 +454,10 @@ export default function ReceiptsClient(): JSX.Element {
 
   const load = useCallback(async () => {
     if (!accessToken) return
+    // Guard: non-admin views must wait for currentUserId to resolve
+    // before fetching — otherwise the serverId filter is skipped and all
+    // restaurant orders would briefly be visible to staff.
+    if (!isAdmin && !currentUserId) return
     setLoading(true)
     setError(null)
     try {
@@ -457,6 +488,7 @@ export default function ReceiptsClient(): JSX.Element {
       const result = await fetchBillHistory(params)
       setOrders(result.orders)
       setTotalDailyCents(result.total_daily_cents)
+      setTruncated(result.truncated)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load receipts')
     } finally {
@@ -600,6 +632,17 @@ export default function ReceiptsClient(): JSX.Element {
           </div>
         )}
 
+        {/* Truncation warning — shown when daily count exceeds the query limit */}
+        {truncated && !loading && (
+          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3 mb-4 text-amber-800 text-sm flex gap-2">
+            <span>⚠️</span>
+            <span>
+              Only the first 100 receipts are shown. The daily total above may be incomplete.
+              Use a narrower date range to see all results.
+            </span>
+          </div>
+        )}
+
         {/* Error state */}
         {error && (
           <div className="bg-red-50 border border-red-200 rounded-2xl p-4 mb-4 text-red-700 text-sm">
@@ -644,12 +687,12 @@ export default function ReceiptsClient(): JSX.Element {
         )}
       </div>
 
-      {/* Re-print modal */}
-      {reprintOrder && config && (
+      {/* Re-print modal — only render when we have a valid token to avoid a 401 */}
+      {reprintOrder && config && accessToken && (
         <ReprintModal
           order={reprintOrder}
           config={config}
-          accessToken={accessToken ?? ''}
+          accessToken={accessToken}
           onClose={() => setReprintOrder(null)}
         />
       )}

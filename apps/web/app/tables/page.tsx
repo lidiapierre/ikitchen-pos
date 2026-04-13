@@ -73,6 +73,14 @@ export default function TablesPage(): JSX.Element {
   const [deliveryZones, setDeliveryZones] = useState<DeliveryZone[]>([])
   const [selectedDeliveryZoneId, setSelectedDeliveryZoneId] = useState<string>('')
   const [zonesLoading, setZonesLoading] = useState(false)
+  // Delivery fee override — issue #393: free delivery toggle
+  // NOTE: When a zone is selected the Edge Function always applies the zone's charge
+  // server-side (security boundary). The toggle here only affects orders without a zone
+  // (no-zone case always results in ৳0, so the toggle is purely cosmetic there).
+  // For zone-based free-delivery, staff should use the "Waive Delivery Fee" button on
+  // the order screen immediately after creation.
+  const [deliveryFreeShipping, setDeliveryFreeShipping] = useState(false)
+  const [deliveryCustomChargeStr, setDeliveryCustomChargeStr] = useState('')
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -331,6 +339,20 @@ export default function TablesPage(): JSX.Element {
 
     const selectedZone = deliveryZones.find((z) => z.id === selectedDeliveryZoneId) ?? null
 
+    // Compute effective delivery charge in cents for the URL shell display (issue #393):
+    // - Zone selected  → zone.charge_amount (authoritative: Edge Function applies this server-side)
+    // - No zones, manual charge entered → parsed from deliveryCustomChargeStr (display only)
+    // - No zones, free delivery toggled → 0
+    // NOTE: when a zone is selected, the Edge Function always uses the zone's charge
+    // regardless of what we pass — this is intentional (fee manipulation prevention, issue #353).
+    // For zone-based free delivery, staff should use the "Waive Delivery Fee" button on the order screen.
+    const effectiveChargeCents = (() => {
+      if (selectedZone) return selectedZone.charge_amount
+      if (deliveryFreeShipping) return 0
+      const custom = parseFloat(deliveryCustomChargeStr || '0')
+      return isNaN(custom) ? 0 : Math.round(custom * 100)
+    })()
+
     const params = new URLSearchParams({
       customerName: deliveryCustomerName.trim(),
       customerPhone: deliveryPhone.trim(),
@@ -338,7 +360,8 @@ export default function TablesPage(): JSX.Element {
       // Convert local datetime-local value to ISO string (issue #352)
       scheduledTime: new Date(deliveryScheduledTime).toISOString(),
       ...(selectedZone ? { deliveryZoneId: selectedZone.id } : {}),
-      ...(selectedZone ? { deliveryCharge: String(selectedZone.charge_amount) } : {}),
+      // Always send deliveryCharge so the order shell can display it (issue #393)
+      deliveryCharge: String(effectiveChargeCents),
       ...(selectedZone ? { deliveryZoneName: selectedZone.name } : {}),
     })
     setCreateOrderError(null)
@@ -350,6 +373,8 @@ export default function TablesPage(): JSX.Element {
     setDeliveryScheduledTime('')
     setSelectedDeliveryZoneId('')
     setDeliveryZones([])
+    setDeliveryFreeShipping(false)
+    setDeliveryCustomChargeStr('')
     setCustomerSuggestion(null)
     router.push(`/tables/delivery/order/new?${params.toString()}`)
   }
@@ -405,6 +430,8 @@ export default function TablesPage(): JSX.Element {
             setDeliveryScheduledTime('')
             setCreateOrderError(null)
             setCustomerSuggestion(null)
+            setDeliveryFreeShipping(false)
+            setDeliveryCustomChargeStr('')
             setShowDeliveryModal(true)
           }}
           className="flex-1 min-h-[56px] rounded-xl text-base font-semibold transition-colors border-2 border-brand-blue bg-brand-blue/10 text-brand-navy hover:bg-brand-blue/20 hover:border-brand-blue/80"
@@ -680,6 +707,8 @@ export default function TablesPage(): JSX.Element {
                   setShowDeliveryModal(false)
                   setCreateOrderError(null)
                   setCustomerSuggestion(null)
+                  setDeliveryFreeShipping(false)
+                  setDeliveryCustomChargeStr('')
                 }}
                 className="min-h-[48px] min-w-[48px] text-white/60 hover:text-white flex items-center justify-center"
                 aria-label="Close"
@@ -771,7 +800,7 @@ export default function TablesPage(): JSX.Element {
                 <select
                   id="delivery-zone"
                   value={selectedDeliveryZoneId}
-                  onChange={(e) => { setSelectedDeliveryZoneId(e.target.value) }}
+                  onChange={(e) => { setSelectedDeliveryZoneId(e.target.value); setDeliveryFreeShipping(false) }}
                   className="w-full min-h-[48px] px-4 rounded-xl text-base bg-brand-blue text-white border-2 border-brand-grey/40 focus:border-brand-gold focus:outline-none font-body"
                   required
                 >
@@ -782,6 +811,76 @@ export default function TablesPage(): JSX.Element {
                     </option>
                   ))}
                 </select>
+              </div>
+            )}
+
+            {/* ── Delivery fee preview — shown once a zone is selected (issue #393) ── */}
+            {!zonesLoading && deliveryZones.length > 0 && selectedDeliveryZoneId && (() => {
+              const zone = deliveryZones.find((z) => z.id === selectedDeliveryZoneId)
+              if (!zone) return null
+              return (
+                <div
+                  data-testid="delivery-fee-preview"
+                  className="bg-blue-900/20 border-2 border-blue-700 rounded-xl px-4 py-3"
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-zinc-400 text-xs font-semibold uppercase tracking-wider mb-0.5 font-body">Delivery Fee</p>
+                      <p className="text-lg font-bold text-white font-body">
+                        ৳{(zone.charge_amount / 100).toFixed(2)}
+                      </p>
+                    </div>
+                    <p className="text-xs text-zinc-500 text-right max-w-[140px] font-body">
+                      To waive, use the order screen after creating
+                    </p>
+                  </div>
+                </div>
+              )
+            })()}
+
+            {/* ── Manual delivery charge — shown when no zones are configured (issue #393) ── */}
+            {!zonesLoading && deliveryZones.length === 0 && (
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label htmlFor="delivery-charge" className="text-white text-base font-body">
+                    Delivery Charge
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDeliveryFreeShipping(!deliveryFreeShipping)
+                      if (!deliveryFreeShipping) setDeliveryCustomChargeStr('')
+                    }}
+                    className={[
+                      'text-sm font-semibold px-3 min-h-[36px] rounded-lg border-2 transition-colors font-body',
+                      deliveryFreeShipping
+                        ? 'border-amber-600 text-amber-400 hover:border-amber-400 hover:bg-amber-900/20'
+                        : 'border-emerald-700 text-emerald-400 hover:border-emerald-500 hover:bg-emerald-900/20',
+                    ].join(' ')}
+                  >
+                    {deliveryFreeShipping ? '↩ Add charge' : '🆓 Free Delivery'}
+                  </button>
+                </div>
+                {deliveryFreeShipping ? (
+                  <div
+                    data-testid="delivery-fee-free-badge"
+                    className="bg-emerald-900/20 border-2 border-emerald-700 rounded-xl px-4 py-3"
+                  >
+                    <p className="text-emerald-400 font-semibold font-body">Free Delivery ✓</p>
+                  </div>
+                ) : (
+                  <input
+                    id="delivery-charge"
+                    type="number"
+                    inputMode="decimal"
+                    min="0"
+                    step="0.01"
+                    placeholder="0.00 (leave empty for free)"
+                    value={deliveryCustomChargeStr}
+                    onChange={(e) => { setDeliveryCustomChargeStr(e.target.value) }}
+                    className="w-full min-h-[48px] px-4 rounded-xl text-base bg-brand-blue text-white border-2 border-brand-grey/40 focus:border-brand-gold focus:outline-none placeholder-white/40 font-body"
+                  />
+                )}
               </div>
             )}
 
@@ -799,6 +898,8 @@ export default function TablesPage(): JSX.Element {
                   setSelectedDeliveryZoneId('')
                   setDeliveryZones([])
                   setZonesLoading(false)
+                  setDeliveryFreeShipping(false)
+                  setDeliveryCustomChargeStr('')
                 }}
                 className="flex-1 min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold border-2 border-brand-grey/40 text-white hover:border-brand-grey transition-colors font-body"
               >

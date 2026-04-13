@@ -270,7 +270,7 @@ describe('NewOrderPage (dine-in with optional customer capture — issue #401)',
       })
     })
 
-    it('shows customer name and mobile in creating shell when fields are filled', async () => {
+    it('shows customer name and phone in creating shell when fields are filled', async () => {
       const { callCreateOrder } = await import('../../../components/createOrderApi')
       vi.mocked(callCreateOrder).mockReturnValue(new Promise(() => { /* never resolves */ }))
 
@@ -282,6 +282,8 @@ describe('NewOrderPage (dine-in with optional customer capture — issue #401)',
 
       expect(screen.getByText('Ahmed Khan')).toBeInTheDocument()
       expect(screen.getByText('+8801712345678')).toBeInTheDocument()
+      // Label in creating shell matches takeaway ('Phone', not 'Mobile')
+      expect(screen.getByText('Phone')).toBeInTheDocument()
     })
 
     it('does NOT show customer row in creating shell when fields are skipped', async () => {
@@ -294,7 +296,7 @@ describe('NewOrderPage (dine-in with optional customer capture — issue #401)',
 
       // Customer label should not be visible when no customer info was provided
       expect(screen.queryByText('Customer')).not.toBeInTheDocument()
-      expect(screen.queryByText('Mobile')).not.toBeInTheDocument()
+      expect(screen.queryByText('Phone')).not.toBeInTheDocument()
     })
   })
 

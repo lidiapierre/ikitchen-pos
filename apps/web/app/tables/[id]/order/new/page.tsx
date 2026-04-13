@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import type { JSX } from 'react'
 import { callCreateOrder } from '../../../components/createOrderApi'
@@ -33,6 +33,12 @@ export default function NewOrderPage(): JSX.Element {
   const [error, setError] = useState<string | null>(null)
   // Keep an AbortController ref so we can clean up if the component unmounts
   const controllerRef = useRef<AbortController | null>(null)
+
+  // Abort any in-flight API call when the component unmounts (e.g. OS back gesture
+  // during the 'creating' step) so stale callbacks don't fire on an unmounted component.
+  useEffect(() => {
+    return () => { controllerRef.current?.abort() }
+  }, [])
 
   function handleCreateOrder(): void {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -123,7 +129,7 @@ export default function NewOrderPage(): JSX.Element {
             )}
             {displayMobile && (
               <div className="flex gap-3">
-                <dt className="text-zinc-500">Mobile</dt>
+                <dt className="text-zinc-500">Phone</dt>
                 <dd className="text-zinc-300">{displayMobile}</dd>
               </div>
             )}

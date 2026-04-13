@@ -45,6 +45,16 @@ export default function NewTakeawayOrderClient(): JSX.Element {
       return
     }
 
+    // Customer name and mobile are mandatory for takeaway orders (issue #392)
+    if (!customerName) {
+      void Promise.resolve().then(() => { setError('Customer name is required for takeaway orders') })
+      return
+    }
+    if (!customerPhone) {
+      void Promise.resolve().then(() => { setError('Mobile number is required for takeaway orders') })
+      return
+    }
+
     const controller = new AbortController()
 
     callCreateOrder(
@@ -52,8 +62,8 @@ export default function NewTakeawayOrderClient(): JSX.Element {
       accessToken,
       {
         orderType: 'takeaway',
-        ...(customerName ? { customerName } : {}),
-        ...(customerPhone ? { customerMobile: customerPhone } : {}),
+        customerName,
+        customerMobile: customerPhone,
         scheduledTime,
       },
       controller.signal,

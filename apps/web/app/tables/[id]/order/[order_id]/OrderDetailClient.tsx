@@ -1232,8 +1232,8 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
       setConfirmedSplitPayments(
         splitPayments.map((p) => ({ method: p.method, amountCents: p.amountCents })),
       )
-      // For backward-compat fields used elsewhere
-      setConfirmedPaymentMethod(splitPayments.length === 1 ? splitPayments[0].method : 'cash')
+      // For backward-compat fields used elsewhere (primary method, or null for multi-method splits)
+      setConfirmedPaymentMethod(splitPayments.length === 1 ? splitPayments[0].method : null)
 
       if (result.change_due > 0) {
         setChangeDueCents(result.change_due)

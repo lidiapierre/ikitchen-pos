@@ -1941,4 +1941,55 @@ describe('OrderDetailClient — post-payment payment breakdown (issue #391)', ()
     expect(screen.getAllByText('Card / POS').length).toBeGreaterThanOrEqual(1)
     expect(screen.getByText('Bill total')).toBeInTheDocument()
   })
+
+  it('change screen → Done button advances to success screen showing "Change given" (issue #391)', async (): Promise<void> => {
+    const { callRecordSplitPayment } = await import('./recordPaymentApi')
+    vi.mocked(callRecordSplitPayment).mockResolvedValue({ change_due: 500 })
+
+    await openPaymentStep391()
+    // Cash 59.50 on a 54.50 bill → ৳5 change
+    const input = screen.getByRole('spinbutton')
+    fireEvent.change(input, { target: { value: '59.50' } })
+    fireEvent.click(screen.getByRole('button', { name: /Confirm Payment/ }))
+
+    await waitFor((): void => {
+      expect(screen.getByText('Change Due')).toBeInTheDocument()
+    })
+    // "Done" button on change screen
+    fireEvent.click(screen.getByRole('button', { name: /Done/ }))
+
+    await waitFor((): void => {
+      expect(screen.getByText('Payment recorded — order closed')).toBeInTheDocument()
+    })
+    // Success screen shows payment breakdown and change given
+    expect(screen.getByText('Payment breakdown')).toBeInTheDocument()
+    expect(screen.getByText('Change given')).toBeInTheDocument()
+  })
+
+  it('paid order header shows per-method breakdown when paidPaymentLines are populated (issue #391)', async (): Promise<void> => {
+    const { fetchOrderSummary } = await import('./orderData')
+    vi.mocked(fetchOrderSummary).mockResolvedValue({
+      status: 'paid',
+      payment_method: 'cash',
+      order_type: 'dine_in',
+      customer_name: null, delivery_note: null, customer_mobile: null,
+      bill_number: null, reservation_id: null, customer_id: null,
+      order_number: null, scheduled_time: null, delivery_zone_name: null,
+      delivery_zone_id: null, delivery_charge: 0, merge_label: null,
+      payment_lines: [
+        { method: 'cash', amount_cents: 60000 },
+        { method: 'card', amount_cents: 54500 },
+      ],
+    })
+
+    render(<OrderDetailClient tableId="5" orderId="order-paid-391" />)
+
+    await waitFor((): void => {
+      expect(screen.getByText('Cash')).toBeInTheDocument()
+    })
+    expect(screen.getByText('Card / POS')).toBeInTheDocument()
+    // Both method amounts shown
+    expect(screen.getByText('৳ 600.00')).toBeInTheDocument()
+    expect(screen.getByText('৳ 545.00')).toBeInTheDocument()
+  })
 })

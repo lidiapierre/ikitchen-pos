@@ -619,11 +619,7 @@ export default function ReceiptsClient(): JSX.Element {
           <div className="bg-white border border-brand-grey rounded-2xl p-4 mb-4 flex items-center justify-between">
             <div>
               <p className="text-sm text-brand-navy/60 uppercase tracking-wide font-medium">
-                {isAdmin && !committedParams.useRange
-                  ? formatDate(committedParams.selectedDate)
-                  : isAdmin
-                  ? `${formatDate(committedParams.fromDate)} — ${formatDate(committedParams.toDate)}`
-                  : 'Shift Total'}
+                {isAdmin && !useRange ? formatDate(selectedDate) : isAdmin ? `${formatDate(fromDate)} — ${formatDate(toDate)}` : 'Shift Total'}
               </p>
               <p className="text-2xl font-bold text-brand-navy mt-1">
                 {formatPrice(totalDailyCents, currencySymbol, roundBillTotals)}
@@ -633,11 +629,7 @@ export default function ReceiptsClient(): JSX.Element {
               <p className="text-sm text-brand-navy/60">{orders.length} bill{orders.length !== 1 ? 's' : ''}</p>
               <button
                 type="button"
-                onClick={() => {
-                  // Refresh re-runs the SAME (committed) search, not the uncommitted inputs.
-                  // Spread into a new object so React sees a state change and load re-fires.
-                  setCommittedParams((p) => ({ ...p }))
-                }}
+                onClick={() => setCommittedParams({ selectedDate, fromDate, toDate, useRange })}
                 disabled={loading}
                 className="mt-1 flex items-center gap-1.5 text-xs text-brand-navy/60 hover:text-brand-navy transition-colors"
               >

@@ -59,7 +59,7 @@ vi.mock('@/lib/supabase', () => ({
 }))
 
 vi.mock('@/lib/user-context', () => ({
-  useUser: vi.fn().mockReturnValue({ accessToken: null, isAdmin: false, role: null, loading: false, userId: null }),
+  useUser: vi.fn().mockReturnValue({ accessToken: null, isAdmin: false, role: null, loading: false }),
 }))
 
 vi.mock('@/components/KotPrintView', () => ({
@@ -1532,7 +1532,7 @@ describe('OrderDetailClient', () => {
       // Provide a real access token so handleQtyButton doesn't early-return on !accessToken
       const { useUser } = await import('@/lib/user-context')
       vi.mocked(useUser).mockReturnValue({
-        accessToken: 'test-token', isAdmin: false, role: 'server', loading: false, userId: 'user-test-1',
+        accessToken: 'test-token', isAdmin: false, role: 'server', loading: false,
       })
     })
 
@@ -1818,7 +1818,7 @@ describe('OrderDetailClient', () => {
 
       // Non-admin user — previously this button was admin-only
       const { useUser } = await import('@/lib/user-context')
-      vi.mocked(useUser).mockReturnValue({ accessToken: 'test-token', isAdmin: false, role: 'waiter' as unknown as null, loading: false, userId: 'user-test-1' })
+      vi.mocked(useUser).mockReturnValue({ accessToken: 'test-token', isAdmin: false, role: 'waiter', loading: false })
 
       render(<OrderDetailClient tableId="delivery" orderId="order-delivery-1" />)
 

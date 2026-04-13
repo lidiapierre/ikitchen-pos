@@ -571,7 +571,7 @@ export default function TablesPage(): JSX.Element {
         </>
       )}
 
-      {/* Takeaway order modal — optional name + mobile (issue #276) */}
+      {/* Takeaway order modal — mandatory name + mobile (issue #276 + #392) */}
       {showTakeawayModal && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70">
           <div className="w-full max-w-lg bg-brand-navy rounded-t-2xl p-6 space-y-4">

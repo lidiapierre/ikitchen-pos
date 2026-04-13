@@ -277,6 +277,7 @@ export default function TablesPage(): JSX.Element {
     setTakeawayMobile('')
     setTakeawayScheduledTime('')
     setTakeawaySuggestion(null)
+    setCreateOrderError(null)
     setShowTakeawayModal(true)
   }
 
@@ -300,6 +301,9 @@ export default function TablesPage(): JSX.Element {
     params.set('scheduledTime', new Date(takeawayScheduledTime).toISOString())
     setCreateOrderError(null)
     setShowTakeawayModal(false)
+    setTakeawayName('')
+    setTakeawayMobile('')
+    setTakeawayScheduledTime('')
     router.push(`/tables/takeaway/order/new?${params.toString()}`)
   }
 
@@ -410,7 +414,7 @@ export default function TablesPage(): JSX.Element {
         </button>
       </div>
 
-      {createOrderError !== null && !showDeliveryModal && (
+      {createOrderError !== null && !showDeliveryModal && !showTakeawayModal && (
         <p className="text-red-400 text-sm mb-4">{createOrderError}</p>
       )}
 

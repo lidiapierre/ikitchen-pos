@@ -14,8 +14,9 @@ import { ShoppingBag } from 'lucide-react'
  * useSearchParams() — without Suspense Next.js would de-opt the whole route to
  * dynamic rendering.
  *
- * customerName and customerPhone are optionally passed as URL search params
- * by handleConfirmTakeaway() in tables/page.tsx (issue #276).
+ * customerName and customerPhone are mandatory URL search params set by
+ * handleConfirmTakeaway() in tables/page.tsx (issue #276, #392).
+ * The component validates both fields are present before firing the API call.
  */
 export default function NewTakeawayOrderClient(): JSX.Element {
   const router = useRouter()

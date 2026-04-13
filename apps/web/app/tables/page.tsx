@@ -282,14 +282,13 @@ export default function TablesPage(): JSX.Element {
   }
 
   // Confirm takeaway — navigate to /order/new with required search params (issue #317 + #276 + #352 + #392)
+  // Note: button is disabled when any field is empty, so these early-returns are safety guards only.
   function handleConfirmTakeaway(): void {
     if (!takeawayName.trim()) {
-      setCreateOrderError('Customer name is required for takeaway orders')
-      return
+      return // button is disabled; guard for safety
     }
     if (!takeawayMobile.trim()) {
-      setCreateOrderError('Mobile number is required for takeaway orders')
-      return
+      return // button is disabled; guard for safety
     }
     if (!takeawayScheduledTime) {
       return // button is disabled; guard for safety
@@ -539,12 +538,12 @@ export default function TablesPage(): JSX.Element {
                         <span className="text-xs text-brand-navy/60">{orderAge(order.created_at)}</span>
                       </div>
 
-                      {/* Customer name (delivery only) */}
-                      {isDelivery && order.customer_name && (
+                      {/* Customer name (takeaway and delivery) */}
+                      {order.customer_name && (
                         <p className="text-white font-semibold text-base">{order.customer_name}</p>
                       )}
-                      {/* Phone number (delivery only) */}
-                      {isDelivery && order.customer_mobile && (
+                      {/* Phone number (takeaway and delivery) */}
+                      {order.customer_mobile && (
                         <p className="text-white/70 text-sm">📞 {order.customer_mobile}</p>
                       )}
 

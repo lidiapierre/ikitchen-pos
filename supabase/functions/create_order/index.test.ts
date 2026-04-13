@@ -227,6 +227,21 @@ describe('create_order handler', () => {
       const mockFetch = makeMockFetch([], [{ id: TEST_ORDER_ID, status: 'open' }])
       const req = makeAuthPost({
         order_type: 'takeaway',
+        customer_name: '',
+        customer_mobile: '+8801712345678',
+        scheduled_time: SCHEDULED_TIME,
+      })
+      const res = await handler(req, mockFetch, mockEnv)
+      expect(res.status).toBe(400)
+      const json = await res.json() as { success: boolean; error: string }
+      expect(json.success).toBe(false)
+      expect(json.error).toBe('customer_name is required for takeaway orders')
+    })
+
+    it('returns 400 when customer_name is whitespace-only', async (): Promise<void> => {
+      const mockFetch = makeMockFetch([], [{ id: TEST_ORDER_ID, status: 'open' }])
+      const req = makeAuthPost({
+        order_type: 'takeaway',
         customer_name: '   ',
         customer_mobile: '+8801712345678',
         scheduled_time: SCHEDULED_TIME,

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import type { JSX } from 'react'
 import { fetchOrderItems, fetchOrderSummary, calcItemDiscountCents } from './orderData'
-import type { OrderItem, CourseType } from './orderData'
+import type { OrderItem, CourseType, PaymentLine } from './orderData'
 import { callCloseOrder } from './closeOrderApi'
 import { callMarkOrderDue } from './markOrderDueApi'
 import { callRecordSplitPayment } from './recordPaymentApi'
@@ -107,6 +107,8 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
   // Paid order state (for orders already paid when navigated to directly)
   const [orderIsPaid, setOrderIsPaid] = useState(false)
   const [paidPaymentMethod, setPaidPaymentMethod] = useState<string | null>(null)
+  /** Full per-method breakdown for orders already paid (loaded from DB via fetchOrderSummary) */
+  const [paidPaymentLines, setPaidPaymentLines] = useState<PaymentLine[]>([])
   const [statusLoading, setStatusLoading] = useState(true)
 
   // Order type state (takeaway / delivery support)
@@ -346,6 +348,8 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
         if (summary.status === 'paid') {
           setOrderIsPaid(true)
           setPaidPaymentMethod(summary.payment_method)
+          // Store full payment breakdown for audit trail display (issue #391)
+          setPaidPaymentLines(summary.payment_lines ?? [])
         }
         // If order is 'due' (deferred payment / tab), flag it so UI shows "Settle Bill" (issue #370)
         if (summary.status === 'due') {
@@ -660,9 +664,10 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
   const billAmountTenderedCents = splitPayments.length === 1 && splitPayments[0].method === 'cash'
     ? splitPayments[0].amountCents
     : undefined
-  // For BillPrintView: pass split payments when there are multiple methods
+  // For BillPrintView: always pass confirmed split payments so the receipt shows
+  // a per-method breakdown for both single and split payments (issue #391).
   const billSplitPayments: SplitPaymentLine[] | undefined =
-    confirmedSplitPayments.length > 1 ? confirmedSplitPayments : undefined
+    confirmedSplitPayments.length > 0 ? confirmedSplitPayments : undefined
 
   function handleCoversChange(newCovers: number): void {
     const clamped = Math.max(1, Math.min(20, newCovers))
@@ -2381,12 +2386,27 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
                 </dd>
               </div>
             )}
-            {paidPaymentMethod !== null && (
+            {/* Payment breakdown (issue #391) — show per-method amounts for audit trail */}
+            {paidPaymentLines.length > 0 ? (
+              <div className="flex gap-3">
+                <dt className="text-zinc-500">Payment</dt>
+                <dd className="font-semibold text-white">
+                  <div className="space-y-0.5">
+                    {paidPaymentLines.map((pl, idx) => (
+                      <div key={idx} className="flex items-center gap-2">
+                        <span>{PAYMENT_METHOD_LABELS[pl.method as PaymentMethod] ?? pl.method}</span>
+                        <span className="text-amber-400">{formatPrice(pl.amount_cents, currencySymbol)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </dd>
+              </div>
+            ) : paidPaymentMethod !== null ? (
               <div className="flex gap-3">
                 <dt className="text-zinc-500">Payment method</dt>
                 <dd className="font-semibold text-white">{PAYMENT_METHOD_LABELS[paidPaymentMethod as PaymentMethod] ?? paidPaymentMethod}</dd>
               </div>
-            )}
+            ) : null}
           </dl>
           {/* Reservation info block — shown when order was created via Seat action (issue #277) */}
           {orderReservationInfo !== null && (
@@ -4144,16 +4164,42 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
             )}
           </div>
         ) : step === 'change' ? (
+          // ── Change / Tip screen (issue #391) ────────────────────────────────
           <div className="space-y-5">
             <h2 className="text-xl font-semibold text-white">{splitHasCash ? 'Change Due' : 'Tip / Overpayment'}</h2>
-            <p className="text-4xl font-bold text-amber-400">
+            <p className="text-4xl font-bold text-amber-400" data-testid="change-amount">
               {formatPrice(changeDueCents, currencySymbol)}
             </p>
-            {confirmedSplitPayments.length > 1 && (
-              <p className="text-sm text-zinc-400">
-                {confirmedSplitPayments.map((p) => `${PAYMENT_METHOD_LABELS[p.method]} ${formatPrice(p.amountCents, currencySymbol, roundBillTotals)}`).join(' | ')}
-              </p>
-            )}
+            {/* Payment method breakdown — always shown for audit trail (issue #391) */}
+            <div className="bg-zinc-800 rounded-xl p-4 space-y-2 text-base">
+              <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-1">Payment breakdown</p>
+              {confirmedSplitPayments.map((p, idx) => (
+                <div key={idx} className="flex justify-between">
+                  <span className="text-zinc-300">{PAYMENT_METHOD_LABELS[p.method] ?? p.method}</span>
+                  <span className="font-semibold text-white">{formatPrice(p.amountCents, currencySymbol, roundBillTotals)}</span>
+                </div>
+              ))}
+              <div className="flex justify-between border-t border-zinc-700 pt-2 mt-1">
+                <span className="text-zinc-400">Bill total</span>
+                <span className="text-zinc-300">{formatPrice(billTotalCents, currencySymbol, roundBillTotals)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-zinc-400">Total tendered</span>
+                <span className="text-zinc-300">{formatPrice(splitTotalTenderedCents, currencySymbol, roundBillTotals)}</span>
+              </div>
+              {splitHasCash && (
+                <div className="flex justify-between font-bold text-amber-400">
+                  <span>Change to return</span>
+                  <span>{formatPrice(changeDueCents, currencySymbol, roundBillTotals)}</span>
+                </div>
+              )}
+              {!splitHasCash && (
+                <div className="flex justify-between font-semibold text-blue-400">
+                  <span>Tip / gratuity</span>
+                  <span>{formatPrice(changeDueCents, currencySymbol, roundBillTotals)}</span>
+                </div>
+              )}
+            </div>
             <button
               type="button"
               onClick={() => { setStep('success') }}
@@ -4163,16 +4209,32 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
             </button>
           </div>
         ) : (
+          // ── Success / confirmation screen (issue #391) ───────────────────────
           <div className="space-y-5 text-center py-4">
             <div className="mb-2 text-green-400 flex justify-center"><CheckCircle2 size={64} aria-hidden="true" /></div>
             <h2 className="text-2xl font-bold text-green-400">Payment recorded — order closed</h2>
-            {confirmedSplitPayments.length > 1 ? (
-              <p className="text-zinc-400 text-base">
-                {confirmedSplitPayments.map((p) => `${PAYMENT_METHOD_LABELS[p.method]} ${formatPrice(p.amountCents, currencySymbol, roundBillTotals)}`).join(' | ')}
-              </p>
-            ) : confirmedPaymentMethod !== null ? (
-              <p className="text-zinc-400 text-base">Paid by {PAYMENT_METHOD_LABELS[confirmedPaymentMethod as PaymentMethod] ?? confirmedPaymentMethod}</p>
-            ) : null}
+            {/* Payment breakdown card — audit trail for cashier / manager (issue #391) */}
+            {confirmedSplitPayments.length > 0 && (
+              <div className="bg-zinc-800 rounded-xl p-4 space-y-2 text-base text-left">
+                <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-1">Payment breakdown</p>
+                {confirmedSplitPayments.map((p, idx) => (
+                  <div key={idx} className="flex justify-between">
+                    <span className="text-zinc-300">{PAYMENT_METHOD_LABELS[p.method] ?? p.method}</span>
+                    <span className="font-semibold text-white" data-testid={`payment-breakdown-${p.method}`}>{formatPrice(p.amountCents, currencySymbol, roundBillTotals)}</span>
+                  </div>
+                ))}
+                <div className="flex justify-between border-t border-zinc-700 pt-2 mt-1">
+                  <span className="text-zinc-400">Bill total</span>
+                  <span className="font-bold text-green-400">{formatPrice(billTotalCents, currencySymbol, roundBillTotals)}</span>
+                </div>
+                {changeDueCents > 0 && (
+                  <div className="flex justify-between font-semibold text-amber-400">
+                    <span>Change given</span>
+                    <span>{formatPrice(changeDueCents, currencySymbol, roundBillTotals)}</span>
+                  </div>
+                )}
+              </div>
+            )}
             <button
               type="button"
               onClick={handlePrintBill}

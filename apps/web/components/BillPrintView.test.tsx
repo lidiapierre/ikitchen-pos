@@ -581,4 +581,142 @@ describe('BillPrintView', () => {
       expect(screen.queryByText('DUE BILL')).not.toBeInTheDocument()
     })
   })
+
+  describe('payment breakdown (issue #391)', () => {
+    it('shows method and amount for a single non-cash payment when splitPayments provided', () => {
+      render(
+        <BillPrintView
+          tableLabel="Table 3"
+          orderId="order-abc-12345678"
+          items={mockItems}
+          subtotalCents={SUBTOTAL}
+          vatPercent={VAT_PERCENT}
+          totalCents={TOTAL}
+          paymentMethod="card"
+          splitPayments={[{ method: 'card', amountCents: TOTAL }]}
+          timestamp="25/03/2026, 14:00:00"
+        />,
+      )
+      // Should show "Card / POS" label and the payment amount
+      expect(screen.getByText('Card / POS')).toBeInTheDocument()
+      // TOTAL = 4370 cents = ৳ 43.70 — appears in both "Pay" row and the breakdown row
+      expect(screen.getAllByText('৳ 43.70').length).toBeGreaterThanOrEqual(2)
+      // No "Tendered by" label — use the new per-method format
+      expect(screen.queryByText('Tendered by')).not.toBeInTheDocument()
+      // No "Total Paid" line for a single-method payment
+      expect(screen.queryByText('Total Paid')).not.toBeInTheDocument()
+    })
+
+    it('shows method and amount for a single cash payment when splitPayments provided', () => {
+      render(
+        <BillPrintView
+          tableLabel="Table 3"
+          orderId="order-abc-12345678"
+          items={mockItems}
+          subtotalCents={SUBTOTAL}
+          vatPercent={VAT_PERCENT}
+          totalCents={TOTAL}
+          paymentMethod="cash"
+          splitPayments={[{ method: 'cash', amountCents: 5000 }]}
+          amountTenderedCents={5000}
+          changeDueCents={630}
+          timestamp="25/03/2026, 14:00:00"
+        />,
+      )
+      expect(screen.getByText('Cash')).toBeInTheDocument()
+      // Change due shown when cash is in the mix
+      expect(screen.getByText('Change Due')).toBeInTheDocument()
+      expect(screen.getByText('৳ 6.30')).toBeInTheDocument()
+    })
+
+    it('shows per-method lines and Total Paid for split (multi-method) payments', () => {
+      render(
+        <BillPrintView
+          tableLabel="Table 3"
+          orderId="order-abc-12345678"
+          items={mockItems}
+          subtotalCents={SUBTOTAL}
+          vatPercent={VAT_PERCENT}
+          totalCents={TOTAL}
+          paymentMethod="cash"
+          splitPayments={[
+            { method: 'cash', amountCents: 2000 },
+            { method: 'card', amountCents: 2370 },
+          ]}
+          changeDueCents={0}
+          timestamp="25/03/2026, 14:00:00"
+        />,
+      )
+      // Both methods shown
+      expect(screen.getByText('Cash')).toBeInTheDocument()
+      expect(screen.getByText('Card / POS')).toBeInTheDocument()
+      // Amounts: ৳ 20.00 and ৳ 23.70
+      expect(screen.getByText('৳ 20.00')).toBeInTheDocument()
+      expect(screen.getByText('৳ 23.70')).toBeInTheDocument()
+      // Total Paid line: 2000 + 2370 = 4370 = ৳ 43.70
+      expect(screen.getByText('Total Paid')).toBeInTheDocument()
+    })
+
+    it('shows Change Due for split payment when cash is in the mix and change > 0', () => {
+      render(
+        <BillPrintView
+          tableLabel="Table 3"
+          orderId="order-abc-12345678"
+          items={mockItems}
+          subtotalCents={SUBTOTAL}
+          vatPercent={VAT_PERCENT}
+          totalCents={TOTAL}
+          paymentMethod="cash"
+          splitPayments={[
+            { method: 'cash', amountCents: 5000 },
+            { method: 'card', amountCents: 2000 },
+          ]}
+          changeDueCents={2630}
+          timestamp="25/03/2026, 14:00:00"
+        />,
+      )
+      // Change Due shown
+      expect(screen.getByText('Change Due')).toBeInTheDocument()
+      expect(screen.getByText('৳ 26.30')).toBeInTheDocument()
+    })
+
+    it('does not show Change Due when changeDueCents is 0 for split payment with cash', () => {
+      render(
+        <BillPrintView
+          tableLabel="Table 3"
+          orderId="order-abc-12345678"
+          items={mockItems}
+          subtotalCents={SUBTOTAL}
+          vatPercent={VAT_PERCENT}
+          totalCents={TOTAL}
+          paymentMethod="cash"
+          splitPayments={[
+            { method: 'cash', amountCents: 2185 },
+            { method: 'card', amountCents: 2185 },
+          ]}
+          changeDueCents={0}
+          timestamp="25/03/2026, 14:00:00"
+        />,
+      )
+      expect(screen.queryByText('Change Due')).not.toBeInTheDocument()
+    })
+
+    it('shows mobile payment method with amount when splitPayments provided', () => {
+      render(
+        <BillPrintView
+          tableLabel="Table 3"
+          orderId="order-abc-12345678"
+          items={mockItems}
+          subtotalCents={SUBTOTAL}
+          vatPercent={VAT_PERCENT}
+          totalCents={TOTAL}
+          paymentMethod="mobile"
+          splitPayments={[{ method: 'mobile', amountCents: TOTAL }]}
+          timestamp="25/03/2026, 14:00:00"
+        />,
+      )
+      expect(screen.getByText('Mobile')).toBeInTheDocument()
+      expect(screen.queryByText('Tendered by')).not.toBeInTheDocument()
+    })
+  })
 })

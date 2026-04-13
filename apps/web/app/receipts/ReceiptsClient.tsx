@@ -428,11 +428,20 @@ export default function ReceiptsClient(): JSX.Element {
   const [error, setError] = useState<string | null>(null)
   const [config, setConfig] = useState<RestaurantConfig | null>(null)
 
-  // Filters — staff uses shift date, admin can pick dates
+  // Filters — controlled inputs (admin date picker / range toggle)
   const [selectedDate, setSelectedDate] = useState(getTodayIso())
   const [fromDate, setFromDate] = useState(getTodayIso())
   const [toDate, setToDate] = useState(getTodayIso())
   const [useRange, setUseRange] = useState(false)
+
+  // Committed params — only updated on Search button click so the load
+  // callback doesn't re-fire on every keystroke / date picker change.
+  const [committedParams, setCommittedParams] = useState({
+    selectedDate: getTodayIso(),
+    fromDate: getTodayIso(),
+    toDate: getTodayIso(),
+    useRange: false,
+  })
 
   // Re-print state
   const [reprintOrder, setReprintOrder] = useState<BillHistoryOrder | null>(null)
@@ -469,12 +478,13 @@ export default function ReceiptsClient(): JSX.Element {
           params.date = getTodayIso()
         }
       } else {
-        // Admin: use selected date or range
-        if (useRange) {
-          params.from = fromDate
-          params.to = toDate
+        // Admin: use committed params so the load only fires on explicit Search,
+        // not on every date input change.
+        if (committedParams.useRange) {
+          params.from = committedParams.fromDate
+          params.to = committedParams.toDate
         } else {
-          params.date = selectedDate
+          params.date = committedParams.selectedDate
         }
       }
 
@@ -487,7 +497,7 @@ export default function ReceiptsClient(): JSX.Element {
     } finally {
       setLoading(false)
     }
-  }, [accessToken, isAdmin, currentUserId, shiftData, selectedDate, fromDate, toDate, useRange])
+  }, [accessToken, isAdmin, currentUserId, shiftData, committedParams])
 
   // Load config once
   useEffect(() => {
@@ -574,7 +584,12 @@ export default function ReceiptsClient(): JSX.Element {
 
               <button
                 type="button"
-                onClick={() => void load()}
+                onClick={() => {
+                  // Commit the current date inputs so load re-fires via useEffect([load]).
+                  // Do NOT call load() directly here — committedParams hasn't updated yet
+                  // (React batches the setState, so load() would see the stale values).
+                  setCommittedParams({ selectedDate, fromDate, toDate, useRange })
+                }}
                 disabled={loading}
                 className="flex items-center gap-2 px-4 py-1.5 rounded-lg bg-brand-gold text-brand-navy font-semibold text-sm hover:bg-brand-gold/80 transition-colors disabled:opacity-50"
               >
@@ -614,7 +629,7 @@ export default function ReceiptsClient(): JSX.Element {
               <p className="text-sm text-brand-navy/60">{orders.length} bill{orders.length !== 1 ? 's' : ''}</p>
               <button
                 type="button"
-                onClick={() => void load()}
+                onClick={() => setCommittedParams({ selectedDate, fromDate, toDate, useRange })}
                 disabled={loading}
                 className="mt-1 flex items-center gap-1.5 text-xs text-brand-navy/60 hover:text-brand-navy transition-colors"
               >

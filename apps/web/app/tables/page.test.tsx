@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import type { JSX } from 'react'
-import TablesPage from './page'
+import TablesPage, { computeDeliveryChargeCents } from './page'
 import { fetchTables } from './tablesData'
 import type { TableRow } from './tablesData'
 
@@ -105,6 +105,61 @@ describe('TablesPage', () => {
         'https://test.supabase.co',
         'test-key',
       )
+    })
+  })
+})
+
+// ─── computeDeliveryChargeCents — pure function unit tests (issue #393) ────────
+// The IIFE in handleCreateDelivery was extracted so all three branches can be
+// covered without mounting TablesPage.
+describe('computeDeliveryChargeCents', () => {
+  describe('zone selected path', () => {
+    it('returns zone.charge_amount when a zone is selected (ignores isFree and customChargeStr)', () => {
+      expect(computeDeliveryChargeCents({ charge_amount: 9900 }, false, '')).toBe(9900)
+    })
+
+    it('returns zone.charge_amount even when isFree is true (zone takes precedence)', () => {
+      expect(computeDeliveryChargeCents({ charge_amount: 5000 }, true, '')).toBe(5000)
+    })
+
+    it('returns zone.charge_amount even when customChargeStr has a value (zone takes precedence)', () => {
+      expect(computeDeliveryChargeCents({ charge_amount: 19900 }, false, '99')).toBe(19900)
+    })
+  })
+
+  describe('free delivery toggle path (no zone)', () => {
+    it('returns 0 when isFree is true and no zone is selected', () => {
+      expect(computeDeliveryChargeCents(null, true, '')).toBe(0)
+    })
+
+    it('returns 0 when isFree is true even if customChargeStr has a value', () => {
+      expect(computeDeliveryChargeCents(null, true, '49.50')).toBe(0)
+    })
+  })
+
+  describe('manual custom charge path (no zone, not free)', () => {
+    it('converts a valid BDT amount string to cents', () => {
+      expect(computeDeliveryChargeCents(null, false, '49.50')).toBe(4950)
+    })
+
+    it('converts an integer amount string to cents', () => {
+      expect(computeDeliveryChargeCents(null, false, '100')).toBe(10000)
+    })
+
+    it('returns 0 for an empty string', () => {
+      expect(computeDeliveryChargeCents(null, false, '')).toBe(0)
+    })
+
+    it('returns 0 for a negative value (clamps to 0)', () => {
+      expect(computeDeliveryChargeCents(null, false, '-5')).toBe(0)
+    })
+
+    it('returns 0 for a non-numeric string (NaN guard)', () => {
+      expect(computeDeliveryChargeCents(null, false, 'abc')).toBe(0)
+    })
+
+    it('returns 0 for "0"', () => {
+      expect(computeDeliveryChargeCents(null, false, '0')).toBe(0)
     })
   })
 })

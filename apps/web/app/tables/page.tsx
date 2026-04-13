@@ -40,6 +40,24 @@ function orderAge(createdAt: string): string {
   return rem > 0 ? `${hrs}h ${rem}m` : `${hrs}h`
 }
 
+/**
+ * Computes the effective delivery charge in cents for the URL shell display (issue #393).
+ * Extracted as a pure function so it can be unit-tested without mounting TablesPage.
+ *  - Zone selected      → zone.charge_amount (authoritative; Edge Function applies server-side)
+ *  - No zone, free      → 0
+ *  - No zone, manual    → parsed from customChargeStr (display only; negative clamped to 0)
+ */
+export function computeDeliveryChargeCents(
+  selectedZone: { charge_amount: number } | null,
+  isFree: boolean,
+  customChargeStr: string,
+): number {
+  if (selectedZone) return selectedZone.charge_amount
+  if (isFree) return 0
+  const custom = parseFloat(customChargeStr || '0')
+  return isNaN(custom) || custom < 0 ? 0 : Math.round(custom * 100)
+}
+
 export default function TablesPage(): JSX.Element {
   const router = useRouter()
   const { accessToken: _at } = useUser(); const accessToken = _at ?? ''
@@ -339,19 +357,12 @@ export default function TablesPage(): JSX.Element {
 
     const selectedZone = deliveryZones.find((z) => z.id === selectedDeliveryZoneId) ?? null
 
-    // Compute effective delivery charge in cents for the URL shell display (issue #393):
-    // - Zone selected  → zone.charge_amount (authoritative: Edge Function applies this server-side)
-    // - No zones, manual charge entered → parsed from deliveryCustomChargeStr (display only)
-    // - No zones, free delivery toggled → 0
     // NOTE: when a zone is selected, the Edge Function always uses the zone's charge
     // regardless of what we pass — this is intentional (fee manipulation prevention, issue #353).
     // For zone-based free delivery, staff should use the "Waive Delivery Fee" button on the order screen.
-    const effectiveChargeCents = (() => {
-      if (selectedZone) return selectedZone.charge_amount
-      if (deliveryFreeShipping) return 0
-      const custom = parseFloat(deliveryCustomChargeStr || '0')
-      return isNaN(custom) || custom < 0 ? 0 : Math.round(custom * 100)
-    })()
+    // Any staff member may waive a delivery fee at any time (not just at creation) — this is
+    // intentional business policy: no time or role gate is applied beyond the basic auth check.
+    const effectiveChargeCents = computeDeliveryChargeCents(selectedZone, deliveryFreeShipping, deliveryCustomChargeStr)
 
     const params = new URLSearchParams({
       customerName: deliveryCustomerName.trim(),

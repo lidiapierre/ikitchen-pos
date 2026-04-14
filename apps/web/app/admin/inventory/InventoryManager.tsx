@@ -497,7 +497,7 @@ interface IngredientFormProps {
 function IngredientForm({ form, setForm, formError, submitting, onSave, onCancel, title, saveLabel }: IngredientFormProps): JSX.Element {
   return (
     <div className="bg-zinc-900 border border-zinc-600 rounded-2xl p-5 flex flex-col gap-4">
-      <h3 className="text-base font-semibold text-brand-navy">{title}</h3>
+      <h3 className="text-base font-semibold text-white">{title}</h3>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="flex flex-col gap-1">
           <label className="text-sm font-medium text-zinc-300">Name <span className="text-red-400">*</span></label>
@@ -795,7 +795,7 @@ function AdjustmentsTab({
     <div className="flex flex-col gap-6">
       {/* Log adjustment form */}
       <div className="bg-zinc-800 border border-zinc-700 rounded-2xl p-5 flex flex-col gap-4">
-        <h2 className="text-base font-semibold text-brand-navy">Log Adjustment</h2>
+        <h2 className="text-base font-semibold text-white">Log Adjustment</h2>
         <div className="flex flex-wrap gap-4 items-end">
           <div className="flex flex-col gap-1">
             <label className="text-sm font-medium text-zinc-300">Ingredient</label>
@@ -1012,7 +1012,7 @@ function WastageTab({
     <div className="flex flex-col gap-8">
       {/* ── Entry Form ────────────────────────────────── */}
       <div className="bg-zinc-800 border border-zinc-700 rounded-2xl p-5 flex flex-col gap-4">
-        <h2 className="text-base font-semibold text-brand-navy">Log Wastage</h2>
+        <h2 className="text-base font-semibold text-white">Log Wastage</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="flex flex-col gap-1">
             <label className="text-sm font-medium text-zinc-300">Ingredient <span className="text-red-400">*</span></label>
@@ -1106,15 +1106,15 @@ function WastageTab({
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div className="bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-4">
               <p className="text-xs text-zinc-500 uppercase tracking-wide font-semibold">Total Events</p>
-              <p className="text-2xl font-bold text-brand-navy font-heading mt-1">{reportRecords.length}</p>
+              <p className="text-2xl font-bold text-white mt-1">{reportRecords.length}</p>
             </div>
             <div className="bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-4">
               <p className="text-xs text-zinc-500 uppercase tracking-wide font-semibold">Ingredients Affected</p>
-              <p className="text-2xl font-bold text-brand-navy font-heading mt-1">{ranked.length}</p>
+              <p className="text-2xl font-bold text-white mt-1">{ranked.length}</p>
             </div>
             <div className="bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-4 col-span-2">
               <p className="text-xs text-zinc-500 uppercase tracking-wide font-semibold">Est. Total Cost</p>
-              <p className="text-2xl font-bold text-brand-navy font-heading mt-1">
+              <p className="text-2xl font-bold text-white mt-1">
                 {ranked.some((r) => r.hasCost)
                   ? ranked.filter((r) => r.hasCost).reduce((sum, r) => sum + (r.totalCost ?? 0), 0).toFixed(2)
                   : '—'}
@@ -1259,11 +1259,11 @@ function MarginsTab({ menuItems, recipeItems }: MarginsTabProps): JSX.Element {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-4">
           <p className="text-xs text-zinc-500 uppercase tracking-wide font-semibold">Total Dishes</p>
-          <p className="text-2xl font-bold text-brand-navy font-heading mt-1">{menuItems.length}</p>
+          <p className="text-2xl font-bold text-white mt-1">{menuItems.length}</p>
         </div>
         <div className="bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-4">
           <p className="text-xs text-zinc-500 uppercase tracking-wide font-semibold">With Recipe</p>
-          <p className="text-2xl font-bold text-brand-navy font-heading mt-1">{margins.filter((m) => m.hasRecipe).length}</p>
+          <p className="text-2xl font-bold text-white mt-1">{margins.filter((m) => m.hasRecipe).length}</p>
         </div>
         <div className="bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-4">
           <p className="text-xs text-zinc-500 uppercase tracking-wide font-semibold">Avg Margin</p>

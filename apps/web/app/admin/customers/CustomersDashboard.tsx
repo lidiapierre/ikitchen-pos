@@ -180,7 +180,7 @@ export default function CustomersDashboard(): JSX.Element {
     <div className="p-6 max-w-6xl mx-auto">
       <div className="flex items-center gap-3 mb-6">
         <Users size={24} className="text-indigo-400" aria-hidden="true" />
-        <h1 className="text-2xl font-bold text-white">Customers</h1>
+        <h1 className="text-2xl font-bold text-brand-navy">Customers</h1>
       </div>
 
       {/* Search */}
@@ -247,14 +247,14 @@ export default function CustomersDashboard(): JSX.Element {
                               className="w-full min-h-[36px] px-2 rounded-lg bg-zinc-700 text-white border border-zinc-600 focus:border-indigo-400 focus:outline-none text-sm"
                             />
                           ) : (
-                            <span className="font-medium text-white">
-                              {customer.name ?? <span className="text-zinc-500 italic">—</span>}
+                            <span className="font-medium text-gray-900">
+                              {customer.name ?? <span className="text-gray-400 italic">—</span>}
                             </span>
                           )}
                         </td>
                         <td className="px-4 py-3">
-                          <span className="inline-flex items-center gap-1 text-zinc-300">
-                            <Phone size={12} className="text-zinc-500" aria-hidden="true" />
+                          <span className="inline-flex items-center gap-1 text-gray-600">
+                            <Phone size={12} className="text-gray-400" aria-hidden="true" />
                             {customer.mobile}
                           </span>
                         </td>

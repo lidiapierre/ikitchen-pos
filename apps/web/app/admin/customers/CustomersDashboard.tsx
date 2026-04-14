@@ -253,7 +253,7 @@ export default function CustomersDashboard(): JSX.Element {
                           )}
                         </td>
                         <td className="px-4 py-3">
-                          <span className="inline-flex items-center gap-1 text-zinc-300">
+                          <span className="inline-flex items-center gap-1 text-gray-600">
                             <Phone size={12} className="text-gray-400" aria-hidden="true" />
                             {customer.mobile}
                           </span>

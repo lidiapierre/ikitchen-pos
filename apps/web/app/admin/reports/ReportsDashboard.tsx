@@ -38,7 +38,7 @@ function ExportButton({ onClick, loading = false, label = 'Export CSV' }: Export
       type="button"
       onClick={onClick}
       disabled={loading}
-      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-200 hover:bg-zinc-700 text-zinc-700 hover:text-white text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed border border-zinc-300"
+      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-200 hover:bg-zinc-300 text-zinc-700 text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed border border-zinc-300"
       aria-label={label}
     >
       {loading ? (
@@ -640,7 +640,7 @@ export default function ReportsDashboard(): JSX.Element {
                   onClick={() =>
                     exportDailySummary(data, period, customFrom || undefined, customTo || undefined)
                   }
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-200 hover:bg-zinc-700 text-zinc-700 hover:text-white text-xs font-medium transition-colors border border-zinc-300"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-200 hover:bg-zinc-300 text-zinc-700 text-xs font-medium transition-colors border border-zinc-300"
                   aria-label="Export daily summary text"
                 >
                   <Download className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />

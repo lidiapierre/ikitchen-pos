@@ -58,7 +58,7 @@ export async function fetchKdsOrders(
   const ordersUrl = new URL(`${supabaseUrl}/rest/v1/orders`)
   ordersUrl.searchParams.set(
     'select',
-    'id,created_at,tables(label)',
+    'id,created_at,tables!orders_table_id_fkey(label)',
   )
   ordersUrl.searchParams.set('status', 'in.(open,pending_payment)')
   ordersUrl.searchParams.set('kitchen_done_at', 'is.null')

@@ -114,7 +114,7 @@ export async function fetchBillHistory(
   const url = new URL(`${supabaseUrl}/rest/v1/orders`)
   url.searchParams.set(
     'select',
-    'id,bill_number,order_number,created_at,final_total_cents,discount_amount_cents,order_comp,order_type,server_id,customer_name,customer_mobile,delivery_note,delivery_charge,service_charge_cents,tables(label),delivery_zones(name),payments(method,amount_cents,tendered_amount_cents)',
+    'id,bill_number,order_number,created_at,final_total_cents,discount_amount_cents,order_comp,order_type,server_id,customer_name,customer_mobile,delivery_note,delivery_charge,service_charge_cents,tables!orders_table_id_fkey(label),delivery_zones(name),payments(method,amount_cents,tendered_amount_cents)',
   )
   url.searchParams.set('status', 'eq.paid')
 
@@ -296,7 +296,7 @@ export async function fetchOrderForReprint(
   // Fetch order details + items + payments in parallel
   const [orderRes, itemsRes, paymentsRes] = await Promise.all([
     fetch(
-      `${supabaseUrl}/rest/v1/orders?id=eq.${orderId}&select=bill_number,order_number,created_at,final_total_cents,discount_amount_cents,order_comp,order_type,customer_name,customer_mobile,delivery_note,delivery_charge,service_charge_cents,tables(label),delivery_zones(name)`,
+      `${supabaseUrl}/rest/v1/orders?id=eq.${orderId}&select=bill_number,order_number,created_at,final_total_cents,discount_amount_cents,order_comp,order_type,customer_name,customer_mobile,delivery_note,delivery_charge,service_charge_cents,tables!orders_table_id_fkey(label),delivery_zones(name)`,
       { headers },
     ),
     fetch(

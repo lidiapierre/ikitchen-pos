@@ -8,6 +8,7 @@ import { fetchOrderItems, fetchOrderSummary, calcItemDiscountCents } from './ord
 import type { OrderItem, CourseType, PaymentLine } from './orderData'
 import { callCloseOrder } from './closeOrderApi'
 import { callMarkOrderDue } from './markOrderDueApi'
+import { callReopenOrderForItems } from './reopenOrderForItemsApi'
 import { callRecordSplitPayment } from './recordPaymentApi'
 import type { SplitPaymentEntry } from './recordPaymentApi'
 import { callVoidItem } from './voidItemApi'
@@ -222,6 +223,10 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
   const [printingBill, setPrintingBill] = useState(false)
   // Pre-payment bill print state (issue #370) — true while printing a "DUE BILL" before payment
   const [printingPreBill, setPrintingPreBill] = useState(false)
+  // Post-bill mode (issue #394) — true when order was reopened after bill was generated
+  const [postBillMode, setPostBillMode] = useState(false)
+  const [reopeningForItems, setReopeningForItems] = useState(false)
+  const [reopenForItemsError, setReopenForItemsError] = useState<string | null>(null)
   // Mark-as-Due state (issue #370) — dine-in only
   const [orderIsDue, setOrderIsDue] = useState(false)
   const [markingDue, setMarkingDue] = useState(false)
@@ -364,6 +369,8 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
           setSplitEntryError(null)
           setStep('payment')
         }
+        // Track post-bill mode (issue #394) — order was reopened for item additions after billing
+        setPostBillMode(summary.post_bill_mode ?? false)
         setOrderType(summary.order_type)
         setOrderCustomerName(summary.customer_name)
         setOrderDeliveryNote(summary.delivery_note)
@@ -1113,6 +1120,30 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
       setMarkDueError(err instanceof Error ? err.message : 'Failed to mark order as due')
     } finally {
       setMarkingDue(false)
+    }
+  }
+
+  /**
+   * Reopen a billed dine-in order so additional items can be added (issue #394).
+   * Transitions pending_payment → open with post_bill_mode = true.
+   * The bill is automatically voided; close_order will regenerate it with the new items.
+   * Access: server+ (enforced by the edge function).
+   */
+  async function handleReopenForItems(): Promise<void> {
+    setReopenForItemsError(null)
+    setReopeningForItems(true)
+    try {
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+      if (!supabaseUrl || !accessToken) throw new Error('Not authenticated')
+      await callReopenOrderForItems(supabaseUrl, accessToken, orderId)
+      setPostBillMode(true)
+      // Reload items (in case any new items were already added in a prior session)
+      loadItems()
+      setStep('order')
+    } catch (err) {
+      setReopenForItemsError(err instanceof Error ? err.message : 'Failed to reopen order for items')
+    } finally {
+      setReopeningForItems(false)
     }
   }
 
@@ -3705,6 +3736,14 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
               </div>
             )}
 
+            {/* Post-bill mode banner — visible after order was reopened for item additions (issue #394) */}
+            {postBillMode && orderType === 'dine_in' && (
+              <div className="mb-3 flex items-center gap-2 bg-violet-900/30 border border-violet-600 rounded-xl px-4 py-2">
+                <span className="text-violet-400 font-bold text-sm">+</span>
+                <span className="text-violet-300 text-sm font-medium">Post-bill addition — add items, then close order to regenerate bill</span>
+              </div>
+            )}
+
             <div className="flex gap-4 mb-3">
               <Link
                 href={`/tables/${tableId}/order/${orderId}/menu`}
@@ -4150,6 +4189,28 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
             >
               <span className="inline-flex items-center gap-1"><Scissors size={16} aria-hidden="true" />Split Bill</span>
             </button>
+
+            {/* Add More Items — dine-in only (issue #394): void bill, reopen order, add items */}
+            {orderType === 'dine_in' && (
+              <div className="space-y-1">
+                <button
+                  type="button"
+                  onClick={() => { void handleReopenForItems() }}
+                  disabled={reopeningForItems}
+                  className={[
+                    'w-full min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold transition-colors border-2',
+                    reopeningForItems
+                      ? 'border-zinc-700 text-zinc-500 cursor-wait'
+                      : 'border-violet-700 text-violet-400 hover:border-violet-500 hover:bg-violet-900/20',
+                  ].join(' ')}
+                >
+                  {reopeningForItems ? 'Reopening…' : '+ Add More Items'}
+                </button>
+                {reopenForItemsError !== null && (
+                  <p className="text-xs text-red-400">{reopenForItemsError}</p>
+                )}
+              </div>
+            )}
 
             <button
               type="button"

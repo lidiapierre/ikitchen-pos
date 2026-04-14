@@ -74,6 +74,10 @@ vi.mock('./updateQuantityApi', () => ({
   updateOrderItemQuantity: vi.fn().mockResolvedValue(undefined),
 }))
 
+vi.mock('./reopenOrderForItemsApi', () => ({
+  callReopenOrderForItems: vi.fn(),
+}))
+
 vi.mock('@/lib/fetchVatConfig', () => ({
   fetchOrderVatContext: vi.fn().mockResolvedValue({ restaurantId: 'rest-1', menuId: null }),
   fetchVatConfig: vi.fn().mockResolvedValue({ vatPercent: 15, taxInclusive: false }),
@@ -1964,6 +1968,144 @@ describe('OrderDetailClient — post-payment payment breakdown (issue #391)', ()
     // Success screen shows payment breakdown and change given
     expect(screen.getByText('Payment breakdown')).toBeInTheDocument()
     expect(screen.getByText('Change given')).toBeInTheDocument()
+  })
+
+  describe('Add More Items after billing (issue #394)', () => {
+    it('shows "Add More Items" button in payment step for dine-in orders', async (): Promise<void> => {
+      const { callCloseOrder } = await import('./closeOrderApi')
+      vi.mocked(callCloseOrder).mockResolvedValue(undefined)
+
+      render(<OrderDetailClient tableId="5" orderId="order-billed" />)
+
+      await waitFor((): void => {
+        expect(screen.queryByText('Loading items…')).not.toBeInTheDocument()
+      })
+
+      // Go to bill preview
+      fireEvent.click(screen.getByRole('button', { name: /Close Order/i }))
+      await waitFor((): void => {
+        expect(screen.getByText('Bill Preview')).toBeInTheDocument()
+      })
+
+      // Proceed to payment (transitions order to pending_payment)
+      fireEvent.click(screen.getByRole('button', { name: /Proceed to Payment/i }))
+      await waitFor((): void => {
+        expect(screen.getByText('Record Payment')).toBeInTheDocument()
+      })
+
+      // "Add More Items" button should be visible for dine-in
+      expect(screen.getByRole('button', { name: /Add More Items/i })).toBeInTheDocument()
+    })
+
+    it('calls callReopenOrderForItems and transitions back to order step when "Add More Items" clicked', async (): Promise<void> => {
+      const { useUser } = await import('@/lib/user-context')
+      vi.mocked(useUser).mockReturnValue({ accessToken: 'test-token', isAdmin: false, role: 'server', loading: false })
+      const { callCloseOrder } = await import('./closeOrderApi')
+      vi.mocked(callCloseOrder).mockResolvedValue(undefined)
+      const { callReopenOrderForItems } = await import('./reopenOrderForItemsApi')
+      vi.mocked(callReopenOrderForItems).mockResolvedValue(undefined)
+
+      render(<OrderDetailClient tableId="5" orderId="order-billed-2" />)
+
+      await waitFor((): void => {
+        expect(screen.queryByText('Loading items…')).not.toBeInTheDocument()
+      })
+
+      // Go to bill preview and payment
+      fireEvent.click(screen.getByRole('button', { name: /Close Order/i }))
+      await waitFor((): void => { expect(screen.getByText('Bill Preview')).toBeInTheDocument() })
+      fireEvent.click(screen.getByRole('button', { name: /Proceed to Payment/i }))
+      await waitFor((): void => { expect(screen.getByText('Record Payment')).toBeInTheDocument() })
+
+      // Click "Add More Items"
+      fireEvent.click(screen.getByRole('button', { name: /Add More Items/i }))
+      await waitFor((): void => {
+        expect(vi.mocked(callReopenOrderForItems)).toHaveBeenCalledWith(
+          'https://example.supabase.co',
+          'test-token',
+          'order-billed-2',
+        )
+      })
+
+      // Should return to order step
+      await waitFor((): void => {
+        expect(screen.getByRole('link', { name: /Add Items/i })).toBeInTheDocument()
+      })
+    })
+
+    it('shows post-bill mode banner after reopening order', async (): Promise<void> => {
+      const { fetchOrderSummary } = await import('./orderData')
+      vi.mocked(fetchOrderSummary).mockResolvedValue({
+        status: 'open',
+        payment_method: null,
+        order_type: 'dine_in',
+        customer_name: null, delivery_note: null, customer_mobile: null,
+        bill_number: null, reservation_id: null, customer_id: null,
+        order_number: null, scheduled_time: null, delivery_zone_name: null,
+        delivery_zone_id: null, delivery_charge: 0, merge_label: null,
+        payment_lines: [],
+        post_bill_mode: true,
+      })
+
+      render(<OrderDetailClient tableId="5" orderId="order-postbill" />)
+
+      await waitFor((): void => {
+        expect(screen.getByText(/Post-bill addition/i)).toBeInTheDocument()
+      })
+    })
+
+    it('does NOT show "Add More Items" button for takeaway orders', async (): Promise<void> => {
+      const { fetchOrderSummary } = await import('./orderData')
+      vi.mocked(fetchOrderSummary).mockResolvedValue({
+        status: 'open',
+        payment_method: null,
+        order_type: 'takeaway',
+        customer_name: null, delivery_note: null, customer_mobile: null,
+        bill_number: null, reservation_id: null, customer_id: null,
+        order_number: null, scheduled_time: null, delivery_zone_name: null,
+        delivery_zone_id: null, delivery_charge: 0, merge_label: null,
+        payment_lines: [],
+      })
+      const { callCloseOrder } = await import('./closeOrderApi')
+      vi.mocked(callCloseOrder).mockResolvedValue(undefined)
+
+      render(<OrderDetailClient tableId="takeaway" orderId="order-takeaway" />)
+
+      await waitFor((): void => {
+        expect(screen.queryByText('Loading items…')).not.toBeInTheDocument()
+      })
+
+      fireEvent.click(screen.getByRole('button', { name: /Close Order/i }))
+      await waitFor((): void => { expect(screen.getByText('Bill Preview')).toBeInTheDocument() })
+      fireEvent.click(screen.getByRole('button', { name: /Proceed to Payment/i }))
+      await waitFor((): void => { expect(screen.getByText('Record Payment')).toBeInTheDocument() })
+
+      // Add More Items button should NOT appear for takeaway
+      expect(screen.queryByRole('button', { name: /Add More Items/i })).not.toBeInTheDocument()
+    })
+
+    it('shows error message when reopen fails', async (): Promise<void> => {
+      const { callCloseOrder } = await import('./closeOrderApi')
+      vi.mocked(callCloseOrder).mockResolvedValue(undefined)
+      const { callReopenOrderForItems } = await import('./reopenOrderForItemsApi')
+      vi.mocked(callReopenOrderForItems).mockRejectedValue(new Error('Insufficient permissions'))
+
+      render(<OrderDetailClient tableId="5" orderId="order-reopen-fail" />)
+
+      await waitFor((): void => {
+        expect(screen.queryByText('Loading items…')).not.toBeInTheDocument()
+      })
+
+      fireEvent.click(screen.getByRole('button', { name: /Close Order/i }))
+      await waitFor((): void => { expect(screen.getByText('Bill Preview')).toBeInTheDocument() })
+      fireEvent.click(screen.getByRole('button', { name: /Proceed to Payment/i }))
+      await waitFor((): void => { expect(screen.getByText('Record Payment')).toBeInTheDocument() })
+
+      fireEvent.click(screen.getByRole('button', { name: /Add More Items/i }))
+      await waitFor((): void => {
+        expect(screen.getByText('Insufficient permissions')).toBeInTheDocument()
+      })
+    })
   })
 
   it('paid order header shows per-method breakdown when paidPaymentLines are populated (issue #391)', async (): Promise<void> => {

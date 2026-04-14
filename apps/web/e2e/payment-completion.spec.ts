@@ -159,7 +159,7 @@ test.describe('post-payment completion flow', () => {
     // Split payment builder: select Card, enter full amount (bill = ৳12.00), add, then confirm
     await page.getByRole('button', { name: 'Card' }).click();
     await page.getByRole('spinbutton').fill('12');
-    await page.getByRole('button', { name: 'Add' }).click();
+    await page.getByRole('button', { name: 'Add', exact: true }).click();
     await page.getByRole('button', { name: /Confirm Payment/ }).click();
 
     // Success state must appear (no change due screen for exact card payment)
@@ -190,7 +190,7 @@ test.describe('post-payment completion flow', () => {
 
     // Cash is default; enter tendered amount (bill = ৳12.00, pay ৳15.00 for change)
     await page.getByRole('spinbutton').fill('15.00');
-    await page.getByRole('button', { name: 'Add' }).click();
+    await page.getByRole('button', { name: 'Add', exact: true }).click();
     await page.getByRole('button', { name: /Confirm Payment/ }).click();
 
     // Change due screen

@@ -146,7 +146,7 @@ test.describe('split payment builder', () => {
     await page.getByRole('button', { name: 'Card' }).click();
     const amountInput = page.getByRole('spinbutton');
     await amountInput.fill('800');
-    await page.getByRole('button', { name: /Add/ }).click();
+    await page.getByRole('button', { name: /^Add$/ }).click();
 
     // Confirm should still be disabled (only ৳800 of ৳1300 covered)
     const confirmBtn = page.getByRole('button', { name: /Confirm Payment/ });
@@ -155,7 +155,7 @@ test.describe('split payment builder', () => {
     // Add mobile portion: ৳500 (no cash = no change-due step)
     await page.getByRole('button', { name: 'Mobile' }).click();
     await amountInput.fill('500');
-    await page.getByRole('button', { name: /Add/ }).click();
+    await page.getByRole('button', { name: /^Add$/ }).click();
 
     // Now total = ৳1300 = bill total → confirm enabled
     await expect(confirmBtn).toBeEnabled();
@@ -191,12 +191,12 @@ test.describe('split payment builder', () => {
     await page.getByRole('button', { name: 'Card' }).click();
     const amountInput = page.getByRole('spinbutton');
     await amountInput.fill('800');
-    await page.getByRole('button', { name: /Add/ }).click();
+    await page.getByRole('button', { name: /^Add$/ }).click();
 
     // Add cash: ৳700 (over-tender by ৳200)
     await page.getByRole('button', { name: 'Cash' }).click();
     await amountInput.fill('700');
-    await page.getByRole('button', { name: /Add/ }).click();
+    await page.getByRole('button', { name: /^Add$/ }).click();
 
     // Confirm should be enabled (total ৳1500 >= ৳1300)
     const confirmBtn = page.getByRole('button', { name: /Confirm Payment/ });
@@ -228,7 +228,7 @@ test.describe('split payment builder', () => {
     await page.getByRole('button', { name: 'Card' }).click();
     const amountInput = page.getByRole('spinbutton');
     await amountInput.fill('500');
-    await page.getByRole('button', { name: /Add/ }).click();
+    await page.getByRole('button', { name: /^Add$/ }).click();
 
     // Still disabled — only ৳500 of ৳1300 covered
     await expect(confirmBtn).toBeDisabled();

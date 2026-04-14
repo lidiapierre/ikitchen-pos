@@ -175,7 +175,7 @@ test.describe('payment flow', () => {
 
     // Cash is the default method; enter tendered amount (total = ৳350, we pay ৳370)
     await page.getByRole('spinbutton').fill('370');
-    await page.getByRole('button', { name: 'Add' }).click();
+    await page.getByRole('button', { name: 'Add', exact: true }).click();
     await page.getByRole('button', { name: /Confirm Payment/ }).click();
 
     // Change due screen (change_due = 2000 cents = ৳20.00)
@@ -211,7 +211,7 @@ test.describe('payment flow', () => {
     // Split payment builder: select Card, enter full amount (bill = ৳350), add, then confirm
     await page.getByRole('button', { name: 'Card' }).click();
     await page.getByRole('spinbutton').fill('350');
-    await page.getByRole('button', { name: 'Add' }).click();
+    await page.getByRole('button', { name: 'Add', exact: true }).click();
     await page.getByRole('button', { name: /Confirm Payment/ }).click();
 
     // No change due step — goes directly to success

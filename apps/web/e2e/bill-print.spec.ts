@@ -185,7 +185,7 @@ test.describe('Print Bill button', () => {
     // Split payment builder: select Card, enter full amount (bill = ৳30.00), add, then confirm
     await page.getByRole('button', { name: 'Card' }).click();
     await page.getByRole('spinbutton').fill('30');
-    await page.getByRole('button', { name: 'Add' }).click();
+    await page.getByRole('button', { name: 'Add', exact: true }).click();
     await page.getByRole('button', { name: /Confirm Payment/ }).click();
     await expect(page.getByText('Payment recorded — order closed')).toBeVisible();
 

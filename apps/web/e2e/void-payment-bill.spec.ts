@@ -286,7 +286,7 @@ test.describe('void item, payment, and bill print flows', () => {
     // Cash method should be default — enter tendered amount, add, then confirm
     // Total is 35000 cents = ৳350, change_due is 2000 cents = ৳20
     await page.getByRole('spinbutton').fill('370')
-    await page.getByRole('button', { name: 'Add' }).click()
+    await page.getByRole('button', { name: 'Add', exact: true }).click()
     await page.getByRole('button', { name: /Confirm Payment/ }).click()
 
     // Change due screen
@@ -350,7 +350,7 @@ test.describe('void item, payment, and bill print flows', () => {
     // Split payment builder: select Card, enter full amount (bill = ৳350), add, then confirm
     await page.getByRole('button', { name: 'Card' }).click()
     await page.getByRole('spinbutton').fill('350')
-    await page.getByRole('button', { name: 'Add' }).click()
+    await page.getByRole('button', { name: 'Add', exact: true }).click()
     await page.getByRole('button', { name: /Confirm Payment/ }).click()
 
     // Success state

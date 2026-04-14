@@ -247,10 +247,10 @@ test.describe('Pre-payment bill (due bill) — issue #370', () => {
     await expect(page.getByText('Chicken Karahi', { exact: true }).last()).toBeVisible();
 
     // Click Mark as Due
-    await page.getByText('⏳ Mark as Due').click();
+    await page.getByText('Mark as Due').click();
 
     // BILL DUE status badge should appear and Close Order should become Settle Bill
     await expect(page.getByText(/BILL DUE/)).toBeVisible();
-    await expect(page.getByText('💰 Settle Bill')).toBeVisible();
+    await expect(page.getByText('Settle Bill')).toBeVisible();
   });
 });

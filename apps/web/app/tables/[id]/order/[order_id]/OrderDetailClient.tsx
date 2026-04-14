@@ -63,6 +63,9 @@ import {
   UserCheck,
   UserPlus,
   Search,
+  Banknote,
+  UserCog,
+  Tag,
 } from 'lucide-react'
 
 const COMP_REASONS = ['VIP', 'Complaint resolution', 'Staff meal', 'Event', 'Other'] as const
@@ -3764,7 +3767,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
                       : 'bg-red-700 hover:bg-red-600 text-white',
                 ].join(' ')}
               >
-                {closing ? 'Processing…' : orderIsDue ? '💰 Settle Bill' : 'Close Order'}
+                {closing ? 'Processing…' : orderIsDue ? <span className='inline-flex items-center gap-1'><Banknote size={16} aria-hidden='true' />Settle Bill</span> : 'Close Order'}
               </button>
             </div>
 
@@ -3799,7 +3802,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
                       : 'bg-zinc-800 hover:bg-zinc-700 text-orange-400 border-2 border-orange-700 hover:border-orange-500',
                   ].join(' ')}
                 >
-                  {markingDue ? 'Marking…' : '⏳ Mark as Due'}
+                  {markingDue ? 'Marking…' : <span className='inline-flex items-center gap-1'><Clock size={16} aria-hidden='true' />Mark as Due</span>}
                 </button>
                 {markDueError !== null && (
                   <p className="text-xs text-red-400">{markDueError}</p>
@@ -3859,7 +3862,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
                 onClick={() => { void openReassignModal() }}
                 className="w-full min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold text-zinc-400 hover:text-indigo-400 border-2 border-zinc-700 hover:border-indigo-600 transition-colors mb-3"
               >
-                👤 Reassign Server
+                <span className='inline-flex items-center gap-1'><UserCog size={16} aria-hidden='true' />Reassign Server</span>
               </button>
             )}
 
@@ -3911,7 +3914,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
                     ? 'Updating…'
                     : deliveryFeeWaived
                       ? '↩ Restore Delivery Fee'
-                      : '🆓 Waive Delivery Fee'}
+                      : <span className='inline-flex items-center gap-1'><Tag size={16} aria-hidden='true' />Waive Delivery Fee</span>}
                 </button>
                 {waiveDeliveryFeeError !== null && (
                   <p className="text-xs text-red-400">{waiveDeliveryFeeError}</p>

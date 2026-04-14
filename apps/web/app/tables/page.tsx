@@ -11,7 +11,7 @@ import type { TableRow, TakeawayDeliveryOrder } from './tablesData'
 import { getTablesCache, setTablesCache } from '@/lib/tablesCache'
 import type { TableStatus } from './tableStatus'
 import { useUser } from '@/lib/user-context'
-import { ShoppingBag, Bike, X, Clock } from 'lucide-react'
+import { ShoppingBag, Bike, X, Clock, User, Tag } from 'lucide-react'
 import { formatDateTimeShort } from '@/lib/dateFormat'
 
 /** Auto-refresh interval in milliseconds (30 seconds) */
@@ -660,7 +660,7 @@ export default function TablesPage(): JSX.Element {
                   onClick={() => { setTakeawayName(takeawaySuggestion.name); setTakeawaySuggestion(null) }}
                   className="mt-2 w-full text-left px-4 py-2 rounded-xl bg-brand-gold/10 border border-brand-gold/40 text-sm text-brand-gold hover:bg-brand-gold/20 transition-colors font-body"
                 >
-                  👤 Returning customer: <span className="font-semibold">{takeawaySuggestion.name}</span> — tap to fill name
+                  <span className='inline-flex items-center gap-1'><User size={16} aria-hidden='true' />Returning customer: <span className="font-semibold">{takeawaySuggestion.name}</span> — tap to fill name</span>
                 </button>
               )}
             </div>
@@ -765,7 +765,7 @@ export default function TablesPage(): JSX.Element {
                   }}
                   className="mt-2 w-full text-left px-4 py-2 rounded-xl bg-brand-gold/10 border border-brand-gold/40 text-sm text-brand-gold hover:bg-brand-gold/20 transition-colors font-body"
                 >
-                  👤 Returning customer: <span className="font-semibold">{customerSuggestion.name}</span> — tap to fill name
+                  <span className='inline-flex items-center gap-1'><User size={16} aria-hidden='true' />Returning customer: <span className="font-semibold">{customerSuggestion.name}</span> — tap to fill name</span>
                 </button>
               )}
             </div>
@@ -869,7 +869,7 @@ export default function TablesPage(): JSX.Element {
                         : 'border-emerald-700 text-emerald-400 hover:border-emerald-500 hover:bg-emerald-900/20',
                     ].join(' ')}
                   >
-                    {deliveryFreeShipping ? '↩ Restore charge' : '🆓 Mark as Free'}
+                    {deliveryFreeShipping ? '↩ Restore charge' : <span className='inline-flex items-center gap-1'><Tag size={16} aria-hidden='true' />Mark as Free</span>}
                   </button>
                 </div>
                 {deliveryFreeShipping ? (

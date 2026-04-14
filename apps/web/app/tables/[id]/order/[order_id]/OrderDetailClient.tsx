@@ -1547,7 +1547,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
 
       // Fetch all open dine_in orders with their table
       const ordersUrl = new URL(`${supabaseUrl}/rest/v1/orders`)
-      ordersUrl.searchParams.set('select', 'id,table_id,tables(id,label,locked_by_order_id)')
+      ordersUrl.searchParams.set('select', 'id,table_id,tables!orders_table_id_fkey(id,label,locked_by_order_id)')
       ordersUrl.searchParams.set('status', 'in.(open,pending_payment)')
       ordersUrl.searchParams.set('order_type', 'eq.dine_in')
       const ordersRes = await fetch(ordersUrl.toString(), {

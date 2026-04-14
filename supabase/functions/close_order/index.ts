@@ -312,10 +312,12 @@ export async function handler(
     }
 
     // 4b. Update order status to pending_payment and persist final_total_cents + service_charge_cents + bill_number
+    // Also reset post_bill_mode to false (issue #394) — the bill has been regenerated, banner should clear
     const orderUpdatePayload: Record<string, unknown> = {
       status: 'pending_payment',
       final_total_cents: finalTotal,
       service_charge_cents: serviceChargeCents,
+      post_bill_mode: false,
     }
     if (billNumber) {
       orderUpdatePayload['bill_number'] = billNumber

@@ -22,7 +22,7 @@ function makeRequest(body: unknown): Request {
   })
 }
 
-function buildMockFetch(orderStatus: string): FetchFn {
+function buildMockFetch(orderStatus: string, orderType = 'dine_in'): FetchFn {
   return vi.fn(async (url: string, init?: RequestInit): Promise<Response> => {
     if (url.includes('/auth/v1/user')) {
       return new Response(JSON.stringify({ id: ACTOR_ID }), {
@@ -42,7 +42,7 @@ function buildMockFetch(orderStatus: string): FetchFn {
           id: VALID_ORDER_ID,
           restaurant_id: RESTAURANT_ID,
           status: orderStatus,
-          order_type: 'dine_in',
+          order_type: orderType,
         }]),
         { status: 200, headers: { 'Content-Type': 'application/json' } },
       )
@@ -168,7 +168,7 @@ describe('reopen_order_for_items handler', () => {
       expect(json.error).toContain('pending_payment')
     })
 
-    it('returns 409 when order is open but already in normal flow', async (): Promise<void> => {
+    it('returns 409 when order is open but already in normal flow (idempotent 200)', async (): Promise<void> => {
       // Already-open is handled as idempotent 200 per the handler logic
       const res = await handler(makeRequest({ order_id: VALID_ORDER_ID }), buildMockFetch('open'), TEST_ENV)
       expect(res.status).toBe(200)
@@ -176,6 +176,19 @@ describe('reopen_order_for_items handler', () => {
 
     it('returns 409 when order is cancelled', async (): Promise<void> => {
       const res = await handler(makeRequest({ order_id: VALID_ORDER_ID }), buildMockFetch('cancelled'), TEST_ENV)
+      expect(res.status).toBe(409)
+    })
+
+    it('returns 409 when order_type is not dine_in (takeaway)', async (): Promise<void> => {
+      const res = await handler(makeRequest({ order_id: VALID_ORDER_ID }), buildMockFetch('pending_payment', 'takeaway'), TEST_ENV)
+      expect(res.status).toBe(409)
+      const json = await res.json() as { success: boolean; error: string }
+      expect(json.success).toBe(false)
+      expect(json.error).toContain('dine-in')
+    })
+
+    it('returns 409 when order_type is delivery', async (): Promise<void> => {
+      const res = await handler(makeRequest({ order_id: VALID_ORDER_ID }), buildMockFetch('pending_payment', 'delivery'), TEST_ENV)
       expect(res.status).toBe(409)
     })
 

@@ -128,6 +128,14 @@ export async function handler(
 
     const order = orders[0]
 
+    // Only dine-in orders support post-bill additions
+    if (order.order_type !== 'dine_in') {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Only dine-in orders can be reopened for item additions' }),
+        { status: 409, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+      )
+    }
+
     // Idempotent: already open and in post_bill_mode — return success
     if (order.status === 'open') {
       return new Response(

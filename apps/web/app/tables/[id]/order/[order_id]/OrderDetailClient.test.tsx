@@ -2054,6 +2054,36 @@ describe('OrderDetailClient — post-payment payment breakdown (issue #391)', ()
       })
     })
 
+    it('does NOT show "Add More Items" button for takeaway orders', async (): Promise<void> => {
+      const { fetchOrderSummary } = await import('./orderData')
+      vi.mocked(fetchOrderSummary).mockResolvedValue({
+        status: 'open',
+        payment_method: null,
+        order_type: 'takeaway',
+        customer_name: null, delivery_note: null, customer_mobile: null,
+        bill_number: null, reservation_id: null, customer_id: null,
+        order_number: null, scheduled_time: null, delivery_zone_name: null,
+        delivery_zone_id: null, delivery_charge: 0, merge_label: null,
+        payment_lines: [],
+      })
+      const { callCloseOrder } = await import('./closeOrderApi')
+      vi.mocked(callCloseOrder).mockResolvedValue(undefined)
+
+      render(<OrderDetailClient tableId="takeaway" orderId="order-takeaway" />)
+
+      await waitFor((): void => {
+        expect(screen.queryByText('Loading items…')).not.toBeInTheDocument()
+      })
+
+      fireEvent.click(screen.getByRole('button', { name: /Close Order/i }))
+      await waitFor((): void => { expect(screen.getByText('Bill Preview')).toBeInTheDocument() })
+      fireEvent.click(screen.getByRole('button', { name: /Proceed to Payment/i }))
+      await waitFor((): void => { expect(screen.getByText('Record Payment')).toBeInTheDocument() })
+
+      // Add More Items button should NOT appear for takeaway
+      expect(screen.queryByRole('button', { name: /Add More Items/i })).not.toBeInTheDocument()
+    })
+
     it('shows error message when reopen fails', async (): Promise<void> => {
       const { callCloseOrder } = await import('./closeOrderApi')
       vi.mocked(callCloseOrder).mockResolvedValue(undefined)

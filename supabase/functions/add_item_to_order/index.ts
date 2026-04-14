@@ -2,7 +2,7 @@ import { verifyAndGetCaller } from '../_shared/auth.ts'
 
 export const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-demo-staff-id',
   'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
 }
 
@@ -234,7 +234,12 @@ export async function handler(
           {
             method: 'PATCH',
             headers: { ...dbHeaders, Prefer: 'return=minimal' },
-            body: JSON.stringify({ quantity: existing.quantity + 1 }),
+            body: JSON.stringify({
+              quantity: existing.quantity + 1,
+              // Preserve post_bill_addition flag: if order is in post_bill_mode and the existing
+              // item was not previously a post-bill addition, mark it now (issue #394)
+              ...(isPostBillAddition ? { post_bill_addition: true } : {}),
+            }),
           },
         )
         if (!patchRes.ok) {
@@ -257,6 +262,7 @@ export async function handler(
               unit_price_cents: priceCents,
               quantity: 1,
               course,
+              post_bill_addition: isPostBillAddition,
             }),
           },
         )

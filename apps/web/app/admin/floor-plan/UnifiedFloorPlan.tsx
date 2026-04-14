@@ -207,7 +207,7 @@ export default function UnifiedFloorPlan(): JSX.Element {
   if (loading) {
     return (
       <div className="flex flex-col gap-4">
-        <h1 className="text-2xl font-bold text-white">Floor Plan</h1>
+        <h1 className="text-2xl font-bold text-brand-navy">Floor Plan</h1>
         <p className="text-brand-navy/60">Loading floor plan…</p>
       </div>
     )
@@ -216,7 +216,7 @@ export default function UnifiedFloorPlan(): JSX.Element {
   if (error) {
     return (
       <div className="flex flex-col gap-4">
-        <h1 className="text-2xl font-bold text-white">Floor Plan</h1>
+        <h1 className="text-2xl font-bold text-brand-navy">Floor Plan</h1>
         <p className="text-red-400">{error}</p>
       </div>
     )
@@ -236,12 +236,12 @@ export default function UnifiedFloorPlan(): JSX.Element {
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold text-white">Floor Plan</h1>
+          <h1 className="text-2xl font-bold text-brand-navy">Floor Plan</h1>
           {refreshing && (
-            <span className="text-xs text-brand-grey animate-pulse">Refreshing…</span>
+            <span className="text-xs text-gray-500 animate-pulse">Refreshing…</span>
           )}
         </div>
-        <span className="text-sm text-brand-grey">Drag tables to arrange • Click empty cell to add</span>
+        <span className="text-sm text-gray-500">Drag tables to arrange • Click empty cell to add</span>
       </div>
 
       {feedback && (

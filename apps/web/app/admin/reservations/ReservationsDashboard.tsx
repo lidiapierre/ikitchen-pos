@@ -536,7 +536,7 @@ export default function ReservationsDashboard(): JSX.Element {
       <div className="flex items-center justify-between gap-4 mb-6 flex-wrap">
         <div className="flex items-center gap-3">
           <CalendarDays size={24} className="text-indigo-400" aria-hidden="true" />
-          <h1 className="text-2xl font-bold text-white">Reservations</h1>
+          <h1 className="text-2xl font-bold text-brand-navy">Reservations</h1>
           {todayCount > 0 && (
             <span className="inline-flex items-center justify-center min-w-[24px] h-6 px-1.5 rounded-full bg-indigo-600 text-white text-xs font-bold">
               {todayCount}
@@ -594,7 +594,7 @@ export default function ReservationsDashboard(): JSX.Element {
       </div>
 
       {loading ? (
-        <p className="text-zinc-400">Loading…</p>
+        <p className="text-gray-600">Loading…</p>
       ) : error !== null ? (
         <p className="text-red-400">{error}</p>
       ) : tab === 'reservations' ? (
@@ -603,7 +603,7 @@ export default function ReservationsDashboard(): JSX.Element {
           {bookings.length === 0 ? (
             <div className="text-center py-16">
               <CalendarDays size={48} className="text-zinc-600 mx-auto mb-4" aria-hidden="true" />
-              <p className="text-zinc-400">No reservations yet.</p>
+              <p className="text-gray-500">No reservations yet.</p>
             </div>
           ) : (
             <table className="w-full text-sm">
@@ -627,24 +627,24 @@ export default function ReservationsDashboard(): JSX.Element {
                 {bookings.map((r) => (
                   <tr key={r.id} className="border-b border-zinc-800 hover:bg-zinc-800/40 transition-colors">
                     <td className="px-4 py-3">
-                      <p className="font-medium text-white">{r.customer_name}</p>
-                      {r.customer_mobile && <p className="text-xs text-zinc-500">{r.customer_mobile}</p>}
-                      {r.notes && <p className="text-xs text-zinc-500 italic mt-0.5">{r.notes}</p>}
+                      <p className="font-medium text-gray-900">{r.customer_name}</p>
+                      {r.customer_mobile && <p className="text-xs text-gray-500">{r.customer_mobile}</p>}
+                      {r.notes && <p className="text-xs text-gray-500 italic mt-0.5">{r.notes}</p>}
                     </td>
                     <td className="px-4 py-3">
-                      <span className="text-white font-semibold">{r.party_size}</span>
+                      <span className="text-gray-900 font-semibold">{r.party_size}</span>
                     </td>
                     <td className="px-4 py-3">
                       {r.reservation_time ? (
                         <div>
-                          <p className={`font-medium ${isToday(r.reservation_time) ? 'text-indigo-300' : 'text-white'}`}>
+                          <p className={`font-medium ${isToday(r.reservation_time) ? 'text-indigo-600' : 'text-gray-900'}`}>
                             {isToday(r.reservation_time) ? 'Today' : formatDateShort(r.reservation_time)}
                           </p>
-                          <p className="text-xs text-zinc-400">{formatTime(r.reservation_time)}</p>
+                          <p className="text-xs text-gray-500">{formatTime(r.reservation_time)}</p>
                         </div>
                       ) : '—'}
                     </td>
-                    <td className="px-4 py-3 text-zinc-300">{getTableLabel(r.table_id)}</td>
+                    <td className="px-4 py-3 text-gray-700">{getTableLabel(r.table_id)}</td>
                     <td className="px-4 py-3"><StatusBadge status={r.status} /></td>
                     <td className="px-4 py-3">
                       <ActionButtons
@@ -667,7 +667,7 @@ export default function ReservationsDashboard(): JSX.Element {
           {waitlist.length === 0 ? (
             <div className="text-center py-16">
               <Clock size={48} className="text-zinc-600 mx-auto mb-4" aria-hidden="true" />
-              <p className="text-zinc-400">Waitlist is empty.</p>
+              <p className="text-gray-500">Waitlist is empty.</p>
             </div>
           ) : (
             <table className="w-full text-sm">
@@ -696,15 +696,15 @@ export default function ReservationsDashboard(): JSX.Element {
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      <p className="font-medium text-white">{r.customer_name}</p>
-                      {r.customer_mobile && <p className="text-xs text-zinc-500">{r.customer_mobile}</p>}
-                      {r.notes && <p className="text-xs text-zinc-500 italic mt-0.5">{r.notes}</p>}
+                      <p className="font-medium text-gray-900">{r.customer_name}</p>
+                      {r.customer_mobile && <p className="text-xs text-gray-500">{r.customer_mobile}</p>}
+                      {r.notes && <p className="text-xs text-gray-500 italic mt-0.5">{r.notes}</p>}
                     </td>
                     <td className="px-4 py-3">
-                      <span className="text-white font-semibold">{r.party_size}</span>
+                      <span className="text-gray-900 font-semibold">{r.party_size}</span>
                     </td>
                     <td className="px-4 py-3">
-                      <span className="text-amber-400 font-medium">{waitTime(r.created_at)}</span>
+                      <span className="text-amber-600 font-medium">{waitTime(r.created_at)}</span>
                     </td>
                     <td className="px-4 py-3"><StatusBadge status={r.status} /></td>
                     <td className="px-4 py-3">

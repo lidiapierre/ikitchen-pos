@@ -325,7 +325,7 @@ export default function UserManager(): JSX.Element {
                 setCreateFormErrors({})
               }}
               disabled={submitting === 'create'}
-              className="min-h-[48px] px-5 py-2 rounded-xl bg-brand-offwhite text-white text-base font-medium hover:bg-zinc-600 transition-colors"
+              className="min-h-[48px] px-5 py-2 rounded-xl bg-zinc-200 text-zinc-800 text-base font-medium hover:bg-zinc-300 transition-colors"
             >
               Cancel
             </button>
@@ -390,7 +390,7 @@ export default function UserManager(): JSX.Element {
                       Active
                     </span>
                   ) : (
-                    <span className="inline-block px-2 py-1 rounded-lg text-sm font-medium bg-brand-offwhite text-brand-navy/80">
+                    <span className="inline-block px-2 py-1 rounded-lg text-sm font-medium bg-zinc-200 text-zinc-700">
                       Inactive
                     </span>
                   )}

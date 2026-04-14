@@ -38,7 +38,7 @@ function ExportButton({ onClick, loading = false, label = 'Export CSV' }: Export
       type="button"
       onClick={onClick}
       disabled={loading}
-      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand-offwhite hover:bg-zinc-600 text-zinc-200 text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed border border-brand-grey"
+      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-200 hover:bg-zinc-700 text-zinc-700 hover:text-white text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed border border-zinc-300"
       aria-label={label}
     >
       {loading ? (
@@ -58,7 +58,7 @@ function SummaryCard({ label, value }: { label: string; value: string | number }
   return (
     <div className="bg-white border border-brand-grey rounded-2xl p-6 flex flex-col gap-2">
       <span className="text-sm font-medium text-brand-navy/60 uppercase tracking-wide">{label}</span>
-      <span className="text-3xl font-bold text-white">{value}</span>
+      <span className="text-3xl font-bold text-brand-navy">{value}</span>
     </div>
   )
 }
@@ -149,7 +149,7 @@ function CompDetailTable({ items }: CompDetailTableProps): JSX.Element {
               <td className="py-2 pr-3 text-brand-navy/60 whitespace-nowrap">
                 {item.date.slice(0, 10)}
               </td>
-              <td className="py-2 pr-3 text-white font-medium">{item.item_name}</td>
+              <td className="py-2 pr-3 text-gray-900 font-medium">{item.item_name}</td>
               <td className="py-2 pr-3 text-brand-navy/80 text-right">{item.quantity}</td>
               <td className="py-2 pr-3 text-brand-navy/80 text-right">
                 {formatPrice(item.unit_price_cents, DEFAULT_CURRENCY_SYMBOL)}
@@ -252,7 +252,7 @@ function StaffPerformanceTable({ rows }: StaffPerformanceTableProps): JSX.Elemen
             return (
               <tr key={row.server_id} className="border-b border-brand-grey/50">
                 <td className="py-2 pr-3 text-brand-navy/60">{idx + 1}</td>
-                <td className="py-2 pr-3 text-white font-medium">{row.staff_name}</td>
+                <td className="py-2 pr-3 text-gray-900 font-medium">{row.staff_name}</td>
                 <td className="py-2 pr-3">
                   <span className="px-2 py-0.5 rounded-full bg-brand-offwhite text-brand-navy/80 text-xs font-medium capitalize">
                     {row.role}
@@ -387,7 +387,7 @@ export default function ReportsDashboard(): JSX.Element {
               type="date"
               value={customFrom}
               onChange={e => setCustomFrom(e.target.value)}
-              className="bg-brand-offwhite text-white rounded-xl px-3 py-2 text-sm border border-brand-grey focus:outline-none focus:border-amber-500"
+              className="bg-white text-gray-900 rounded-xl px-3 py-2 text-sm border border-brand-grey focus:outline-none focus:border-amber-500"
             />
           </div>
           <div className="flex flex-col gap-1">
@@ -396,7 +396,7 @@ export default function ReportsDashboard(): JSX.Element {
               type="date"
               value={customTo}
               onChange={e => setCustomTo(e.target.value)}
-              className="bg-brand-offwhite text-white rounded-xl px-3 py-2 text-sm border border-brand-grey focus:outline-none focus:border-amber-500"
+              className="bg-white text-gray-900 rounded-xl px-3 py-2 text-sm border border-brand-grey focus:outline-none focus:border-amber-500"
             />
           </div>
           <button
@@ -476,7 +476,7 @@ export default function ReportsDashboard(): JSX.Element {
                     {data.top_items.map((item, idx) => (
                       <tr key={item.name} className="border-b border-brand-grey/50">
                         <td className="py-2 pr-3 text-brand-navy/60">{idx + 1}</td>
-                        <td className="py-2 pr-3 text-white font-medium">{item.name}</td>
+                        <td className="py-2 pr-3 text-gray-900 font-medium">{item.name}</td>
                         <td className="py-2 pr-3 text-brand-navy/80 text-right">{item.quantity_sold}</td>
                         <td className="py-2 text-amber-400 text-right font-medium">
                           {formatPrice(item.revenue_cents, DEFAULT_CURRENCY_SYMBOL)}
@@ -508,7 +508,7 @@ export default function ReportsDashboard(): JSX.Element {
                     return (
                       <div key={p.method}>
                         <div className="flex justify-between text-sm mb-1">
-                          <span className="text-white font-medium capitalize">{PAYMENT_METHOD_LABELS[p.method as PaymentMethod] ?? p.method}</span>
+                          <span className="text-gray-900 font-medium capitalize">{PAYMENT_METHOD_LABELS[p.method as PaymentMethod] ?? p.method}</span>
                           <span className="text-brand-navy/60">
                             {p.count} orders · {formatPrice(p.revenue_cents, DEFAULT_CURRENCY_SYMBOL)} · {pct}%
                           </span>
@@ -532,23 +532,23 @@ export default function ReportsDashboard(): JSX.Element {
             <h2 className="text-base font-semibold text-brand-navy mb-4">Discounts &amp; Comps</h2>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="bg-brand-navy rounded-xl p-4">
-                <div className="text-xs text-brand-navy/60 uppercase tracking-wide mb-1">Discounted Orders</div>
-                <div className="text-2xl font-bold text-brand-navy font-heading">{data.discount_summary.discount_order_count}</div>
-                <div className="text-sm text-brand-navy/60 mt-1">
+                <div className="text-xs text-white/60 uppercase tracking-wide mb-1">Discounted Orders</div>
+                <div className="text-2xl font-bold text-white">{data.discount_summary.discount_order_count}</div>
+                <div className="text-sm text-white/70 mt-1">
                   Total: {formatPrice(data.discount_summary.total_discount_cents, DEFAULT_CURRENCY_SYMBOL)}
                 </div>
               </div>
               <div className="bg-brand-navy rounded-xl p-4">
-                <div className="text-xs text-brand-navy/60 uppercase tracking-wide mb-1">Comped Orders</div>
-                <div className="text-2xl font-bold text-brand-navy font-heading">{data.discount_summary.comp_order_count}</div>
+                <div className="text-xs text-white/60 uppercase tracking-wide mb-1">Comped Orders</div>
+                <div className="text-2xl font-bold text-white">{data.discount_summary.comp_order_count}</div>
               </div>
               {data.comp_detail && (
                 <div className="bg-brand-navy rounded-xl p-4">
-                  <div className="text-xs text-brand-navy/60 uppercase tracking-wide mb-1">Total Comp Value</div>
+                  <div className="text-xs text-white/60 uppercase tracking-wide mb-1">Total Comp Value</div>
                   <div className="text-2xl font-bold text-rose-400">
                     {formatPrice(data.comp_detail.total_comp_value_cents, DEFAULT_CURRENCY_SYMBOL)}
                   </div>
-                  <div className="text-xs text-brand-grey mt-1">
+                  <div className="text-xs text-white/60 mt-1">
                     Item comps: {formatPrice(data.comp_detail.comp_item_value_cents, DEFAULT_CURRENCY_SYMBOL)}
                     {' · '}Order comps: {formatPrice(data.comp_detail.comp_order_value_cents, DEFAULT_CURRENCY_SYMBOL)}
                   </div>
@@ -570,7 +570,7 @@ export default function ReportsDashboard(): JSX.Element {
                       'px-3 py-1.5 rounded-lg text-sm font-medium transition-colors',
                       compTab === 'breakdown'
                         ? 'bg-rose-600 text-white'
-                        : 'bg-brand-offwhite text-brand-navy/80 hover:bg-zinc-600',
+                        : 'bg-zinc-200 text-zinc-700 hover:bg-zinc-300',
                     ].join(' ')}
                   >
                     By Item
@@ -582,7 +582,7 @@ export default function ReportsDashboard(): JSX.Element {
                       'px-3 py-1.5 rounded-lg text-sm font-medium transition-colors',
                       compTab === 'detail'
                         ? 'bg-rose-600 text-white'
-                        : 'bg-brand-offwhite text-brand-navy/80 hover:bg-zinc-600',
+                        : 'bg-zinc-200 text-zinc-700 hover:bg-zinc-300',
                     ].join(' ')}
                   >
                     Full Log
@@ -640,7 +640,7 @@ export default function ReportsDashboard(): JSX.Element {
                   onClick={() =>
                     exportDailySummary(data, period, customFrom || undefined, customTo || undefined)
                   }
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand-offwhite hover:bg-zinc-600 text-zinc-200 text-xs font-medium transition-colors border border-brand-grey"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-200 hover:bg-zinc-700 text-zinc-700 hover:text-white text-xs font-medium transition-colors border border-zinc-300"
                   aria-label="Export daily summary text"
                 >
                   <Download className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />

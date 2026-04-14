@@ -1259,11 +1259,11 @@ function MarginsTab({ menuItems, recipeItems }: MarginsTabProps): JSX.Element {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-4">
           <p className="text-xs text-zinc-500 uppercase tracking-wide font-semibold">Total Dishes</p>
-          <p className="text-2xl font-bold text-brand-navy font-heading mt-1">{menuItems.length}</p>
+          <p className="text-2xl font-bold text-white mt-1">{menuItems.length}</p>
         </div>
         <div className="bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-4">
           <p className="text-xs text-zinc-500 uppercase tracking-wide font-semibold">With Recipe</p>
-          <p className="text-2xl font-bold text-brand-navy font-heading mt-1">{margins.filter((m) => m.hasRecipe).length}</p>
+          <p className="text-2xl font-bold text-white mt-1">{margins.filter((m) => m.hasRecipe).length}</p>
         </div>
         <div className="bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-4">
           <p className="text-xs text-zinc-500 uppercase tracking-wide font-semibold">Avg Margin</p>

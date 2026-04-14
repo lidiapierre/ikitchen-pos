@@ -239,7 +239,7 @@ export default function MenuManager(): JSX.Element {
               setShowAddCategory((v) => !v)
             }}
             disabled={submitting}
-            className="min-h-[48px] px-5 py-2 rounded-xl text-base font-medium bg-brand-offwhite text-white hover:bg-zinc-600 transition-colors disabled:opacity-50"
+            className="min-h-[48px] px-5 py-2 rounded-xl text-base font-medium bg-zinc-200 text-zinc-800 hover:bg-zinc-300 transition-colors disabled:opacity-50"
           >
             + Add Category
           </button>
@@ -308,7 +308,7 @@ export default function MenuManager(): JSX.Element {
                 setCategoryName('')
                 setCategoryNameError('')
               }}
-              className="min-h-[48px] px-5 py-2 rounded-xl bg-brand-offwhite text-white text-base font-medium hover:bg-zinc-600 transition-colors"
+              className="min-h-[48px] px-5 py-2 rounded-xl bg-zinc-200 text-zinc-800 text-base font-medium hover:bg-zinc-300 transition-colors"
             >
               Cancel
             </button>
@@ -347,7 +347,7 @@ export default function MenuManager(): JSX.Element {
                 </button>
                 <button
                   onClick={handleCancelEditCategory}
-                  className="min-h-[48px] px-4 py-2 rounded-xl bg-brand-offwhite text-white text-base font-medium hover:bg-zinc-600 transition-colors shrink-0"
+                  className="min-h-[48px] px-4 py-2 rounded-xl bg-zinc-200 text-zinc-800 text-base font-medium hover:bg-zinc-300 transition-colors shrink-0"
                 >
                   Cancel
                 </button>
@@ -407,7 +407,7 @@ export default function MenuManager(): JSX.Element {
                     <button
                       onClick={() => setDeletingCategoryId(null)}
                       aria-label="Cancel delete category"
-                      className="min-h-[48px] px-4 py-2 rounded-xl bg-brand-offwhite text-white text-base font-medium hover:bg-zinc-600 transition-colors"
+                      className="min-h-[48px] px-4 py-2 rounded-xl bg-zinc-200 text-zinc-800 text-base font-medium hover:bg-zinc-300 transition-colors"
                     >
                       No
                     </button>
@@ -417,7 +417,7 @@ export default function MenuManager(): JSX.Element {
                     <button
                       onClick={() => handleStartEditCategory(menu)}
                       aria-label={`Edit category ${menu.name}`}
-                      className="min-h-[48px] px-4 py-2 rounded-xl bg-brand-offwhite text-white text-base font-medium hover:bg-zinc-600 transition-colors"
+                      className="min-h-[48px] px-4 py-2 rounded-xl bg-zinc-200 text-zinc-800 text-base font-medium hover:bg-zinc-300 transition-colors"
                     >
                       Edit
                     </button>
@@ -466,7 +466,7 @@ export default function MenuManager(): JSX.Element {
                     <Link
                       href={`/admin/menu/${item.id}/edit`}
                       aria-label={`Edit ${item.name}`}
-                      className="min-h-[48px] min-w-[48px] px-4 py-2 rounded-xl bg-brand-offwhite text-white text-base font-medium hover:bg-zinc-600 transition-colors shrink-0 flex items-center justify-center"
+                      className="min-h-[48px] min-w-[48px] px-4 py-2 rounded-xl bg-zinc-200 text-zinc-800 text-base font-medium hover:bg-zinc-300 transition-colors shrink-0 flex items-center justify-center"
                     >
                       Edit
                     </Link>
@@ -484,7 +484,7 @@ export default function MenuManager(): JSX.Element {
                         <button
                           onClick={() => setDeletingItemId(null)}
                           aria-label="Cancel delete"
-                          className="min-h-[48px] min-w-[48px] px-4 py-2 rounded-xl bg-brand-offwhite text-white text-base font-medium hover:bg-zinc-600 transition-colors"
+                          className="min-h-[48px] min-w-[48px] px-4 py-2 rounded-xl bg-zinc-200 text-zinc-800 text-base font-medium hover:bg-zinc-300 transition-colors"
                         >
                           No
                         </button>

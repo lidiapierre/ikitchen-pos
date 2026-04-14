@@ -2387,33 +2387,33 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
           <dl className="space-y-2 text-base">
             {orderType === 'dine_in' && (
               <div className="flex gap-3">
-                <dt className="text-zinc-500">Table</dt>
-                <dd className="font-semibold text-white">{displayTableLabel || tableId}</dd>
+                <dt className="text-gray-600">Table</dt>
+                <dd className="font-semibold text-gray-900">{displayTableLabel || tableId}</dd>
               </div>
             )}
             {orderType === 'delivery' && orderCustomerName && (
               <div className="flex gap-3">
-                <dt className="text-zinc-500">Customer</dt>
-                <dd className="font-semibold text-white">{orderCustomerName}</dd>
+                <dt className="text-gray-600">Customer</dt>
+                <dd className="font-semibold text-gray-900">{orderCustomerName}</dd>
               </div>
             )}
             {orderType === 'delivery' && orderDeliveryNote && (
               <div className="flex gap-3">
-                <dt className="text-zinc-500">Note</dt>
-                <dd className="text-zinc-300">{orderDeliveryNote}</dd>
+                <dt className="text-gray-600">Note</dt>
+                <dd className="text-gray-700">{orderDeliveryNote}</dd>
               </div>
             )}
             {(orderType === 'takeaway' || orderType === 'delivery') && orderScheduledTime && (
               <div className="flex gap-3">
-                <dt className="text-zinc-500">{orderType === 'takeaway' ? 'Pickup Time' : 'Delivery Time'}</dt>
-                <dd className="font-semibold text-amber-300">{formatDateTimeShort(orderScheduledTime)}</dd>
+                <dt className="text-gray-600">{orderType === 'takeaway' ? 'Pickup Time' : 'Delivery Time'}</dt>
+                <dd className="font-semibold text-amber-700">{formatDateTimeShort(orderScheduledTime)}</dd>
               </div>
             )}
             {/* Delivery fee in paid-order read-only view (issue #393) */}
             {orderType === 'delivery' && (
               <div className="flex gap-3">
-                <dt className="text-zinc-500">Delivery Fee</dt>
-                <dd className={orderDeliveryChargeCents > 0 ? 'font-semibold text-amber-300' : 'font-semibold text-emerald-400'}>
+                <dt className="text-gray-600">Delivery Fee</dt>
+                <dd className={orderDeliveryChargeCents > 0 ? 'font-semibold text-amber-700' : 'font-semibold text-emerald-700'}>
                   {orderDeliveryChargeCents > 0
                     ? formatPrice(orderDeliveryChargeCents, currencySymbol)
                     : 'Free Delivery'}
@@ -2423,13 +2423,13 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
             {/* Payment breakdown (issue #391) — show per-method amounts for audit trail */}
             {paidPaymentLines.length > 0 ? (
               <div className="flex gap-3">
-                <dt className="text-zinc-500">Payment</dt>
-                <dd className="font-semibold text-white">
+                <dt className="text-gray-600">Payment</dt>
+                <dd className="font-semibold text-gray-900">
                   <div className="space-y-0.5">
                     {paidPaymentLines.map((pl, idx) => (
                       <div key={idx} className="flex items-center gap-2">
                         <span>{PAYMENT_METHOD_LABELS[pl.method as PaymentMethod] ?? pl.method}</span>
-                        <span className="text-amber-400">{formatPrice(pl.amount_cents, currencySymbol)}</span>
+                        <span className="text-amber-600">{formatPrice(pl.amount_cents, currencySymbol)}</span>
                       </div>
                     ))}
                   </div>
@@ -2437,8 +2437,8 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
               </div>
             ) : paidPaymentMethod !== null ? (
               <div className="flex gap-3">
-                <dt className="text-zinc-500">Payment method</dt>
-                <dd className="font-semibold text-white">{PAYMENT_METHOD_LABELS[paidPaymentMethod as PaymentMethod] ?? paidPaymentMethod}</dd>
+                <dt className="text-gray-600">Payment method</dt>
+                <dd className="font-semibold text-gray-900">{PAYMENT_METHOD_LABELS[paidPaymentMethod as PaymentMethod] ?? paidPaymentMethod}</dd>
               </div>
             ) : null}
           </dl>
@@ -2472,14 +2472,14 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
           {renderReadOnlyItems()}
         </section>
 
-        <footer className="mt-6 pt-4 border-t border-zinc-700">
+        <footer className="mt-6 pt-4 border-t border-gray-300">
           <div className="flex items-center justify-between mb-6">
-            <span className="text-lg text-zinc-400">Total</span>
-            <span className="text-2xl font-bold text-white">{totalFormatted}</span>
+            <span className="text-lg text-gray-600">Total</span>
+            <span className="text-2xl font-bold text-gray-900">{totalFormatted}</span>
           </div>
           <Link
             href="/tables"
-            className="w-full inline-flex items-center justify-center min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold bg-zinc-700 hover:bg-zinc-600 text-white transition-colors"
+            className="w-full inline-flex items-center justify-center min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold bg-brand-navy hover:bg-brand-blue text-white transition-colors"
           >
             Back to tables
           </Link>
@@ -3423,35 +3423,35 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
         <dl className="space-y-2 text-base">
           {orderType === 'dine_in' && (
             <div className="flex gap-3">
-              <dt className="text-zinc-500">Table</dt>
-              <dd className="font-semibold text-white">{displayTableLabel || tableId}</dd>
+              <dt className="text-gray-600">Table</dt>
+              <dd className="font-semibold text-gray-900">{displayTableLabel || tableId}</dd>
             </div>
           )}
           {orderType === 'delivery' && orderCustomerName && (
             <div className="flex gap-3">
-              <dt className="text-zinc-500">Customer</dt>
-              <dd className="font-semibold text-white">{orderCustomerName}</dd>
+              <dt className="text-gray-600">Customer</dt>
+              <dd className="font-semibold text-gray-900">{orderCustomerName}</dd>
             </div>
           )}
           {orderType === 'delivery' && orderDeliveryNote && (
             <div className="flex gap-3">
-              <dt className="text-zinc-500">Note</dt>
-              <dd className="text-zinc-300">{orderDeliveryNote}</dd>
+              <dt className="text-gray-600">Note</dt>
+              <dd className="text-gray-700">{orderDeliveryNote}</dd>
             </div>
           )}
           {(orderType === 'takeaway' || orderType === 'delivery') && orderScheduledTime && (
             <div className="flex gap-3">
-              <dt className="text-zinc-500">{orderType === 'takeaway' ? 'Pickup Time' : 'Delivery Time'}</dt>
-              <dd className="font-semibold text-amber-300">{formatDateTimeShort(orderScheduledTime)}</dd>
+              <dt className="text-gray-600">{orderType === 'takeaway' ? 'Pickup Time' : 'Delivery Time'}</dt>
+              <dd className="font-semibold text-amber-700">{formatDateTimeShort(orderScheduledTime)}</dd>
             </div>
           )}
           {/* ── Delivery fee — always visible in the order header for delivery orders (issue #393) ── */}
           {orderType === 'delivery' && (
             <div className="flex gap-3">
-              <dt className="text-zinc-500">Delivery Fee</dt>
+              <dt className="text-gray-600">Delivery Fee</dt>
               <dd
                 data-testid="delivery-fee-header"
-                className={orderDeliveryChargeCents > 0 ? 'font-semibold text-amber-300' : 'font-semibold text-emerald-400'}
+                className={orderDeliveryChargeCents > 0 ? 'font-semibold text-amber-700' : 'font-semibold text-emerald-700'}
               >
                 {orderDeliveryChargeCents > 0
                   ? formatPrice(orderDeliveryChargeCents, currencySymbol)
@@ -3489,7 +3489,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
             <button
               type="button"
               onClick={() => { setShowLinkCustomer((v) => !v); setLinkMobileSearch(''); setLinkSearchResults([]); setLinkError(null) }}
-              className="flex items-center gap-2 text-sm text-zinc-400 hover:text-white transition-colors min-h-[36px]"
+              className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 transition-colors min-h-[36px]"
             >
               <UserPlus size={14} aria-hidden="true" />
               {showLinkCustomer ? 'Cancel' : 'Link customer'}
@@ -3536,22 +3536,22 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
         {/* Covers field — always visible in order step */}
         {step === 'order' && (
           <div className="flex items-center gap-3 mt-4">
-            <span className="text-zinc-400 text-base">Covers:</span>
+            <span className="text-gray-600 text-base">Covers:</span>
             <button
               type="button"
               onClick={() => { handleCoversChange(covers - 1) }}
               disabled={covers <= 1}
-              className="min-h-[48px] min-w-[48px] rounded-xl bg-zinc-800 text-white text-xl font-bold hover:bg-zinc-700 transition-colors disabled:opacity-40"
+              className="min-h-[48px] min-w-[48px] rounded-xl bg-gray-200 text-gray-900 text-xl font-bold hover:bg-gray-300 border border-gray-300 transition-colors disabled:opacity-40"
               aria-label="Decrease covers"
             >
               −
             </button>
-            <span className="text-white font-bold text-xl w-8 text-center">{covers}</span>
+            <span className="text-gray-900 font-bold text-xl w-8 text-center">{covers}</span>
             <button
               type="button"
               onClick={() => { handleCoversChange(covers + 1) }}
               disabled={covers >= 20}
-              className="min-h-[48px] min-w-[48px] rounded-xl bg-zinc-800 text-white text-xl font-bold hover:bg-zinc-700 transition-colors disabled:opacity-40"
+              className="min-h-[48px] min-w-[48px] rounded-xl bg-gray-200 text-gray-900 text-xl font-bold hover:bg-gray-300 border border-gray-300 transition-colors disabled:opacity-40"
               aria-label="Increase covers"
             >
               +
@@ -3567,19 +3567,19 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
 
       {/* print:hidden ensures this footer (containing the payment-step subtotal breakdown)
           is never rendered during window.print() — prevents duplicate subtotal on bill (issue #369) */}
-      <footer className="mt-6 pt-4 border-t border-zinc-700 print:hidden">
+      <footer className="mt-6 pt-4 border-t border-gray-300 print:hidden">
         <div className="flex items-center justify-between mb-6">
-          <span className="text-lg text-zinc-400">Total</span>
+          <span className="text-lg text-gray-600">Total</span>
           {orderIsComp ? (
-            <span className="text-2xl font-bold text-emerald-400">COMPLIMENTARY</span>
+            <span className="text-2xl font-bold text-emerald-700">COMPLIMENTARY</span>
           ) : (
-            <span className="text-2xl font-bold text-white">{totalFormatted}</span>
+            <span className="text-2xl font-bold text-gray-900">{totalFormatted}</span>
           )}
         </div>
 
         {step === 'bill_preview' ? (
           <div className="space-y-5">
-            <h2 className="text-xl font-semibold text-white">Bill Preview</h2>
+            <h2 className="text-xl font-semibold text-brand-navy">Bill Preview</h2>
 
             {/* Order meta */}
             <div className="bg-zinc-800 rounded-xl px-4 py-3 text-sm space-y-1.5">
@@ -3780,8 +3780,8 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
                 className={[
                   'w-full min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold transition-colors mb-3',
                   printingPreBill
-                    ? 'bg-zinc-700 text-zinc-400 cursor-wait'
-                    : 'bg-zinc-800 hover:bg-zinc-700 text-amber-400 border-2 border-amber-700 hover:border-amber-500',
+                    ? 'bg-gray-100 text-gray-400 cursor-wait'
+                    : 'bg-transparent border-2 border-amber-500 text-amber-700 hover:bg-amber-50 hover:border-amber-600',
                 ].join(' ')}
               >
                 {printingPreBill ? 'Printing…' : <span className='inline-flex items-center gap-1'><PrinterIcon size={16} aria-hidden='true' />Print Bill (DUE)</span>}
@@ -3798,8 +3798,8 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
                   className={[
                     'w-full min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold transition-colors',
                     markingDue
-                      ? 'bg-zinc-700 text-zinc-400 cursor-wait'
-                      : 'bg-zinc-800 hover:bg-zinc-700 text-orange-400 border-2 border-orange-700 hover:border-orange-500',
+                      ? 'bg-gray-100 text-gray-400 cursor-wait'
+                      : 'bg-transparent border-2 border-orange-500 text-orange-700 hover:bg-orange-50 hover:border-orange-600',
                   ].join(' ')}
                 >
                   {markingDue ? 'Marking…' : <span className='inline-flex items-center gap-1'><Clock size={16} aria-hidden='true' />Mark as Due</span>}
@@ -3830,7 +3830,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
               <button
                 type="button"
                 onClick={() => { void openTransferModal() }}
-                className="w-full min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold text-zinc-400 hover:text-amber-400 border-2 border-zinc-700 hover:border-amber-600 transition-colors mb-3"
+                className="w-full min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold text-gray-600 hover:text-amber-700 border-2 border-gray-400 hover:border-amber-500 hover:bg-amber-50 transition-colors mb-3"
               >
                 ↔ Move Table
               </button>
@@ -3841,7 +3841,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
               <button
                 type="button"
                 onClick={() => { void openMergeModal() }}
-                className="w-full min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold text-zinc-400 hover:text-purple-400 border-2 border-zinc-700 hover:border-purple-600 transition-colors mb-3"
+                className="w-full min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold text-gray-600 hover:text-purple-700 border-2 border-gray-400 hover:border-purple-500 hover:bg-purple-50 transition-colors mb-3"
               >
                 ⊕ Merge with…
               </button>
@@ -3850,7 +3850,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
               <button
                 type="button"
                 onClick={() => { setUnmergeError(null); setShowUnmergeConfirm(true) }}
-                className="w-full min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold text-purple-400 hover:text-white border-2 border-purple-700 hover:border-purple-400 hover:bg-purple-900/30 transition-colors mb-3"
+                className="w-full min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold text-purple-700 hover:text-white border-2 border-purple-500 hover:border-purple-400 hover:bg-purple-700 transition-colors mb-3"
               >
                 ⊘ Unmerge ({mergeLabel})
               </button>
@@ -3860,7 +3860,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
               <button
                 type="button"
                 onClick={() => { void openReassignModal() }}
-                className="w-full min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold text-zinc-400 hover:text-indigo-400 border-2 border-zinc-700 hover:border-indigo-600 transition-colors mb-3"
+                className="w-full min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold text-gray-600 hover:text-indigo-700 border-2 border-gray-400 hover:border-indigo-500 hover:bg-indigo-50 transition-colors mb-3"
               >
                 <span className='inline-flex items-center gap-1'><UserCog size={16} aria-hidden='true' />Reassign Server</span>
               </button>
@@ -3873,7 +3873,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
                 setCancelError(null)
                 setShowCancelDialog(true)
               }}
-              className="w-full min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold text-zinc-400 hover:text-red-400 border-2 border-zinc-700 hover:border-red-700 transition-colors mb-3"
+              className="w-full min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold text-gray-600 hover:text-red-700 border-2 border-gray-400 hover:border-red-500 hover:bg-red-50 transition-colors mb-3"
             >
               Cancel order
             </button>
@@ -3887,7 +3887,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
                   setCompError(null)
                   setShowOrderCompDialog(true)
                 }}
-                className="w-full min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold text-emerald-400 hover:text-white border-2 border-emerald-800 hover:border-emerald-600 hover:bg-emerald-900/40 transition-colors"
+                className="w-full min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold text-emerald-700 hover:text-white border-2 border-emerald-600 hover:border-emerald-500 hover:bg-emerald-700 transition-colors"
               >
                 Comp entire order
               </button>
@@ -3904,10 +3904,10 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
                   className={[
                     'w-full min-h-[48px] min-w-[48px] px-6 rounded-xl text-base font-semibold transition-colors border-2',
                     waivingDeliveryFee
-                      ? 'border-zinc-700 text-zinc-500 cursor-wait'
+                      ? 'border-gray-300 text-gray-400 cursor-wait'
                       : deliveryFeeWaived
-                        ? 'border-amber-600 text-amber-400 hover:border-amber-400 hover:bg-amber-900/20'
-                        : 'border-blue-700 text-blue-400 hover:border-blue-500 hover:bg-blue-900/20',
+                        ? 'border-amber-500 text-amber-700 hover:border-amber-600 hover:bg-amber-50'
+                        : 'border-blue-500 text-blue-700 hover:border-blue-600 hover:bg-blue-50',
                   ].join(' ')}
                 >
                   {waivingDeliveryFee

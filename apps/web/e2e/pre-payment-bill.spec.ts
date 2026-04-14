@@ -217,7 +217,7 @@ test.describe('Pre-payment bill (due bill) — issue #370', () => {
     await setupRoutes(page, DINE_IN_ORDER_ID, 'dine_in');
     await page.goto(`/tables/${TABLE_ID}/order/${DINE_IN_ORDER_ID}`);
     await expect(page.getByText('Chicken Karahi', { exact: true }).last()).toBeVisible();
-    await expect(page.getByText('⏳ Mark as Due')).toBeVisible();
+    await expect(page.getByText('Mark as Due')).toBeVisible();
   });
 
   test('shows "Print Bill (DUE)" button on takeaway order', async ({ page }) => {
@@ -231,7 +231,7 @@ test.describe('Pre-payment bill (due bill) — issue #370', () => {
     await setupRoutes(page, TAKEAWAY_ORDER_ID, 'takeaway');
     await page.goto(`/tables/${TABLE_ID}/order/${TAKEAWAY_ORDER_ID}`);
     await expect(page.getByText('Chicken Karahi', { exact: true }).last()).toBeVisible();
-    await expect(page.getByText('⏳ Mark as Due')).not.toBeVisible();
+    await expect(page.getByText('Mark as Due')).not.toBeVisible();
   });
 
   test('does NOT show "Print Bill (DUE)" on delivery order', async ({ page }) => {

@@ -41,6 +41,7 @@ function expectedSummary(overrides: object = {}): object {
     delivery_zone_name: null,
     delivery_charge: 0,
     merge_label: null,
+    post_bill_mode: false,
     ...overrides,
   }
 }

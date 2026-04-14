@@ -96,6 +96,12 @@ export interface OrderSummary {
    * E.g. "Table 3 + Table 4". Null when not merged.
    */
   merge_label: string | null
+  /**
+   * True when the order has been reopened for post-bill item additions (issue #394).
+   * Set by reopen_order_for_items edge function; cleared when order is next closed.
+   * Optional: defaults to false when absent (existing orders without the column or mocks).
+   */
+  post_bill_mode?: boolean
 }
 
 interface OrderItemRow {
@@ -239,7 +245,7 @@ export async function fetchOrderSummary(
 
   const orderUrl = new URL(`${supabaseUrl}/rest/v1/orders`)
   orderUrl.searchParams.set('id', `eq.${orderId}`)
-  orderUrl.searchParams.set('select', 'status,order_type,customer_name,delivery_note,customer_mobile,bill_number,reservation_id,customer_id,order_number,scheduled_time,delivery_zone_id,delivery_charge,merge_label,delivery_zones(name)')
+  orderUrl.searchParams.set('select', 'status,order_type,customer_name,delivery_note,customer_mobile,bill_number,reservation_id,customer_id,order_number,scheduled_time,delivery_zone_id,delivery_charge,merge_label,post_bill_mode,delivery_zones(name)')
 
   const orderRes = await fetch(orderUrl.toString(), { headers })
   if (!orderRes.ok) {
@@ -261,6 +267,7 @@ export async function fetchOrderSummary(
     delivery_zone_id: string | null
     delivery_charge: number | null
     merge_label: string | null
+    post_bill_mode: boolean | null
     delivery_zones: { name: string } | null
   }>
   if (orders.length === 0) {
@@ -281,6 +288,7 @@ export async function fetchOrderSummary(
   const deliveryZoneName = orders[0].delivery_zones?.name ?? null
   const deliveryCharge = orders[0].delivery_charge ?? 0
   const mergeLabel = orders[0].merge_label ?? null
+  const postBillMode = orders[0].post_bill_mode ?? false
 
   if (status !== 'paid') {
     return {
@@ -300,6 +308,7 @@ export async function fetchOrderSummary(
       delivery_zone_name: deliveryZoneName,
       delivery_charge: deliveryCharge,
       merge_label: mergeLabel,
+      post_bill_mode: postBillMode,
     }
   }
 
@@ -328,6 +337,7 @@ export async function fetchOrderSummary(
       delivery_zone_name: deliveryZoneName,
       delivery_charge: deliveryCharge,
       merge_label: mergeLabel,
+      post_bill_mode: postBillMode,
     }
   }
 
@@ -355,5 +365,6 @@ export async function fetchOrderSummary(
     delivery_zone_name: deliveryZoneName,
     delivery_charge: deliveryCharge,
     merge_label: mergeLabel,
+    post_bill_mode: postBillMode,
   }
 }

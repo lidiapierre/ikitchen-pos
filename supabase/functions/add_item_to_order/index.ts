@@ -142,7 +142,7 @@ export async function handler(
 
     // 2. Verify order exists and is open
     const orderRes = await fetchFn(
-      `${supabaseUrl}/rest/v1/orders?select=status&id=eq.${orderId}`,
+      `${supabaseUrl}/rest/v1/orders?select=status,post_bill_mode&id=eq.${orderId}`,
       { headers: dbHeaders },
     )
     if (!orderRes.ok) {
@@ -151,7 +151,7 @@ export async function handler(
         { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
       )
     }
-    const orders = (await orderRes.json()) as Array<{ status: string }>
+    const orders = (await orderRes.json()) as Array<{ status: string; post_bill_mode: boolean }>
     if (orders.length === 0) {
       return new Response(
         JSON.stringify({ success: false, error: 'Order not found' }),
@@ -164,6 +164,8 @@ export async function handler(
         { status: 409, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
       )
     }
+    // Track whether this item is being added after a bill was already generated (issue #394)
+    const isPostBillAddition = orders[0].post_bill_mode === true
 
     let orderItemId: string
 
@@ -198,6 +200,7 @@ export async function handler(
             quantity: 1,
             modifier_ids: modifierIds,
             course,
+            post_bill_addition: isPostBillAddition,
           }),
         },
       )

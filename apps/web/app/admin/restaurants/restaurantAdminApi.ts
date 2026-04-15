@@ -20,8 +20,8 @@ function slugify(name: string): string {
     .replace(/[^a-z0-9\s-]/g, '')
     .replace(/\s+/g, '-')
     .replace(/-+/g, '-')
-    .replace(/^-+|-+$/g, '') // strip leading/trailing hyphens
     .slice(0, 48)
+    .replace(/^-+|-+$/g, '') // strip leading/trailing hyphens (re-applied after slice)
 }
 
 export interface ProvisionRestaurantInput {

@@ -2134,4 +2134,18 @@ describe('OrderDetailClient — post-payment payment breakdown (issue #391)', ()
     expect(screen.getByText('৳ 600.00')).toBeInTheDocument()
     expect(screen.getByText('৳ 545.00')).toBeInTheDocument()
   })
+
+  it('bug #418: shows loading indicator (not success screen) in footer while status is loading', async (): Promise<void> => {
+    // Simulate a slow status fetch: fetchOrderSummary never resolves during the render.
+    // This replicates the page-load condition: step='order', statusLoading=true.
+    const { fetchOrderSummary } = await import('./orderData')
+    vi.mocked(fetchOrderSummary).mockReturnValue(new Promise((): void => { /* never resolves */ }))
+
+    render(<OrderDetailClient tableId="5" orderId="order-418-bug" />)
+
+    // The footer must show a loading indicator, not the success screen
+    expect(screen.getByText('Loading\u2026')).toBeInTheDocument()
+    expect(screen.queryByText('Payment recorded \u2014 order closed')).not.toBeInTheDocument()
+    expect(screen.queryByText('Returning to tables\u2026')).not.toBeInTheDocument()
+  })
 })

@@ -190,8 +190,13 @@ export async function handler(
   let authUserId: string
 
   if (ownerPassword) {
-    // Create user with password via admin API — auto-confirm so the owner can log in immediately
-    // after self-service registration without needing an email confirmation step (#420).
+    // Create user with password via admin API and auto-confirm the email (#420).
+    // This allows the owner to log in immediately after self-service registration.
+    // Trade-off: we skip inbox-ownership verification. This is acceptable because
+    //   (a) the registration form already required the user to type the email themselves,
+    //   (b) duplicate-email is prevented by Supabase Auth's unique constraint,
+    //   (c) rate-limiting should be enforced at the Supabase project / WAF layer to
+    //       prevent bulk account creation with arbitrary emails.
     const createRes = await fetchFn(`${supabaseUrl}/auth/v1/admin/users`, {
       method: 'POST',
       headers: serviceHeaders,

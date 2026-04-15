@@ -9,14 +9,15 @@ test.describe('/register page — unauthenticated', () => {
   // Override the default authenticated storageState for this describe block
   test.use({ storageState: { cookies: [], origins: [] } })
 
-  test('unauthenticated user sees login prompt', async ({ page }) => {
+  test('unauthenticated user can access the self-service registration form', async ({ page }) => {
     await page.goto('/register')
 
     // The page is accessible (middleware lets unauthenticated users through)
     await expect(page).toHaveURL(/\/register/)
 
-    // The form shows a "please log in" message for unauthenticated visitors
-    await expect(page.getByText(/please log in to complete registration/i)).toBeVisible()
+    // Self-service: the form is shown directly — no login gate for unauthenticated visitors
+    await expect(page.getByRole('heading', { name: /set up your restaurant/i })).toBeVisible()
+    await expect(page.getByLabel(/restaurant name/i)).toBeVisible()
   })
 
   test('page heading "Set up your restaurant" is visible', async ({ page }) => {

@@ -13,9 +13,10 @@
  * On any failure after the restaurant row is created, cleanup is attempted.
  *
  * Auth: none required — this is a public self-service endpoint.
- * Rate limiting: Supabase Edge Functions enforce per-project concurrency limits. The unique
- * slug + email constraints in the DB prevent duplicate-registration abuse. Additional WAF
- * or API-gateway rate rules can be layered at the Supabase project or network level.
+ * Rate limiting: No application-level rate limiting is applied. The unique slug + email
+ * constraints in the DB prevent duplicate-registration abuse for identical inputs, but do not
+ * cap requests with distinct values. WAF or API-gateway rate rules can be layered at the
+ * Supabase project or network level for broader protection.
  */
 
 export const corsHeaders = {
@@ -116,7 +117,13 @@ export async function handler(
   const validTimezones: string[] = typeof (Intl as { supportedValuesOf?: (key: string) => string[] }).supportedValuesOf === 'function'
     ? ((Intl as { supportedValuesOf: (key: string) => string[] }).supportedValuesOf('timeZone') as string[])
     : []
-  const timezone = validTimezones.length === 0 || validTimezones.includes(rawTimezone) ? rawTimezone : 'Asia/Dhaka'
+  if (validTimezones.length > 0 && !validTimezones.includes(rawTimezone)) {
+    return new Response(
+      JSON.stringify({ success: false, error: `Invalid timezone "${rawTimezone}"` }),
+      { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    )
+  }
+  const timezone = rawTimezone
   const currencyCode = typeof payload['currency_code'] === 'string' && payload['currency_code'].trim()
     ? (payload['currency_code'] as string).trim().toUpperCase()
     // legacy field name support

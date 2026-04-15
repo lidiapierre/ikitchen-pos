@@ -5,10 +5,11 @@ interface ActionResponse {
 }
 
 function buildHeaders(accessToken: string): Record<string, string> {
-  return {
-    'Content-Type': 'application/json',
-    Authorization: `Bearer ${accessToken}`,
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  if (accessToken) {
+    headers['Authorization'] = `Bearer ${accessToken}`
   }
+  return headers
 }
 
 /** Auto-generate a URL-safe slug from a restaurant name */
@@ -20,6 +21,7 @@ function slugify(name: string): string {
     .replace(/\s+/g, '-')
     .replace(/-+/g, '-')
     .slice(0, 48)
+    .replace(/^-+|-+$/g, '') // strip leading/trailing hyphens (re-applied after slice)
 }
 
 export interface ProvisionRestaurantInput {
@@ -39,7 +41,7 @@ export async function callProvisionRestaurant(
   input: ProvisionRestaurantInput,
 ): Promise<{ restaurantId: string }> {
   const slug = slugify(input.name)
-  if (!slug) {
+  if (!slug || !/^[a-z0-9]/.test(slug)) {
     throw new Error('Restaurant name must contain at least one letter or number')
   }
 

@@ -1,18 +1,22 @@
 /**
- * provision_restaurant — super-admin-only edge function.
+ * provision_restaurant — public self-service edge function.
  *
  * Creates a new restaurant and its owner account in one atomic-ish operation:
- *   1. Validates slug uniqueness
+ *   1. Validates slug uniqueness (unique constraint in DB is the duplicate-prevention guard)
  *   2. Creates row in `restaurants` (including optional branch_name)
- *   3. Creates the owner account via Supabase Auth admin API
- *      - If owner_password is provided: createUser with password (owner can log in immediately)
+ *   3. Creates the owner account via Supabase Auth admin API with email confirmation required
+ *      - If owner_password is provided: createUser WITHOUT email_confirm (owner must confirm inbox)
  *      - Otherwise: invite (owner receives an email invitation)
  *   4. Creates row in `users` with role = 'owner'
  *   5. Seeds default config (currency_code, currency_symbol, vat_percentage, service_charge)
  *
  * On any failure after the restaurant row is created, cleanup is attempted.
  *
- * Auth: caller must be authenticated AND have is_super_admin = true in the users table.
+ * Auth: none required — this is a public self-service endpoint.
+ * Rate limiting: No application-level rate limiting is applied. The unique slug + email
+ * constraints in the DB prevent duplicate-registration abuse for identical inputs, but do not
+ * cap requests with distinct values. WAF or API-gateway rate rules can be layered at the
+ * Supabase project or network level for broader protection.
  */
 
 export const corsHeaders = {
@@ -35,56 +39,6 @@ function readEnv(): HandlerEnv | null {
   const serviceKey = g.Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
   if (!supabaseUrl || !serviceKey) return null
   return { supabaseUrl, serviceKey }
-}
-
-/** Verify the JWT and confirm the caller has is_super_admin = true. */
-async function verifySuperAdmin(
-  req: Request,
-  supabaseUrl: string,
-  serviceKey: string,
-  fetchFn: FetchFn,
-): Promise<{ callerId: string } | { error: string; status: 401 | 403 }> {
-  const authHeader = req.headers.get('Authorization')
-  if (!authHeader?.startsWith('Bearer ')) {
-    return { error: 'Unauthorized', status: 401 }
-  }
-  const token = authHeader.slice(7).trim()
-  if (!token) return { error: 'Unauthorized', status: 401 }
-
-  // Verify JWT
-  let callerId: string
-  try {
-    const userRes = await fetchFn(`${supabaseUrl}/auth/v1/user`, {
-      headers: { apikey: serviceKey, Authorization: `Bearer ${token}` },
-    })
-    if (!userRes.ok) return { error: 'Unauthorized', status: 401 }
-    const user = (await userRes.json()) as { id?: string }
-    if (!user.id) return { error: 'Unauthorized', status: 401 }
-    callerId = user.id
-  } catch {
-    return { error: 'Unauthorized', status: 401 }
-  }
-
-  // Check is_super_admin flag
-  try {
-    const roleRes = await fetchFn(
-      `${supabaseUrl}/rest/v1/users?id=eq.${encodeURIComponent(callerId)}&select=is_super_admin&limit=1`,
-      {
-        headers: {
-          apikey: serviceKey,
-          Authorization: `Bearer ${serviceKey}`,
-        },
-      },
-    )
-    if (!roleRes.ok) return { error: 'Unauthorized', status: 401 }
-    const rows = (await roleRes.json()) as Array<{ is_super_admin: boolean }>
-    if (!rows || rows.length === 0) return { error: 'Forbidden', status: 403 }
-    if (!rows[0].is_super_admin) return { error: 'Forbidden — super-admin only', status: 403 }
-  } catch {
-    return { error: 'Unauthorized', status: 401 }
-  }
-
-  return { callerId }
 }
 
 export async function handler(
@@ -113,15 +67,6 @@ export async function handler(
 
   const { supabaseUrl, serviceKey } = env
 
-  // --- auth ---
-  const auth = await verifySuperAdmin(req, supabaseUrl, serviceKey, fetchFn)
-  if ('error' in auth) {
-    return new Response(
-      JSON.stringify({ success: false, error: auth.error }),
-      { status: auth.status, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
-    )
-  }
-
   // --- parse body ---
   let body: unknown
   try {
@@ -142,9 +87,10 @@ export async function handler(
       { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
     )
   }
-  if (typeof payload['slug'] !== 'string' || !/^[a-z0-9-]+$/.test(payload['slug'] as string)) {
+  // Slug must start and end with an alphanumeric char; interior hyphens are allowed
+  if (typeof payload['slug'] !== 'string' || !/^[a-z0-9]+(-[a-z0-9]+)*$/.test(payload['slug'] as string)) {
     return new Response(
-      JSON.stringify({ success: false, error: 'slug is required and must be lowercase alphanumeric with hyphens' }),
+      JSON.stringify({ success: false, error: 'slug is required and must be lowercase alphanumeric with hyphens (no leading/trailing hyphens)' }),
       { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
     )
   }
@@ -164,9 +110,20 @@ export async function handler(
   const ownerPassword = typeof payload['owner_password'] === 'string' && (payload['owner_password'] as string).length >= 8
     ? (payload['owner_password'] as string)
     : null
-  const timezone = typeof payload['timezone'] === 'string' && payload['timezone'].trim()
+  const rawTimezone = typeof payload['timezone'] === 'string' && payload['timezone'].trim()
     ? (payload['timezone'] as string).trim()
     : 'Asia/Dhaka'
+  // Validate against IANA timezone list
+  const validTimezones: string[] = typeof (Intl as { supportedValuesOf?: (key: string) => string[] }).supportedValuesOf === 'function'
+    ? ((Intl as { supportedValuesOf: (key: string) => string[] }).supportedValuesOf('timeZone') as string[])
+    : []
+  if (validTimezones.length > 0 && !validTimezones.includes(rawTimezone)) {
+    return new Response(
+      JSON.stringify({ success: false, error: `Invalid timezone "${rawTimezone}"` }),
+      { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    )
+  }
+  const timezone = rawTimezone
   const currencyCode = typeof payload['currency_code'] === 'string' && payload['currency_code'].trim()
     ? (payload['currency_code'] as string).trim().toUpperCase()
     // legacy field name support
@@ -234,13 +191,14 @@ export async function handler(
 
   if (ownerPassword) {
     // Create user with password via admin API — owner can log in immediately
+    // Do NOT set email_confirm: true on a public endpoint — the owner must prove
+    // they control the inbox before the account becomes active.
     const createRes = await fetchFn(`${supabaseUrl}/auth/v1/admin/users`, {
       method: 'POST',
       headers: serviceHeaders,
       body: JSON.stringify({
         email: ownerEmail,
         password: ownerPassword,
-        email_confirm: true,
         user_metadata: { restaurant_id: restaurant.id },
       }),
     })

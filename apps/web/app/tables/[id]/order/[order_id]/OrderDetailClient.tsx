@@ -351,6 +351,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
       return
     }
 
+    setStatusLoading(true)
     fetchOrderSummary(supabaseUrl, accessToken, orderId)
       .then((summary) => {
         if (summary.status === 'paid') {

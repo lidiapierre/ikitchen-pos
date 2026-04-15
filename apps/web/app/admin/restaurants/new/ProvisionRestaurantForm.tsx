@@ -81,7 +81,7 @@ export default function ProvisionRestaurantForm({ variant = 'admin' }: Provision
   const [success, setSuccess] = useState<{ restaurantId: string; name: string } | null>(null)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [showPassword, setShowPassword] = useState(false)
-  const [isSuperAdmin, setIsSuperAdmin] = useState<boolean | null>(variant === 'public' ? true : null)
+  const [canAccessForm, setCanAccessForm] = useState<boolean | null>(variant === 'public' ? true : null)
 
   useEffect(() => {
     // In public variant, skip super-admin check — show form directly
@@ -91,8 +91,8 @@ export default function ProvisionRestaurantForm({ variant = 'admin' }: Provision
         if (!supabaseUrl || !accessToken) return
 
     fetchIsSuperAdmin(supabaseUrl, accessToken)
-      .then((val) => setIsSuperAdmin(val))
-      .catch(() => setIsSuperAdmin(false))
+      .then((val) => setCanAccessForm(val))
+      .catch(() => setCanAccessForm(false))
   }, [accessToken, variant])
 
   function setField<K extends keyof FormValues>(key: K, value: FormValues[K]): void {
@@ -138,7 +138,7 @@ export default function ProvisionRestaurantForm({ variant = 'admin' }: Provision
   }
 
   // — Loading while permission check runs (admin variant only) —
-  if (isSuperAdmin === null) {
+  if (canAccessForm === null) {
     return (
       <div className="flex flex-col gap-6">
         <h1 className="text-2xl font-bold text-white">New Restaurant</h1>
@@ -148,7 +148,7 @@ export default function ProvisionRestaurantForm({ variant = 'admin' }: Provision
   }
 
   // — Access denied (admin variant only) —
-  if (!isSuperAdmin) {
+  if (!canAccessForm) {
     return (
       <div className="flex flex-col gap-6">
         <h1 className="text-2xl font-bold text-white">New Restaurant</h1>
@@ -178,7 +178,7 @@ export default function ProvisionRestaurantForm({ variant = 'admin' }: Provision
               </p>
             </div>
             <p className="text-sm text-green-400">
-              Your restaurant has been set up! You can now log in with the credentials you provided.
+              Your restaurant has been set up! Check your email inbox and click the confirmation link to activate your account, then log in.
             </p>
             <Link
               href="/login"
@@ -209,7 +209,7 @@ export default function ProvisionRestaurantForm({ variant = 'admin' }: Provision
             </p>
           </div>
           <p className="text-sm text-green-400">
-            The owner account has been created. They can now log in with the credentials you set.
+            The owner account has been created. They will receive a confirmation email — they must click the link before logging in.
           </p>
           <Link
             href="/admin/restaurants"

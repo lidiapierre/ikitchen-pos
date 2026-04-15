@@ -2,10 +2,10 @@
  * provision_restaurant — public self-service edge function.
  *
  * Creates a new restaurant and its owner account in one atomic-ish operation:
- *   1. Validates slug uniqueness
+ *   1. Validates slug uniqueness (unique constraint in DB is the duplicate-prevention guard)
  *   2. Creates row in `restaurants` (including optional branch_name)
- *   3. Creates the owner account via Supabase Auth admin API
- *      - If owner_password is provided: createUser with password (owner can log in immediately)
+ *   3. Creates the owner account via Supabase Auth admin API with email confirmation required
+ *      - If owner_password is provided: createUser WITHOUT email_confirm (owner must confirm inbox)
  *      - Otherwise: invite (owner receives an email invitation)
  *   4. Creates row in `users` with role = 'owner'
  *   5. Seeds default config (currency_code, currency_symbol, vat_percentage, service_charge)
@@ -13,7 +13,9 @@
  * On any failure after the restaurant row is created, cleanup is attempted.
  *
  * Auth: none required — this is a public self-service endpoint.
- * Security is maintained through input validation and rate limiting at the infrastructure layer.
+ * Rate limiting: Supabase Edge Functions enforce per-project concurrency limits. The unique
+ * slug + email constraints in the DB prevent duplicate-registration abuse. Additional WAF
+ * or API-gateway rate rules can be layered at the Supabase project or network level.
  */
 
 export const corsHeaders = {
@@ -84,9 +86,10 @@ export async function handler(
       { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
     )
   }
-  if (typeof payload['slug'] !== 'string' || !/^[a-z0-9-]+$/.test(payload['slug'] as string)) {
+  // Slug must start and end with an alphanumeric char; interior hyphens are allowed
+  if (typeof payload['slug'] !== 'string' || !/^[a-z0-9]+(-[a-z0-9]+)*$/.test(payload['slug'] as string)) {
     return new Response(
-      JSON.stringify({ success: false, error: 'slug is required and must be lowercase alphanumeric with hyphens' }),
+      JSON.stringify({ success: false, error: 'slug is required and must be lowercase alphanumeric with hyphens (no leading/trailing hyphens)' }),
       { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
     )
   }
@@ -106,9 +109,14 @@ export async function handler(
   const ownerPassword = typeof payload['owner_password'] === 'string' && (payload['owner_password'] as string).length >= 8
     ? (payload['owner_password'] as string)
     : null
-  const timezone = typeof payload['timezone'] === 'string' && payload['timezone'].trim()
+  const rawTimezone = typeof payload['timezone'] === 'string' && payload['timezone'].trim()
     ? (payload['timezone'] as string).trim()
     : 'Asia/Dhaka'
+  // Validate against IANA timezone list
+  const validTimezones: string[] = typeof (Intl as { supportedValuesOf?: (key: string) => string[] }).supportedValuesOf === 'function'
+    ? ((Intl as { supportedValuesOf: (key: string) => string[] }).supportedValuesOf('timeZone') as string[])
+    : []
+  const timezone = validTimezones.length === 0 || validTimezones.includes(rawTimezone) ? rawTimezone : 'Asia/Dhaka'
   const currencyCode = typeof payload['currency_code'] === 'string' && payload['currency_code'].trim()
     ? (payload['currency_code'] as string).trim().toUpperCase()
     // legacy field name support
@@ -176,13 +184,14 @@ export async function handler(
 
   if (ownerPassword) {
     // Create user with password via admin API — owner can log in immediately
+    // Do NOT set email_confirm: true on a public endpoint — the owner must prove
+    // they control the inbox before the account becomes active.
     const createRes = await fetchFn(`${supabaseUrl}/auth/v1/admin/users`, {
       method: 'POST',
       headers: serviceHeaders,
       body: JSON.stringify({
         email: ownerEmail,
         password: ownerPassword,
-        email_confirm: true,
         user_metadata: { restaurant_id: restaurant.id },
       }),
     })

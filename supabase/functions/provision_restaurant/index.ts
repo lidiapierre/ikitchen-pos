@@ -4,8 +4,8 @@
  * Creates a new restaurant and its owner account in one atomic-ish operation:
  *   1. Validates slug uniqueness (unique constraint in DB is the duplicate-prevention guard)
  *   2. Creates row in `restaurants` (including optional branch_name)
- *   3. Creates the owner account via Supabase Auth admin API with email confirmation required
- *      - If owner_password is provided: createUser WITHOUT email_confirm (owner must confirm inbox)
+ *   3. Creates the owner account via Supabase Auth admin API
+ *      - If owner_password is provided: createUser with email_confirm: true (owner can log in immediately)
  *      - Otherwise: invite (owner receives an email invitation)
  *   4. Creates row in `users` with role = 'owner'
  *   5. Seeds default config (currency_code, currency_symbol, vat_percentage, service_charge)
@@ -190,15 +190,15 @@ export async function handler(
   let authUserId: string
 
   if (ownerPassword) {
-    // Create user with password via admin API — owner can log in immediately
-    // Do NOT set email_confirm: true on a public endpoint — the owner must prove
-    // they control the inbox before the account becomes active.
+    // Create user with password via admin API — auto-confirm so the owner can log in immediately
+    // after self-service registration without needing an email confirmation step (#420).
     const createRes = await fetchFn(`${supabaseUrl}/auth/v1/admin/users`, {
       method: 'POST',
       headers: serviceHeaders,
       body: JSON.stringify({
         email: ownerEmail,
         password: ownerPassword,
+        email_confirm: true,
         user_metadata: { restaurant_id: restaurant.id },
       }),
     })

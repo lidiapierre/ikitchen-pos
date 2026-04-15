@@ -26,8 +26,8 @@ describe('RegisterPage', () => {
     expect(form).toHaveAttribute('data-variant', 'public')
   })
 
-  it('shows the super-admin provisioning tagline', () => {
+  it('shows the self-service tagline', () => {
     render(<RegisterPage />)
-    expect(screen.getByText(/ikitchen pos.*super-admin provisioning/i)).toBeInTheDocument()
+    expect(screen.getByText(/ikitchen pos.*get started in minutes/i)).toBeInTheDocument()
   })
 })

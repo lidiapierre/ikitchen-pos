@@ -175,11 +175,12 @@ describe('ProvisionRestaurantForm — public variant', () => {
     expect(screen.queryByText(/super admin — provisioning/i)).not.toBeInTheDocument()
   })
 
-  it('shows "Please log in" message when accessToken is null', () => {
+  it('renders the form directly for unauthenticated visitors (no login prompt)', () => {
     mockAccessToken = null
     render(<ProvisionRestaurantForm variant="public" />)
-    expect(screen.getByText(/please log in to complete registration/i)).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /go to login/i })).toBeInTheDocument()
+    // No login prompt — form is shown directly for self-service
+    expect(screen.queryByText(/please log in/i)).not.toBeInTheDocument()
+    expect(screen.getByLabelText(/restaurant name/i)).toBeInTheDocument()
   })
 })
 

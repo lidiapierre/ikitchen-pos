@@ -5,10 +5,11 @@ interface ActionResponse {
 }
 
 function buildHeaders(accessToken: string): Record<string, string> {
-  return {
-    'Content-Type': 'application/json',
-    Authorization: `Bearer ${accessToken}`,
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  if (accessToken) {
+    headers['Authorization'] = `Bearer ${accessToken}`
   }
+  return headers
 }
 
 /** Auto-generate a URL-safe slug from a restaurant name */

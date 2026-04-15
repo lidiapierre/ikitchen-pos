@@ -81,10 +81,6 @@ export default function ProvisionRestaurantForm({ variant = 'admin' }: Provision
   const [success, setSuccess] = useState<{ restaurantId: string; name: string } | null>(null)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [showPassword, setShowPassword] = useState(false)
-  // public variant: skip the client-side super-admin check.
-  // Security is enforced server-side — the provision_restaurant edge function
-  // calls verifySuperAdmin() which requires is_super_admin = true in the users
-  // table. Any non-super-admin token will get a 403 from the edge function.
   const [isSuperAdmin, setIsSuperAdmin] = useState<boolean | null>(variant === 'public' ? true : null)
 
   useEffect(() => {
@@ -114,8 +110,8 @@ export default function ProvisionRestaurantForm({ variant = 'admin' }: Provision
     }
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    if (!supabaseUrl || !accessToken) {
-      setSubmitError('Not authenticated. Please refresh and try again.')
+    if (!supabaseUrl) {
+      setSubmitError('Configuration error. Please refresh and try again.')
       return
     }
 
@@ -139,23 +135,6 @@ export default function ProvisionRestaurantForm({ variant = 'admin' }: Provision
     } finally {
       setSubmitting(false)
     }
-  }
-
-  // — Public variant: no token means user isn't logged in —
-  if (variant === 'public' && !accessToken) {
-    return (
-      <div className="flex flex-col gap-6">
-        <div className="bg-yellow-900/30 border border-yellow-700 text-yellow-300 rounded-xl px-4 py-3">
-          <p className="font-medium">Please log in to complete registration.</p>
-          <p className="text-sm mt-1 text-yellow-400">
-            You need to be authenticated as a super-admin to set up a restaurant.
-          </p>
-        </div>
-        <Link href="/login" className="text-indigo-400 hover:underline text-sm">
-          Go to login →
-        </Link>
-      </div>
-    )
   }
 
   // — Loading while permission check runs (admin variant only) —

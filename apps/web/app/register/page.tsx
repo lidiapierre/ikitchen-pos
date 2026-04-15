@@ -7,7 +7,7 @@ export default function RegisterPage(): JSX.Element {
       <div className="w-full max-w-2xl">
         <div className="mb-8 text-center">
           <h1 className="text-3xl font-bold text-white mb-2">Set up your restaurant</h1>
-          <p className="text-zinc-400">iKitchen POS — Super-admin provisioning</p>
+          <p className="text-zinc-400">iKitchen POS — Get started in minutes</p>
         </div>
         <ProvisionRestaurantForm variant="public" />
       </div>

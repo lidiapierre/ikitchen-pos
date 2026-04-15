@@ -1,5 +1,5 @@
 /**
- * provision_restaurant — super-admin-only edge function.
+ * provision_restaurant — public self-service edge function.
  *
  * Creates a new restaurant and its owner account in one atomic-ish operation:
  *   1. Validates slug uniqueness
@@ -12,7 +12,8 @@
  *
  * On any failure after the restaurant row is created, cleanup is attempted.
  *
- * Auth: caller must be authenticated AND have is_super_admin = true in the users table.
+ * Auth: none required — this is a public self-service endpoint.
+ * Security is maintained through input validation and rate limiting at the infrastructure layer.
  */
 
 export const corsHeaders = {
@@ -35,56 +36,6 @@ function readEnv(): HandlerEnv | null {
   const serviceKey = g.Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
   if (!supabaseUrl || !serviceKey) return null
   return { supabaseUrl, serviceKey }
-}
-
-/** Verify the JWT and confirm the caller has is_super_admin = true. */
-async function verifySuperAdmin(
-  req: Request,
-  supabaseUrl: string,
-  serviceKey: string,
-  fetchFn: FetchFn,
-): Promise<{ callerId: string } | { error: string; status: 401 | 403 }> {
-  const authHeader = req.headers.get('Authorization')
-  if (!authHeader?.startsWith('Bearer ')) {
-    return { error: 'Unauthorized', status: 401 }
-  }
-  const token = authHeader.slice(7).trim()
-  if (!token) return { error: 'Unauthorized', status: 401 }
-
-  // Verify JWT
-  let callerId: string
-  try {
-    const userRes = await fetchFn(`${supabaseUrl}/auth/v1/user`, {
-      headers: { apikey: serviceKey, Authorization: `Bearer ${token}` },
-    })
-    if (!userRes.ok) return { error: 'Unauthorized', status: 401 }
-    const user = (await userRes.json()) as { id?: string }
-    if (!user.id) return { error: 'Unauthorized', status: 401 }
-    callerId = user.id
-  } catch {
-    return { error: 'Unauthorized', status: 401 }
-  }
-
-  // Check is_super_admin flag
-  try {
-    const roleRes = await fetchFn(
-      `${supabaseUrl}/rest/v1/users?id=eq.${encodeURIComponent(callerId)}&select=is_super_admin&limit=1`,
-      {
-        headers: {
-          apikey: serviceKey,
-          Authorization: `Bearer ${serviceKey}`,
-        },
-      },
-    )
-    if (!roleRes.ok) return { error: 'Unauthorized', status: 401 }
-    const rows = (await roleRes.json()) as Array<{ is_super_admin: boolean }>
-    if (!rows || rows.length === 0) return { error: 'Forbidden', status: 403 }
-    if (!rows[0].is_super_admin) return { error: 'Forbidden — super-admin only', status: 403 }
-  } catch {
-    return { error: 'Unauthorized', status: 401 }
-  }
-
-  return { callerId }
 }
 
 export async function handler(
@@ -112,15 +63,6 @@ export async function handler(
   }
 
   const { supabaseUrl, serviceKey } = env
-
-  // --- auth ---
-  const auth = await verifySuperAdmin(req, supabaseUrl, serviceKey, fetchFn)
-  if ('error' in auth) {
-    return new Response(
-      JSON.stringify({ success: false, error: auth.error }),
-      { status: auth.status, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
-    )
-  }
 
   // --- parse body ---
   let body: unknown

@@ -20,6 +20,7 @@ function slugify(name: string): string {
     .replace(/[^a-z0-9\s-]/g, '')
     .replace(/\s+/g, '-')
     .replace(/-+/g, '-')
+    .replace(/^-+|-+$/g, '') // strip leading/trailing hyphens
     .slice(0, 48)
 }
 
@@ -40,7 +41,7 @@ export async function callProvisionRestaurant(
   input: ProvisionRestaurantInput,
 ): Promise<{ restaurantId: string }> {
   const slug = slugify(input.name)
-  if (!slug) {
+  if (!slug || !/^[a-z0-9]/.test(slug)) {
     throw new Error('Restaurant name must contain at least one letter or number')
   }
 

@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test'
 
 /**
- * E2E tests for the /register page (super-admin restaurant provisioning).
+ * E2E tests for the /register page (self-service restaurant registration).
  * Viewport: 1280x800 (set globally in playwright.config.ts).
  */
 

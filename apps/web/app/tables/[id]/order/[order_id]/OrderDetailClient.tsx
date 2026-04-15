@@ -562,7 +562,13 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
   }
 
   useEffect(() => {
-    if (!accessToken) return
+    if (!accessToken) {
+      // No auth token yet — clear loading states so the UI doesn't hang
+      // on the initial render before the UserProvider resolves the session.
+      setLoading(false)
+      setStatusLoading(false)
+      return
+    }
     loadItems()
     loadOrderStatus()
     loadVatConfig()
@@ -3729,8 +3735,13 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
               </button>
             </div>
           </div>
-        ) : step === 'order' && !statusLoading ? (
-          <>
+        ) : step === 'order' ? (
+          statusLoading ? (
+            <div className="flex justify-center py-4">
+              <p className="text-zinc-400 text-base">Loading…</p>
+            </div>
+          ) : (
+            <>
             {/* Due status badge — visible when order has been marked as due (issue #370) */}
             {orderIsDue && (
               <div className="mb-3 flex items-center gap-2 bg-orange-900/30 border border-orange-600 rounded-xl px-4 py-2">
@@ -3925,7 +3936,8 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
             {closeError !== null && (
               <p className="mt-4 text-base text-red-400">{closeError}</p>
             )}
-          </>
+            </>
+          )
         ) : step === 'payment' ? (
           <div className="space-y-5">
             <h2 className="text-xl font-semibold text-white">Record Payment</h2>

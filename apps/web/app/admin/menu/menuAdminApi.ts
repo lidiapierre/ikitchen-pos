@@ -3,9 +3,12 @@ export interface ModifierInput {
   price_delta_cents: number
 }
 
+const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ''
+
 function buildHeaders(accessToken: string, withPreferRepresentation = false): Record<string, string> {
   const h: Record<string, string> = {
     'Content-Type': 'application/json',
+    apikey: publishableKey,
     Authorization: `Bearer ${accessToken}`,
   }
   if (withPreferRepresentation) h['Prefer'] = 'return=representation'

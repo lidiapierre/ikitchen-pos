@@ -59,12 +59,15 @@ function timeOnly(iso: string): string {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
 
-/** Compute subtotal from items (for BillPrintView prop) */
+/**
+ * Compute the displayed subtotal for BillPrintView (items total before order-level discount).
+ * Uses rawSubtotalCents from ReprintOrderData (= final_total_cents from DB: items after per-item
+ * discounts, before order-level discount / SC / VAT).
+ * For tax-inclusive VAT, the subtotal is the net (ex-VAT) amount.
+ */
 function computeSubtotal(data: ReprintOrderData, vatPercent: number, taxInclusive: boolean): number {
-  const itemsTotal = data.items.reduce((sum, item) => {
-    if (item.comp) return sum
-    return sum + item.quantity * item.price_cents
-  }, 0)
+  // rawSubtotalCents = sum of (qty × price - per-item discount) for non-comp items
+  const itemsTotal = data.rawSubtotalCents
 
   if (taxInclusive && vatPercent > 0) {
     return Math.round(itemsTotal / (1 + vatPercent / 100))
@@ -205,6 +208,7 @@ function ReprintModal({
           subtotalCents={subtotalCents}
           vatPercent={config.vatPercent}
           taxInclusive={config.taxInclusive}
+          vatCents={data.vatCents}
           totalCents={data.finalTotalCents}
           paymentMethod={(singlePayment?.method ?? 'cash') as PaymentMethod}
           amountTenderedCents={cashTendered}

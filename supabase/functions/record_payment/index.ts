@@ -175,7 +175,7 @@ export async function handler(
     //    true bill total for change calculation (bug fix: service charge was missing — issue #424).
     //    Also fetch customer_id here to avoid a second roundtrip in the loyalty block (issue #356).
     const orderRes = await fetchFn(
-      `${supabaseUrl}/rest/v1/orders?select=id,restaurant_id,status,final_total_cents,discount_amount_cents,order_comp,customer_id,service_charge_cents,delivery_charge,order_type&id=eq.${orderId}`,
+      `${supabaseUrl}/rest/v1/orders?select=id,restaurant_id,status,final_total_cents,discount_amount_cents,order_comp,customer_id,service_charge_cents,vat_cents,delivery_charge,order_type&id=eq.${orderId}`,
       { headers: dbHeaders },
     )
     if (!orderRes.ok) {
@@ -184,7 +184,7 @@ export async function handler(
         { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
       )
     }
-    const orders = (await orderRes.json()) as Array<{ id: string; restaurant_id: string; status: string; final_total_cents: number | null; discount_amount_cents: number | null; order_comp: boolean | null; customer_id: string | null; service_charge_cents: number | null; delivery_charge: number | null; order_type: string | null }>
+    const orders = (await orderRes.json()) as Array<{ id: string; restaurant_id: string; status: string; final_total_cents: number | null; discount_amount_cents: number | null; order_comp: boolean | null; customer_id: string | null; service_charge_cents: number | null; vat_cents: number | null; delivery_charge: number | null; order_type: string | null }>
     if (orders.length === 0) {
       return new Response(
         JSON.stringify({ success: false, error: 'Order not found' }),
@@ -204,61 +204,22 @@ export async function handler(
     const rawFinalTotalCents = orders[0].final_total_cents ?? 0
     const discountAmountCents = orders[0].discount_amount_cents ?? 0
     const serviceChargeCents = orders[0].service_charge_cents ?? 0
+    // vat_cents is stored by close_order (issue #146 fix).
+    // For orders closed before this fix, vat_cents will be 0 — accepted for legacy rows.
+    const storedVatCents = orders[0].vat_cents ?? 0
     const orderType = orders[0].order_type ?? 'dine_in'
     const deliveryChargeCents = orderType === 'delivery' ? (orders[0].delivery_charge ?? 0) : 0
-
-    // Fetch VAT config to include VAT in the effective bill total.
-    // This mirrors the frontend's billTotalCents calculation:
-    //   Subtotal → Discount → Service Charge → VAT → + Delivery
-    // Defaults to 0% / exclusive if config is unavailable (best-effort, non-fatal).
-    let vatPercent = 0
-    let taxInclusive = false
-    let vatApplies = false // conservative default: do not apply VAT if config is unavailable
-    try {
-      const vatConfigRes = await fetchFn(
-        `${supabaseUrl}/rest/v1/config?select=key,value&restaurant_id=eq.${restaurantId}&key=in.(tax_inclusive,vat_apply_dine_in,vat_apply_takeaway,vat_apply_delivery)`,
-        { headers: dbHeaders },
-      )
-      if (vatConfigRes.ok) {
-        const cfgRows = (await vatConfigRes.json()) as Array<{ key: string; value: string }>
-        const cfgMap = new Map(cfgRows.map((r) => [r.key, r.value]))
-        taxInclusive = cfgMap.get('tax_inclusive') === 'true'
-        // Per-type defaults: dine_in=true, takeaway=true, delivery=false
-        const applyDineIn = cfgMap.has('vat_apply_dine_in') ? cfgMap.get('vat_apply_dine_in') === 'true' : true
-        const applyTakeaway = cfgMap.has('vat_apply_takeaway') ? cfgMap.get('vat_apply_takeaway') === 'true' : true
-        const applyDelivery = cfgMap.has('vat_apply_delivery') ? cfgMap.get('vat_apply_delivery') === 'true' : false
-        vatApplies = (orderType === 'dine_in' && applyDineIn)
-          || (orderType === 'takeaway' && applyTakeaway)
-          || (orderType === 'delivery' && applyDelivery)
-      }
-      // Fetch restaurant default VAT rate (menu_id IS NULL = restaurant-level default)
-      const vatRateRes = await fetchFn(
-        `${supabaseUrl}/rest/v1/vat_rates?select=percentage&restaurant_id=eq.${restaurantId}&menu_id=is.null&limit=1`,
-        { headers: dbHeaders },
-      )
-      if (vatRateRes.ok) {
-        const vatRateRows = (await vatRateRes.json()) as Array<{ percentage: number | string }>
-        if (vatRateRows.length > 0) {
-          vatPercent = Number(vatRateRows[0].percentage) || 0
-        }
-      }
-    } catch {
-      // Non-fatal: VAT config unavailable — defaults to 0%, change calc still corrected for SC
-    }
 
     // Compute the true bill total that the customer owes, matching the frontend's billTotalCents:
     //   postDiscountBase = subtotal (per-item discounts applied) − order-level discount
     //   vatBase          = postDiscountBase + service charge
-    //   vatCents         = vatBase × vatPercent / 100  (0 when tax-inclusive — VAT already in prices)
+    //   vatCents         = stored by close_order from vat_rates (issue #146 fix)
     //   billTotal        = vatBase + vatCents + delivery charge
     const postDiscountBase = Math.max(0, rawFinalTotalCents - discountAmountCents)
     const vatBase = postDiscountBase + serviceChargeCents
-    const vatCents = (vatApplies && vatPercent > 0 && !taxInclusive)
-      ? Math.round((vatBase * vatPercent) / 100)
-      : 0
     const finalTotalCents = isOrderComp
       ? 0
-      : vatBase + vatCents + deliveryChargeCents
+      : vatBase + storedVatCents + deliveryChargeCents
 
     // For split-payment: validate total tendered covers the order total
     const totalTenderedCents = paymentsToRecord.reduce((s, p) => s + p.amount, 0)

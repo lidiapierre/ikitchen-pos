@@ -17,7 +17,7 @@ vi.mock('./components/TableCard', () => ({
 }))
 
 vi.mock('@/lib/user-context', () => ({
-  useUser: () => ({ accessToken: 'test-key', role: 'owner', isAdmin: true, loading: false }),
+  useUser: () => ({ accessToken: 'test-key', role: 'owner', isAdmin: true, loading: false, userId: 'test-user-id' }),
 }))
 
 vi.mock('next/navigation', () => ({

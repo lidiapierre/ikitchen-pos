@@ -59,7 +59,7 @@ function getDuration(start: string, end: string): string {
 }
 
 export default function ShiftsClient(): JSX.Element {
-  const { accessToken: _at } = useUser(); const accessToken = _at ?? ''
+  const { accessToken: _at, userId: _uid } = useUser(); const accessToken = _at ?? ''; const userId = _uid ?? ''
   const [activeShift, setActiveShift] = useState<ActiveShift | null>(null)
   const [closedSummary, setClosedSummary] = useState<ShiftSummary | null>(null)
   const [loading, setLoading] = useState(false)
@@ -67,12 +67,21 @@ export default function ShiftsClient(): JSX.Element {
 
   async function fetchActiveShiftOnMount(): Promise<void> {
     try {
+      // Must use the user's JWT (not anon key) — the restaurant_isolation RLS policy
+      // on the shifts table requires an authenticated session. The anon_read policy
+      // was removed in migration 20260401001000_rls_restaurant_isolation.
+      if (!accessToken || !userId) {
+        setActiveShift(loadShiftFromStorage())
+        return
+      }
       const baseUrl = SUPABASE_URL ?? ''
-      const url = `${baseUrl}/rest/v1/shifts?select=id,opened_at&closed_at=is.null&limit=1`
-      const headers: Record<string, string> = {}
+      // Filter by user_id to match the open_shift guard check scope
+      const url = `${baseUrl}/rest/v1/shifts?select=id,opened_at&user_id=eq.${userId}&closed_at=is.null&limit=1`
+      const headers: Record<string, string> = {
+        Authorization: `Bearer ${accessToken}`,
+      }
       if (SUPABASE_ANON_KEY) {
         headers['apikey'] = SUPABASE_ANON_KEY
-        headers['Authorization'] = `Bearer ${SUPABASE_ANON_KEY}`
       }
       const res = await fetch(url, { headers })
       if (res.ok) {

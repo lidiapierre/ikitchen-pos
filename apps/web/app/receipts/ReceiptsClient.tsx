@@ -34,6 +34,8 @@ import type { SplitPaymentLine } from '@/components/BillPrintView'
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
 const STORAGE_KEY = 'ikitchen_active_shift'
 
+type OrderTypeFilter = 'all' | 'dine_in' | 'takeaway' | 'delivery'
+
 interface ShiftData {
   shift_id: string
   started_at: string
@@ -464,7 +466,6 @@ export default function ReceiptsClient(): JSX.Element {
   const [billSearch, setBillSearch] = useState('')
 
   // Order type filter — client-side, applied after fetch.
-  type OrderTypeFilter = 'all' | 'dine_in' | 'takeaway' | 'delivery'
   const [orderTypeFilter, setOrderTypeFilter] = useState<OrderTypeFilter>('all')
 
   // Re-print state
@@ -591,7 +592,7 @@ export default function ReceiptsClient(): JSX.Element {
               type="button"
               onClick={() => router.push('/tables')}
               aria-label="Back to POS"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand-blue text-white/80 hover:text-white hover:bg-brand-blue/80 transition-colors text-sm shrink-0"
+              className="flex items-center gap-1.5 px-3 min-h-[48px] rounded-lg bg-brand-blue text-white/80 hover:text-white hover:bg-brand-blue/80 transition-colors text-sm shrink-0"
             >
               <ArrowLeft className="w-4 h-4" aria-hidden="true" />
               <span className="hidden sm:inline">Back to POS</span>
@@ -703,7 +704,7 @@ export default function ReceiptsClient(): JSX.Element {
                 type="button"
                 onClick={() => setOrderTypeFilter(value)}
                 aria-pressed={orderTypeFilter === value}
-                className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                className={`px-3 min-h-[48px] rounded-lg text-sm font-medium transition-colors ${
                   orderTypeFilter === value
                     ? 'bg-brand-gold text-brand-navy'
                     : 'bg-brand-blue text-white/70 hover:text-white'
@@ -811,7 +812,11 @@ export default function ReceiptsClient(): JSX.Element {
           <div className="flex flex-col items-center gap-3 py-16 text-brand-navy/50">
             <Search className="w-12 h-12" />
             <p className="text-base font-medium">No match</p>
-            {billSearchTrimmed ? (
+            {billSearchTrimmed && orderTypeFilter !== 'all' ? (
+              <p className="text-sm text-center">
+                No {orderTypeFilter === 'dine_in' ? 'Dine-in' : orderTypeFilter === 'takeaway' ? 'Takeaway' : 'Delivery'} bill found with number &ldquo;{billSearch.trim()}&rdquo; in the current date range.
+              </p>
+            ) : billSearchTrimmed ? (
               <p className="text-sm text-center">
                 No bill found with number &ldquo;{billSearch.trim()}&rdquo; in the current date range.
               </p>

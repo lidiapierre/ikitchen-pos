@@ -165,6 +165,23 @@ test.describe('Staff (server) view', () => {
     await expect(page.getByText('Payment breakdown')).toBeVisible()
     await expect(page.getByText('Total Paid')).toBeVisible()
   })
+
+  test('Back to POS button is visible to staff', async ({ page }) => {
+    await mockDataEndpoints(page, [])
+    await page.goto('/receipts')
+
+    await expect(page.getByRole('button', { name: 'Back to POS' })).toBeVisible()
+  })
+
+  test('order type filter tabs are visible to staff', async ({ page }) => {
+    await mockDataEndpoints(page, [])
+    await page.goto('/receipts')
+
+    await expect(page.getByRole('button', { name: 'All' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Dine-in' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Takeaway' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Delivery' })).toBeVisible()
+  })
 })
 
 // ─── Admin (owner) tests ──────────────────────────────────────────────────────
@@ -291,6 +308,105 @@ test.describe('Admin (owner) view', () => {
 
     await page.getByRole('dialog').getByRole('button', { name: 'Close' }).click()
     await expect(page.getByRole('dialog')).not.toBeVisible()
+  })
+
+  test('Back to POS button navigates to /tables', async ({ page }) => {
+    await mockDataEndpoints(page, [])
+    await page.goto('/receipts')
+
+    const backBtn = page.getByRole('button', { name: 'Back to POS' })
+    await expect(backBtn).toBeVisible()
+    await backBtn.click()
+
+    await expect(page).toHaveURL(/\/tables/)
+  })
+
+  test('Back to POS button has adequate touch target (min 48px)', async ({ page }) => {
+    await mockDataEndpoints(page, [])
+    await page.goto('/receipts')
+
+    const backBtn = page.getByRole('button', { name: 'Back to POS' })
+    const box = await backBtn.boundingBox()
+    expect(box).not.toBeNull()
+    expect(box!.height).toBeGreaterThanOrEqual(48)
+  })
+
+  test('order type filter tabs are visible', async ({ page }) => {
+    await mockDataEndpoints(page, [])
+    await page.goto('/receipts')
+
+    await expect(page.getByRole('button', { name: 'All' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Dine-in' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Takeaway' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Delivery' })).toBeVisible()
+  })
+
+  test('order type filter tabs have adequate touch targets (min 48px)', async ({ page }) => {
+    await mockDataEndpoints(page, [])
+    await page.goto('/receipts')
+
+    for (const label of ['All', 'Dine-in', 'Takeaway', 'Delivery']) {
+      const btn = page.getByRole('button', { name: label })
+      const box = await btn.boundingBox()
+      expect(box).not.toBeNull()
+      expect(box!.height).toBeGreaterThanOrEqual(48)
+    }
+  })
+
+  test('order type filter hides non-matching receipts', async ({ page }) => {
+    const takeawayOrder = {
+      ...PAID_ORDER,
+      id: 'order-takeaway-1',
+      order_type: 'takeaway',
+      bill_number: 'RN0009999',
+      tables: (null as unknown) as typeof PAID_ORDER['tables'],
+    }
+    await mockDataEndpoints(page, [PAID_ORDER, takeawayOrder])
+    await page.goto('/receipts')
+
+    // Both orders visible initially
+    await expect(page.getByText('RN0001234')).toBeVisible()
+    await expect(page.getByText('RN0009999')).toBeVisible()
+
+    // Filter to Dine-in only
+    await page.getByRole('button', { name: 'Dine-in' }).click()
+    await expect(page.getByText('RN0001234')).toBeVisible()
+    await expect(page.getByText('RN0009999')).not.toBeVisible()
+
+    // Reset to All
+    await page.getByRole('button', { name: 'All' }).click()
+    await expect(page.getByText('RN0009999')).toBeVisible()
+  })
+
+  test('order type filter updates bill count summary', async ({ page }) => {
+    const takeawayOrder = {
+      ...PAID_ORDER,
+      id: 'order-takeaway-2',
+      order_type: 'takeaway',
+      bill_number: 'RN0009998',
+      tables: (null as unknown) as typeof PAID_ORDER['tables'],
+    }
+    await mockDataEndpoints(page, [PAID_ORDER, takeawayOrder])
+    await page.goto('/receipts')
+
+    // Initially 2 of 2
+    await expect(page.getByText('2 bills')).toBeVisible()
+
+    // Filter to Dine-in — shows 1 of 2
+    await page.getByRole('button', { name: 'Dine-in' }).click()
+    await expect(page.getByText('1 of 2 bills')).toBeVisible()
+  })
+
+  test('empty state shows type-specific message when order type filter active', async ({ page }) => {
+    // Only dine_in orders — filter to Delivery should show empty state
+    await mockDataEndpoints(page, [PAID_ORDER])
+    await page.goto('/receipts')
+
+    await page.getByRole('button', { name: 'Delivery' }).click()
+
+    await expect(page.getByText('No match', { exact: true })).toBeVisible()
+    await expect(page.getByText(/No Delivery orders found/)).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Show all types' })).toBeVisible()
   })
 
   test('Escape key closes re-print modal', async ({ page }) => {

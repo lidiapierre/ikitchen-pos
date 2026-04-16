@@ -46,10 +46,10 @@ function makeFetch(opts: {
       return Promise.resolve(new Response(body, { status: 200 }))
     }
 
-    // Step 2: verify restaurant access
-    if (method === 'GET' && (url as string).includes('/user_restaurants')) {
+    // Step 2: verify restaurant access (via users table)
+    if (method === 'GET' && (url as string).includes('/users') && (url as string).includes('restaurant_id')) {
       const body = accessGranted
-        ? JSON.stringify([{ user_id: 'user-123' }])
+        ? JSON.stringify([{ id: 'user-123' }])
         : JSON.stringify([])
       return Promise.resolve(new Response(body, { status: 200 }))
     }

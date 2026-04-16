@@ -40,10 +40,10 @@ function makeAccessFetch(opts: {
       return Promise.resolve(new Response(body, { status: 200 }))
     }
 
-    // Step 2: verify access via user_restaurants
-    if (method === 'GET' && (url as string).includes('/user_restaurants')) {
+    // Step 2: verify access via users table (users.restaurant_id is the MVP link)
+    if (method === 'GET' && (url as string).includes('/users') && (url as string).includes('restaurant_id')) {
       const body = accessGranted
-        ? JSON.stringify([{ user_id: mockAuth.actorId }])
+        ? JSON.stringify([{ id: mockAuth.actorId }])
         : JSON.stringify([])
       return Promise.resolve(new Response(body, { status: 200 }))
     }
@@ -165,12 +165,12 @@ describe('update_order_item_notes handler', () => {
       expect(json.success).toBe(true)
     })
 
-    it('queries user_restaurants with the caller actorId', async (): Promise<void> => {
+    it('queries users table with the caller actorId for restaurant access check', async (): Promise<void> => {
       const mockFetch = makeAccessFetch()
       const req = makeAuthRequest({ order_item_id: TEST_ORDER_ITEM_ID, notes: 'extra spicy' })
       await handler(req, mockFetch, mockEnv)
       const calls = (mockFetch as ReturnType<typeof vi.fn>).mock.calls as [string, RequestInit][]
-      const accessCall = calls.find(([url]) => url.includes('/user_restaurants'))
+      const accessCall = calls.find(([url]) => url.includes('/users') && url.includes('restaurant_id'))
       expect(accessCall).toBeDefined()
       expect(accessCall![0]).toContain(mockAuth.actorId)
       expect(accessCall![0]).toContain(TEST_RESTAURANT_ID)

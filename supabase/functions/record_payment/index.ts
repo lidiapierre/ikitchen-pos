@@ -213,7 +213,7 @@ export async function handler(
     // Defaults to 0% / exclusive if config is unavailable (best-effort, non-fatal).
     let vatPercent = 0
     let taxInclusive = false
-    let vatApplies = true // dine_in default
+    let vatApplies = false // conservative default: do not apply VAT if config is unavailable
     try {
       const vatConfigRes = await fetchFn(
         `${supabaseUrl}/rest/v1/config?select=key,value&restaurant_id=eq.${restaurantId}&key=in.(tax_inclusive,vat_apply_dine_in,vat_apply_takeaway,vat_apply_delivery)`,
@@ -256,11 +256,9 @@ export async function handler(
     const vatCents = (vatApplies && vatPercent > 0 && !taxInclusive)
       ? Math.round((vatBase * vatPercent) / 100)
       : 0
-    const effectiveTotalCents = isOrderComp
+    const finalTotalCents = isOrderComp
       ? 0
       : vatBase + vatCents + deliveryChargeCents
-
-    const finalTotalCents = effectiveTotalCents
 
     // For split-payment: validate total tendered covers the order total
     const totalTenderedCents = paymentsToRecord.reduce((s, p) => s + p.amount, 0)

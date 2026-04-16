@@ -782,4 +782,73 @@ describe('record_payment — service charge included in change calculation (issu
     expect(json.success).toBe(true)
     expect(json.data.change_due).toBe(70000) // 600,000 − 530,000 = 70,000
   })
+
+  it('includes exclusive VAT in bill total for change calculation', async (): Promise<void> => {
+    // Subtotal: 100,000 cents, SC 10%: 10,000 cents → vatBase 110,000.
+    // VAT exclusive 15%: 16,500 cents → bill total 126,500 cents.
+    // Cash tendered: 130,000. Change: 3,500.
+    const captured: { paymentInsertBody?: unknown } = {}
+    // Build a mock that returns non-empty VAT config (exclusive, applies to dine_in) and 15% VAT rate.
+    const mockFetchWithVat: FetchFn = vi.fn(async (url: string, init?: RequestInit): Promise<Response> => {
+      if (url.includes('/auth/v1/user')) {
+        return new Response(JSON.stringify({ id: ACTOR_ID }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+      }
+      if (url.includes('/rest/v1/users')) {
+        return new Response(JSON.stringify([{ id: ACTOR_ID, role: 'owner' }]), { status: 200, headers: { 'Content-Type': 'application/json' } })
+      }
+      if (url.includes('/rest/v1/orders') && (!init?.method || init?.method === 'GET')) {
+        return new Response(
+          JSON.stringify([{
+            id: VALID_ORDER_ID, restaurant_id: RESTAURANT_ID, status: 'pending_payment',
+            final_total_cents: 100000, discount_amount_cents: 0, order_comp: false, customer_id: null,
+            service_charge_cents: 10000, delivery_charge: 0, order_type: 'dine_in',
+          }]),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        )
+      }
+      if (url.includes('/rest/v1/orders') && init?.method === 'PATCH') {
+        return new Response(null, { status: 204 })
+      }
+      if (url.includes('/rest/v1/config')) {
+        // tax_inclusive=false (exclusive), vat_apply_dine_in=true
+        return new Response(
+          JSON.stringify([{ key: 'tax_inclusive', value: 'false' }, { key: 'vat_apply_dine_in', value: 'true' }]),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        )
+      }
+      if (url.includes('/rest/v1/vat_rates')) {
+        return new Response(
+          JSON.stringify([{ percentage: 15 }]),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        )
+      }
+      if (url.includes('/rest/v1/payments') && init?.method === 'POST') {
+        captured.paymentInsertBody = JSON.parse(init.body as string)
+        return new Response(JSON.stringify([{ id: PAYMENT_ID }]), { status: 201, headers: { 'Content-Type': 'application/json' } })
+      }
+      if (url.includes('/rest/v1/audit_log')) {
+        return new Response(null, { status: 204 })
+      }
+      return new Response(JSON.stringify({ error: `Unhandled: ${url}` }), { status: 500 })
+    })
+    const req = new Request('http://localhost/functions/v1/record_payment', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer test-jwt' },
+      body: JSON.stringify({
+        order_id: VALID_ORDER_ID,
+        payments: [{ method: 'cash', amount: 130000 }],
+      }),
+    })
+    const res = await handler(req, mockFetchWithVat, TEST_ENV)
+    expect(res.status).toBe(200)
+    const json = await res.json() as { success: boolean; data: { change_due: number } }
+    expect(json.success).toBe(true)
+    // vatBase = 100,000 + 10,000 = 110,000; VAT 15% exclusive = 16,500; bill = 126,500
+    // change = 130,000 − 126,500 = 3,500
+    expect(json.data.change_due).toBe(3500)
+
+    const row = captured.paymentInsertBody as InsertedPaymentRow
+    expect(row.amount_cents).toBe(126500) // bill total
+    expect(row.tendered_amount_cents).toBe(130000)
+  })
 })

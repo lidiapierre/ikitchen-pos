@@ -249,6 +249,35 @@ describe('OrderDetailClient', () => {
     expect(mockPush).not.toHaveBeenCalled()
   })
 
+  it('shows VAT line on payment screen when vatPercent config is 0 but close_order returns vatCents', async (): Promise<void> => {
+    // Simulate the bug scenario: local vatPercent fetch returns 0 (config not loaded),
+    // but the server computed and stored vatCents correctly.
+    const { fetchVatConfig } = await import('@/lib/fetchVatConfig')
+    vi.mocked(fetchVatConfig).mockResolvedValue({ vatPercent: 0, taxInclusive: false })
+
+    const { callCloseOrder } = await import('./closeOrderApi')
+    vi.mocked(callCloseOrder).mockResolvedValue({ billNumber: null, vatCents: 344, vatPercent: 5 })
+
+    render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
+
+    await screen.findByText('Bruschetta')
+    fireEvent.click(screen.getByRole('button', { name: 'Close Order' }))
+
+    await waitFor((): void => {
+      expect(screen.getByText('Bill Preview')).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Proceed to Payment' }))
+
+    await waitFor((): void => {
+      expect(screen.getByText('Record Payment')).toBeInTheDocument()
+    })
+
+    // VAT line must be visible with the server-returned amount
+    expect(screen.getAllByText(/VAT.*5%/).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/344/).length).toBeGreaterThan(0)
+  })
+
   it('shows an error message when the close order API call fails (from bill preview)', async (): Promise<void> => {
     const { callCloseOrder } = await import('./closeOrderApi')
     vi.mocked(callCloseOrder).mockRejectedValue(new Error('Order has no items'))

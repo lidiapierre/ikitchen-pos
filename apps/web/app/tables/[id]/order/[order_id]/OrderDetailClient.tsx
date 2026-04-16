@@ -258,7 +258,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
   const [vatPercent, setVatPercent] = useState(0)
   const [taxInclusive, setTaxInclusive] = useState(false)
   const [vatConfigLoading, setVatConfigLoading] = useState(true)
-  // VAT amount stored by close_order (issue #146 fix) — overrides locally-computed vatCents
+  // VAT amount stored by close_order — overrides locally-computed vatCents
   // on the payment/bill screens once the order has been closed server-side.
   // null = order not yet closed (use local computation).
   const [closedOrderVatCents, setClosedOrderVatCents] = useState<number | null>(null)
@@ -683,7 +683,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
   const effectiveVatPercent = vatApplies ? vatPercent : 0
   const vatBase = postDiscountCents + billServiceChargeCents
   const vatBreakdown = calcVat(vatBase, effectiveVatPercent, taxInclusive)
-  // Use the server-stored vat_cents from close_order when available (issue #146 fix).
+  // Use the server-stored vat_cents from close_order when available.
   // This ensures the payment/bill screens show the correct VAT even if the local
   // vatPercent config fetch returned 0 (e.g. vat_rates row exists but wasn't loaded).
   const billVatCents = closedOrderVatCents !== null ? closedOrderVatCents : vatBreakdown.vatCents
@@ -1235,7 +1235,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
       // Without this, orderBillNumber stays null for the remainder of the session
       // because the initial loadOrderStatus() ran before close_order was called.
       if (closedBillNumber) setOrderBillNumber(closedBillNumber)
-      // Store the server-computed VAT amount (issue #146). This overrides the locally-
+      // Store the server-computed VAT amount. This overrides the locally-
       // computed billVatCents on the payment screen, ensuring the correct value is shown
       // even when the local vatPercent config fetch returned 0 (e.g. RLS / timing issue).
       setClosedOrderVatCents(closedVatCents)

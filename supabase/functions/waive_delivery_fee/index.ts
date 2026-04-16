@@ -140,10 +140,12 @@ export async function handler(
     }
 
     // Verify caller's restaurant
-    const callerResUrl = new URL(`${supabaseUrl}/rest/v1/user_restaurants`)
-    callerResUrl.searchParams.set('user_id', `eq.${caller.actorId}`)
+    // Note: users.restaurant_id is the primary user-restaurant link for MVP.
+    // user_restaurants is a future multi-location junction table not yet in use.
+    const callerResUrl = new URL(`${supabaseUrl}/rest/v1/users`)
+    callerResUrl.searchParams.set('id', `eq.${caller.actorId}`)
     callerResUrl.searchParams.set('restaurant_id', `eq.${orderRows[0].restaurant_id}`)
-    callerResUrl.searchParams.set('select', 'user_id')
+    callerResUrl.searchParams.set('select', 'id')
     callerResUrl.searchParams.set('limit', '1')
 
     const callerResRes = await fetchFn(callerResUrl.toString(), { headers: dbHeaders })
@@ -153,7 +155,7 @@ export async function handler(
         { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
       )
     }
-    const callerResRows = (await callerResRes.json()) as Array<{ user_id: string }>
+    const callerResRows = (await callerResRes.json()) as Array<{ id: string }>
     if (callerResRows.length === 0) {
       return new Response(
         JSON.stringify({ success: false, error: 'Not authorised to modify this order' }),

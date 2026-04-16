@@ -39,10 +39,10 @@ function makeOwnershipFetch(opts: {
       return Promise.resolve(new Response(body, { status: 200 }))
     }
 
-    // Step 2: verify ownership via user_restaurants
-    if (method === 'GET' && (url as string).includes('/user_restaurants')) {
+    // Step 2: verify ownership via users table (users.restaurant_id is the MVP link)
+    if (method === 'GET' && (url as string).includes('/users') && (url as string).includes('restaurant_id')) {
       const body = ownershipGranted
-        ? JSON.stringify([{ user_id: mockAuth.actorId }])
+        ? JSON.stringify([{ id: mockAuth.actorId }])
         : JSON.stringify([])
       return Promise.resolve(new Response(body, { status: 200 }))
     }
@@ -155,12 +155,12 @@ describe('toggle_item_availability handler', () => {
       expect(json.success).toBe(true)
     })
 
-    it('queries user_restaurants with the caller actorId', async (): Promise<void> => {
+    it('queries users table with the caller actorId for restaurant ownership check', async (): Promise<void> => {
       const mockFetch = makeOwnershipFetch()
       const req = makeAuthRequest({ menu_item_id: TEST_MENU_ITEM_ID, available: false })
       await handler(req, mockFetch, mockEnv)
       const calls = (mockFetch as ReturnType<typeof vi.fn>).mock.calls as [string, RequestInit][]
-      const ownershipCall = calls.find(([url]) => url.includes('/user_restaurants'))
+      const ownershipCall = calls.find(([url]) => url.includes('/users') && url.includes('restaurant_id'))
       expect(ownershipCall).toBeDefined()
       expect(ownershipCall![0]).toContain(mockAuth.actorId)
       expect(ownershipCall![0]).toContain(TEST_RESTAURANT_ID)

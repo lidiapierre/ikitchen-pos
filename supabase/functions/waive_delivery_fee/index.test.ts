@@ -51,10 +51,10 @@ function makeFetch(opts: {
       )
     }
 
-    // Step 2: restaurant membership check
-    if (method === 'GET' && (url as string).includes('/user_restaurants')) {
+    // Step 2: restaurant membership check (via users table — users.restaurant_id is the MVP link)
+    if (method === 'GET' && (url as string).includes('/users') && (url as string).includes('restaurant_id')) {
       const body = membershipGranted
-        ? JSON.stringify([{ user_id: TEST_ACTOR_ID }])
+        ? JSON.stringify([{ id: TEST_ACTOR_ID }])
         : JSON.stringify([])
       return Promise.resolve(new Response(body, { status: 200 }))
     }

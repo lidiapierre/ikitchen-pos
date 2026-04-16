@@ -120,8 +120,10 @@ export async function handler(
     const restaurantId = itemRows[0].menu.restaurant_id
 
     // ── Step 2: verify the caller has access to that restaurant ─────────────
+    // Note: users.restaurant_id is the primary user-restaurant link for MVP.
+    // user_restaurants is a future multi-location junction table not yet in use.
     const ownerRes = await fetchFn(
-      `${supabaseUrl}/rest/v1/user_restaurants?user_id=eq.${caller.actorId}&restaurant_id=eq.${restaurantId}&select=user_id`,
+      `${supabaseUrl}/rest/v1/users?id=eq.${caller.actorId}&restaurant_id=eq.${restaurantId}&select=id&limit=1`,
       { method: 'GET', headers: dbHeaders },
     )
     if (!ownerRes.ok) {
@@ -130,7 +132,7 @@ export async function handler(
         { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
       )
     }
-    const ownerRows = await ownerRes.json() as Array<{ user_id: string }>
+    const ownerRows = await ownerRes.json() as Array<{ id: string }>
     if (!Array.isArray(ownerRows) || ownerRows.length === 0) {
       return new Response(
         JSON.stringify({ success: false, error: 'Item not found or access denied' }),

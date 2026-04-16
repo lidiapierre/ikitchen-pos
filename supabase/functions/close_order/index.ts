@@ -139,6 +139,8 @@ export async function handler(
             final_total_cents: orders[0].final_total_cents ?? 0,
             service_charge_cents: orders[0].service_charge_cents ?? 0,
             vat_cents: orders[0].vat_cents ?? 0,
+            // vat_percent is not stored on orders; return 0 so the UI falls back to its local vatPercent state
+            vat_percent: 0,
             bill_number: orders[0].bill_number ?? null,
           },
         }),
@@ -249,6 +251,7 @@ export async function handler(
     // Defaults: dine-in = true, takeaway = true, delivery = false.
     // Canonical defaults mirror apps/web/lib/vatCalc.ts:DEFAULT_VAT_APPLY_CONFIG.
     let vatCents = 0
+    let usedVatPercent = 0
     if (!orderIsComp) {
       try {
         // Fetch VAT apply flags and tax_inclusive from config table
@@ -282,6 +285,7 @@ export async function handler(
                   const postDiscountBase = Math.max(0, finalTotal - discountAmountCents)
                   const vatBase = postDiscountBase + serviceChargeCents
                   vatCents = Math.round((vatBase * vatPercent) / 100)
+                  usedVatPercent = vatPercent
                 }
               }
             }
@@ -541,7 +545,7 @@ export async function handler(
           action: 'close_order',
           entity_type: 'orders',
           entity_id: orderId,
-          payload: { final_total_cents: finalTotal, service_charge_cents: serviceChargeCents, vat_cents: vatCents, bill_number: billNumber },
+          payload: { final_total_cents: finalTotal, service_charge_cents: serviceChargeCents, vat_cents: vatCents, vat_percent: usedVatPercent, bill_number: billNumber },
         }),
       },
     )
@@ -553,7 +557,7 @@ export async function handler(
     }
 
     return new Response(
-      JSON.stringify({ success: true, data: { final_total_cents: finalTotal, service_charge_cents: serviceChargeCents, vat_cents: vatCents, bill_number: billNumber } }),
+      JSON.stringify({ success: true, data: { final_total_cents: finalTotal, service_charge_cents: serviceChargeCents, vat_cents: vatCents, vat_percent: usedVatPercent, bill_number: billNumber } }),
       { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
     )
   } catch {

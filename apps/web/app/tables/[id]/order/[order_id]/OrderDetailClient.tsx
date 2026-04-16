@@ -258,6 +258,10 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
   const [vatPercent, setVatPercent] = useState(0)
   const [taxInclusive, setTaxInclusive] = useState(false)
   const [vatConfigLoading, setVatConfigLoading] = useState(true)
+  // VAT amount stored by close_order (issue #146 fix) — overrides locally-computed vatCents
+  // on the payment/bill screens once the order has been closed server-side.
+  // null = order not yet closed (use local computation).
+  const [closedOrderVatCents, setClosedOrderVatCents] = useState<number | null>(null)
 
   // Bill rounding setting (issue #371) — fetched once on load
   const [roundBillTotals, setRoundBillTotals] = useState(false)
@@ -679,14 +683,19 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
   const effectiveVatPercent = vatApplies ? vatPercent : 0
   const vatBase = postDiscountCents + billServiceChargeCents
   const vatBreakdown = calcVat(vatBase, effectiveVatPercent, taxInclusive)
-  const { vatCents: billVatCents } = vatBreakdown
+  // Use the server-stored vat_cents from close_order when available (issue #146 fix).
+  // This ensures the payment/bill screens show the correct VAT even if the local
+  // vatPercent config fetch returned 0 (e.g. vat_rates row exists but wasn't loaded).
+  const billVatCents = closedOrderVatCents !== null ? closedOrderVatCents : vatBreakdown.vatCents
 
   // Displayed subtotal = raw items total (before any adjustments)
   const billSubtotalCents = rawItemsTotalCents
 
   // Step 4: add delivery charge (issue #353) — applied after VAT on top of order total
   const billDeliveryChargeCents = orderType === 'delivery' ? orderDeliveryChargeCents : 0
-  const billTotalCents = orderIsComp ? 0 : vatBreakdown.totalCents + billDeliveryChargeCents
+  // Compute total directly from components so it stays consistent when billVatCents
+  // is overridden by the server-stored value (vatBreakdown.totalCents would be stale).
+  const billTotalCents = orderIsComp ? 0 : postDiscountCents + billServiceChargeCents + billVatCents + billDeliveryChargeCents
 
   // Displayed "total" in the order footer is the grand total
   const totalCents = billTotalCents
@@ -1220,12 +1229,19 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
       if (!supabaseUrl || !accessToken) {
         throw new Error('Not authenticated')
       }
-      const { billNumber: closedBillNumber } = await callCloseOrder(supabaseUrl, accessToken, orderId)
+      const { billNumber: closedBillNumber, vatCents: closedVatCents, vatPercent: closedVatPercent } = await callCloseOrder(supabaseUrl, accessToken, orderId)
       // Persist the freshly-generated bill number into state so it renders on
       // the printed bill copy for ALL order types (dine-in, takeaway, delivery).
       // Without this, orderBillNumber stays null for the remainder of the session
       // because the initial loadOrderStatus() ran before close_order was called.
       if (closedBillNumber) setOrderBillNumber(closedBillNumber)
+      // Store the server-computed VAT amount (issue #146). This overrides the locally-
+      // computed billVatCents on the payment screen, ensuring the correct value is shown
+      // even when the local vatPercent config fetch returned 0 (e.g. RLS / timing issue).
+      setClosedOrderVatCents(closedVatCents)
+      // If vatPercent state is still 0 (config not loaded) but close_order returned a
+      // non-zero percent, update it so the VAT % label renders correctly.
+      if (vatPercent === 0 && closedVatPercent > 0) setVatPercent(closedVatPercent)
       // Reset split payment builder for fresh start
       setSplitPayments([])
       setSplitEntryMethod('cash')

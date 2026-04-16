@@ -290,9 +290,9 @@ export default function BillPrintView({
                 <span>{formatPrice(serviceChargeCents, DEFAULT_CURRENCY_SYMBOL, roundBillTotals)}</span>
               </div>
             )}
-            {vatPercent > 0 && (
+            {vatCents > 0 && (
               <div className="flex justify-between">
-                <span>VAT {vatPercent}%{taxInclusive ? ' (incl.)' : ''}</span>
+                <span>VAT{vatPercent > 0 ? ` ${vatPercent}%` : ''}{taxInclusive ? ' (incl.)' : ''}</span>
                 <span>{formatPrice(vatCents, DEFAULT_CURRENCY_SYMBOL, roundBillTotals)}</span>
               </div>
             )}

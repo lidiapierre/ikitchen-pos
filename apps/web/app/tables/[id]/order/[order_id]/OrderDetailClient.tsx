@@ -1284,7 +1284,10 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
       try {
         const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
         if (!supabaseUrl || !accessToken) throw new Error('Not authenticated')
+        // Payment method is arbitrary for a ৳0 settlement — 'cash' is used as the
+        // conventional placeholder since no physical tender changes hands.
         await callRecordSplitPayment(supabaseUrl, accessToken, orderId, [{ method: 'cash', amountCents: 0 }])
+        setConfirmedSplitPayments([{ method: 'cash', amountCents: 0 }])
         setConfirmedPaymentMethod('cash')
         setStep('success')
       } catch (err) {

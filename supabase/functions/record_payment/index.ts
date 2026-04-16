@@ -121,9 +121,9 @@ export async function handler(
           { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
         )
       }
-      if (typeof row['amount'] !== 'number' || (row['amount'] as number) <= 0) {
+      if (typeof row['amount'] !== 'number' || (row['amount'] as number) < 0) {
         return new Response(
-          JSON.stringify({ success: false, error: 'each payment amount must be a positive number' }),
+          JSON.stringify({ success: false, error: 'each payment amount must not be negative' }),
           { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
         )
       }
@@ -140,9 +140,9 @@ export async function handler(
         { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
       )
     }
-    if ((payload['amount'] as number) <= 0) {
+    if ((payload['amount'] as number) < 0) {
       return new Response(
-        JSON.stringify({ success: false, error: 'amount must be greater than 0' }),
+        JSON.stringify({ success: false, error: 'amount must not be negative' }),
         { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
       )
     }

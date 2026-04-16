@@ -852,3 +852,70 @@ describe('record_payment — service charge included in change calculation (issu
     expect(row.tendered_amount_cents).toBe(130000)
   })
 })
+
+// ── Complimentary order (৳0 total) tests (comp bill receipt fix) ─────────────
+// Regression guard: a fully comped order (all items [COMP], total = ৳0) must
+// be accepted by record_payment and marked 'paid' so it appears in receipt history.
+
+describe('record_payment — complimentary orders (৳0 bill)', () => {
+  it('accepts a ৳0 split payment and marks the order paid', async (): Promise<void> => {
+    const captured: { paymentInsertBody?: unknown } = {}
+    // Comp order: final_total_cents=0 (all items comped, no charge)
+    const mockFetch = buildMockFetch(0, captured)
+    const req = new Request('http://localhost/functions/v1/record_payment', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer test-jwt' },
+      body: JSON.stringify({
+        order_id: VALID_ORDER_ID,
+        payments: [{ method: 'cash', amount: 0 }],
+      }),
+    })
+    const res = await handler(req, mockFetch, TEST_ENV)
+    expect(res.status).toBe(200)
+    const json = await res.json() as { success: boolean; data: { payment_id: string; change_due: number } }
+    expect(json.success).toBe(true)
+    expect(json.data.change_due).toBe(0)
+
+    // A ৳0 payment row must still be inserted so the order shows in receipt history
+    const row = captured.paymentInsertBody as InsertedPaymentRow
+    expect(row.amount_cents).toBe(0)
+    expect(row.tendered_amount_cents).toBe(0)
+    expect(row.method).toBe('cash')
+  })
+
+  it('rejects a negative payment amount even for a ৳0 order', async (): Promise<void> => {
+    const mockFetch = buildMockFetch(0)
+    const req = new Request('http://localhost/functions/v1/record_payment', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer test-jwt' },
+      body: JSON.stringify({
+        order_id: VALID_ORDER_ID,
+        payments: [{ method: 'cash', amount: -10 }],
+      }),
+    })
+    // amount < 0 must still be rejected at validation (400) before reaching DB
+    const res = await handler(req, mockFetch, TEST_ENV)
+    expect(res.status).toBe(400)
+    const json = await res.json() as { success: boolean; error: string }
+    expect(json.success).toBe(false)
+    expect(json.error).toBe('each payment amount must not be negative')
+  })
+
+  it('rejects under-payment when bill total is non-zero', async (): Promise<void> => {
+    // Ensure the existing under-payment guard is not regressed by the ৳0 allowance
+    const mockFetch = buildMockFetch(50000)
+    const req = new Request('http://localhost/functions/v1/record_payment', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer test-jwt' },
+      body: JSON.stringify({
+        order_id: VALID_ORDER_ID,
+        payments: [{ method: 'cash', amount: 0 }],
+      }),
+    })
+    const res = await handler(req, mockFetch, TEST_ENV)
+    expect(res.status).toBe(400)
+    const json = await res.json() as { success: boolean; error: string }
+    expect(json.success).toBe(false)
+    expect(json.error).toBe('Total tendered does not cover the order total')
+  })
+})

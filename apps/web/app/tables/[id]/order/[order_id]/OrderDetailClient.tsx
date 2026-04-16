@@ -1220,7 +1220,12 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
       if (!supabaseUrl || !accessToken) {
         throw new Error('Not authenticated')
       }
-      await callCloseOrder(supabaseUrl, accessToken, orderId)
+      const { billNumber: closedBillNumber } = await callCloseOrder(supabaseUrl, accessToken, orderId)
+      // Persist the freshly-generated bill number into state so it renders on
+      // the printed bill copy for ALL order types (dine-in, takeaway, delivery).
+      // Without this, orderBillNumber stays null for the remainder of the session
+      // because the initial loadOrderStatus() ran before close_order was called.
+      if (closedBillNumber) setOrderBillNumber(closedBillNumber)
       // Reset split payment builder for fresh start
       setSplitPayments([])
       setSplitEntryMethod('cash')

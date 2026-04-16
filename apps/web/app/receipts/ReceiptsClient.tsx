@@ -457,6 +457,10 @@ export default function ReceiptsClient(): JSX.Element {
     useRange: false,
   })
 
+  // Bill number search — client-side filter applied on top of the loaded orders list.
+  // Works for all order types (dine-in, takeaway, delivery).
+  const [billSearch, setBillSearch] = useState('')
+
   // Re-print state
   const [reprintOrder, setReprintOrder] = useState<BillHistoryOrder | null>(null)
 
@@ -543,6 +547,14 @@ export default function ReceiptsClient(): JSX.Element {
   const currencySymbol = config?.currencySymbol ?? '৳'
   const roundBillTotals = config?.roundBillTotals ?? false
 
+  // Client-side bill-number filter — applied after the server fetch.
+  // Trims whitespace and matches case-insensitively anywhere in bill_number.
+  // An empty search shows all loaded orders (no network round-trip needed).
+  const billSearchTrimmed = billSearch.trim().toUpperCase()
+  const filteredOrders = billSearchTrimmed
+    ? orders.filter((o) => (o.bill_number ?? '').toUpperCase().includes(billSearchTrimmed))
+    : orders
+
   if (userLoading) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center">
@@ -626,6 +638,29 @@ export default function ReceiptsClient(): JSX.Element {
             </div>
           )}
 
+          {/* Bill number search — visible to both admin and staff for all order types */}
+          <div className="flex items-center gap-2">
+            <Search className="w-4 h-4 text-brand-gold shrink-0" aria-hidden="true" />
+            <input
+              type="search"
+              value={billSearch}
+              onChange={(e) => setBillSearch(e.target.value)}
+              placeholder="Search by bill number…"
+              aria-label="Search by bill number"
+              className="bg-brand-blue text-white border border-brand-grey rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-brand-gold placeholder:text-white/40 w-52"
+            />
+            {billSearch && (
+              <button
+                type="button"
+                onClick={() => setBillSearch('')}
+                className="text-white/50 hover:text-white text-xs transition-colors"
+                aria-label="Clear bill number search"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+
           {/* Staff: show shift info */}
           {!isAdmin && shiftData && (
             <p className="text-white/60 text-sm">
@@ -657,7 +692,11 @@ export default function ReceiptsClient(): JSX.Element {
               </p>
             </div>
             <div className="text-right">
-              <p className="text-sm text-brand-navy/60">{orders.length} bill{orders.length !== 1 ? 's' : ''}</p>
+              <p className="text-sm text-brand-navy/60">
+                {billSearchTrimmed
+                  ? `${filteredOrders.length} of ${orders.length} bill${orders.length !== 1 ? 's' : ''}`
+                  : `${orders.length} bill${orders.length !== 1 ? 's' : ''}`}
+              </p>
               <button
                 type="button"
                 onClick={() => {
@@ -701,7 +740,7 @@ export default function ReceiptsClient(): JSX.Element {
           </div>
         )}
 
-        {/* Empty state */}
+        {/* Empty state — no receipts loaded at all */}
         {!loading && !error && orders.length === 0 && (
           <div className="flex flex-col items-center gap-3 py-16 text-brand-navy/50">
             <Receipt className="w-12 h-12" />
@@ -714,10 +753,28 @@ export default function ReceiptsClient(): JSX.Element {
           </div>
         )}
 
-        {/* Order list */}
-        {!loading && orders.length > 0 && (
+        {/* Empty state — receipts loaded but bill-number filter matches nothing */}
+        {!loading && !error && orders.length > 0 && filteredOrders.length === 0 && (
+          <div className="flex flex-col items-center gap-3 py-16 text-brand-navy/50">
+            <Search className="w-12 h-12" />
+            <p className="text-base font-medium">No match</p>
+            <p className="text-sm text-center">
+              No bill found with number &ldquo;{billSearch.trim()}&rdquo;.
+            </p>
+            <button
+              type="button"
+              onClick={() => setBillSearch('')}
+              className="text-brand-gold text-sm hover:underline"
+            >
+              Clear search
+            </button>
+          </div>
+        )}
+
+        {/* Order list — filtered by bill number when a search term is entered */}
+        {!loading && filteredOrders.length > 0 && (
           <div className="flex flex-col gap-2">
-            {orders.map((order) => (
+            {filteredOrders.map((order) => (
               <ReceiptRow
                 key={order.id}
                 order={order}

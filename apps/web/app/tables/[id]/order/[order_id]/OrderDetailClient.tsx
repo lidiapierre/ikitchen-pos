@@ -1277,10 +1277,21 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
   async function handleRecordPayment(): Promise<void> {
     setPaymentError(null)
 
-    // Fully comped order (total = ৳0) — skip payment recording, go straight to success
+    // Fully comped order (total = ৳0) — record a ৳0 payment so the order is
+    // marked 'paid' and appears in Receipt history (bug fix: comp bills invisible).
     if (billTotalCents === 0) {
-      setConfirmedPaymentMethod('cash')
-      setStep('success')
+      setPaying(true)
+      try {
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+        if (!supabaseUrl || !accessToken) throw new Error('Not authenticated')
+        await callRecordSplitPayment(supabaseUrl, accessToken, orderId, [{ method: 'cash', amountCents: 0 }])
+        setConfirmedPaymentMethod('cash')
+        setStep('success')
+      } catch (err) {
+        setPaymentError(err instanceof Error ? err.message : 'Failed to record payment')
+      } finally {
+        setPaying(false)
+      }
       return
     }
 

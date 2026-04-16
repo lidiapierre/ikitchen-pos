@@ -8,7 +8,7 @@ export async function callCloseOrder(
   supabaseUrl: string,
   accessToken: string,
   orderId: string,
-): Promise<void> {
+): Promise<{ billNumber: string | null }> {
   const res = await fetch(`${supabaseUrl}/functions/v1/close_order`, {
     method: 'POST',
     headers: {
@@ -31,4 +31,5 @@ export async function callCloseOrder(
   if (!json.success) {
     throw new Error(json.error ?? 'Failed to close order')
   }
+  return { billNumber: json.data?.bill_number ?? null }
 }

@@ -209,7 +209,7 @@ describe('OrderDetailClient', () => {
   it('shows "Processing…" and disables the button while Proceed to Payment API call is in progress', async (): Promise<void> => {
     const { callCloseOrder } = await import('./closeOrderApi')
     vi.mocked(callCloseOrder).mockImplementation(
-      (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 100)),
+      (): Promise<{ billNumber: string | null }> => new Promise((resolve) => setTimeout(() => resolve({ billNumber: null }), 100)),
     )
 
     render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
@@ -229,7 +229,7 @@ describe('OrderDetailClient', () => {
 
   it('shows bill preview after clicking Close Order, then payment step after Proceed to Payment', async (): Promise<void> => {
     const { callCloseOrder } = await import('./closeOrderApi')
-    vi.mocked(callCloseOrder).mockResolvedValue(undefined)
+    vi.mocked(callCloseOrder).mockResolvedValue({ billNumber: null })
 
     render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
 
@@ -682,7 +682,7 @@ describe('OrderDetailClient', () => {
   describe('payment step', () => {
     async function openPaymentStep(): Promise<void> {
       const { callCloseOrder } = await import('./closeOrderApi')
-      vi.mocked(callCloseOrder).mockResolvedValue(undefined)
+      vi.mocked(callCloseOrder).mockResolvedValue({ billNumber: null })
       await screen.findByText('Bruschetta')
       fireEvent.click(screen.getByRole('button', { name: 'Close Order' }))
       await waitFor((): void => {
@@ -1640,7 +1640,7 @@ describe('OrderDetailClient', () => {
     // Helpers shared across tests in this block
     async function openPaymentStepForIssue390(): Promise<void> {
       const { callCloseOrder } = await import('./closeOrderApi')
-      vi.mocked(callCloseOrder).mockResolvedValue(undefined)
+      vi.mocked(callCloseOrder).mockResolvedValue({ billNumber: null })
       const { fetchOrderSummary } = await import('./orderData')
       vi.mocked(fetchOrderSummary).mockResolvedValue({
         status: 'open', payment_method: null, order_type: 'dine_in',
@@ -1859,7 +1859,7 @@ describe('OrderDetailClient — post-payment payment breakdown (issue #391)', ()
       delivery_zone_id: null, delivery_charge: 0, merge_label: null, payment_lines: [],
     })
     const { callCloseOrder } = await import('./closeOrderApi')
-    vi.mocked(callCloseOrder).mockResolvedValue(undefined)
+    vi.mocked(callCloseOrder).mockResolvedValue({ billNumber: null })
   })
 
   afterEach((): void => {
@@ -1973,7 +1973,7 @@ describe('OrderDetailClient — post-payment payment breakdown (issue #391)', ()
   describe('Add More Items after billing (issue #394)', () => {
     it('shows "Add More Items" button in payment step for dine-in orders', async (): Promise<void> => {
       const { callCloseOrder } = await import('./closeOrderApi')
-      vi.mocked(callCloseOrder).mockResolvedValue(undefined)
+      vi.mocked(callCloseOrder).mockResolvedValue({ billNumber: null })
 
       render(<OrderDetailClient tableId="5" orderId="order-billed" />)
 
@@ -2001,7 +2001,7 @@ describe('OrderDetailClient — post-payment payment breakdown (issue #391)', ()
       const { useUser } = await import('@/lib/user-context')
       vi.mocked(useUser).mockReturnValue({ accessToken: 'test-token', isAdmin: false, role: 'server', loading: false, userId: 'test-user-id' })
       const { callCloseOrder } = await import('./closeOrderApi')
-      vi.mocked(callCloseOrder).mockResolvedValue(undefined)
+      vi.mocked(callCloseOrder).mockResolvedValue({ billNumber: null })
       const { callReopenOrderForItems } = await import('./reopenOrderForItemsApi')
       vi.mocked(callReopenOrderForItems).mockResolvedValue(undefined)
 
@@ -2067,7 +2067,7 @@ describe('OrderDetailClient — post-payment payment breakdown (issue #391)', ()
         payment_lines: [],
       })
       const { callCloseOrder } = await import('./closeOrderApi')
-      vi.mocked(callCloseOrder).mockResolvedValue(undefined)
+      vi.mocked(callCloseOrder).mockResolvedValue({ billNumber: null })
 
       render(<OrderDetailClient tableId="takeaway" orderId="order-takeaway" />)
 
@@ -2086,7 +2086,7 @@ describe('OrderDetailClient — post-payment payment breakdown (issue #391)', ()
 
     it('shows error message when reopen fails', async (): Promise<void> => {
       const { callCloseOrder } = await import('./closeOrderApi')
-      vi.mocked(callCloseOrder).mockResolvedValue(undefined)
+      vi.mocked(callCloseOrder).mockResolvedValue({ billNumber: null })
       const { callReopenOrderForItems } = await import('./reopenOrderForItemsApi')
       vi.mocked(callReopenOrderForItems).mockRejectedValue(new Error('Insufficient permissions'))
 

@@ -352,8 +352,22 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
     }
 
     setStatusLoading(true)
+    // Safety net: if the network request hangs (e.g. spotty WiFi on a restaurant
+    // tablet), clear the loading state after 10 s so the order action buttons
+    // remain accessible and the user can still complete the transaction.
+    // The clearTimeout in .finally() cancels this timer when the request
+    // completes normally.
+    // timedOut flag prevents a late-resolving fetch from triggering unexpected
+    // state transitions (e.g. setStep('payment')) after the user has already
+    // started interacting with the order-action buttons.
+    let timedOut = false
+    const loadingTimeout = setTimeout(() => {
+      timedOut = true
+      setStatusLoading(false)
+    }, 10000)
     fetchOrderSummary(supabaseUrl, accessToken, orderId)
       .then((summary) => {
+        if (timedOut) return // stale response — loading timeout already fired; discard
         if (summary.status === 'paid') {
           setOrderIsPaid(true)
           setPaidPaymentMethod(summary.payment_method)
@@ -413,6 +427,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
         // Non-fatal: fall back to normal order view if status check fails
       })
       .finally(() => {
+        clearTimeout(loadingTimeout)
         setStatusLoading(false)
       })
   }
@@ -1084,7 +1099,16 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
     // Browser print fallback
     setTimeout(() => {
       window.print()
+      // Safety net: clear print state after 15 s if afterprint never fires
+      // (mobile PWA / Android WebView). Without this, printingBill stays true
+      // forever — the bill button stays "Printing…", billPrintGuardRef is locked,
+      // and the success-screen redirect is permanently blocked.
+      const printFallback = setTimeout(() => {
+        setPrintingBill(false)
+        billPrintGuardRef.current = false
+      }, 15000)
       window.addEventListener('afterprint', () => {
+        clearTimeout(printFallback)
         setPrintingBill(false)
         billPrintGuardRef.current = false
       }, { once: true })
@@ -1107,7 +1131,15 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
     setPrintingPreBill(true)
     setTimeout(() => {
       window.print()
+      // Safety net: clear print state after 15 s if afterprint never fires
+      // (mobile PWA / Android WebView). Without this, printingPreBill stays true
+      // forever — the button stays "Printing…" and billPrintGuardRef is locked.
+      const printFallback = setTimeout(() => {
+        setPrintingPreBill(false)
+        billPrintGuardRef.current = false
+      }, 15000)
       window.addEventListener('afterprint', () => {
+        clearTimeout(printFallback)
         setPrintingPreBill(false)
         billPrintGuardRef.current = false
       }, { once: true })

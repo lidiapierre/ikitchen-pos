@@ -178,7 +178,9 @@ export async function printKot(options: KotPrintOptions): Promise<PrintResult> {
       const errorMessage = buildBridgeErrorMessage(detail)
       await onBeforeBrowserPrint?.()
       await new Promise<void>((resolve) => {
-        window.addEventListener('afterprint', () => resolve(), { once: true })
+        // Safety net: resolve after 15 s if afterprint never fires (mobile PWA / Android WebView).
+        const timeoutId = setTimeout(resolve, 15000)
+        window.addEventListener('afterprint', () => { clearTimeout(timeoutId); resolve() }, { once: true })
         window.print()
       })
       await onAfterBrowserPrint?.()
@@ -189,7 +191,11 @@ export async function printKot(options: KotPrintOptions): Promise<PrintResult> {
   // Browser print fallback
   await onBeforeBrowserPrint?.()
   await new Promise<void>((resolve) => {
-    window.addEventListener('afterprint', () => resolve(), { once: true })
+    // Safety net: resolve after 15 s if afterprint never fires (mobile PWA / Android WebView).
+    // Without this the promise hangs forever, keeping kotStatus / reprintingKot stuck
+    // and the UI frozen (back button disabled, order page inaccessible).
+    const timeoutId = setTimeout(resolve, 15000)
+    window.addEventListener('afterprint', () => { clearTimeout(timeoutId); resolve() }, { once: true })
     window.print()
   })
   await onAfterBrowserPrint?.()
@@ -241,7 +247,9 @@ export async function printBill(options: BillPrintOptions): Promise<PrintResult>
       const errorMessage = buildBridgeErrorMessage(detail)
       await onBeforeBrowserPrint?.()
       await new Promise<void>((resolve) => {
-        window.addEventListener('afterprint', () => resolve(), { once: true })
+        // Safety net: resolve after 15 s if afterprint never fires (mobile PWA / Android WebView).
+        const timeoutId = setTimeout(resolve, 15000)
+        window.addEventListener('afterprint', () => { clearTimeout(timeoutId); resolve() }, { once: true })
         window.print()
       })
       await onAfterBrowserPrint?.()
@@ -252,7 +260,11 @@ export async function printBill(options: BillPrintOptions): Promise<PrintResult>
   // Browser print fallback
   await onBeforeBrowserPrint?.()
   await new Promise<void>((resolve) => {
-    window.addEventListener('afterprint', () => resolve(), { once: true })
+    // Safety net: resolve after 15 s if afterprint never fires (mobile PWA / Android WebView).
+    // Without this the promise hangs forever, keeping printingBill / billPrintGuardRef stuck
+    // and the payment page inaccessible.
+    const timeoutId = setTimeout(resolve, 15000)
+    window.addEventListener('afterprint', () => { clearTimeout(timeoutId); resolve() }, { once: true })
     window.print()
   })
   await onAfterBrowserPrint?.()

@@ -357,9 +357,17 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
     // remain accessible and the user can still complete the transaction.
     // The clearTimeout in .finally() cancels this timer when the request
     // completes normally.
-    const loadingTimeout = setTimeout(() => { setStatusLoading(false) }, 10000)
+    // timedOut flag prevents a late-resolving fetch from triggering unexpected
+    // state transitions (e.g. setStep('payment')) after the user has already
+    // started interacting with the order-action buttons.
+    let timedOut = false
+    const loadingTimeout = setTimeout(() => {
+      timedOut = true
+      setStatusLoading(false)
+    }, 10000)
     fetchOrderSummary(supabaseUrl, accessToken, orderId)
       .then((summary) => {
+        if (timedOut) return // stale response — loading timeout already fired; discard
         if (summary.status === 'paid') {
           setOrderIsPaid(true)
           setPaidPaymentMethod(summary.payment_method)

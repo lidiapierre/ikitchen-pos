@@ -10,7 +10,8 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import type { JSX } from 'react'
-import { Receipt, Printer, ChevronDown, ChevronUp, Search, RefreshCw, CalendarDays } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { Receipt, Printer, ChevronDown, ChevronUp, Search, RefreshCw, CalendarDays, ArrowLeft } from 'lucide-react'
 import { useUser } from '@/lib/user-context'
 import { supabase } from '@/lib/supabase'
 import {
@@ -435,6 +436,7 @@ function ReceiptRow({
 
 export default function ReceiptsClient(): JSX.Element {
   const { isAdmin, loading: userLoading, accessToken } = useUser()
+  const router = useRouter()
   const [orders, setOrders] = useState<BillHistoryOrder[]>([])
   const [totalDailyCents, setTotalDailyCents] = useState(0)
   const [truncated, setTruncated] = useState(false)
@@ -460,6 +462,10 @@ export default function ReceiptsClient(): JSX.Element {
   // Bill number search — client-side filter applied on top of the loaded orders list.
   // Works for all order types (dine-in, takeaway, delivery).
   const [billSearch, setBillSearch] = useState('')
+
+  // Order type filter — client-side, applied after fetch.
+  type OrderTypeFilter = 'all' | 'dine_in' | 'takeaway' | 'delivery'
+  const [orderTypeFilter, setOrderTypeFilter] = useState<OrderTypeFilter>('all')
 
   // Re-print state
   const [reprintOrder, setReprintOrder] = useState<BillHistoryOrder | null>(null)
@@ -553,12 +559,18 @@ export default function ReceiptsClient(): JSX.Element {
   // useMemo avoids re-running .filter() on renders triggered by unrelated state
   // (e.g. reprintOrder modal toggling).
   const billSearchTrimmed = billSearch.trim().toUpperCase()
-  const filteredOrders = useMemo(
-    () => billSearchTrimmed
-      ? orders.filter((o) => (o.bill_number ?? '').toUpperCase().includes(billSearchTrimmed))
-      : orders,
-    [orders, billSearchTrimmed],
-  )
+
+  // Apply both filters: bill number search + order type
+  const filteredOrders = useMemo(() => {
+    let result = orders
+    if (billSearchTrimmed) {
+      result = result.filter((o) => (o.bill_number ?? '').toUpperCase().includes(billSearchTrimmed))
+    }
+    if (orderTypeFilter !== 'all') {
+      result = result.filter((o) => o.order_type === orderTypeFilter)
+    }
+    return result
+  }, [orders, billSearchTrimmed, orderTypeFilter])
 
   if (userLoading) {
     return (
@@ -574,6 +586,16 @@ export default function ReceiptsClient(): JSX.Element {
       <div className="bg-brand-navy border-b border-brand-blue px-4 py-4">
         <div className="max-w-3xl mx-auto flex flex-col gap-3">
           <div className="flex items-center gap-3">
+            {/* Back to POS button */}
+            <button
+              type="button"
+              onClick={() => router.push('/tables')}
+              aria-label="Back to POS"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand-blue text-white/80 hover:text-white hover:bg-brand-blue/80 transition-colors text-sm shrink-0"
+            >
+              <ArrowLeft className="w-4 h-4" aria-hidden="true" />
+              <span className="hidden sm:inline">Back to POS</span>
+            </button>
             <Receipt className="w-6 h-6 text-brand-gold" aria-hidden="true" />
             <h1 className="text-xl font-bold text-white font-heading">
               {isAdmin ? 'Bill History' : 'Shift Receipts'}
@@ -666,6 +688,32 @@ export default function ReceiptsClient(): JSX.Element {
             )}
           </div>
 
+          {/* Order type filter tabs */}
+          <div className="flex items-center gap-1" role="group" aria-label="Filter by order type">
+            {(
+              [
+                { value: 'all', label: 'All' },
+                { value: 'dine_in', label: 'Dine-in' },
+                { value: 'takeaway', label: 'Takeaway' },
+                { value: 'delivery', label: 'Delivery' },
+              ] as const
+            ).map(({ value, label }) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setOrderTypeFilter(value)}
+                aria-pressed={orderTypeFilter === value}
+                className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                  orderTypeFilter === value
+                    ? 'bg-brand-gold text-brand-navy'
+                    : 'bg-brand-blue text-white/70 hover:text-white'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
           {/* Staff: show shift info */}
           {!isAdmin && shiftData && (
             <p className="text-white/60 text-sm">
@@ -698,7 +746,7 @@ export default function ReceiptsClient(): JSX.Element {
             </div>
             <div className="text-right">
               <p className="text-sm text-brand-navy/60">
-                {billSearchTrimmed
+                {(billSearchTrimmed || orderTypeFilter !== 'all')
                   ? `${filteredOrders.length} of ${orders.length} bill${orders.length !== 1 ? 's' : ''}`
                   : `${orders.length} bill${orders.length !== 1 ? 's' : ''}`}
               </p>
@@ -758,24 +806,43 @@ export default function ReceiptsClient(): JSX.Element {
           </div>
         )}
 
-        {/* Empty state — receipts loaded but bill-number filter matches nothing */}
+        {/* Empty state — receipts loaded but filters match nothing */}
         {!loading && !error && orders.length > 0 && filteredOrders.length === 0 && (
           <div className="flex flex-col items-center gap-3 py-16 text-brand-navy/50">
             <Search className="w-12 h-12" />
             <p className="text-base font-medium">No match</p>
-            <p className="text-sm text-center">
-              No bill found with number &ldquo;{billSearch.trim()}&rdquo; in the current date range.
-            </p>
+            {billSearchTrimmed ? (
+              <p className="text-sm text-center">
+                No bill found with number &ldquo;{billSearch.trim()}&rdquo; in the current date range.
+              </p>
+            ) : (
+              <p className="text-sm text-center">
+                No {orderTypeFilter === 'dine_in' ? 'Dine-in' : orderTypeFilter === 'takeaway' ? 'Takeaway' : 'Delivery'} orders found for the selected period.
+              </p>
+            )}
             <p className="text-xs text-center text-brand-navy/40">
               {isAdmin ? 'Try a different date range if the bill was issued on another day.' : 'The bill may be outside your current shift window.'}
             </p>
-            <button
-              type="button"
-              onClick={() => setBillSearch('')}
-              className="text-brand-gold text-sm hover:underline"
-            >
-              Clear search
-            </button>
+            <div className="flex gap-3">
+              {billSearchTrimmed && (
+                <button
+                  type="button"
+                  onClick={() => setBillSearch('')}
+                  className="text-brand-gold text-sm hover:underline"
+                >
+                  Clear search
+                </button>
+              )}
+              {orderTypeFilter !== 'all' && (
+                <button
+                  type="button"
+                  onClick={() => setOrderTypeFilter('all')}
+                  className="text-brand-gold text-sm hover:underline"
+                >
+                  Show all types
+                </button>
+              )}
+            </div>
           </div>
         )}
 

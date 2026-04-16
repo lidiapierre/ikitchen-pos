@@ -106,8 +106,7 @@ export default function ShiftsClient(): JSX.Element {
   useEffect(() => {
     void fetchActiveShiftOnMount()
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [accessToken])
+  }, [accessToken, userId])
 
   async function handleOpenShift(): Promise<void> {
     setLoading(true)

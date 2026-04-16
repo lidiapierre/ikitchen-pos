@@ -16,6 +16,7 @@ interface UserContextValue {
   isAdmin: boolean
   loading: boolean
   accessToken: string | null
+  userId: string | null
 }
 
 const UserContext = createContext<UserContextValue>({
@@ -23,12 +24,14 @@ const UserContext = createContext<UserContextValue>({
   isAdmin: false,
   loading: true,
   accessToken: null,
+  userId: null,
 })
 
 export function UserProvider({ children }: { children: ReactNode }): JSX.Element {
   const [role, setRole] = useState<UserRole | null>(null)
   const [loading, setLoading] = useState(true)
   const [accessToken, setAccessToken] = useState<string | null>(null)
+  const [userId, setUserId] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -41,6 +44,7 @@ export function UserProvider({ children }: { children: ReactNode }): JSX.Element
       if (!cancelled) {
         setRole(fetchedRole)
         setAccessToken(session?.access_token ?? null)
+        setUserId(session?.user.id ?? null)
         setLoading(false)
       }
     }
@@ -50,6 +54,7 @@ export function UserProvider({ children }: { children: ReactNode }): JSX.Element
     // Re-fetch role and token when auth state changes (login/logout/token refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setAccessToken(session?.access_token ?? null)
+      setUserId(session?.user.id ?? null)
       setLoading(true)
       void fetchRoleAndToken()
     })
@@ -65,6 +70,7 @@ export function UserProvider({ children }: { children: ReactNode }): JSX.Element
     isAdmin: isAdminRole(role),
     loading,
     accessToken,
+    userId,
   }
 
   return <UserContext.Provider value={value}>{children}</UserContext.Provider>

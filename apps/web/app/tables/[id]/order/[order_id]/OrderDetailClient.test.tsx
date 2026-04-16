@@ -59,7 +59,7 @@ vi.mock('@/lib/supabase', () => ({
 }))
 
 vi.mock('@/lib/user-context', () => ({
-  useUser: vi.fn().mockReturnValue({ accessToken: null, isAdmin: false, role: null, loading: false }),
+  useUser: vi.fn().mockReturnValue({ accessToken: null, isAdmin: false, role: null, loading: false, userId: null }),
 }))
 
 vi.mock('@/components/KotPrintView', () => ({
@@ -1536,7 +1536,7 @@ describe('OrderDetailClient', () => {
       // Provide a real access token so handleQtyButton doesn't early-return on !accessToken
       const { useUser } = await import('@/lib/user-context')
       vi.mocked(useUser).mockReturnValue({
-        accessToken: 'test-token', isAdmin: false, role: 'server', loading: false,
+        accessToken: 'test-token', isAdmin: false, role: 'server', loading: false, userId: 'test-user-id',
       })
     })
 
@@ -1822,7 +1822,7 @@ describe('OrderDetailClient', () => {
 
       // Non-admin user — previously this button was admin-only
       const { useUser } = await import('@/lib/user-context')
-      vi.mocked(useUser).mockReturnValue({ accessToken: 'test-token', isAdmin: false, role: 'waiter', loading: false })
+      vi.mocked(useUser).mockReturnValue({ accessToken: 'test-token', isAdmin: false, role: 'waiter', loading: false, userId: 'test-user-id' })
 
       render(<OrderDetailClient tableId="delivery" orderId="order-delivery-1" />)
 
@@ -1999,7 +1999,7 @@ describe('OrderDetailClient — post-payment payment breakdown (issue #391)', ()
 
     it('calls callReopenOrderForItems and transitions back to order step when "Add More Items" clicked', async (): Promise<void> => {
       const { useUser } = await import('@/lib/user-context')
-      vi.mocked(useUser).mockReturnValue({ accessToken: 'test-token', isAdmin: false, role: 'server', loading: false })
+      vi.mocked(useUser).mockReturnValue({ accessToken: 'test-token', isAdmin: false, role: 'server', loading: false, userId: 'test-user-id' })
       const { callCloseOrder } = await import('./closeOrderApi')
       vi.mocked(callCloseOrder).mockResolvedValue(undefined)
       const { callReopenOrderForItems } = await import('./reopenOrderForItemsApi')

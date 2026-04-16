@@ -431,6 +431,10 @@ function buildMockFetch(
           discount_amount_cents: 0,
           order_comp: false,
           customer_id: null,
+          // Additional fields for correct change calculation (issue #424):
+          service_charge_cents: 0,
+          delivery_charge: 0,
+          order_type: 'dine_in',
         }]),
         { status: 200, headers: { 'Content-Type': 'application/json' } },
       )
@@ -438,6 +442,14 @@ function buildMockFetch(
     // Order status PATCH
     if (url.includes('/rest/v1/orders') && init?.method === 'PATCH') {
       return new Response(null, { status: 204 })
+    }
+    // VAT config lookup (new — issue #424)
+    if (url.includes('/rest/v1/config')) {
+      return new Response(JSON.stringify([]), { status: 200, headers: { 'Content-Type': 'application/json' } })
+    }
+    // VAT rate lookup (new — issue #424)
+    if (url.includes('/rest/v1/vat_rates')) {
+      return new Response(JSON.stringify([]), { status: 200, headers: { 'Content-Type': 'application/json' } })
     }
     // Payments POST – capture inserted body for assertion
     if (url.includes('/rest/v1/payments') && init?.method === 'POST') {
@@ -452,6 +464,59 @@ function buildMockFetch(
       return new Response(null, { status: 204 })
     }
     // Default – should not be reached
+    return new Response(JSON.stringify({ error: `Unhandled: ${url}` }), { status: 500 })
+  })
+}
+
+/** Build a mock fetchFn that simulates an order with service charge applied. */
+function buildMockFetchWithServiceCharge(
+  subtotalCents: number,
+  discountCents: number,
+  serviceChargeCents: number,
+  orderType: 'dine_in' | 'takeaway' | 'delivery',
+  deliveryChargeCents: number,
+  captured: { paymentInsertBody?: unknown } = {},
+): FetchFn {
+  return vi.fn(async (url: string, init?: RequestInit): Promise<Response> => {
+    if (url.includes('/auth/v1/user')) {
+      return new Response(JSON.stringify({ id: ACTOR_ID }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+    }
+    if (url.includes('/rest/v1/users')) {
+      return new Response(JSON.stringify([{ id: ACTOR_ID, role: 'owner' }]), { status: 200, headers: { 'Content-Type': 'application/json' } })
+    }
+    if (url.includes('/rest/v1/orders') && (!init?.method || init?.method === 'GET')) {
+      return new Response(
+        JSON.stringify([{
+          id: VALID_ORDER_ID,
+          restaurant_id: RESTAURANT_ID,
+          status: 'pending_payment',
+          final_total_cents: subtotalCents,
+          discount_amount_cents: discountCents,
+          order_comp: false,
+          customer_id: null,
+          service_charge_cents: serviceChargeCents,
+          delivery_charge: deliveryChargeCents,
+          order_type: orderType,
+        }]),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      )
+    }
+    if (url.includes('/rest/v1/orders') && init?.method === 'PATCH') {
+      return new Response(null, { status: 204 })
+    }
+    if (url.includes('/rest/v1/config')) {
+      return new Response(JSON.stringify([]), { status: 200, headers: { 'Content-Type': 'application/json' } })
+    }
+    if (url.includes('/rest/v1/vat_rates')) {
+      return new Response(JSON.stringify([]), { status: 200, headers: { 'Content-Type': 'application/json' } })
+    }
+    if (url.includes('/rest/v1/payments') && init?.method === 'POST') {
+      captured.paymentInsertBody = JSON.parse(init.body as string)
+      return new Response(JSON.stringify([{ id: PAYMENT_ID }]), { status: 201, headers: { 'Content-Type': 'application/json' } })
+    }
+    if (url.includes('/rest/v1/audit_log')) {
+      return new Response(null, { status: 204 })
+    }
     return new Response(JSON.stringify({ error: `Unhandled: ${url}` }), { status: 500 })
   })
 }
@@ -632,5 +697,89 @@ describe('record_payment — overpayment and tips (issue #390)', () => {
     const json = await res.json() as { success: boolean; error: string }
     expect(json.success).toBe(false)
     expect(json.error).toBe('Total tendered does not cover the order total')
+  })
+})
+
+// ── Service charge change calculation fix (issue #424) ───────────────────────
+// Regression guard: service charge must be included in the bill total used for
+// computing change. Before the fix, change = tendered − postDiscountBase,
+// which excluded service_charge_cents and caused the wrong amount to be shown.
+
+describe('record_payment — service charge included in change calculation (issue #424)', () => {
+  it('computes correct change when service charge is present (no VAT, no delivery)', async (): Promise<void> => {
+    // Reproduces Lidia’s production screenshot:
+    //   Subtotal: ৳7,190  (719,000 cents)
+    //   Service charge 10%: ৳719  (71,900 cents)
+    //   Bill total: ৳7,909  (790,900 cents)
+    //   Cash tendered: ৳8,000  (800,000 cents)
+    //   Correct change: ৳91  (9,100 cents)
+    //   Bug (before fix): ৳810  (81,000 cents) — change used postDiscountBase only
+    const captured: { paymentInsertBody?: unknown } = {}
+    const mockFetch = buildMockFetchWithServiceCharge(
+      719000,  // final_total_cents (subtotal, per-item discounts applied)
+      0,       // discount_amount_cents (no order-level discount)
+      71900,   // service_charge_cents (10% of 719,000)
+      'dine_in',
+      0,       // delivery_charge
+      captured,
+    )
+    const req = new Request('http://localhost/functions/v1/record_payment', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer test-jwt' },
+      body: JSON.stringify({
+        order_id: VALID_ORDER_ID,
+        payments: [{ method: 'cash', amount: 800000 }],
+      }),
+    })
+    const res = await handler(req, mockFetch, TEST_ENV)
+    expect(res.status).toBe(200)
+    const json = await res.json() as { success: boolean; data: { change_due: number } }
+    expect(json.success).toBe(true)
+    // Bill total = 719,000 + 71,900 = 790,900 → change = 800,000 − 790,900 = 9,100
+    expect(json.data.change_due).toBe(9100)
+
+    // amount_cents should be the bill portion (790,900), not the tendered amount
+    const row = captured.paymentInsertBody as InsertedPaymentRow
+    expect(row.amount_cents).toBe(790900)
+    expect(row.tendered_amount_cents).toBe(800000)
+  })
+
+  it('returns 400 when tendered is less than bill total including service charge', async (): Promise<void> => {
+    // Subtotal 719,000, SC 71,900 → bill total 790,900.
+    // Customer only tenders 719,000 (the raw subtotal, ignoring SC) — must be rejected.
+    const mockFetch = buildMockFetchWithServiceCharge(719000, 0, 71900, 'dine_in', 0)
+    const req = new Request('http://localhost/functions/v1/record_payment', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer test-jwt' },
+      body: JSON.stringify({
+        order_id: VALID_ORDER_ID,
+        payments: [{ method: 'cash', amount: 719000 }],
+      }),
+    })
+    const res = await handler(req, mockFetch, TEST_ENV)
+    expect(res.status).toBe(400)
+    const json = await res.json() as { success: boolean; error: string }
+    expect(json.success).toBe(false)
+    expect(json.error).toBe('Total tendered does not cover the order total')
+  })
+
+  it('computes correct change for delivery order with service charge + delivery fee', async (): Promise<void> => {
+    // Subtotal: 500,000 cents, SC: 0 (no SC on delivery), delivery: 30,000 cents.
+    // Bill total: 530,000. Cash: 600,000. Change: 70,000.
+    const captured: { paymentInsertBody?: unknown } = {}
+    const mockFetch = buildMockFetchWithServiceCharge(500000, 0, 0, 'delivery', 30000, captured)
+    const req = new Request('http://localhost/functions/v1/record_payment', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer test-jwt' },
+      body: JSON.stringify({
+        order_id: VALID_ORDER_ID,
+        payments: [{ method: 'cash', amount: 600000 }],
+      }),
+    })
+    const res = await handler(req, mockFetch, TEST_ENV)
+    expect(res.status).toBe(200)
+    const json = await res.json() as { success: boolean; data: { change_due: number } }
+    expect(json.success).toBe(true)
+    expect(json.data.change_due).toBe(70000) // 600,000 − 530,000 = 70,000
   })
 })

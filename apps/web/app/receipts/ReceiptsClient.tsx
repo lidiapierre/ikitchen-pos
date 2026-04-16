@@ -8,7 +8,7 @@
  * Both roles: per-entry re-print action using existing BillPrintView.
  */
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import type { JSX } from 'react'
 import { Receipt, Printer, ChevronDown, ChevronUp, Search, RefreshCw, CalendarDays } from 'lucide-react'
 import { useUser } from '@/lib/user-context'
@@ -550,10 +550,15 @@ export default function ReceiptsClient(): JSX.Element {
   // Client-side bill-number filter — applied after the server fetch.
   // Trims whitespace and matches case-insensitively anywhere in bill_number.
   // An empty search shows all loaded orders (no network round-trip needed).
+  // useMemo avoids re-running .filter() on renders triggered by unrelated state
+  // (e.g. reprintOrder modal toggling).
   const billSearchTrimmed = billSearch.trim().toUpperCase()
-  const filteredOrders = billSearchTrimmed
-    ? orders.filter((o) => (o.bill_number ?? '').toUpperCase().includes(billSearchTrimmed))
-    : orders
+  const filteredOrders = useMemo(
+    () => billSearchTrimmed
+      ? orders.filter((o) => (o.bill_number ?? '').toUpperCase().includes(billSearchTrimmed))
+      : orders,
+    [orders, billSearchTrimmed],
+  )
 
   if (userLoading) {
     return (
@@ -653,7 +658,7 @@ export default function ReceiptsClient(): JSX.Element {
               <button
                 type="button"
                 onClick={() => setBillSearch('')}
-                className="text-white/50 hover:text-white text-xs transition-colors"
+                className="min-w-[44px] min-h-[44px] flex items-center justify-center text-white/50 hover:text-white text-sm transition-colors"
                 aria-label="Clear bill number search"
               >
                 ✕
@@ -759,7 +764,10 @@ export default function ReceiptsClient(): JSX.Element {
             <Search className="w-12 h-12" />
             <p className="text-base font-medium">No match</p>
             <p className="text-sm text-center">
-              No bill found with number &ldquo;{billSearch.trim()}&rdquo;.
+              No bill found with number &ldquo;{billSearch.trim()}&rdquo; in the current date range.
+            </p>
+            <p className="text-xs text-center text-brand-navy/40">
+              {isAdmin ? 'Try a different date range if the bill was issued on another day.' : 'The bill may be outside your current shift window.'}
             </p>
             <button
               type="button"

@@ -91,6 +91,45 @@ describe('callCloseOrder', () => {
     ).rejects.toThrow('Internal server error')
   })
 
+  it('returns billNumber from the response when bill_number is a string', async (): Promise<void> => {
+    const mockFetch = vi.mocked(fetch)
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: (): Promise<{ success: boolean; data: { final_total_cents: number; service_charge_cents: number; bill_number: string } }> =>
+        Promise.resolve({ success: true, data: { final_total_cents: 5450, service_charge_cents: 0, bill_number: 'RN0001234' } }),
+    } as Response)
+
+    const result = await callCloseOrder('https://example.supabase.co', 'test-key', 'order-123')
+
+    expect(result.billNumber).toBe('RN0001234')
+  })
+
+  it('returns billNumber: null when edge function returns bill_number: null', async (): Promise<void> => {
+    const mockFetch = vi.mocked(fetch)
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: (): Promise<{ success: boolean; data: { final_total_cents: number; service_charge_cents: number; bill_number: null } }> =>
+        Promise.resolve({ success: true, data: { final_total_cents: 5450, service_charge_cents: 0, bill_number: null } }),
+    } as Response)
+
+    const result = await callCloseOrder('https://example.supabase.co', 'test-key', 'order-123')
+
+    expect(result.billNumber).toBeNull()
+  })
+
+  it('returns billNumber: null when edge function response omits the data field', async (): Promise<void> => {
+    const mockFetch = vi.mocked(fetch)
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: (): Promise<{ success: boolean }> =>
+        Promise.resolve({ success: true }),
+    } as Response)
+
+    const result = await callCloseOrder('https://example.supabase.co', 'test-key', 'order-123')
+
+    expect(result.billNumber).toBeNull()
+  })
+
   it('throws a user-friendly message on HTTP 409 (issue #318)', async (): Promise<void> => {
     vi.mocked(fetch).mockResolvedValue({
       ok: false,

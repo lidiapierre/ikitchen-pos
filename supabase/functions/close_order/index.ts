@@ -103,7 +103,7 @@ export async function handler(
   try {
     // 1. Fetch the order to verify it exists and is open (also get discount & comp info)
     const orderRes = await fetchFn(
-      `${supabaseUrl}/rest/v1/orders?select=id,restaurant_id,status,discount_amount_cents,order_comp,final_total_cents,service_charge_cents,bill_number,order_type&id=eq.${orderId}`,
+      `${supabaseUrl}/rest/v1/orders?select=id,restaurant_id,status,discount_amount_cents,order_comp,final_total_cents,service_charge_cents,vat_cents,bill_number,order_type&id=eq.${orderId}`,
       { headers: dbHeaders },
     )
     if (!orderRes.ok) {
@@ -120,6 +120,7 @@ export async function handler(
       order_comp: boolean | null
       final_total_cents: number | null
       service_charge_cents: number | null
+      vat_cents: number | null
       bill_number: string | null
       order_type: string | null
     }>
@@ -137,6 +138,7 @@ export async function handler(
           data: {
             final_total_cents: orders[0].final_total_cents ?? 0,
             service_charge_cents: orders[0].service_charge_cents ?? 0,
+            vat_cents: orders[0].vat_cents ?? 0,
             bill_number: orders[0].bill_number ?? null,
           },
         }),
@@ -539,7 +541,7 @@ export async function handler(
           action: 'close_order',
           entity_type: 'orders',
           entity_id: orderId,
-          payload: { final_total_cents: finalTotal, service_charge_cents: serviceChargeCents, bill_number: billNumber },
+          payload: { final_total_cents: finalTotal, service_charge_cents: serviceChargeCents, vat_cents: vatCents, bill_number: billNumber },
         }),
       },
     )

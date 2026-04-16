@@ -83,8 +83,15 @@ function buildMockFetch(orderStatus: string, extras?: {
         headers: { 'Content-Type': 'application/json' },
       })
     }
-    // Config (service charge)
+    // Config (service charge + VAT apply flags)
     if (url.includes('/rest/v1/config')) {
+      return new Response(JSON.stringify([]), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    }
+    // VAT rates (issue #146 fix)
+    if (url.includes('/rest/v1/vat_rates')) {
       return new Response(JSON.stringify([]), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
@@ -309,6 +316,87 @@ describe('close_order handler', () => {
       expect(json.data.final_total_cents).toBe(0)
       expect(json.data.service_charge_cents).toBe(0)
       expect(json.data.bill_number).toBeNull()
+    })
+  })
+
+  describe('POST — VAT computation (issue #146 fix)', () => {
+    it('computes vat_cents for dine_in order when VAT rate is configured', async (): Promise<void> => {
+      // Set up: 2 items × 1000 cents = 2000 subtotal, 10% SC → 200, VAT base = 2200, 5% VAT = 110
+      let capturedPatch: Record<string, unknown> | null = null
+      const mockFetch = vi.fn(async (url: string, init?: RequestInit): Promise<Response> => {
+        if (url.includes('/auth/v1/user')) {
+          return new Response(JSON.stringify({ id: ACTOR_ID }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+        }
+        if (url.includes('/rest/v1/users')) {
+          return new Response(JSON.stringify([{ id: ACTOR_ID, role: 'owner' }]), { status: 200, headers: { 'Content-Type': 'application/json' } })
+        }
+        if (url.includes('/rest/v1/orders') && (!init?.method || init?.method === 'GET')) {
+          if (url.includes('select=id,restaurant_id,status')) {
+            return new Response(JSON.stringify([{ id: VALID_ORDER_ID, restaurant_id: RESTAURANT_ID, status: 'open', discount_amount_cents: 0, order_comp: false, final_total_cents: null, service_charge_cents: null, bill_number: null, order_type: 'dine_in' }]), { status: 200, headers: { 'Content-Type': 'application/json' } })
+          }
+          if (url.includes('select=customer_mobile')) {
+            return new Response(JSON.stringify([{ customer_mobile: null, customer_name: null }]), { status: 200, headers: { 'Content-Type': 'application/json' } })
+          }
+          return new Response(JSON.stringify([]), { status: 200, headers: { 'Content-Type': 'application/json' } })
+        }
+        if (url.includes('/rest/v1/order_items') && (!init?.method || init?.method === 'GET')) {
+          if (url.includes('select=unit_price_cents')) {
+            return new Response(JSON.stringify([{ unit_price_cents: 1000, quantity: 2, item_discount_type: null, item_discount_value: null }]), { status: 200, headers: { 'Content-Type': 'application/json' } })
+          }
+          return new Response(JSON.stringify([]), { status: 200, headers: { 'Content-Type': 'application/json' } })
+        }
+        if (url.includes('/rest/v1/config')) {
+          // Return SC 10% + VAT apply flags (dine_in=true)
+          return new Response(JSON.stringify([
+            { key: 'service_charge_percent', value: '10' },
+            { key: 'service_charge_apply_dine_in', value: 'true' },
+            { key: 'vat_apply_dine_in', value: 'true' },
+          ]), { status: 200, headers: { 'Content-Type': 'application/json' } })
+        }
+        if (url.includes('/rest/v1/vat_rates')) {
+          return new Response(JSON.stringify([{ percentage: 5 }]), { status: 200, headers: { 'Content-Type': 'application/json' } })
+        }
+        if (url.includes('/rest/v1/orders') && init?.method === 'PATCH') {
+          capturedPatch = JSON.parse(init.body as string) as Record<string, unknown>
+          return new Response(null, { status: 204 })
+        }
+        if (url.includes('/rest/v1/rpc/next_bill_sequence')) {
+          return new Response(JSON.stringify(1), { status: 200, headers: { 'Content-Type': 'application/json' } })
+        }
+        if (url.includes('/rest/v1/audit_log')) {
+          return new Response(null, { status: 201 })
+        }
+        if (url.includes('/rest/v1/rpc/') || url.includes('/rest/v1/bill_sequences') || url.includes('/rest/v1/recipe_items') || url.includes('/rest/v1/stock_adjustments')) {
+          return new Response(JSON.stringify([]), { status: 200, headers: { 'Content-Type': 'application/json' } })
+        }
+        return new Response(JSON.stringify({ error: `Unhandled: ${url}` }), { status: 500 })
+      }) as FetchFn
+
+      const req = makeRequest({ order_id: VALID_ORDER_ID })
+      const res = await handler(req, mockFetch, TEST_ENV)
+      expect(res.status).toBe(200)
+
+      const json = (await res.json()) as { success: boolean; data: { vat_cents: number; service_charge_cents: number } }
+      expect(json.success).toBe(true)
+      // subtotal=2000, discount=0, postDiscountBase=2000, SC 10%=200, vatBase=2200, VAT 5%=110
+      expect(json.data.service_charge_cents).toBe(200)
+      expect(json.data.vat_cents).toBe(110)
+
+      // Also verify the PATCH stored the correct vat_cents
+      expect(capturedPatch).not.toBeNull()
+      expect((capturedPatch as Record<string, unknown>).vat_cents).toBe(110)
+      expect((capturedPatch as Record<string, unknown>).service_charge_cents).toBe(200)
+    })
+
+    it('vat_cents = 0 when no VAT rate row exists in vat_rates', async (): Promise<void> => {
+      // Uses default buildMockFetch which returns [] for vat_rates
+      const mockFetch = buildMockFetch('open')
+      const req = makeRequest({ order_id: VALID_ORDER_ID })
+      const res = await handler(req, mockFetch, TEST_ENV)
+      expect(res.status).toBe(200)
+      const json = (await res.json()) as { success: boolean; data: { vat_cents: number } }
+      expect(json.success).toBe(true)
+      expect(json.data.vat_cents).toBe(0)
     })
   })
 

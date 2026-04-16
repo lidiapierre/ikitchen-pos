@@ -242,6 +242,56 @@ export async function handler(
       }
     }
 
+    // 3b. Compute VAT on (postDiscountBase + serviceCharge) base.
+    // Mirrors OrderDetailClient.tsx calculation order: Subtotal → Discount → SC → VAT → Total.
+    // Defaults: dine-in = true, takeaway = true, delivery = false.
+    // Canonical defaults mirror apps/web/lib/vatCalc.ts:DEFAULT_VAT_APPLY_CONFIG.
+    let vatCents = 0
+    if (!orderIsComp) {
+      try {
+        // Fetch VAT apply flags and tax_inclusive from config table
+        const vatCfgUrl = `${supabaseUrl}/rest/v1/config?select=key,value&restaurant_id=eq.${restaurantId}&key=in.(tax_inclusive,vat_apply_dine_in,vat_apply_takeaway,vat_apply_delivery)`
+        const vatCfgRes = await fetchFn(vatCfgUrl, { headers: dbHeaders })
+        if (vatCfgRes.ok) {
+          const vatCfgRows = (await vatCfgRes.json()) as Array<{ key: string; value: string }>
+          const vatCfgMap = new Map(vatCfgRows.map((r) => [r.key, r.value]))
+
+          const taxInclusive = vatCfgMap.get('tax_inclusive') === 'true'
+          // Per-type apply defaults: dine_in=true, takeaway=true, delivery=false
+          const vatApplyDineIn = vatCfgMap.has('vat_apply_dine_in') ? vatCfgMap.get('vat_apply_dine_in') === 'true' : true
+          const vatApplyTakeaway = vatCfgMap.has('vat_apply_takeaway') ? vatCfgMap.get('vat_apply_takeaway') === 'true' : true
+          const vatApplyDelivery = vatCfgMap.has('vat_apply_delivery') ? vatCfgMap.get('vat_apply_delivery') === 'true' : false
+
+          const vatApplies =
+            (orderType === 'dine_in' && vatApplyDineIn) ||
+            (orderType === 'takeaway' && vatApplyTakeaway) ||
+            (orderType === 'delivery' && vatApplyDelivery)
+
+          if (vatApplies && !taxInclusive) {
+            // Fetch restaurant-level VAT rate (menu_id IS NULL = restaurant default)
+            const vatRateUrl = `${supabaseUrl}/rest/v1/vat_rates?select=percentage&restaurant_id=eq.${restaurantId}&menu_id=is.null&limit=1`
+            const vatRateRes = await fetchFn(vatRateUrl, { headers: dbHeaders })
+            if (vatRateRes.ok) {
+              const vatRateRows = (await vatRateRes.json()) as Array<{ percentage: number | string }>
+              if (vatRateRows.length > 0) {
+                const vatPercent = Number(vatRateRows[0].percentage) || 0
+                if (vatPercent > 0) {
+                  // VAT base = postDiscountSubtotal + serviceCharge (same as frontend vatBase)
+                  const postDiscountBase = Math.max(0, finalTotal - discountAmountCents)
+                  const vatBase = postDiscountBase + serviceChargeCents
+                  vatCents = Math.round((vatBase * vatPercent) / 100)
+                }
+              }
+            }
+          }
+          // tax_inclusive = true: VAT is already embedded in item prices — vatCents stays 0
+          // (inclusive VAT is display-only; the total does not change)
+        }
+      } catch {
+        // Non-fatal: VAT defaults to 0
+      }
+    }
+
     // 4. Generate atomic sequential bill number for this restaurant.
     //    Use an upsert-then-increment pattern: insert row with last_value=1 if not exists,
     //    otherwise increment. We read the updated value back via return=representation.
@@ -317,6 +367,7 @@ export async function handler(
       status: 'pending_payment',
       final_total_cents: finalTotal,
       service_charge_cents: serviceChargeCents,
+      vat_cents: vatCents,
       post_bill_mode: false,
     }
     if (billNumber) {
@@ -500,7 +551,7 @@ export async function handler(
     }
 
     return new Response(
-      JSON.stringify({ success: true, data: { final_total_cents: finalTotal, service_charge_cents: serviceChargeCents, bill_number: billNumber } }),
+      JSON.stringify({ success: true, data: { final_total_cents: finalTotal, service_charge_cents: serviceChargeCents, vat_cents: vatCents, bill_number: billNumber } }),
       { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
     )
   } catch {

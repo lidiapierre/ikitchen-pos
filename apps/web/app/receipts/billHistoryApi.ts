@@ -41,6 +41,8 @@ export interface BillHistoryOrder {
   delivery_charge: number
   delivery_zone_name: string | null
   service_charge_cents: number
+  /** VAT amount in cents — computed by close_order from vat_rates (issue #146 fix). */
+  vat_cents: number
 }
 
 export interface BillHistoryResult {
@@ -87,6 +89,7 @@ interface RawOrderRow {
   delivery_note: string | null
   delivery_charge: number | null
   service_charge_cents: number | null
+  vat_cents: number | null
   tables: { label: string } | null
   delivery_zones: { name: string } | null
   payments: Array<{
@@ -114,7 +117,7 @@ export async function fetchBillHistory(
   const url = new URL(`${supabaseUrl}/rest/v1/orders`)
   url.searchParams.set(
     'select',
-    'id,bill_number,order_number,created_at,final_total_cents,discount_amount_cents,order_comp,order_type,server_id,customer_name,customer_mobile,delivery_note,delivery_charge,service_charge_cents,tables!orders_table_id_fkey(label),delivery_zones(name),payments(method,amount_cents,tendered_amount_cents)',
+    'id,bill_number,order_number,created_at,final_total_cents,discount_amount_cents,order_comp,order_type,server_id,customer_name,customer_mobile,delivery_note,delivery_charge,service_charge_cents,vat_cents,tables!orders_table_id_fkey(label),delivery_zones(name),payments(method,amount_cents,tendered_amount_cents)',
   )
   url.searchParams.set('status', 'eq.paid')
 
@@ -203,7 +206,20 @@ export async function fetchBillHistory(
   let totalDailyCents = 0
 
   const orders: BillHistoryOrder[] = rows.map((row) => {
-    const finalTotal = row.final_total_cents ?? 0
+    // Compute the true bill total for daily totals and display:
+    //   (items_subtotal - discount + service_charge + vat_cents) + delivery
+    // final_total_cents = items subtotal (per-item discounts applied, before order discount).
+    // For orders closed before the vat_cents fix, vat_cents defaults to 0.
+    const rawSubtotal = row.final_total_cents ?? 0
+    const discount = row.discount_amount_cents ?? 0
+    const sc = row.service_charge_cents ?? 0
+    const vat = row.vat_cents ?? 0
+    const delivery = row.delivery_charge ?? 0
+    const orderTypeStr = row.order_type ?? 'dine_in'
+    const deliveryForTotal = orderTypeStr === 'delivery' ? delivery : 0
+    const finalTotal = (row.order_comp ?? false)
+      ? 0
+      : (rawSubtotal - discount) + sc + vat + deliveryForTotal
     totalDailyCents += finalTotal
 
     const payments: PaymentEntry[] = (row.payments ?? []).map((p) => ({
@@ -237,6 +253,7 @@ export async function fetchBillHistory(
       delivery_charge: row.delivery_charge ?? 0,
       delivery_zone_name: row.delivery_zones?.name ?? null,
       service_charge_cents: row.service_charge_cents ?? 0,
+      vat_cents: row.vat_cents ?? 0,
     }
   })
 
@@ -249,8 +266,12 @@ export interface ReprintOrderData {
   orderType: 'dine_in' | 'takeaway' | 'delivery'
   billNumber: string | null
   orderNumber: number | null
-  finalTotalCents: number
+  /** Items subtotal after per-item discounts, before order-level discount. */
+  rawSubtotalCents: number
+  /** Order-level discount in cents. */
   discountAmountCents: number
+  /** True bill total: (rawSubtotal - discount + SC + VAT) + delivery. Used as totalCents in BillPrintView. */
+  finalTotalCents: number
   orderComp: boolean
   customerName: string | null
   customerMobile: string | null
@@ -258,6 +279,8 @@ export interface ReprintOrderData {
   deliveryCharge: number
   deliveryZoneName: string | null
   serviceChargeCents: number
+  /** VAT amount in cents — stored by close_order (issue #146 fix). */
+  vatCents: number
   payments: PaymentEntry[]
   createdAt: string
 }
@@ -296,7 +319,7 @@ export async function fetchOrderForReprint(
   // Fetch order details + items + payments in parallel
   const [orderRes, itemsRes, paymentsRes] = await Promise.all([
     fetch(
-      `${supabaseUrl}/rest/v1/orders?id=eq.${orderId}&select=bill_number,order_number,created_at,final_total_cents,discount_amount_cents,order_comp,order_type,customer_name,customer_mobile,delivery_note,delivery_charge,service_charge_cents,tables!orders_table_id_fkey(label),delivery_zones(name)`,
+      `${supabaseUrl}/rest/v1/orders?id=eq.${orderId}&select=bill_number,order_number,created_at,final_total_cents,discount_amount_cents,order_comp,order_type,customer_name,customer_mobile,delivery_note,delivery_charge,service_charge_cents,vat_cents,tables!orders_table_id_fkey(label),delivery_zones(name)`,
       { headers },
     ),
     fetch(
@@ -334,6 +357,7 @@ export async function fetchOrderForReprint(
         delivery_note: string | null
         delivery_charge: number | null
         service_charge_cents: number | null
+        vat_cents: number | null
         tables: { label: string } | null
         delivery_zones: { name: string } | null
       }>
@@ -398,6 +422,19 @@ export async function fetchOrderForReprint(
   }))
 
   const orderType = (order.order_type ?? 'dine_in') as ReprintOrderData['orderType']
+  const rawSubtotalCents = order.final_total_cents ?? 0
+  const discountAmountCents = order.discount_amount_cents ?? 0
+  const serviceChargeCents = order.service_charge_cents ?? 0
+  const vatCents = order.vat_cents ?? 0
+  const deliveryCharge = order.delivery_charge ?? 0
+  const orderComp = order.order_comp ?? false
+  const deliveryForTotal = orderType === 'delivery' ? deliveryCharge : 0
+  // True bill total: (items_subtotal - order_discount + SC + VAT) + delivery
+  // Mirrors close_order / record_payment computation order.
+  const finalTotalCents = orderComp
+    ? 0
+    : (rawSubtotalCents - discountAmountCents) + serviceChargeCents + vatCents + deliveryForTotal
+
   return {
     items,
     // Use type-appropriate fallback: delivery orders have no table
@@ -405,15 +442,17 @@ export async function fetchOrderForReprint(
     orderType,
     billNumber: order.bill_number,
     orderNumber: order.order_number,
-    finalTotalCents: order.final_total_cents ?? 0,
-    discountAmountCents: order.discount_amount_cents ?? 0,
-    orderComp: order.order_comp ?? false,
+    rawSubtotalCents,
+    discountAmountCents,
+    finalTotalCents,
+    orderComp,
     customerName: order.customer_name,
     customerMobile: order.customer_mobile,
     deliveryNote: order.delivery_note,
-    deliveryCharge: order.delivery_charge ?? 0,
+    deliveryCharge,
     deliveryZoneName: order.delivery_zones?.name ?? null,
-    serviceChargeCents: order.service_charge_cents ?? 0,
+    serviceChargeCents,
+    vatCents,
     payments,
     createdAt: order.created_at,
   }

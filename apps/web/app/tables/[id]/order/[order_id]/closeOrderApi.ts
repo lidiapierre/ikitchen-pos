@@ -1,6 +1,14 @@
 export interface CloseOrderResponse {
   success: boolean
-  data?: { final_total_cents: number; service_charge_cents: number; bill_number: string | null }
+  data?: {
+    final_total_cents: number
+    service_charge_cents: number
+    /** VAT amount (cents) stored by close_order — 0 for tax-inclusive or when no VAT rate is configured. */
+    vat_cents: number
+    /** VAT rate (%) used to compute vat_cents — 0 when not applicable or idempotent early-return. */
+    vat_percent: number
+    bill_number: string | null
+  }
   error?: string
 }
 
@@ -8,7 +16,7 @@ export async function callCloseOrder(
   supabaseUrl: string,
   accessToken: string,
   orderId: string,
-): Promise<{ billNumber: string | null }> {
+): Promise<{ billNumber: string | null; vatCents: number; vatPercent: number }> {
   const res = await fetch(`${supabaseUrl}/functions/v1/close_order`, {
     method: 'POST',
     headers: {
@@ -31,5 +39,9 @@ export async function callCloseOrder(
   if (!json.success) {
     throw new Error(json.error ?? 'Failed to close order')
   }
-  return { billNumber: json.data?.bill_number ?? null }
+  return {
+    billNumber: json.data?.bill_number ?? null,
+    vatCents: json.data?.vat_cents ?? 0,
+    vatPercent: json.data?.vat_percent ?? 0,
+  }
 }

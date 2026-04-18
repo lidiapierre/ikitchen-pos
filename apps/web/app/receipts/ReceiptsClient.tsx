@@ -222,7 +222,7 @@ function ReprintModal({
           discountAmountCents={data.discountAmountCents}
           orderComp={data.orderComp}
           serviceChargeCents={data.serviceChargeCents}
-          serviceChargePercent={0}
+          serviceChargePercent={config.serviceChargePercent}
           orderType={data.orderType}
           customerName={data.customerName}
           deliveryNote={data.deliveryNote}

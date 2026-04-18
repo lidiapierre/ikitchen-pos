@@ -466,6 +466,8 @@ export interface RestaurantConfig {
   locationName: string | undefined
   vatPercent: number
   taxInclusive: boolean
+  /** Service charge rate in percent (e.g. 10 for 10%). 0 = not configured. */
+  serviceChargePercent: number
   currencySymbol: string
   roundBillTotals: boolean
 }
@@ -484,7 +486,7 @@ export async function fetchRestaurantConfig(
 
   const [configRes, vatRes, restaurantRes] = await Promise.all([
     fetch(
-      `${supabaseUrl}/rest/v1/config?key=in.(bin_number,register_name,restaurant_address,round_bill_totals,currency_symbol)&select=key,value`,
+      `${supabaseUrl}/rest/v1/config?key=in.(bin_number,register_name,restaurant_address,round_bill_totals,currency_symbol,service_charge_percent)&select=key,value`,
       { headers },
     ),
     fetch(
@@ -527,6 +529,7 @@ export async function fetchRestaurantConfig(
     locationName: undefined,
     vatPercent,
     taxInclusive,
+    serviceChargePercent: parseFloat(cfgMap.get('service_charge_percent') ?? '0') || 0,
     currencySymbol: cfgMap.get('currency_symbol') ?? '৳',
     roundBillTotals: cfgMap.get('round_bill_totals') === 'true',
   }

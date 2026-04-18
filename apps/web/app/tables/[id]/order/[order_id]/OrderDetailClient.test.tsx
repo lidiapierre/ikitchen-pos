@@ -209,7 +209,7 @@ describe('OrderDetailClient', () => {
   it('shows "Processing…" and disables the button while Proceed to Payment API call is in progress', async (): Promise<void> => {
     const { callCloseOrder } = await import('./closeOrderApi')
     vi.mocked(callCloseOrder).mockImplementation(
-      (): Promise<{ billNumber: string | null; vatCents: number; vatPercent: number }> => new Promise((resolve) => setTimeout(() => resolve({ billNumber: null, vatCents: 0, vatPercent: 0 }), 100)),
+      (): Promise<{ billNumber: string | null; vatCents: number; vatPercent: number; serviceChargeCents: number }> => new Promise((resolve) => setTimeout(() => resolve({ billNumber: null, vatCents: 0, vatPercent: 0, serviceChargeCents: 0 }), 100)),
     )
 
     render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
@@ -229,7 +229,7 @@ describe('OrderDetailClient', () => {
 
   it('shows bill preview after clicking Close Order, then payment step after Proceed to Payment', async (): Promise<void> => {
     const { callCloseOrder } = await import('./closeOrderApi')
-    vi.mocked(callCloseOrder).mockResolvedValue({ billNumber: null, vatCents: 0, vatPercent: 0 })
+    vi.mocked(callCloseOrder).mockResolvedValue({ billNumber: null, vatCents: 0, vatPercent: 0, serviceChargeCents: 0 })
 
     render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
 
@@ -256,7 +256,7 @@ describe('OrderDetailClient', () => {
     vi.mocked(fetchVatConfig).mockResolvedValue({ vatPercent: 0, taxInclusive: false })
 
     const { callCloseOrder } = await import('./closeOrderApi')
-    vi.mocked(callCloseOrder).mockResolvedValue({ billNumber: null, vatCents: 344, vatPercent: 5 })
+    vi.mocked(callCloseOrder).mockResolvedValue({ billNumber: null, vatCents: 344, vatPercent: 5, serviceChargeCents: 0 })
 
     render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
 
@@ -711,7 +711,7 @@ describe('OrderDetailClient', () => {
   describe('payment step', () => {
     async function openPaymentStep(): Promise<void> {
       const { callCloseOrder } = await import('./closeOrderApi')
-      vi.mocked(callCloseOrder).mockResolvedValue({ billNumber: null, vatCents: 0, vatPercent: 0 })
+      vi.mocked(callCloseOrder).mockResolvedValue({ billNumber: null, vatCents: 0, vatPercent: 0, serviceChargeCents: 0 })
       await screen.findByText('Bruschetta')
       fireEvent.click(screen.getByRole('button', { name: 'Close Order' }))
       await waitFor((): void => {
@@ -1669,7 +1669,7 @@ describe('OrderDetailClient', () => {
     // Helpers shared across tests in this block
     async function openPaymentStepForIssue390(): Promise<void> {
       const { callCloseOrder } = await import('./closeOrderApi')
-      vi.mocked(callCloseOrder).mockResolvedValue({ billNumber: null, vatCents: 0, vatPercent: 0 })
+      vi.mocked(callCloseOrder).mockResolvedValue({ billNumber: null, vatCents: 0, vatPercent: 0, serviceChargeCents: 0 })
       const { fetchOrderSummary } = await import('./orderData')
       vi.mocked(fetchOrderSummary).mockResolvedValue({
         status: 'open', payment_method: null, order_type: 'dine_in',
@@ -1888,7 +1888,7 @@ describe('OrderDetailClient — post-payment payment breakdown (issue #391)', ()
       delivery_zone_id: null, delivery_charge: 0, merge_label: null, payment_lines: [],
     })
     const { callCloseOrder } = await import('./closeOrderApi')
-    vi.mocked(callCloseOrder).mockResolvedValue({ billNumber: null, vatCents: 0, vatPercent: 0 })
+    vi.mocked(callCloseOrder).mockResolvedValue({ billNumber: null, vatCents: 0, vatPercent: 0, serviceChargeCents: 0 })
   })
 
   afterEach((): void => {
@@ -2002,7 +2002,7 @@ describe('OrderDetailClient — post-payment payment breakdown (issue #391)', ()
   describe('Add More Items after billing (issue #394)', () => {
     it('shows "Add More Items" button in payment step for dine-in orders', async (): Promise<void> => {
       const { callCloseOrder } = await import('./closeOrderApi')
-      vi.mocked(callCloseOrder).mockResolvedValue({ billNumber: null, vatCents: 0, vatPercent: 0 })
+      vi.mocked(callCloseOrder).mockResolvedValue({ billNumber: null, vatCents: 0, vatPercent: 0, serviceChargeCents: 0 })
 
       render(<OrderDetailClient tableId="5" orderId="order-billed" />)
 
@@ -2030,7 +2030,7 @@ describe('OrderDetailClient — post-payment payment breakdown (issue #391)', ()
       const { useUser } = await import('@/lib/user-context')
       vi.mocked(useUser).mockReturnValue({ accessToken: 'test-token', isAdmin: false, role: 'server', loading: false, userId: 'test-user-id' })
       const { callCloseOrder } = await import('./closeOrderApi')
-      vi.mocked(callCloseOrder).mockResolvedValue({ billNumber: null, vatCents: 0, vatPercent: 0 })
+      vi.mocked(callCloseOrder).mockResolvedValue({ billNumber: null, vatCents: 0, vatPercent: 0, serviceChargeCents: 0 })
       const { callReopenOrderForItems } = await import('./reopenOrderForItemsApi')
       vi.mocked(callReopenOrderForItems).mockResolvedValue(undefined)
 
@@ -2096,7 +2096,7 @@ describe('OrderDetailClient — post-payment payment breakdown (issue #391)', ()
         payment_lines: [],
       })
       const { callCloseOrder } = await import('./closeOrderApi')
-      vi.mocked(callCloseOrder).mockResolvedValue({ billNumber: null, vatCents: 0, vatPercent: 0 })
+      vi.mocked(callCloseOrder).mockResolvedValue({ billNumber: null, vatCents: 0, vatPercent: 0, serviceChargeCents: 0 })
 
       render(<OrderDetailClient tableId="takeaway" orderId="order-takeaway" />)
 
@@ -2115,7 +2115,7 @@ describe('OrderDetailClient — post-payment payment breakdown (issue #391)', ()
 
     it('shows error message when reopen fails', async (): Promise<void> => {
       const { callCloseOrder } = await import('./closeOrderApi')
-      vi.mocked(callCloseOrder).mockResolvedValue({ billNumber: null, vatCents: 0, vatPercent: 0 })
+      vi.mocked(callCloseOrder).mockResolvedValue({ billNumber: null, vatCents: 0, vatPercent: 0, serviceChargeCents: 0 })
       const { callReopenOrderForItems } = await import('./reopenOrderForItemsApi')
       vi.mocked(callReopenOrderForItems).mockRejectedValue(new Error('Insufficient permissions'))
 

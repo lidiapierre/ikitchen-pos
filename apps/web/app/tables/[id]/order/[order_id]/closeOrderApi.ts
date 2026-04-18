@@ -16,7 +16,7 @@ export async function callCloseOrder(
   supabaseUrl: string,
   accessToken: string,
   orderId: string,
-): Promise<{ billNumber: string | null; vatCents: number; vatPercent: number }> {
+): Promise<{ billNumber: string | null; vatCents: number; vatPercent: number; serviceChargeCents: number }> {
   const res = await fetch(`${supabaseUrl}/functions/v1/close_order`, {
     method: 'POST',
     headers: {
@@ -43,5 +43,6 @@ export async function callCloseOrder(
     billNumber: json.data?.bill_number ?? null,
     vatCents: json.data?.vat_cents ?? 0,
     vatPercent: json.data?.vat_percent ?? 0,
+    serviceChargeCents: json.data?.service_charge_cents ?? 0,
   }
 }

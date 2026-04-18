@@ -262,6 +262,10 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
   // on the payment/bill screens once the order has been closed server-side.
   // null = order not yet closed (use local computation).
   const [closedOrderVatCents, setClosedOrderVatCents] = useState<number | null>(null)
+  // Service charge amount stored by close_order — overrides locally-computed serviceChargeCents
+  // on the payment/bill screens once the order has been closed server-side.
+  // null = order not yet closed (use local computation).
+  const [closedOrderServiceChargeCents, setClosedOrderServiceChargeCents] = useState<number | null>(null)
 
   // Bill rounding setting (issue #371) — fetched once on load
   const [roundBillTotals, setRoundBillTotals] = useState(false)
@@ -670,7 +674,10 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
   })
   const effectiveServiceChargePercent = serviceChargeApplies ? serviceChargePercent : 0
   const scBreakdown = calcServiceCharge(postDiscountCents, effectiveServiceChargePercent)
-  const billServiceChargeCents = scBreakdown.serviceChargeCents
+  // Use the server-stored service_charge_cents from close_order when available.
+  // This ensures the payment/bill screens show the correct service charge even if the
+  // local serviceChargePercent config fetch returned 0 (e.g. RLS / timing issue).
+  const billServiceChargeCents = closedOrderServiceChargeCents !== null ? closedOrderServiceChargeCents : scBreakdown.serviceChargeCents
 
   // Step 3: apply VAT to (post-discount + service charge) base
   // VAT is only applied when enabled for this order type (issue #382):
@@ -1229,7 +1236,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
       if (!supabaseUrl || !accessToken) {
         throw new Error('Not authenticated')
       }
-      const { billNumber: closedBillNumber, vatCents: closedVatCents, vatPercent: closedVatPercent } = await callCloseOrder(supabaseUrl, accessToken, orderId)
+      const { billNumber: closedBillNumber, vatCents: closedVatCents, vatPercent: closedVatPercent, serviceChargeCents: closedServiceChargeCents } = await callCloseOrder(supabaseUrl, accessToken, orderId)
       // Persist the freshly-generated bill number into state so it renders on
       // the printed bill copy for ALL order types (dine-in, takeaway, delivery).
       // Without this, orderBillNumber stays null for the remainder of the session
@@ -1242,6 +1249,10 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
       // If vatPercent state is still 0 (config not loaded) but close_order returned a
       // non-zero percent, update it so the VAT % label renders correctly.
       if (vatPercent === 0 && closedVatPercent > 0) setVatPercent(closedVatPercent)
+      // Store the server-computed service charge amount. This overrides the locally-
+      // computed billServiceChargeCents on the payment screen, ensuring the correct value
+      // is shown even when the local serviceChargePercent config fetch returned 0.
+      setClosedOrderServiceChargeCents(closedServiceChargeCents)
       // Reset split payment builder for fresh start
       setSplitPayments([])
       setSplitEntryMethod('cash')
@@ -1755,8 +1766,9 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
       if (appliedDiscountCents > 0) {
         lines.push(`Discount: -${formatPrice(appliedDiscountCents, currencySymbol, roundBillTotals)}`)
       }
-      if (effectiveServiceChargePercent > 0 && billServiceChargeCents > 0) {
-        lines.push(`Service Charge (${effectiveServiceChargePercent}%): ${formatPrice(billServiceChargeCents, currencySymbol, roundBillTotals)}`)
+      if (billServiceChargeCents > 0) {
+        const scLabel = effectiveServiceChargePercent > 0 ? `Service Charge (${effectiveServiceChargePercent}%)` : 'Service Charge'
+        lines.push(`${scLabel}: ${formatPrice(billServiceChargeCents, currencySymbol, roundBillTotals)}`)
       }
       if (vatPercent > 0 && billVatCents > 0) {
         lines.push(`VAT ${vatPercent}%${taxInclusive ? ' (incl.)' : ''}: ${formatPrice(billVatCents, currencySymbol, roundBillTotals)}`)
@@ -3741,9 +3753,9 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
                   <span>-{formatPrice(appliedDiscountCents, currencySymbol, roundBillTotals)}</span>
                 </div>
               )}
-              {effectiveServiceChargePercent > 0 && billServiceChargeCents > 0 && !orderIsComp && (
+              {billServiceChargeCents > 0 && !orderIsComp && (
                 <div className="flex justify-between text-zinc-400">
-                  <span>Service Charge ({effectiveServiceChargePercent}%)</span>
+                  <span>Service Charge{effectiveServiceChargePercent > 0 ? ` (${effectiveServiceChargePercent}%)` : ''}</span>
                   <span>{formatPrice(billServiceChargeCents, currencySymbol, roundBillTotals)}</span>
                 </div>
               )}
@@ -4022,9 +4034,9 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
                   <span>-{formatPrice(appliedDiscountCents, currencySymbol, roundBillTotals)}</span>
                 </div>
               )}
-              {effectiveServiceChargePercent > 0 && billServiceChargeCents > 0 && !orderIsComp && (
+              {billServiceChargeCents > 0 && !orderIsComp && (
                 <div className="flex justify-between text-zinc-400">
-                  <span>Service Charge ({effectiveServiceChargePercent}%)</span>
+                  <span>Service Charge{effectiveServiceChargePercent > 0 ? ` (${effectiveServiceChargePercent}%)` : ''}</span>
                   <span>{formatPrice(billServiceChargeCents, currencySymbol, roundBillTotals)}</span>
                 </div>
               )}

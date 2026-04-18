@@ -453,4 +453,58 @@ test.describe('Admin (owner) view', () => {
     await page.keyboard.press('Escape')
     await expect(page.getByRole('dialog')).not.toBeVisible()
   })
+
+  test('Re-print button applies print-area class to BillPrintView wrapper (issue #431)', async ({ page }) => {
+    // Regression test: the hidden print wrapper must receive the `print-area` class
+    // when Re-print is clicked so that globals.css @media print reveals the receipt.
+    // Before the fix the wrapper had no class, so body * { visibility: hidden } hid
+    // everything and nothing appeared in the print preview.
+    await page.route('**/rest/v1/orders?**', async (route) => {
+      const url = route.request().url()
+      if (url.includes('id=eq.')) {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify([{
+            bill_number: 'RN0001234', order_number: 7, created_at: TODAY_ISO,
+            final_total_cents: 120000, discount_amount_cents: 0, order_comp: false,
+            order_type: 'dine_in', customer_name: null, customer_mobile: null,
+            delivery_note: null, delivery_charge: 0, service_charge_cents: 0,
+            tables: { label: 'T3' }, delivery_zones: null,
+          }]),
+        })
+      } else {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify([PAID_ORDER]),
+        })
+      }
+    })
+    await page.route('**/rest/v1/config?**', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+    })
+    await page.route('**/rest/v1/vat_rates?**', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+    })
+    await page.route('**/rest/v1/restaurants?**', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+    })
+    await page.route('**/rest/v1/users?**', async (route) => { await route.continue() })
+    await mockReprintEndpoints(page)
+
+    // Intercept window.print so the browser doesn't open a real print dialog
+    await page.addInitScript(() => { window.print = () => {} })
+
+    await page.goto('/receipts')
+    await page.getByRole('button', { name: 'Re-print receipt' }).first().click()
+    await expect(page.getByRole('dialog')).toBeVisible()
+
+    await page.getByRole('dialog').getByRole('button', { name: 'Re-print' }).click()
+
+    // After clicking Re-print the wrapper div must have the print-area class so that
+    // globals.css @media print makes it visible.
+    const wrapper = page.locator('[aria-hidden="true"].print-area').first()
+    await expect(wrapper).toBeAttached()
+  })
 })

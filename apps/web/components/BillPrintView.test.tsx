@@ -156,6 +156,50 @@ describe('BillPrintView', () => {
     expect(subtotalNodes).toHaveLength(1)
   })
 
+  it('renders service charge line when serviceChargeCents > 0 even when serviceChargePercent is 0 (issue #432 — reprint scenario)', () => {
+    // This was the reprint bug: serviceChargePercent was hardcoded to 0 in ReceiptsClient,
+    // causing the condition `serviceChargePercent > 0 && serviceChargeCents > 0` to always fail.
+    // Fix: only require serviceChargeCents > 0; show "Service Charge" without % when percent=0.
+    render(
+      <BillPrintView
+        tableLabel="Table 3"
+        orderId="order-abc-12345678"
+        items={mockItems}
+        subtotalCents={SUBTOTAL}
+        vatPercent={VAT_PERCENT}
+        totalCents={TOTAL}
+        paymentMethod="card"
+        timestamp="25/03/2026, 14:00:00"
+        serviceChargePercent={0}
+        serviceChargeCents={380}
+      />,
+    )
+
+    // Service charge line must appear even when serviceChargePercent=0
+    expect(screen.getByText('Service Charge')).toBeInTheDocument()
+    expect(screen.getByText('৳ 3.80')).toBeInTheDocument()
+  })
+
+  it('renders service charge line with percent label when serviceChargePercent > 0', () => {
+    render(
+      <BillPrintView
+        tableLabel="Table 3"
+        orderId="order-abc-12345678"
+        items={mockItems}
+        subtotalCents={SUBTOTAL}
+        vatPercent={VAT_PERCENT}
+        totalCents={TOTAL}
+        paymentMethod="card"
+        timestamp="25/03/2026, 14:00:00"
+        serviceChargePercent={10}
+        serviceChargeCents={380}
+      />,
+    )
+
+    // Service charge shows with percent label
+    expect(screen.getByText('Service Charge (10%)')).toBeInTheDocument()
+  })
+
   it('renders the VAT line with percent label and amount', () => {
     render(
       <BillPrintView

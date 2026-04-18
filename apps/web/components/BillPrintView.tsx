@@ -284,9 +284,9 @@ export default function BillPrintView({
                 <span>-{formatPrice(discountAmountCents, DEFAULT_CURRENCY_SYMBOL, roundBillTotals)}</span>
               </div>
             )}
-            {serviceChargePercent > 0 && serviceChargeCents > 0 && (
+            {serviceChargeCents > 0 && (
               <div className="flex justify-between">
-                <span>Service Charge ({serviceChargePercent}%)</span>
+                <span>Service Charge{serviceChargePercent > 0 ? ` (${serviceChargePercent}%)` : ''}</span>
                 <span>{formatPrice(serviceChargeCents, DEFAULT_CURRENCY_SYMBOL, roundBillTotals)}</span>
               </div>
             )}

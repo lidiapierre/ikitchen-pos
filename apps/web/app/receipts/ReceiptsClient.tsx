@@ -204,7 +204,7 @@ function ReprintModal({
     >
       {/* Hidden print area — only marked as print-area (visible) while window.print() is active.
            The print CSS in globals.css hides body * and reveals only .print-area descendants. */}
-      <div ref={printRef} aria-hidden="true" className={printed ? 'print-area' : ''}>
+      <div ref={printRef} aria-hidden="true" className={printed ? 'print-area' : undefined}>
         <BillPrintView
           tableLabel={data.tableLabel}
           orderId={order.id}

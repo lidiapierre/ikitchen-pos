@@ -202,8 +202,9 @@ function ReprintModal({
       aria-labelledby={titleId}
       className="fixed inset-0 bg-black/60 flex items-center justify-center z-50"
     >
-      {/* Hidden print area — only visible during window.print() */}
-      <div ref={printRef} aria-hidden="true">
+      {/* Hidden print area — only marked as print-area (visible) while window.print() is active.
+           The print CSS in globals.css hides body * and reveals only .print-area descendants. */}
+      <div ref={printRef} aria-hidden="true" className={printed ? 'print-area' : ''}>
         <BillPrintView
           tableLabel={data.tableLabel}
           orderId={order.id}

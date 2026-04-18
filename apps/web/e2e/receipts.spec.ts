@@ -31,6 +31,7 @@ const PAID_ORDER = {
   delivery_note: null,
   delivery_charge: 0,
   service_charge_cents: 0,
+  vat_cents: 0,
   tables: { label: 'T3' },
   delivery_zones: null,
   payments: [{ method: 'cash', amount_cents: 120000, tendered_amount_cents: 150000 }],

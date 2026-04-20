@@ -763,4 +763,56 @@ describe('BillPrintView', () => {
       expect(screen.queryByText('Tendered by')).not.toBeInTheDocument()
     })
   })
+
+  describe('fontSizePt prop', () => {
+    function renderBill(fontSizePt?: number) {
+      const { container } = render(
+        <BillPrintView
+          tableLabel="Table 1"
+          orderId="order-font-test"
+          items={mockItems}
+          subtotalCents={SUBTOTAL}
+          vatPercent={0}
+          totalCents={SUBTOTAL}
+          paymentMethod="cash"
+          timestamp="20/04/2026, 12:00:00"
+          restaurantName="Test Restaurant"
+          fontSizePt={fontSizePt}
+        />,
+      )
+      return container.querySelector('[style]') as HTMLElement
+    }
+
+    it('applies default 12pt CSS custom properties when fontSizePt is omitted', () => {
+      const root = renderBill()
+      const style = root.getAttribute('style') ?? ''
+      expect(style).toContain('--bill-xs: 11pt')
+      expect(style).toContain('--bill-sm: 12pt')
+      expect(style).toContain('--bill-base: 14pt')
+      expect(style).toContain('--bill-lg: 16pt')
+    })
+
+    it('applies explicit fontSizePt=14 correctly', () => {
+      const root = renderBill(14)
+      const style = root.getAttribute('style') ?? ''
+      expect(style).toContain('--bill-xs: 13pt')
+      expect(style).toContain('--bill-sm: 14pt')
+      expect(style).toContain('--bill-base: 16pt')
+      expect(style).toContain('--bill-lg: 18pt')
+    })
+
+    it('clamps --bill-xs to 6pt minimum when fontSizePt=8', () => {
+      const root = renderBill(8)
+      const style = root.getAttribute('style') ?? ''
+      expect(style).toContain('--bill-xs: 7pt')
+      expect(style).toContain('--bill-sm: 8pt')
+    })
+
+    it('does not apply inline style to child elements', () => {
+      const root = renderBill(10)
+      // Only the root div should have a style attribute
+      const allStyled = root.querySelectorAll('[style]')
+      expect(allStyled).toHaveLength(0)
+    })
+  })
 })

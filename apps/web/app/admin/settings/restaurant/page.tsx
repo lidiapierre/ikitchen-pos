@@ -122,7 +122,7 @@ export default function RestaurantSettingsPage(): JSX.Element {
           : Promise.resolve(),
         callUpsertConfig(config.url, config.key, restaurantId, 'loyalty_points_per_order', String(loyaltyNum)),
         callUpsertConfig(config.url, config.key, restaurantId, 'round_bill_totals', roundBillTotals ? 'true' : 'false'),
-        callUpsertConfig(config.url, config.key, restaurantId, 'bill_print_font_size', String(billPrintFontSizePt)),
+        callUpsertConfig(config.url, config.key, restaurantId, 'bill_print_font_size', String(Math.min(16, Math.max(8, billPrintFontSizePt)))),
       ])
       showFeedback('success', 'Restaurant settings saved.')
     } catch (err) {
@@ -289,7 +289,7 @@ export default function RestaurantSettingsPage(): JSX.Element {
               value={billPrintFontSizePt}
               onChange={(e) => {
                 const v = parseInt(e.target.value, 10)
-                if (!isNaN(v) && v >= 8 && v <= 16) setBillPrintFontSizePt(v)
+                if (!isNaN(v)) setBillPrintFontSizePt(v)
               }}
               disabled={submitting}
               className="min-h-[48px] w-24 px-4 py-2 rounded-xl bg-brand-navy text-white border border-brand-grey focus:border-brand-blue focus:outline-none text-base disabled:opacity-50"

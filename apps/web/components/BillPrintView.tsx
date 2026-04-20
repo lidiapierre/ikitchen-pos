@@ -90,16 +90,7 @@ export interface BillPrintViewProps {
    * Issue #370 — pre-payment bill copy for dine-in and takeaway orders.
    */
   isDue?: boolean
-  /**
-   * Base font size in pt for the printed bill.
-   * All text scales relative to this value:
-   *   - body/labels: fontSizePt
-   *   - header (restaurant name): fontSizePt + 2
-   *   - order-number badge: fontSizePt + 4
-   *   - secondary/meta text: fontSizePt - 1
-   * Use `pt` units — they map 1:1 to physical size on thermal printers.
-   * Default: 12pt.
-   */
+  /** Base font size in pt (8–16). Body = fontSizePt, header = +2, badge = +4, meta = −1. Default 12pt. */
   fontSizePt?: number
 }
 
@@ -141,11 +132,14 @@ export default function BillPrintView({
   isDue = false,
   fontSizePt = 12,
 }: BillPrintViewProps): JSX.Element {
-  // Font size tiers in pt — physical units that map 1:1 to thermal printer output
-  const sizeXs = `${Math.max(6, fontSizePt - 1)}pt`   // secondary / meta text
-  const sizeSm = `${fontSizePt}pt`                     // body / labels
-  const sizeBase = `${fontSizePt + 2}pt`               // restaurant name header
-  const sizeLg = `${fontSizePt + 4}pt`                 // order number badge
+  // CSS custom properties for font size tiers (pt maps 1:1 to thermal printer physical output).
+  // Exposed on root div so Tailwind arbitrary values can reference them without inline styles per child.
+  const fontVars = {
+    '--bill-xs':   `${Math.max(6, fontSizePt - 1)}pt`,
+    '--bill-sm':   `${fontSizePt}pt`,
+    '--bill-base': `${fontSizePt + 2}pt`,
+    '--bill-lg':   `${fontSizePt + 4}pt`,
+  } as React.CSSProperties
   // Use caller-provided vatCents when available (preferred — supports new calculation order).
   // Fall back to derived value for backward compatibility.
   const vatCents = vatCentsProp !== undefined ? vatCentsProp : totalCents - subtotalCents
@@ -159,30 +153,30 @@ export default function BillPrintView({
   const payableCents = totalCents + roundOffCents
 
   return (
-    <div aria-hidden="true" className="hidden print:block font-mono text-black bg-white p-2 w-full max-w-xs">
+    <div aria-hidden="true" className="hidden print:block font-mono text-black bg-white p-2 w-full max-w-xs" style={fontVars}>
       {/* 1. Restaurant name + address */}
       <div className="text-center mb-1">
-        <p className="font-bold" style={{ fontSize: sizeBase }}>{restaurantName}</p>
-        <p style={{ fontSize: sizeSm }}>{isDue ? 'DUE BILL' : 'BILL RECEIPT'}</p>
-        <p style={{ fontSize: sizeXs }}>{restaurantAddress}</p>
+        <p className="font-bold text-[length:var(--bill-base)]">{restaurantName}</p>
+        <p className="text-[length:var(--bill-sm)]">{isDue ? 'DUE BILL' : 'BILL RECEIPT'}</p>
+        <p className="text-[length:var(--bill-xs)]">{restaurantAddress}</p>
       </div>
 
       {/* 2. BIN # */}
       {binNumber && (
         <div className="text-center mb-1">
-          <p style={{ fontSize: sizeXs }}>BIN: {binNumber}</p>
+          <p className="text-[length:var(--bill-xs)]">BIN: {binNumber}</p>
         </div>
       )}
 
       {/* Order number badge — prominently displayed above meta */}
       {orderNumber != null && (
         <div className="text-center border border-black py-1 mb-2">
-          <p className="font-bold tracking-widest" style={{ fontSize: sizeLg }}>#{String(orderNumber).padStart(3, '0')}</p>
+          <p className="font-bold tracking-widest text-[length:var(--bill-lg)]">#{String(orderNumber).padStart(3, '0')}</p>
         </div>
       )}
 
       {/* 3. Bill meta */}
-      <div className="border-t border-b border-black py-1 mb-2 space-y-0.5" style={{ fontSize: sizeXs }}>
+      <div className="border-t border-b border-black py-1 mb-2 space-y-0.5 text-[length:var(--bill-xs)]">
         {billNumber && (
           <div className="flex justify-between">
             <span className="font-semibold">Bill No</span>
@@ -225,14 +219,14 @@ export default function BillPrintView({
 
       {/* COMPLIMENTARY banner for whole-order comp */}
       {orderComp && (
-        <div className="text-center border border-black py-1 mb-2 font-bold tracking-widest" style={{ fontSize: sizeSm }}>
+        <div className="text-center border border-black py-1 mb-2 font-bold tracking-widest text-[length:var(--bill-sm)]">
           ★ COMPLIMENTARY ★
         </div>
       )}
 
       {/* DUE / UNPAID banner — pre-payment bill copy (issue #370) */}
       {isDue && (
-        <div className="text-center border-2 border-black py-1 mb-2 font-bold tracking-widest" style={{ fontSize: sizeSm }}>
+        <div className="text-center border-2 border-black py-1 mb-2 font-bold tracking-widest text-[length:var(--bill-sm)]">
           *** AMOUNT DUE — UNPAID ***
         </div>
       )}
@@ -240,7 +234,7 @@ export default function BillPrintView({
       {/* 4. Line items: S.No | Item name | Qty | Amount */}
       <div className="mb-2">
         {/* Header row */}
-        <div className="flex font-semibold border-b border-black pb-0.5 mb-0.5" style={{ fontSize: sizeXs }}>
+        <div className="flex font-semibold border-b border-black pb-0.5 mb-0.5 text-[length:var(--bill-xs)]">
           <span className="w-6 shrink-0">#</span>
           <span className="flex-1">Item</span>
           <span className="w-8 text-right shrink-0">Qty</span>
@@ -254,7 +248,7 @@ export default function BillPrintView({
           const hasItemDiscount = !isComp && itemDiscountCents > 0
           return (
             <div key={item.id} className="mb-0.5">
-              <div className="flex" style={{ fontSize: sizeXs }}>
+              <div className="flex text-[length:var(--bill-xs)]">
                 <span className="w-6 shrink-0 text-zinc-600">{idx + 1}</span>
                 <span className="flex-1 truncate">
                   {item.name}
@@ -266,7 +260,7 @@ export default function BillPrintView({
                 </span>
               </div>
               {hasItemDiscount && (
-                <div className="pl-6 text-zinc-500" style={{ fontSize: sizeXs }}>
+                <div className="pl-6 text-zinc-500 text-[length:var(--bill-xs)]">
                   {item.item_discount_type === 'percent' && item.item_discount_value != null
                     ? `Discount: -${item.item_discount_value / 100}%`
                     : `Discount: -${formatPrice(itemDiscountCents, DEFAULT_CURRENCY_SYMBOL, roundBillTotals)}`}
@@ -275,12 +269,12 @@ export default function BillPrintView({
               {item.modifier_names.length > 0 && (
                 <ul className="pl-6">
                   {item.modifier_names.map((mod) => (
-                    <li key={mod} className="text-zinc-600" style={{ fontSize: sizeXs }}>+ {mod}</li>
+                    <li key={mod} className="text-zinc-600 text-[length:var(--bill-xs)]">+ {mod}</li>
                   ))}
                 </ul>
               )}
               {item.notes && (
-                <p className="pl-6 text-zinc-500 italic" style={{ fontSize: sizeXs }}>↳ {item.notes}</p>
+                <p className="pl-6 text-zinc-500 italic text-[length:var(--bill-xs)]">↳ {item.notes}</p>
               )}
             </div>
           )
@@ -288,7 +282,7 @@ export default function BillPrintView({
       </div>
 
       {/* 5. Sub total → Discount → Service Charge → VAT → Round off → Pay */}
-      <div className="border-t border-black pt-1 mb-2 space-y-0.5" style={{ fontSize: sizeSm }}>
+      <div className="border-t border-black pt-1 mb-2 space-y-0.5 text-[length:var(--bill-sm)]">
         {!orderComp && (
           <>
             <div className="flex justify-between">
@@ -341,7 +335,7 @@ export default function BillPrintView({
 
       {/* 6. Payment breakdown — hidden on pre-payment due bills (issue #391) */}
       {!orderComp && !isDue && (
-        <div className="border-t border-black pt-1 mb-2 space-y-0.5" style={{ fontSize: sizeSm }}>
+        <div className="border-t border-black pt-1 mb-2 space-y-0.5 text-[length:var(--bill-sm)]">
           {splitPayments && splitPayments.length > 0 ? (
             // One line per payment method (single or split) — always shows amount (issue #391)
             <>
@@ -399,8 +393,8 @@ export default function BillPrintView({
 
       {/* 7. Customer details (delivery/takeaway) */}
       {isNonDineIn && (customerName || customerMobile || deliveryNote) && (
-        <div className="border-t border-black pt-1 mb-2 space-y-0.5" style={{ fontSize: sizeXs }}>
-          <p className="font-semibold" style={{ fontSize: sizeSm }}>{isDelivery ? 'Delivery' : 'Takeaway'} Details</p>
+        <div className="border-t border-black pt-1 mb-2 space-y-0.5 text-[length:var(--bill-xs)]">
+          <p className="font-semibold text-[length:var(--bill-sm)]">{isDelivery ? 'Delivery' : 'Takeaway'} Details</p>
           {customerName && (
             <div className="flex justify-between">
               <span>Name</span>
@@ -423,7 +417,7 @@ export default function BillPrintView({
       )}
 
       {/* 8. Footer */}
-      <div className="border-t border-black mt-2 pt-1 text-center" style={{ fontSize: sizeXs }}>
+      <div className="border-t border-black mt-2 pt-1 text-center text-[length:var(--bill-xs)]">
         Thank You!!!
       </div>
     </div>

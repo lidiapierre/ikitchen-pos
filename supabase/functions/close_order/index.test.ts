@@ -354,7 +354,8 @@ describe('close_order handler', () => {
           ]), { status: 200, headers: { 'Content-Type': 'application/json' } })
         }
         if (url.includes('/rest/v1/vat_rates')) {
-          return new Response(JSON.stringify([{ percentage: 5 }]), { status: 200, headers: { 'Content-Type': 'application/json' } })
+          // Return with menu_id: null (restaurant-level default) — mirrors real DB row format
+          return new Response(JSON.stringify([{ percentage: 5, menu_id: null }]), { status: 200, headers: { 'Content-Type': 'application/json' } })
         }
         if (url.includes('/rest/v1/orders') && init?.method === 'PATCH') {
           capturedPatch = JSON.parse(init.body as string) as Record<string, unknown>
@@ -397,6 +398,110 @@ describe('close_order handler', () => {
       const json = (await res.json()) as { success: boolean; data: { vat_cents: number } }
       expect(json.success).toBe(true)
       expect(json.data.vat_cents).toBe(0)
+    })
+
+    it('applies VAT when vat_rate row has non-null menu_id (bug fix: was silently returning 0)', async (): Promise<void> => {
+      // Regression test for the primary bug: vat_rates row has menu_id set (non-null),
+      // which the old &menu_id=is.null filter would miss, returning 0. The fix fetches all
+      // rates and falls back to vatRateRows[0] when no menu_id=null row exists.
+      const mockFetch = vi.fn(async (url: string, init?: RequestInit): Promise<Response> => {
+        if (url.includes('/auth/v1/user')) {
+          return new Response(JSON.stringify({ id: ACTOR_ID }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+        }
+        if (url.includes('/rest/v1/users')) {
+          return new Response(JSON.stringify([{ id: ACTOR_ID, role: 'owner' }]), { status: 200, headers: { 'Content-Type': 'application/json' } })
+        }
+        if (url.includes('/rest/v1/orders') && (!init?.method || init?.method === 'GET')) {
+          if (url.includes('select=id,restaurant_id,status')) {
+            return new Response(JSON.stringify([{ id: VALID_ORDER_ID, restaurant_id: RESTAURANT_ID, status: 'open', discount_amount_cents: 0, order_comp: false, final_total_cents: null, service_charge_cents: null, bill_number: null, order_type: 'dine_in' }]), { status: 200, headers: { 'Content-Type': 'application/json' } })
+          }
+          if (url.includes('select=customer_mobile')) {
+            return new Response(JSON.stringify([{ customer_mobile: null, customer_name: null }]), { status: 200, headers: { 'Content-Type': 'application/json' } })
+          }
+          return new Response(JSON.stringify([]), { status: 200, headers: { 'Content-Type': 'application/json' } })
+        }
+        if (url.includes('/rest/v1/order_items') && (!init?.method || init?.method === 'GET')) {
+          if (url.includes('select=unit_price_cents')) {
+            return new Response(JSON.stringify([{ unit_price_cents: 1000, quantity: 2, item_discount_type: null, item_discount_value: null }]), { status: 200, headers: { 'Content-Type': 'application/json' } })
+          }
+          return new Response(JSON.stringify([]), { status: 200, headers: { 'Content-Type': 'application/json' } })
+        }
+        if (url.includes('/rest/v1/config')) {
+          return new Response(JSON.stringify([
+            { key: 'vat_apply_dine_in', value: 'true' },
+          ]), { status: 200, headers: { 'Content-Type': 'application/json' } })
+        }
+        if (url.includes('/rest/v1/vat_rates')) {
+          // Only row has a non-null menu_id — the old &menu_id=is.null filter would return []
+          // The fix must still pick this up via the vatRateRows[0] fallback
+          return new Response(JSON.stringify([{ percentage: 7, menu_id: 'aaaa1111-0000-0000-0000-000000000000' }]), { status: 200, headers: { 'Content-Type': 'application/json' } })
+        }
+        if (url.includes('/rest/v1/orders') && init?.method === 'PATCH') {
+          return new Response(null, { status: 204 })
+        }
+        if (url.includes('/rest/v1/rpc/next_bill_sequence')) {
+          return new Response(JSON.stringify(1), { status: 200, headers: { 'Content-Type': 'application/json' } })
+        }
+        if (url.includes('/rest/v1/audit_log')) {
+          return new Response(null, { status: 201 })
+        }
+        if (url.includes('/rest/v1/rpc/') || url.includes('/rest/v1/bill_sequences') || url.includes('/rest/v1/recipe_items') || url.includes('/rest/v1/stock_adjustments')) {
+          return new Response(JSON.stringify([]), { status: 200, headers: { 'Content-Type': 'application/json' } })
+        }
+        return new Response(JSON.stringify({ error: `Unhandled: ${url}` }), { status: 500 })
+      }) as FetchFn
+
+      const req = makeRequest({ order_id: VALID_ORDER_ID })
+      const res = await handler(req, mockFetch, TEST_ENV)
+      expect(res.status).toBe(200)
+      const json = (await res.json()) as { success: boolean; data: { vat_cents: number; vat_percent: number } }
+      expect(json.success).toBe(true)
+      // subtotal=2000, no SC, VAT base=2000, 7% VAT = 140
+      expect(json.data.vat_cents).toBe(140)
+      expect(json.data.vat_percent).toBe(7)
+    })
+  })
+
+  describe('POST — idempotent vat_percent (Fix 2: was hardcoded 0)', () => {
+    it('returns actual vat_percent on idempotent pending_payment path', async (): Promise<void> => {
+      // The idempotent path now re-fetches the VAT rate so vat_percent is not hardcoded 0.
+      const mockFetch = vi.fn(async (url: string, init?: RequestInit): Promise<Response> => {
+        if (url.includes('/auth/v1/user')) {
+          return new Response(JSON.stringify({ id: ACTOR_ID }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+        }
+        if (url.includes('/rest/v1/users')) {
+          return new Response(JSON.stringify([{ id: ACTOR_ID, role: 'owner' }]), { status: 200, headers: { 'Content-Type': 'application/json' } })
+        }
+        if (url.includes('/rest/v1/orders') && (!init?.method || init?.method === 'GET')) {
+          if (url.includes('select=id,restaurant_id,status')) {
+            return new Response(JSON.stringify([{
+              id: VALID_ORDER_ID,
+              restaurant_id: RESTAURANT_ID,
+              status: 'pending_payment',
+              discount_amount_cents: 0,
+              order_comp: false,
+              final_total_cents: 5000,
+              service_charge_cents: 500,
+              vat_cents: 250,
+              bill_number: 'RN0000001',
+              order_type: 'dine_in',
+            }]), { status: 200, headers: { 'Content-Type': 'application/json' } })
+          }
+          return new Response(JSON.stringify([]), { status: 200, headers: { 'Content-Type': 'application/json' } })
+        }
+        if (url.includes('/rest/v1/vat_rates')) {
+          return new Response(JSON.stringify([{ percentage: 5, menu_id: null }]), { status: 200, headers: { 'Content-Type': 'application/json' } })
+        }
+        return new Response(JSON.stringify([]), { status: 200, headers: { 'Content-Type': 'application/json' } })
+      }) as FetchFn
+
+      const req = makeRequest({ order_id: VALID_ORDER_ID })
+      const res = await handler(req, mockFetch, TEST_ENV)
+      expect(res.status).toBe(200)
+      const json = (await res.json()) as { success: boolean; data: { vat_percent: number; vat_cents: number } }
+      expect(json.success).toBe(true)
+      expect(json.data.vat_cents).toBe(250)
+      expect(json.data.vat_percent).toBe(5)  // was 0 before the fix
     })
   })
 

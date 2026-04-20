@@ -26,6 +26,43 @@ function isValidUuid(value: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)
 }
 
+/**
+ * Fetch the effective VAT percent for a restaurant.
+ *
+ * Mirrors the restaurant-level fallback logic in apps/web/lib/fetchVatConfig.ts:
+ *   1. Prefer a row with menu_id IS NULL (restaurant-level default)
+ *   2. Fall back to the first available row (handles the case where the only
+ *      vat_rates row has a non-null menu_id, e.g. a per-category rate)
+ *
+ * Note: unlike fetchVatConfig.ts, this helper does NOT implement menu-specific
+ * matching (level 1 in the frontend's 3-tier precedence) because close_order
+ * operates at the order level and does not have a single canonical menu_id.
+ * For the vast majority of restaurants with one VAT rate this is equivalent.
+ *
+ * No &limit added intentionally — we must see all rows to find the null-menu_id
+ * one; a single-row query would replicate the original bug.
+ *
+ * Returns 0 on any error (VAT defaults to 0, payment can still proceed).
+ */
+async function fetchVatPercent(
+  supabaseUrl: string,
+  dbHeaders: Record<string, string>,
+  restaurantId: string,
+  fetchFn: FetchFn,
+): Promise<number> {
+  try {
+    const url = `${supabaseUrl}/rest/v1/vat_rates?select=percentage,menu_id&restaurant_id=eq.${restaurantId}`
+    const res = await fetchFn(url, { headers: dbHeaders })
+    if (!res.ok) return 0
+    const rows = (await res.json()) as Array<{ percentage: number | string; menu_id: string | null }>
+    if (rows.length === 0) return 0
+    const defaultRow = rows.find((r) => r.menu_id === null) ?? rows[0]
+    return Number(defaultRow.percentage) || 0
+  } catch {
+    return 0
+  }
+}
+
 export async function handler(
   req: Request,
   fetchFn: FetchFn = fetch,
@@ -132,6 +169,10 @@ export async function handler(
     }
     // Idempotent: if already pending_payment, return existing data (issue #318)
     if (orders[0].status === 'pending_payment') {
+      // Re-fetch the actual VAT percent (not stored on orders table) using the shared helper.
+      // Previously this path returned vat_percent: 0 hardcoded, causing the UI to show no VAT
+      // on order re-open. fetchVatPercent falls back to 0 on error, matching old safe behaviour.
+      const idempotentVatPercent = await fetchVatPercent(supabaseUrl, dbHeaders, orders[0].restaurant_id, fetchFn)
       return new Response(
         JSON.stringify({
           success: true,
@@ -139,8 +180,7 @@ export async function handler(
             final_total_cents: orders[0].final_total_cents ?? 0,
             service_charge_cents: orders[0].service_charge_cents ?? 0,
             vat_cents: orders[0].vat_cents ?? 0,
-            // vat_percent is not stored on orders; return 0 so the UI falls back to its local vatPercent state
-            vat_percent: 0,
+            vat_percent: idempotentVatPercent,
             bill_number: orders[0].bill_number ?? null,
           },
         }),
@@ -273,21 +313,13 @@ export async function handler(
             (orderType === 'delivery' && vatApplyDelivery)
 
           if (vatApplies && !taxInclusive) {
-            // Fetch restaurant-level VAT rate (menu_id IS NULL = restaurant default)
-            const vatRateUrl = `${supabaseUrl}/rest/v1/vat_rates?select=percentage&restaurant_id=eq.${restaurantId}&menu_id=is.null&limit=1`
-            const vatRateRes = await fetchFn(vatRateUrl, { headers: dbHeaders })
-            if (vatRateRes.ok) {
-              const vatRateRows = (await vatRateRes.json()) as Array<{ percentage: number | string }>
-              if (vatRateRows.length > 0) {
-                const vatPercent = Number(vatRateRows[0].percentage) || 0
-                if (vatPercent > 0) {
-                  // VAT base = postDiscountSubtotal + serviceCharge (same as frontend vatBase)
-                  const postDiscountBase = Math.max(0, finalTotal - discountAmountCents)
-                  const vatBase = postDiscountBase + serviceChargeCents
-                  vatCents = Math.round((vatBase * vatPercent) / 100)
-                  usedVatPercent = vatPercent
-                }
-              }
+            const vatPercent = await fetchVatPercent(supabaseUrl, dbHeaders, restaurantId, fetchFn)
+            if (vatPercent > 0) {
+              // VAT base = postDiscountSubtotal + serviceCharge (same as frontend vatBase)
+              const postDiscountBase = Math.max(0, finalTotal - discountAmountCents)
+              const vatBase = postDiscountBase + serviceChargeCents
+              vatCents = Math.round((vatBase * vatPercent) / 100)
+              usedVatPercent = vatPercent
             }
           }
           // tax_inclusive = true: VAT is already embedded in item prices — vatCents stays 0

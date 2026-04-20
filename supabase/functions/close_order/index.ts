@@ -132,6 +132,24 @@ export async function handler(
     }
     // Idempotent: if already pending_payment, return existing data (issue #318)
     if (orders[0].status === 'pending_payment') {
+      // Re-fetch the actual VAT percent (not stored on orders table) using same logic as main path.
+      // This avoids returning vat_percent: 0 which caused the UI to display wrong VAT line on re-open.
+      let idempotentVatPercent = 0
+      try {
+        const idempRestaurantId = orders[0].restaurant_id
+        // Fetch ALL vat_rates — mirror fetchVatConfig.ts: prefer menu_id IS NULL, fall back to first row
+        const idempVatRateUrl = `${supabaseUrl}/rest/v1/vat_rates?select=percentage,menu_id&restaurant_id=eq.${idempRestaurantId}`
+        const idempVatRateRes = await fetchFn(idempVatRateUrl, { headers: dbHeaders })
+        if (idempVatRateRes.ok) {
+          const idempVatRateRows = (await idempVatRateRes.json()) as Array<{ percentage: number | string; menu_id: string | null }>
+          if (idempVatRateRows.length > 0) {
+            const idempDefaultRow = idempVatRateRows.find((r) => r.menu_id === null) ?? idempVatRateRows[0]
+            idempotentVatPercent = Number(idempDefaultRow.percentage) || 0
+          }
+        }
+      } catch {
+        // Non-fatal: fall back to 0 — UI uses its local vatPercent state as fallback
+      }
       return new Response(
         JSON.stringify({
           success: true,
@@ -139,8 +157,7 @@ export async function handler(
             final_total_cents: orders[0].final_total_cents ?? 0,
             service_charge_cents: orders[0].service_charge_cents ?? 0,
             vat_cents: orders[0].vat_cents ?? 0,
-            // vat_percent is not stored on orders; return 0 so the UI falls back to its local vatPercent state
-            vat_percent: 0,
+            vat_percent: idempotentVatPercent,
             bill_number: orders[0].bill_number ?? null,
           },
         }),
@@ -273,13 +290,19 @@ export async function handler(
             (orderType === 'delivery' && vatApplyDelivery)
 
           if (vatApplies && !taxInclusive) {
-            // Fetch restaurant-level VAT rate (menu_id IS NULL = restaurant default)
-            const vatRateUrl = `${supabaseUrl}/rest/v1/vat_rates?select=percentage&restaurant_id=eq.${restaurantId}&menu_id=is.null&limit=1`
+            // Fetch ALL VAT rates for this restaurant — mirrors fetchVatConfig.ts logic exactly.
+            // Bug fix: previously used &menu_id=is.null which silently returned empty when the VAT
+            // rate row has a non-null menu_id (e.g. assigned to a specific menu category).
+            // Fix: fetch all rates and apply same precedence as frontend:
+            //   prefer menu_id IS NULL (restaurant-level default), fall back to first available row.
+            const vatRateUrl = `${supabaseUrl}/rest/v1/vat_rates?select=percentage,menu_id&restaurant_id=eq.${restaurantId}`
             const vatRateRes = await fetchFn(vatRateUrl, { headers: dbHeaders })
             if (vatRateRes.ok) {
-              const vatRateRows = (await vatRateRes.json()) as Array<{ percentage: number | string }>
+              const vatRateRows = (await vatRateRes.json()) as Array<{ percentage: number | string; menu_id: string | null }>
               if (vatRateRows.length > 0) {
-                const vatPercent = Number(vatRateRows[0].percentage) || 0
+                // Mirror fetchVatConfig.ts: prefer restaurant-level default, fall back to first row
+                const defaultRow = vatRateRows.find((r) => r.menu_id === null) ?? vatRateRows[0]
+                const vatPercent = Number(defaultRow.percentage) || 0
                 if (vatPercent > 0) {
                   // VAT base = postDiscountSubtotal + serviceCharge (same as frontend vatBase)
                   const postDiscountBase = Math.max(0, finalTotal - discountAmountCents)

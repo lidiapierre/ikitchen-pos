@@ -9,13 +9,7 @@
 -- This migration backfills one "Standard" vat_rates row for every restaurant
 -- that has vat_percentage > 0 in config but no existing vat_rates row.
 --
--- Also adds a UNIQUE constraint on (restaurant_id, menu_id) so that:
---   a) duplicate Standard rows can't be inserted,
---   b) PostgREST's `Prefer: resolution=ignore-duplicates` is honoured when
---      provision_restaurant inserts the initial vat_rates row.
---
 -- Rollback:
---   ALTER TABLE vat_rates DROP CONSTRAINT IF EXISTS uq_vat_rates_restaurant_menu;
 --   DELETE FROM vat_rates
 --   WHERE label = 'Standard'
 --     AND menu_id IS NULL
@@ -23,15 +17,10 @@
 --       SELECT restaurant_id FROM config
 --       WHERE key = 'vat_percentage' AND value::numeric > 0
 --     );
+--
+-- Note: the UNIQUE constraint on (restaurant_id, menu_id) is added by the
+-- following migration: 20260420000002_add_unique_constraint_vat_rates.sql
 
--- 1. Add unique constraint so (restaurant_id, menu_id) pairs are unique.
---    NULL == NULL is treated as equal by this constraint (PostgreSQL NULLS NOT DISTINCT).
-ALTER TABLE vat_rates
-  ADD CONSTRAINT uq_vat_rates_restaurant_menu
-  UNIQUE NULLS NOT DISTINCT (restaurant_id, menu_id);
-
--- 2. Backfill: insert a 'Standard' catch-all row for restaurants that have
---    vat_percentage > 0 in config but no restaurant-level (menu_id IS NULL) row.
 INSERT INTO vat_rates (restaurant_id, label, percentage, menu_id)
 SELECT
   c.restaurant_id,
@@ -45,6 +34,5 @@ WHERE c.key        = 'vat_percentage'
     SELECT 1
     FROM   vat_rates v
     WHERE  v.restaurant_id = c.restaurant_id
-      AND  v.menu_id IS NULL          -- only skip if a catch-all row already exists
-  )
-ON CONFLICT ON CONSTRAINT uq_vat_rates_restaurant_menu DO NOTHING;
+      AND  v.menu_id IS NULL     -- only skip if a catch-all row already exists
+  );

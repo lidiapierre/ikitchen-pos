@@ -1,3 +1,4 @@
+import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { verifyAndGetCaller } from '../_shared/auth.ts'
 
 export const corsHeaders = {
@@ -44,18 +45,28 @@ function isValidUuid(value: string): boolean {
  *
  * Returns 0 on any error (VAT defaults to 0, payment can still proceed).
  */
+/**
+ * Uses the Supabase JS client (jsr:@supabase/supabase-js@2) instead of a raw
+ * fetch() call so that the new `sb_secret_*` service-role key format is handled
+ * correctly. PostgREST rejects `sb_secret_*` as a Bearer JWT ("Expected 3 parts
+ * in JWT; got 1"), but the JS client translates the key into the correct auth
+ * headers internally. The injected fetchFn is forwarded via global.fetch so that
+ * unit tests can still mock the underlying HTTP calls.
+ */
 async function fetchVatPercent(
   supabaseUrl: string,
-  dbHeaders: Record<string, string>,
+  serviceKey: string,
   restaurantId: string,
   fetchFn: FetchFn,
 ): Promise<number> {
   try {
-    const url = `${supabaseUrl}/rest/v1/vat_rates?select=percentage,menu_id&restaurant_id=eq.${restaurantId}`
-    const res = await fetchFn(url, { headers: dbHeaders })
-    if (!res.ok) return 0
-    const rows = (await res.json()) as Array<{ percentage: number | string; menu_id: string | null }>
-    if (rows.length === 0) return 0
+    const supabase = createClient(supabaseUrl, serviceKey, { global: { fetch: fetchFn } })
+    const { data, error } = await supabase
+      .from('vat_rates')
+      .select('percentage, menu_id')
+      .eq('restaurant_id', restaurantId)
+    if (error || !data || data.length === 0) return 0
+    const rows = data as Array<{ percentage: number | string; menu_id: string | null }>
     const defaultRow = rows.find((r) => r.menu_id === null) ?? rows[0]
     return Number(defaultRow.percentage) || 0
   } catch {
@@ -172,7 +183,7 @@ export async function handler(
       // Re-fetch the actual VAT percent (not stored on orders table) using the shared helper.
       // Previously this path returned vat_percent: 0 hardcoded, causing the UI to show no VAT
       // on order re-open. fetchVatPercent falls back to 0 on error, matching old safe behaviour.
-      const idempotentVatPercent = await fetchVatPercent(supabaseUrl, dbHeaders, orders[0].restaurant_id, fetchFn)
+      const idempotentVatPercent = await fetchVatPercent(supabaseUrl, serviceKey, orders[0].restaurant_id, fetchFn)
       return new Response(
         JSON.stringify({
           success: true,
@@ -313,7 +324,7 @@ export async function handler(
             (orderType === 'delivery' && vatApplyDelivery)
 
           if (vatApplies && !taxInclusive) {
-            const vatPercent = await fetchVatPercent(supabaseUrl, dbHeaders, restaurantId, fetchFn)
+            const vatPercent = await fetchVatPercent(supabaseUrl, serviceKey, restaurantId, fetchFn)
             if (vatPercent > 0) {
               // VAT base = postDiscountSubtotal + serviceCharge (same as frontend vatBase)
               const postDiscountBase = Math.max(0, finalTotal - discountAmountCents)

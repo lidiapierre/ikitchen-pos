@@ -237,6 +237,7 @@ function ReprintModal({
           deliveryChargeCents={data.deliveryCharge}
           deliveryZoneName={data.deliveryZoneName ?? undefined}
           roundBillTotals={config.roundBillTotals}
+          fontSizePt={config.billPrintFontSizePt}
         />
       </div>
 

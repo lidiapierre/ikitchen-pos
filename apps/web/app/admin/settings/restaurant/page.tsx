@@ -38,6 +38,7 @@ export default function RestaurantSettingsPage(): JSX.Element {
   const [restaurantAddress, setRestaurantAddress] = useState('')
   const [loyaltyPointsPerOrder, setLoyaltyPointsPerOrder] = useState('10')
   const [roundBillTotals, setRoundBillTotals] = useState(true)
+  const [billPrintFontSizePt, setBillPrintFontSizePt] = useState(12)
 
   // Supabase config ref
   const supabaseConfig = useRef<{ url: string; key: string } | null>(null)
@@ -59,13 +60,14 @@ export default function RestaurantSettingsPage(): JSX.Element {
         if (rows.length === 0) throw new Error('No restaurant found')
         const rid = rows[0].id
         setRestaurantId(rid)
-        const [nameVal, binVal, regVal, addrVal, loyaltyVal, roundVal] = await Promise.all([
+        const [nameVal, binVal, regVal, addrVal, loyaltyVal, roundVal, fontSizeVal] = await Promise.all([
           fetchConfigValue(supabaseUrl, accessToken, rid, 'restaurant_name', ''),
           fetchConfigValue(supabaseUrl, accessToken, rid, 'bin_number', ''),
           fetchConfigValue(supabaseUrl, accessToken, rid, 'register_name', ''),
           fetchConfigValue(supabaseUrl, accessToken, rid, 'restaurant_address', ''),
           fetchConfigValue(supabaseUrl, accessToken, rid, 'loyalty_points_per_order', '10'),
           fetchConfigValue(supabaseUrl, accessToken, rid, 'round_bill_totals', 'true'),
+          fetchConfigValue(supabaseUrl, accessToken, rid, 'bill_print_font_size', '12'),
         ])
         setRestaurantName(nameVal)
         setBinNumber(binVal)
@@ -73,6 +75,7 @@ export default function RestaurantSettingsPage(): JSX.Element {
         setRestaurantAddress(addrVal)
         setLoyaltyPointsPerOrder(loyaltyVal)
         setRoundBillTotals(roundVal === 'true')
+        setBillPrintFontSizePt(parseInt(fontSizeVal, 10) || 12)
       })
       .catch((err: unknown) => {
         setFetchError(err instanceof Error ? err.message : 'Failed to load settings')
@@ -119,6 +122,7 @@ export default function RestaurantSettingsPage(): JSX.Element {
           : Promise.resolve(),
         callUpsertConfig(config.url, config.key, restaurantId, 'loyalty_points_per_order', String(loyaltyNum)),
         callUpsertConfig(config.url, config.key, restaurantId, 'round_bill_totals', roundBillTotals ? 'true' : 'false'),
+        callUpsertConfig(config.url, config.key, restaurantId, 'bill_print_font_size', String(Math.min(16, Math.max(8, billPrintFontSizePt)))),
       ])
       showFeedback('success', 'Restaurant settings saved.')
     } catch (err) {
@@ -268,6 +272,34 @@ export default function RestaurantSettingsPage(): JSX.Element {
               ].join(' ')}
             />
           </button>
+        </div>
+
+        {/* Bill Print Font Size */}
+        <div className="flex flex-col gap-1">
+          <label htmlFor="bill-font-size" className="text-sm font-medium text-brand-navy/80">
+            Bill Print Font Size
+          </label>
+          <div className="flex items-center gap-3">
+            <input
+              id="bill-font-size"
+              type="number"
+              min="8"
+              max="16"
+              step="1"
+              value={billPrintFontSizePt}
+              onChange={(e) => {
+                const v = parseInt(e.target.value, 10)
+                if (!isNaN(v)) setBillPrintFontSizePt(v)
+              }}
+              disabled={submitting}
+              className="min-h-[48px] w-24 px-4 py-2 rounded-xl bg-brand-navy text-white border border-brand-grey focus:border-brand-blue focus:outline-none text-base disabled:opacity-50"
+            />
+            <span className="text-sm text-brand-navy/60">pt &nbsp;(8–16 pt)</span>
+          </div>
+          <p className="text-xs text-brand-grey">
+            Base font size for printed bills. Increase if text is too small on your 80mm thermal printer.
+            Default: 12 pt. All text scales relative to this value.
+          </p>
         </div>
 
         {/* Register Name */}

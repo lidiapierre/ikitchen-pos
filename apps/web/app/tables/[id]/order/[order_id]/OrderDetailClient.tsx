@@ -161,6 +161,8 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
   const [restaurantAddress, setRestaurantAddress] = useState<string>('Lahore by iKitchen, Dhaka')
   const [binNumber, setBinNumber] = useState<string | undefined>(undefined)
   const [registerName, setRegisterName] = useState<string | undefined>(undefined)
+  // Bill print font size in pt (configurable via admin settings)
+  const [billPrintFontSizePt, setBillPrintFontSizePt] = useState<number>(12)
 
   // Void item state
   const [voidingItem, setVoidingItem] = useState<OrderItem | null>(null)
@@ -461,7 +463,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
           ).then((r) => r.ok ? r.json() as Promise<Array<{ name: string }>> : Promise.resolve([])),
           // Fetch enhanced bill config keys in a single request
           fetch(
-            `${supabaseUrl}/rest/v1/config?restaurant_id=eq.${restaurantId}&key=in.(bin_number,register_name,restaurant_address,round_bill_totals)&select=key,value`,
+            `${supabaseUrl}/rest/v1/config?restaurant_id=eq.${restaurantId}&key=in.(bin_number,register_name,restaurant_address,round_bill_totals,bill_print_font_size)&select=key,value`,
             { headers: { apikey: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? '', Authorization: `Bearer ${accessToken}` } },
           ).then((r) => r.ok ? r.json() as Promise<Array<{ key: string; value: string }>> : Promise.resolve([])),
         ]),
@@ -490,6 +492,10 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
         if (cfgMap.has('register_name')) setRegisterName(cfgMap.get('register_name'))
         if (cfgMap.has('restaurant_address')) setRestaurantAddress(cfgMap.get('restaurant_address') ?? '')
         if (cfgMap.has('round_bill_totals')) setRoundBillTotals(cfgMap.get('round_bill_totals') === 'true')
+        if (cfgMap.has('bill_print_font_size')) {
+          const parsed = parseInt(cfgMap.get('bill_print_font_size') ?? '12', 10)
+          if (!isNaN(parsed) && parsed >= 8 && parsed <= 16) setBillPrintFontSizePt(parsed)
+        }
       })
       .catch(() => {
         // Non-fatal: fall back to 0% VAT / 0% service charge (safe — no overcharging)
@@ -2633,6 +2639,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
             deliveryZoneName={orderDeliveryZoneName ?? undefined}
             roundBillTotals={roundBillTotals}
             isDue={printingPreBill}
+            fontSizePt={billPrintFontSizePt}
           />
         </div>
       )}

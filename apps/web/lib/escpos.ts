@@ -79,6 +79,15 @@ export interface BillEscPosOptions {
   amountTenderedCents?: number
   changeDueCents?: number
   orderComp?: boolean
+  /**
+   * Base font size in pt (8–16). Maps to ESC/POS GS ! character-size magnification.
+   *   ≤12pt → 0x00 (normal, 1× height × 1× width)
+   *   >12pt  → 0x10 (double height, normal width)
+   * Double-width is not used — it halves the 42-char line width and breaks
+   * rightAlign() / divider() output on 80mm paper.
+   * Defaults to 12 (normal / no magnification).
+   */
+  fontSizePt?: number
 }
 
 /**
@@ -91,6 +100,20 @@ function rightAlign(label: string, value: string, width = 42): string {
 
 function centsToCurrency(cents: number): string {
   return (cents / 100).toFixed(2)
+}
+
+/**
+ * Map a font size in pt to a GS ! (character size) byte.
+ *   ≤12pt → 0x00 normal (1× height × 1× width)
+ *   >12pt  → 0x10 double height (2× height × 1× width)
+ *
+ * Double-width (0x11) is intentionally avoided: it halves the usable line width
+ * from 42 to 21 characters, which would wrap rightAlign() and divider() output
+ * on 80mm paper. Double-height alone produces a visibly larger, clearly readable
+ * receipt without breaking the column layout.
+ */
+function fontSizeToGsMag(pt: number): number {
+  return pt <= 12 ? 0x00 : 0x10
 }
 
 /**
@@ -118,10 +141,19 @@ export function buildBillEscPos(
     amountTenderedCents,
     changeDueCents,
     orderComp = false,
+    fontSizePt = 12,
   } = opts
 
   // Init
   bytes.push(...CMD_INIT)
+
+  // Apply configured font size magnification (GS ! n).
+  // fontSizePt > 12 produces visibly larger output on the thermal printer.
+  // No-op when sizeByte === 0x00 (normal / default).
+  const sizeByte = fontSizeToGsMag(fontSizePt)
+  if (sizeByte !== 0x00) {
+    bytes.push(GS, 0x21, sizeByte)
+  }
 
   // Header
   bytes.push(...CMD_ALIGN_CENTER)

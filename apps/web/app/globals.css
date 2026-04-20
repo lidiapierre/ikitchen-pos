@@ -83,8 +83,11 @@ body {
     visibility: visible;
   }
 
+  /* position: absolute (not fixed) so the print area renders ONCE at the top of the
+     document and does not repeat on every page the browser generates.
+     position: fixed would repeat on every page, causing duplicate physical copies. */
   .print-area {
-    position: fixed;
+    position: absolute;
     top: 0;
     left: 0;
     width: 80mm;

@@ -90,6 +90,17 @@ export interface BillPrintViewProps {
    * Issue #370 — pre-payment bill copy for dine-in and takeaway orders.
    */
   isDue?: boolean
+  /**
+   * Base font size in pt for the printed bill.
+   * All text scales relative to this value:
+   *   - body/labels: fontSizePt
+   *   - header (restaurant name): fontSizePt + 2
+   *   - order-number badge: fontSizePt + 4
+   *   - secondary/meta text: fontSizePt - 1
+   * Use `pt` units — they map 1:1 to physical size on thermal printers.
+   * Default: 12pt.
+   */
+  fontSizePt?: number
 }
 
 export default function BillPrintView({
@@ -128,7 +139,13 @@ export default function BillPrintView({
   roundBillTotals = false,
   splitPayments,
   isDue = false,
+  fontSizePt = 12,
 }: BillPrintViewProps): JSX.Element {
+  // Font size tiers in pt — physical units that map 1:1 to thermal printer output
+  const sizeXs = `${Math.max(6, fontSizePt - 1)}pt`   // secondary / meta text
+  const sizeSm = `${fontSizePt}pt`                     // body / labels
+  const sizeBase = `${fontSizePt + 2}pt`               // restaurant name header
+  const sizeLg = `${fontSizePt + 4}pt`                 // order number badge
   // Use caller-provided vatCents when available (preferred — supports new calculation order).
   // Fall back to derived value for backward compatibility.
   const vatCents = vatCentsProp !== undefined ? vatCentsProp : totalCents - subtotalCents
@@ -145,27 +162,27 @@ export default function BillPrintView({
     <div aria-hidden="true" className="hidden print:block font-mono text-black bg-white p-2 w-full max-w-xs">
       {/* 1. Restaurant name + address */}
       <div className="text-center mb-1">
-        <p className="text-base font-bold">{restaurantName}</p>
-        <p className="text-sm">{isDue ? 'DUE BILL' : 'BILL RECEIPT'}</p>
-        <p className="text-xs">{restaurantAddress}</p>
+        <p className="font-bold" style={{ fontSize: sizeBase }}>{restaurantName}</p>
+        <p style={{ fontSize: sizeSm }}>{isDue ? 'DUE BILL' : 'BILL RECEIPT'}</p>
+        <p style={{ fontSize: sizeXs }}>{restaurantAddress}</p>
       </div>
 
       {/* 2. BIN # */}
       {binNumber && (
         <div className="text-center mb-1">
-          <p className="text-xs">BIN: {binNumber}</p>
+          <p style={{ fontSize: sizeXs }}>BIN: {binNumber}</p>
         </div>
       )}
 
       {/* Order number badge — prominently displayed above meta */}
       {orderNumber != null && (
         <div className="text-center border border-black py-1 mb-2">
-          <p className="text-2xl font-bold tracking-widest">#{String(orderNumber).padStart(3, '0')}</p>
+          <p className="font-bold tracking-widest" style={{ fontSize: sizeLg }}>#{String(orderNumber).padStart(3, '0')}</p>
         </div>
       )}
 
       {/* 3. Bill meta */}
-      <div className="border-t border-b border-black py-1 mb-2 text-xs space-y-0.5">
+      <div className="border-t border-b border-black py-1 mb-2 space-y-0.5" style={{ fontSize: sizeXs }}>
         {billNumber && (
           <div className="flex justify-between">
             <span className="font-semibold">Bill No</span>
@@ -208,14 +225,14 @@ export default function BillPrintView({
 
       {/* COMPLIMENTARY banner for whole-order comp */}
       {orderComp && (
-        <div className="text-center border border-black py-1 mb-2 text-sm font-bold tracking-widest">
+        <div className="text-center border border-black py-1 mb-2 font-bold tracking-widest" style={{ fontSize: sizeSm }}>
           ★ COMPLIMENTARY ★
         </div>
       )}
 
       {/* DUE / UNPAID banner — pre-payment bill copy (issue #370) */}
       {isDue && (
-        <div className="text-center border-2 border-black py-1 mb-2 text-sm font-bold tracking-widest">
+        <div className="text-center border-2 border-black py-1 mb-2 font-bold tracking-widest" style={{ fontSize: sizeSm }}>
           *** AMOUNT DUE — UNPAID ***
         </div>
       )}
@@ -223,7 +240,7 @@ export default function BillPrintView({
       {/* 4. Line items: S.No | Item name | Qty | Amount */}
       <div className="mb-2">
         {/* Header row */}
-        <div className="flex text-xs font-semibold border-b border-black pb-0.5 mb-0.5">
+        <div className="flex font-semibold border-b border-black pb-0.5 mb-0.5" style={{ fontSize: sizeXs }}>
           <span className="w-6 shrink-0">#</span>
           <span className="flex-1">Item</span>
           <span className="w-8 text-right shrink-0">Qty</span>
@@ -237,7 +254,7 @@ export default function BillPrintView({
           const hasItemDiscount = !isComp && itemDiscountCents > 0
           return (
             <div key={item.id} className="mb-0.5">
-              <div className="flex text-xs">
+              <div className="flex" style={{ fontSize: sizeXs }}>
                 <span className="w-6 shrink-0 text-zinc-600">{idx + 1}</span>
                 <span className="flex-1 truncate">
                   {item.name}
@@ -249,7 +266,7 @@ export default function BillPrintView({
                 </span>
               </div>
               {hasItemDiscount && (
-                <div className="pl-6 text-xs text-zinc-500">
+                <div className="pl-6 text-zinc-500" style={{ fontSize: sizeXs }}>
                   {item.item_discount_type === 'percent' && item.item_discount_value != null
                     ? `Discount: -${item.item_discount_value / 100}%`
                     : `Discount: -${formatPrice(itemDiscountCents, DEFAULT_CURRENCY_SYMBOL, roundBillTotals)}`}
@@ -258,12 +275,12 @@ export default function BillPrintView({
               {item.modifier_names.length > 0 && (
                 <ul className="pl-6">
                   {item.modifier_names.map((mod) => (
-                    <li key={mod} className="text-xs text-zinc-600">+ {mod}</li>
+                    <li key={mod} className="text-zinc-600" style={{ fontSize: sizeXs }}>+ {mod}</li>
                   ))}
                 </ul>
               )}
               {item.notes && (
-                <p className="pl-6 text-xs text-zinc-500 italic">↳ {item.notes}</p>
+                <p className="pl-6 text-zinc-500 italic" style={{ fontSize: sizeXs }}>↳ {item.notes}</p>
               )}
             </div>
           )
@@ -271,7 +288,7 @@ export default function BillPrintView({
       </div>
 
       {/* 5. Sub total → Discount → Service Charge → VAT → Round off → Pay */}
-      <div className="border-t border-black pt-1 mb-2 text-sm space-y-0.5">
+      <div className="border-t border-black pt-1 mb-2 space-y-0.5" style={{ fontSize: sizeSm }}>
         {!orderComp && (
           <>
             <div className="flex justify-between">
@@ -324,7 +341,7 @@ export default function BillPrintView({
 
       {/* 6. Payment breakdown — hidden on pre-payment due bills (issue #391) */}
       {!orderComp && !isDue && (
-        <div className="border-t border-black pt-1 mb-2 text-sm space-y-0.5">
+        <div className="border-t border-black pt-1 mb-2 space-y-0.5" style={{ fontSize: sizeSm }}>
           {splitPayments && splitPayments.length > 0 ? (
             // One line per payment method (single or split) — always shows amount (issue #391)
             <>
@@ -382,8 +399,8 @@ export default function BillPrintView({
 
       {/* 7. Customer details (delivery/takeaway) */}
       {isNonDineIn && (customerName || customerMobile || deliveryNote) && (
-        <div className="border-t border-black pt-1 mb-2 text-xs space-y-0.5">
-          <p className="font-semibold text-sm">{isDelivery ? 'Delivery' : 'Takeaway'} Details</p>
+        <div className="border-t border-black pt-1 mb-2 space-y-0.5" style={{ fontSize: sizeXs }}>
+          <p className="font-semibold" style={{ fontSize: sizeSm }}>{isDelivery ? 'Delivery' : 'Takeaway'} Details</p>
           {customerName && (
             <div className="flex justify-between">
               <span>Name</span>
@@ -406,7 +423,7 @@ export default function BillPrintView({
       )}
 
       {/* 8. Footer */}
-      <div className="border-t border-black mt-2 pt-1 text-center text-xs">
+      <div className="border-t border-black mt-2 pt-1 text-center" style={{ fontSize: sizeXs }}>
         Thank You!!!
       </div>
     </div>

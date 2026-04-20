@@ -470,6 +470,8 @@ export interface RestaurantConfig {
   serviceChargePercent: number
   currencySymbol: string
   roundBillTotals: boolean
+  /** Base font size in pt for bill printing (configurable via admin settings). Default: 12. */
+  billPrintFontSizePt: number
 }
 
 /**
@@ -486,7 +488,7 @@ export async function fetchRestaurantConfig(
 
   const [configRes, vatRes, restaurantRes] = await Promise.all([
     fetch(
-      `${supabaseUrl}/rest/v1/config?key=in.(bin_number,register_name,restaurant_address,round_bill_totals,currency_symbol,service_charge_percent)&select=key,value`,
+      `${supabaseUrl}/rest/v1/config?key=in.(bin_number,register_name,restaurant_address,round_bill_totals,currency_symbol,service_charge_percent,bill_print_font_size)&select=key,value`,
       { headers },
     ),
     fetch(
@@ -532,5 +534,6 @@ export async function fetchRestaurantConfig(
     serviceChargePercent: parseFloat(cfgMap.get('service_charge_percent') ?? '0') || 0,
     currencySymbol: cfgMap.get('currency_symbol') ?? '৳',
     roundBillTotals: cfgMap.get('round_bill_totals') === 'true',
+    billPrintFontSizePt: parseInt(cfgMap.get('bill_print_font_size') ?? '12', 10) || 12,
   }
 }

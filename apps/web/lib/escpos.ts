@@ -81,9 +81,10 @@ export interface BillEscPosOptions {
   orderComp?: boolean
   /**
    * Base font size in pt (8–16). Maps to ESC/POS GS ! character-size magnification.
-   *   ≤12pt → 1× (normal)
-   *   13–14pt → 2× height (double height, normal width)
-   *   ≥15pt → 2× height + 2× width (double size)
+   *   ≤12pt → 0x00 (normal, 1× height × 1× width)
+   *   >12pt  → 0x10 (double height, normal width)
+   * Double-width is not used — it halves the 42-char line width and breaks
+   * rightAlign() / divider() output on 80mm paper.
    * Defaults to 12 (normal / no magnification).
    */
   fontSizePt?: number

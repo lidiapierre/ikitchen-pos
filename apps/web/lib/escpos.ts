@@ -104,13 +104,15 @@ function centsToCurrency(cents: number): string {
 /**
  * Map a font size in pt to a GS ! (character size) byte.
  *   ≤12pt → 0x00 normal (1× height × 1× width)
- *   13–14pt → 0x10 double height (2× height × 1× width)
- *   ≥15pt  → 0x11 double size  (2× height × 2× width)
+ *   >12pt  → 0x10 double height (2× height × 1× width)
+ *
+ * Double-width (0x11) is intentionally avoided: it halves the usable line width
+ * from 42 to 21 characters, which would wrap rightAlign() and divider() output
+ * on 80mm paper. Double-height alone produces a visibly larger, clearly readable
+ * receipt without breaking the column layout.
  */
 function fontSizeToGsMag(pt: number): number {
-  if (pt <= 12) return 0x00
-  if (pt <= 14) return 0x10
-  return 0x11
+  return pt <= 12 ? 0x00 : 0x10
 }
 
 /**

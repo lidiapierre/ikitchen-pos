@@ -146,18 +146,26 @@ describe('buildBillEscPos', () => {
     expect(result[4]).toBe(0x10)
   })
 
-  it('emits GS ! 0x11 (double size) when fontSizePt is 15', () => {
+  it('emits GS ! 0x10 (double height only) when fontSizePt is 15 — no double-width to avoid wrapping rightAlign/divider', () => {
     const result = buildBillEscPos(sampleItems, { ...baseOpts, fontSizePt: 15 })
     expect(result[2]).toBe(0x1d)
     expect(result[3]).toBe(0x21)
-    expect(result[4]).toBe(0x11)
+    expect(result[4]).toBe(0x10)
   })
 
-  it('emits GS ! 0x11 (double size) when fontSizePt is 16', () => {
+  it('emits GS ! 0x10 (double height only) when fontSizePt is 16', () => {
     const result = buildBillEscPos(sampleItems, { ...baseOpts, fontSizePt: 16 })
     expect(result[2]).toBe(0x1d)
     expect(result[3]).toBe(0x21)
-    expect(result[4]).toBe(0x11)
+    expect(result[4]).toBe(0x10)
+  })
+
+  it('column formatting (rightAlign) is preserved at fontSizePt 14 — totals still fit on one line', () => {
+    const result = buildBillEscPos(sampleItems, { ...baseOpts, fontSizePt: 14 })
+    const text = new TextDecoder('latin1').decode(result)
+    // Total value must appear on same line as TOTAL label (not wrapped)
+    expect(text).toContain('21.00')
+    expect(text).toContain('TOTAL')
   })
 
   it('defaults to normal size (no GS !) when fontSizePt is omitted', () => {

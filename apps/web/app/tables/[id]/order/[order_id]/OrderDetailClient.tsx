@@ -1105,6 +1105,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
           amountTenderedCents: billAmountTenderedCents,
           changeDueCents: changeDueCents > 0 ? changeDueCents : undefined,
           orderComp: orderIsComp,
+          fontSizePt: billPrintFontSizePt,
         },
         printerProfile: cashierProfile,
         onAfterBrowserPrint: () => { setPrintingBill(false); billPrintGuardRef.current = false },
@@ -2584,8 +2585,10 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
 
   return (
     <main className="min-h-screen bg-brand-offwhite p-6 flex flex-col">
-      {/* KOT print component — only marked as print-area when KOT is actively printing */}
-      <div className={kotStatus !== null || reprintingKot || firingCourse !== null ? 'print-area' : ''}>
+      {/* KOT print component — only marked as print-area when KOT is actively printing.
+           When inactive, print:hidden prevents it from taking layout space during print
+           (avoids phantom second pages that cause double printing via position:fixed). */}
+      <div className={kotStatus !== null || reprintingKot || firingCourse !== null ? 'print-area' : 'print:hidden'}>
         <KotPrintView
           tableLabel={displayTableLabel || tableId.slice(0, 8)}
           orderId={orderId}
@@ -2603,9 +2606,11 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
         />
       </div>
 
-      {/* Bill print component — only marked as print-area when bill is actively printing */}
+      {/* Bill print component — only marked as print-area when bill is actively printing.
+           When inactive, print:hidden prevents it from taking layout space during print
+           (avoids phantom second pages that cause double printing via position:fixed). */}
       {!splitBillPrinting && (
-        <div className={(printingBill || printingPreBill) ? 'print-area' : ''}>
+        <div className={(printingBill || printingPreBill) ? 'print-area' : 'print:hidden'}>
           <BillPrintView
             tableLabel={displayTableLabel || tableId.slice(0, 8)}
             orderId={orderId}

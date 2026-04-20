@@ -9,6 +9,7 @@
  *      - Otherwise: invite (owner receives an email invitation)
  *   4. Creates row in `users` with role = 'owner'
  *   5. Seeds default config (currency_code, currency_symbol, vat_percentage, service_charge)
+ *   6. Seeds a vat_rates row when vat_percentage > 0 (so fetchVatConfig returns the correct rate)
  *
  * On any failure after the restaurant row is created, cleanup is attempted.
  *
@@ -284,6 +285,24 @@ export async function handler(
     headers: { ...serviceHeaders, Prefer: 'resolution=ignore-duplicates' },
     body: JSON.stringify(defaultConfig),
   }).catch(() => undefined)
+
+  // --- 5. Seed vat_rates row when VAT > 0 ---
+  // fetchVatConfig reads from vat_rates, not from config.vat_percentage.
+  // Without this row, bill preview always shows 0% VAT even when a rate was
+  // provided at registration time.
+  const vatNum = parseFloat(vatPercentage)
+  if (!isNaN(vatNum) && vatNum > 0) {
+    await fetchFn(`${supabaseUrl}/rest/v1/vat_rates`, {
+      method: 'POST',
+      headers: { ...serviceHeaders, Prefer: 'resolution=ignore-duplicates' },
+      body: JSON.stringify([{
+        restaurant_id: restaurant.id,
+        label: 'Standard',
+        percentage: vatNum,
+        menu_id: null,
+      }]),
+    }).catch(() => undefined)
+  }
 
   return new Response(
     JSON.stringify({

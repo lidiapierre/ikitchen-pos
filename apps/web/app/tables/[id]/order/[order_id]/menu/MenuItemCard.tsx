@@ -41,8 +41,8 @@ interface MenuItemCardProps {
 }
 
 export default function MenuItemCard({ item, orderId, onItemAdded, onItemFailed, currencySymbol = DEFAULT_CURRENCY_SYMBOL, pricingConfig }: MenuItemCardProps): JSX.Element {
-  const { accessToken: _at } = useUser(); const accessToken = _at ?? ''
-  const [loading, setLoading] = useState(false)
+  const { accessToken: rawToken } = useUser()
+  const accessToken = rawToken ?? ''
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -61,18 +61,16 @@ export default function MenuItemCard({ item, orderId, onItemAdded, onItemFailed,
       .reduce((sum, mod) => sum + mod.price_delta_cents, 0)
     const priceDelta = item.price_cents + modifierDeltaCents
 
-    // ── Optimistic update ─────────────────────────────────────────────
-    // Show success state and update the session total immediately (<50ms).
-    // Disable the button immediately to prevent rapid-tap double-adds.
-    // If the API call fails we roll back both.
+    // Optimistic: success=true immediately; loading=true would win the button check (React 18 batch), disabling it for ~200-600ms.
     setSuccess(true)
     onItemAdded(priceDelta)
-    setLoading(true)
-    // ─────────────────────────────────────────────────────────────────
 
     try {
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-      if (!supabaseUrl || !accessToken) {
+      if (!supabaseUrl) {
+        throw new Error('API not configured')
+      }
+      if (!accessToken) {
         throw new Error('Not authenticated')
       }
       await callAddItemToOrder(
@@ -86,15 +84,11 @@ export default function MenuItemCard({ item, orderId, onItemAdded, onItemFailed,
       // API confirmed — clear success badge after 1.5 s
       setTimeout(() => { setSuccess(false) }, 1500)
     } catch (err) {
-      // ── Rollback ──────────────────────────────────────────────────
+      // Rollback optimistic update
       setSuccess(false)
-      setLoading(false)
       const msg = err instanceof Error ? err.message : 'Failed to add item'
       setError(msg)
       onItemFailed?.(priceDelta)
-      // ─────────────────────────────────────────────────────────────
-    } finally {
-      setLoading(false)
     }
   }
 
@@ -153,7 +147,7 @@ export default function MenuItemCard({ item, orderId, onItemAdded, onItemFailed,
           onToggle={handleToggleModifier}
           onConfirm={handleConfirmModal}
           onCancel={handleCancelModal}
-          confirming={loading}
+          confirming={false} // modal is closed before addItem fires; this is never needed
         />
       )}
 
@@ -246,7 +240,7 @@ export default function MenuItemCard({ item, orderId, onItemAdded, onItemFailed,
         <button
           type="button"
           onClick={handleTap}
-          disabled={loading || isUnavailable}
+          disabled={isUnavailable}
           aria-disabled={isUnavailable}
           className={[
             'min-h-[48px] min-w-[48px] rounded-xl text-base font-semibold',
@@ -255,12 +249,10 @@ export default function MenuItemCard({ item, orderId, onItemAdded, onItemFailed,
               ? 'bg-zinc-700 text-zinc-500 cursor-not-allowed'
               : success
                 ? 'bg-green-600 text-white'
-                : loading
-                  ? 'bg-brand-grey/30 text-brand-navy/50 cursor-wait'
-                  : 'bg-brand-gold hover:bg-brand-gold/90 text-brand-navy',
+                : 'bg-brand-gold hover:bg-brand-gold/90 text-brand-navy',
           ].join(' ')}
         >
-          {isUnavailable ? '86\'d' : loading ? 'Adding…' : success ? (
+          {isUnavailable ? '86\'d' : success ? (
             <span className="flex items-center justify-center gap-1"><Check size={16} aria-hidden="true" />Added</span>
           ) : 'Add'}
         </button>

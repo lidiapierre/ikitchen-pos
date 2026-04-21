@@ -41,7 +41,8 @@ interface MenuItemCardProps {
 }
 
 export default function MenuItemCard({ item, orderId, onItemAdded, onItemFailed, currencySymbol = DEFAULT_CURRENCY_SYMBOL, pricingConfig }: MenuItemCardProps): JSX.Element {
-  const { accessToken: _at } = useUser(); const accessToken = _at ?? ''
+  const { accessToken: rawToken } = useUser()
+  const accessToken = rawToken ?? ''
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -60,17 +61,10 @@ export default function MenuItemCard({ item, orderId, onItemAdded, onItemFailed,
       .reduce((sum, mod) => sum + mod.price_delta_cents, 0)
     const priceDelta = item.price_cents + modifierDeltaCents
 
-    // ── Optimistic update ─────────────────────────────────────────────
-    // Show "Added ✓" and update the running total immediately.
-    // Do NOT set loading=true here — React 18 batches state updates so
-    // setting loading=true at the same time as success=true would cause
-    // loading to win in the render (loading is checked first in the button),
-    // which disables the button for the full server round-trip (~200-600ms).
-    // Instead, keep the button live so staff can rapid-fire add items.
-    // Rollback both on failure.
+    // Optimistic: show "✓ Added" and update running total immediately; rollback on failure.
+    // Do NOT set loading=true — React 18 batches updates so loading would win the button render.
     setSuccess(true)
     onItemAdded(priceDelta)
-    // ─────────────────────────────────────────────────────────────────
 
     try {
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -91,12 +85,11 @@ export default function MenuItemCard({ item, orderId, onItemAdded, onItemFailed,
       // API confirmed — clear success badge after 1.5 s
       setTimeout(() => { setSuccess(false) }, 1500)
     } catch (err) {
-      // ── Rollback ──────────────────────────────────────────────────
+      // Rollback optimistic update
       setSuccess(false)
       const msg = err instanceof Error ? err.message : 'Failed to add item'
       setError(msg)
       onItemFailed?.(priceDelta)
-      // ─────────────────────────────────────────────────────────────
     }
   }
 

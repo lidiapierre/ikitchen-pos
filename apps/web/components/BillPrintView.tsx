@@ -153,7 +153,7 @@ export default function BillPrintView({
   const payableCents = totalCents + roundOffCents
 
   return (
-    <div aria-hidden="true" className="hidden print:block font-mono text-black bg-white p-2 w-full max-w-xs" style={fontVars}>
+    <div aria-hidden="true" className="hidden print:block font-mono text-black bg-white p-2 w-full" style={fontVars}>
       {/* 1. Restaurant name + address */}
       <div className="text-center mb-1">
         <p className="font-bold text-[length:var(--bill-base)]">{restaurantName}</p>

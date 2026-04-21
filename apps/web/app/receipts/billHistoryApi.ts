@@ -488,7 +488,7 @@ export async function fetchRestaurantConfig(
 
   const [configRes, vatRes, restaurantRes] = await Promise.all([
     fetch(
-      `${supabaseUrl}/rest/v1/config?key=in.(bin_number,register_name,restaurant_address,round_bill_totals,currency_symbol,service_charge_percent,bill_print_font_size)&select=key,value`,
+      `${supabaseUrl}/rest/v1/config?key=in.(bin_number,register_name,restaurant_address,round_bill_totals,currency_symbol,service_charge_percent,bill_print_font_size,restaurant_name)&select=key,value`,
       { headers },
     ),
     fetch(
@@ -522,6 +522,9 @@ export async function fetchRestaurantConfig(
     const restRows = (await restaurantRes.json()) as Array<{ name: string }>
     if (restRows.length > 0) restaurantName = restRows[0].name
   }
+  // Prefer config-overridden name over restaurants.name (consistent with OrderDetailClient)
+  const cfgRestaurantName = cfgMap.get('restaurant_name')
+  if (cfgRestaurantName) restaurantName = cfgRestaurantName
 
   return {
     restaurantName: restaurantName || '',

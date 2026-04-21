@@ -140,6 +140,9 @@ export default function BillPrintView({
     '--bill-base': `${fontSizePt + 2}pt`,
     '--bill-lg':   `${fontSizePt + 4}pt`,
   } as React.CSSProperties
+  // NOTE: style={fontVars} below is an approved exception to the "no inline styles" rule.
+  // CSS custom properties must be set dynamically at runtime; Tailwind cannot express
+  // arbitrary per-render values. Documented in apps/web/CLAUDE.md.
   // Use caller-provided vatCents when available (preferred — supports new calculation order).
   // Fall back to derived value for backward compatibility.
   const vatCents = vatCentsProp !== undefined ? vatCentsProp : totalCents - subtotalCents

@@ -17,7 +17,7 @@ This is a tablet-first PWA for restaurant staff. Functional clarity over visual 
 - One component per file
 - Co-locate styles, types, and tests with the component
 - Use Tailwind utility classes only — no custom CSS unless unavoidable
-- No inline styles
+- No inline styles — **exception:** `BillPrintView` uses `style={fontVars}` to inject dynamic CSS custom properties (`--bill-xs/sm/base/lg`) that cannot be expressed as static Tailwind classes. This is the only approved use; do not add new inline styles.
 
 ## Data fetching
 

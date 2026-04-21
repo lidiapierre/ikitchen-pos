@@ -155,7 +155,7 @@ export default function MenuItemCard({ item, orderId, onItemAdded, onItemFailed,
           onToggle={handleToggleModifier}
           onConfirm={handleConfirmModal}
           onCancel={handleCancelModal}
-          confirming={false}
+          confirming={false} // modal is closed before addItem fires; this is never needed
         />
       )}
 

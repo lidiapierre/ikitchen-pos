@@ -61,8 +61,7 @@ export default function MenuItemCard({ item, orderId, onItemAdded, onItemFailed,
       .reduce((sum, mod) => sum + mod.price_delta_cents, 0)
     const priceDelta = item.price_cents + modifierDeltaCents
 
-    // Optimistic: show "✓ Added" and update running total immediately; rollback on failure.
-    // Do NOT set loading=true — React 18 batches updates so loading would win the button render.
+    // Optimistic: success=true immediately; loading=true would win the button check (React 18 batch), disabling it for ~200-600ms.
     setSuccess(true)
     onItemAdded(priceDelta)
 

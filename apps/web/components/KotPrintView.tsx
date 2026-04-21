@@ -32,6 +32,8 @@ interface KotPrintViewProps {
    * Set when items are being added to an order that already has sent items (issue #374).
    */
   isNewAddition?: boolean
+  /** Restaurant name displayed at the top of the KOT. */
+  restaurantName?: string
 }
 
 /** Ordered course sequence for grouped KOT display (issue #373) */
@@ -74,6 +76,7 @@ export default function KotPrintView({
   orderNumber,
   scheduledTime,
   isNewAddition = false,
+  restaurantName = '',
 }: KotPrintViewProps): JSX.Element {
   // Base filter: unsent items (or all for reprint)
   let displayItems = showAll ? items : items.filter((item) => !item.sent_to_kitchen)
@@ -87,9 +90,9 @@ export default function KotPrintView({
   const isDelivery = orderType === 'delivery'
 
   return (
-    <div aria-hidden="true" className="hidden print:block font-mono text-black bg-white p-2 w-full max-w-xs">
+    <div aria-hidden="true" className="hidden print:block font-mono text-black bg-white p-2 w-full">
       <div className="text-center mb-2">
-        <p className="text-base font-bold">Lahore by iKitchen</p>
+        {restaurantName && <p className="text-base font-bold">{restaurantName}</p>}
         <p className="text-sm">KITCHEN ORDER TICKET</p>
         {showAll && !courseFilter && <p className="text-xs">(REPRINT)</p>}
       </div>

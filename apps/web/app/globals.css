@@ -73,6 +73,13 @@ body {
     size: 80mm auto;
   }
 
+  /* Constrain the body to 80mm so Chrome's viewport matches the thermal roll width */
+  body {
+    margin: 0;
+    padding: 0;
+    width: 80mm;
+  }
+
   /* Hide everything on the page — only the .print-area element and its children show */
   body * {
     visibility: hidden;
@@ -85,12 +92,13 @@ body {
 
   /* position: absolute (not fixed) so the print area renders ONCE at the top of the
      document and does not repeat on every page the browser generates.
-     position: fixed would repeat on every page, causing duplicate physical copies. */
+     position: fixed would repeat on every page, causing duplicate physical copies.
+     width: 100% — let the printer driver own the roll width; body is already 80mm. */
   .print-area {
     position: absolute;
     top: 0;
     left: 0;
-    width: 80mm;
+    width: 100%;
     font-family: var(--font-noto-sans), 'Noto Sans Bengali', Arial, sans-serif;
   }
 }

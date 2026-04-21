@@ -116,8 +116,8 @@ export default function BillPrintView({
   customerName,
   deliveryNote,
   customerMobile,
-  restaurantName = 'Lahore by iKitchen',
-  restaurantAddress = 'Lahore by iKitchen, Dhaka',
+  restaurantName = '',
+  restaurantAddress = '',
   binNumber,
   billNumber,
   locationName,
@@ -140,6 +140,9 @@ export default function BillPrintView({
     '--bill-base': `${fontSizePt + 2}pt`,
     '--bill-lg':   `${fontSizePt + 4}pt`,
   } as React.CSSProperties
+  // NOTE: style={fontVars} below is an approved exception to the "no inline styles" rule.
+  // CSS custom properties must be set dynamically at runtime; Tailwind cannot express
+  // arbitrary per-render values. Documented in apps/web/CLAUDE.md.
   // Use caller-provided vatCents when available (preferred — supports new calculation order).
   // Fall back to derived value for backward compatibility.
   const vatCents = vatCentsProp !== undefined ? vatCentsProp : totalCents - subtotalCents
@@ -153,10 +156,10 @@ export default function BillPrintView({
   const payableCents = totalCents + roundOffCents
 
   return (
-    <div aria-hidden="true" className="hidden print:block font-mono text-black bg-white p-2 w-full max-w-xs" style={fontVars}>
+    <div aria-hidden="true" className="hidden print:block font-mono text-black bg-white p-2 w-full" style={fontVars}>
       {/* 1. Restaurant name + address */}
       <div className="text-center mb-1">
-        <p className="font-bold text-[length:var(--bill-base)]">{restaurantName}</p>
+        {restaurantName && <p className="font-bold text-[length:var(--bill-base)]">{restaurantName}</p>}
         <p className="text-[length:var(--bill-sm)]">{isDue ? 'DUE BILL' : 'BILL RECEIPT'}</p>
         <p className="text-[length:var(--bill-xs)]">{restaurantAddress}</p>
       </div>

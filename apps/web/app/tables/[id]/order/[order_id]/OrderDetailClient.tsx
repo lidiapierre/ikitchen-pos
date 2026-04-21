@@ -157,8 +157,8 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
   const customerLookupDebounceRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Restaurant config for enhanced bill (issue #261)
-  const [restaurantName, setRestaurantName] = useState<string>('Lahore by iKitchen')
-  const [restaurantAddress, setRestaurantAddress] = useState<string>('Lahore by iKitchen, Dhaka')
+  const [restaurantName, setRestaurantName] = useState<string>('')
+  const [restaurantAddress, setRestaurantAddress] = useState<string>('')
   const [binNumber, setBinNumber] = useState<string | undefined>(undefined)
   const [registerName, setRegisterName] = useState<string | undefined>(undefined)
   // Bill print font size in pt (configurable via admin settings)
@@ -463,7 +463,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
           ).then((r) => r.ok ? r.json() as Promise<Array<{ name: string }>> : Promise.resolve([])),
           // Fetch enhanced bill config keys in a single request
           fetch(
-            `${supabaseUrl}/rest/v1/config?restaurant_id=eq.${restaurantId}&key=in.(bin_number,register_name,restaurant_address,round_bill_totals,bill_print_font_size)&select=key,value`,
+            `${supabaseUrl}/rest/v1/config?restaurant_id=eq.${restaurantId}&key=in.(bin_number,register_name,restaurant_address,round_bill_totals,bill_print_font_size,restaurant_name)&select=key,value`,
             { headers: { apikey: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? '', Authorization: `Bearer ${accessToken}` } },
           ).then((r) => r.ok ? r.json() as Promise<Array<{ key: string; value: string }>> : Promise.resolve([])),
         ]),
@@ -488,6 +488,8 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
         for (const row of (configRows as Array<{ key: string; value: string }>)) {
           cfgMap.set(row.key, row.value)
         }
+        const cfgRestaurantName = cfgMap.get('restaurant_name')
+        if (cfgRestaurantName) setRestaurantName(cfgRestaurantName)
         if (cfgMap.has('bin_number')) setBinNumber(cfgMap.get('bin_number'))
         if (cfgMap.has('register_name')) setRegisterName(cfgMap.get('register_name'))
         if (cfgMap.has('restaurant_address')) setRestaurantAddress(cfgMap.get('restaurant_address') ?? '')
@@ -2603,6 +2605,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
           orderNumber={orderNumber}
           scheduledTime={orderScheduledTime}
           isNewAddition={kotIsNewAddition}
+          restaurantName={restaurantName}
         />
       </div>
 

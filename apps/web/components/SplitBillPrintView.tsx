@@ -135,7 +135,7 @@ export default function SplitBillPrintView({
           >
             {/* Header */}
             <div className="text-center mb-1">
-              <p className="text-base font-bold">{restaurantName}</p>
+              {restaurantName && <p className="text-base font-bold">{restaurantName}</p>}
               <p className="text-sm">BILL RECEIPT</p>
               <p className="text-xs">{restaurantAddress}</p>
             </div>

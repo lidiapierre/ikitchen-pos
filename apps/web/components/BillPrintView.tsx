@@ -156,7 +156,7 @@ export default function BillPrintView({
     <div aria-hidden="true" className="hidden print:block font-mono text-black bg-white p-2 w-full" style={fontVars}>
       {/* 1. Restaurant name + address */}
       <div className="text-center mb-1">
-        <p className="font-bold text-[length:var(--bill-base)]">{restaurantName}</p>
+        {restaurantName && <p className="font-bold text-[length:var(--bill-base)]">{restaurantName}</p>}
         <p className="text-[length:var(--bill-sm)]">{isDue ? 'DUE BILL' : 'BILL RECEIPT'}</p>
         <p className="text-[length:var(--bill-xs)]">{restaurantAddress}</p>
       </div>

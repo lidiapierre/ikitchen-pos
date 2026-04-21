@@ -45,6 +45,7 @@ describe('BillPrintView', () => {
         totalCents={TOTAL}
         paymentMethod="card"
         timestamp="25/03/2026, 14:00:00"
+        restaurantName="Lahore by iKitchen"
       />,
     )
 

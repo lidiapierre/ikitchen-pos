@@ -5,6 +5,7 @@ import AppHeader from "@/components/AppHeader";
 import { UserProvider } from "@/lib/user-context";
 import OfflineIndicator from "@/components/OfflineIndicator";
 import ServiceWorkerRegistration from "@/components/ServiceWorkerRegistration";
+import FeedbackWidget from "@/components/FeedbackWidget";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -44,6 +45,7 @@ export default function RootLayout({
         <UserProvider>
           <AppHeader />
           {children}
+          <FeedbackWidget />
         </UserProvider>
         <OfflineIndicator />
         <ServiceWorkerRegistration />

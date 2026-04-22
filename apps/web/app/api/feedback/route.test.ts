@@ -47,7 +47,7 @@ describe('POST /api/feedback', () => {
 
     vi.stubEnv('SLACK_FEEDBACK_WEBHOOK', WEBHOOK_URL)
     vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', SUPABASE_URL)
-    vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'fake-service-role-key')
+    vi.stubEnv('SUPABASE_SECRET_KEY', 'fake-secret-key')
 
     mockGetUser.mockResolvedValue({ data: { user: AUTHENTICATED_USER }, error: null })
 

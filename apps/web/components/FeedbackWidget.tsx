@@ -376,13 +376,13 @@ export default function FeedbackWidget(): React.ReactElement | null {
 
                   {/* Voice recording toolbar */}
                   <div className="mt-1.5 flex items-center gap-2">
-                    {/* Language toggle — min-h-[44px] / min-w touch targets for mobile */}
+                    {/* Language toggle — min-h-[48px] touch targets per project standard (CLAUDE.md) */}
                     <div className="flex rounded-lg border border-gray-200 overflow-hidden text-xs">
                       <button
                         type="button"
                         onClick={() => setVoiceLang('en')}
                         disabled={isRecording || isTranscribing}
-                        className={`min-h-[44px] px-3 py-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                        className={`min-h-[48px] px-3 py-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                           voiceLang === 'en'
                             ? 'bg-indigo-600 text-white'
                             : 'bg-white text-gray-600 hover:bg-gray-50'
@@ -396,7 +396,7 @@ export default function FeedbackWidget(): React.ReactElement | null {
                         type="button"
                         onClick={() => setVoiceLang('bn')}
                         disabled={isRecording || isTranscribing}
-                        className={`min-h-[44px] px-3 py-2 transition-colors border-l border-gray-200 disabled:opacity-50 disabled:cursor-not-allowed ${
+                        className={`min-h-[48px] px-3 py-2 transition-colors border-l border-gray-200 disabled:opacity-50 disabled:cursor-not-allowed ${
                           voiceLang === 'bn'
                             ? 'bg-indigo-600 text-white'
                             : 'bg-white text-gray-600 hover:bg-gray-50'
@@ -408,13 +408,13 @@ export default function FeedbackWidget(): React.ReactElement | null {
                       </button>
                     </div>
 
-                    {/* Mic button — min-h-[44px] touch target for mobile */}
+                    {/* Mic button — min-h-[48px] touch target per project standard (CLAUDE.md) */}
                     <button
                       type="button"
                       onClick={handleMicClick}
                       disabled={isTranscribing}
                       aria-label={isRecording ? 'Stop recording' : 'Start voice recording'}
-                      className={`flex items-center gap-1.5 rounded-lg px-3 min-h-[44px] text-xs font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed ${
+                      className={`flex items-center gap-1.5 rounded-lg px-3 min-h-[48px] text-xs font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed ${
                         isRecording
                           ? 'bg-red-600 text-white hover:bg-red-700'
                           : 'bg-gray-100 text-gray-700 hover:bg-gray-200'

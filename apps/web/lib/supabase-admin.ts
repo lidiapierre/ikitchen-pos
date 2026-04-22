@@ -17,9 +17,11 @@ let _client: SupabaseClient | null = null
 
 export function getSupabaseAdmin(): SupabaseClient {
   if (_client) return _client
+  const secret = process.env.SUPABASE_SECRET_KEY
+  if (!secret) throw new Error('SUPABASE_SECRET_KEY is not set')
   _client = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SECRET_KEY!,
+    secret,
     { auth: { persistSession: false } }
   )
   return _client

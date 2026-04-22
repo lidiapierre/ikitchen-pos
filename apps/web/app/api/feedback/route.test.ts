@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { NextRequest } from 'next/server'
 
-// ── Mock @/lib/supabase-admin ─────────────────────────────────────────────────
+// ── Mock @supabase/ssr createServerClient (used in route for JWT verification) ──
 const mockGetUser = vi.fn()
-vi.mock('@/lib/supabase-admin', () => ({
-  getSupabaseAdmin: vi.fn().mockReturnValue({
+vi.mock('@supabase/ssr', () => ({
+  createServerClient: vi.fn().mockReturnValue({
     auth: { getUser: (...args: unknown[]) => mockGetUser(...args) },
   }),
 }))
@@ -47,7 +47,7 @@ describe('POST /api/feedback', () => {
 
     vi.stubEnv('SLACK_FEEDBACK_WEBHOOK', WEBHOOK_URL)
     vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', SUPABASE_URL)
-    vi.stubEnv('SUPABASE_SECRET_KEY', 'fake-secret-key')
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY', 'fake-publishable-key')
 
     mockGetUser.mockResolvedValue({ data: { user: AUTHENTICATED_USER }, error: null })
 
@@ -57,6 +57,18 @@ describe('POST /api/feedback', () => {
 
   it('returns 503 when SLACK_FEEDBACK_WEBHOOK is not set', async () => {
     vi.stubEnv('SLACK_FEEDBACK_WEBHOOK', '')
+
+    const { POST } = await import('./route')
+    const req = makeRequest({ description: 'test' }, 'valid-token')
+    const res = await POST(req)
+
+    expect(res.status).toBe(503)
+    const json = await res.json() as { error: string }
+    expect(json.error).toMatch(/not configured/i)
+  })
+
+  it('returns 503 when NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY is not set', async () => {
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY', '')
 
     const { POST } = await import('./route')
     const req = makeRequest({ description: 'test' }, 'valid-token')
@@ -149,6 +161,45 @@ describe('POST /api/feedback', () => {
     expect(slackBody.text).toContain('Test User')
     expect(slackBody.text).toContain('test@example.com')
     expect(slackBody.text).toContain('Checkout button broken')
+  })
+
+  it('sanitises pageUrl — only origin+pathname in Slack message', async () => {
+    const { POST } = await import('./route')
+    const req = makeRequest({
+      description: 'bug',
+      pageUrl: 'https://pos.example.com/tables/42?token=secret&inject=*evil*',
+      userAgent: 'ua',
+      screenshots: [],
+    }, 'valid')
+    const res = await POST(req)
+
+    expect(res.status).toBe(200)
+    const [, slackOpts] = mockFetch.mock.calls[0] as [string, RequestInit]
+    const slackBody = JSON.parse(slackOpts.body as string) as { text: string }
+    // query string (with secret token) must not appear in Slack
+    expect(slackBody.text).not.toContain('token=secret')
+    // origin+pathname should be present
+    expect(slackBody.text).toContain('https://pos.example.com/tables/42')
+  })
+
+  it('truncates userAgent longer than 512 chars', async () => {
+    const { POST } = await import('./route')
+    const longAgent = 'A'.repeat(1000)
+    const req = makeRequest({
+      description: 'bug',
+      pageUrl: 'http://x',
+      userAgent: longAgent,
+      screenshots: [],
+    }, 'valid')
+    const res = await POST(req)
+
+    expect(res.status).toBe(200)
+    const [, slackOpts] = mockFetch.mock.calls[0] as [string, RequestInit]
+    const slackBody = JSON.parse(slackOpts.body as string) as { text: string }
+    // The full 1000-char string must not appear
+    expect(slackBody.text).not.toContain(longAgent)
+    // But a 512-char prefix should
+    expect(slackBody.text).toContain('A'.repeat(512))
   })
 
   it('filters out non-Supabase screenshot URLs', async () => {

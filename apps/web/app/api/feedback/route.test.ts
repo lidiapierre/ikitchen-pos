@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { NextRequest } from 'next/server'
 
-// ── Mock @/lib/supabase-admin ─────────────────────────────────────────────────
+// ── Mock @supabase/ssr createServerClient (used in route for JWT verification) ──
 const mockGetUser = vi.fn()
-vi.mock('@/lib/supabase-admin', () => ({
-  getSupabaseAdmin: vi.fn().mockReturnValue({
+vi.mock('@supabase/ssr', () => ({
+  createServerClient: vi.fn().mockReturnValue({
     auth: { getUser: (...args: unknown[]) => mockGetUser(...args) },
   }),
 }))
@@ -47,7 +47,7 @@ describe('POST /api/feedback', () => {
 
     vi.stubEnv('SLACK_FEEDBACK_WEBHOOK', WEBHOOK_URL)
     vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', SUPABASE_URL)
-    vi.stubEnv('SUPABASE_SECRET_KEY', 'fake-secret-key')
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY', 'fake-publishable-key')
 
     mockGetUser.mockResolvedValue({ data: { user: AUTHENTICATED_USER }, error: null })
 

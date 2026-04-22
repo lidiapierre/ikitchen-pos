@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getSupabaseAdmin } from '@/lib/supabase-admin'
+import { createServerClient } from '@supabase/ssr'
 import { logger } from '@/lib/logger'
 
 /** Max screenshot URLs we accept from the client. */
@@ -27,6 +27,7 @@ interface FeedbackPayload {
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
+  try {
   const webhookUrl = process.env.SLACK_FEEDBACK_WEBHOOK
 
   if (!webhookUrl) {
@@ -34,7 +35,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: 'Feedback service is not configured' }, { status: 503 })
   }
 
-  // ── Auth: validate the bearer token via the admin client ──────────────────
+  // ── Auth: validate the bearer token via a publishable-key client ──────────
+  // JWT verification does NOT need elevated access — use the publishable key.
   const authHeader = request.headers.get('Authorization')
   const token = authHeader?.replace(/^Bearer\s+/i, '').trim()
 
@@ -42,7 +44,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const { data: { user }, error: authError } = await getSupabaseAdmin().auth.getUser(token)
+  const supabaseAuth = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+    { cookies: { getAll: () => [], setAll: () => {} } }
+  )
+
+  const { data: { user }, error: authError } = await supabaseAuth.auth.getUser(token)
   if (authError || !user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
@@ -108,4 +116,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   return NextResponse.json({ ok: true })
+  } catch (err) {
+    logger.error('feedback', 'Unhandled error in POST /api/feedback', { err: String(err) })
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
 }

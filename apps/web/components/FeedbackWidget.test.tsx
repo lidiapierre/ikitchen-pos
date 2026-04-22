@@ -169,6 +169,6 @@ describe('FeedbackWidget', () => {
     const bigFile = new File([bigContent], 'huge.png', { type: 'image/png' })
     fireEvent.change(input, { target: { files: [bigFile] } })
 
-    expect(await screen.findByText(/5 mb/i)).toBeInTheDocument()
+    expect(await screen.findByText(/each file must be under 5 mb/i)).toBeInTheDocument()
   })
 })

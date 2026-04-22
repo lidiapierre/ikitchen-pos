@@ -37,6 +37,9 @@ export default function FeedbackWidget(): React.ReactElement | null {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioChunksRef = useRef<Blob[]>([])
   const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  // Set to true by handleClose so any in-flight onstop callback aborts before
+  // touching state (prevents state updates on a closed/unmounted modal).
+  const transcribeCancelledRef = useRef(false)
 
   // Clear any pending timers when the component unmounts.
   useEffect(() => {
@@ -47,7 +50,9 @@ export default function FeedbackWidget(): React.ReactElement | null {
   }, [])
 
   const handleClose = useCallback(() => {
-    // Stop recording if active
+    // Cancel any in-flight transcription before stopping the recorder so
+    // the onstop callback does not attempt state updates on a closed modal.
+    transcribeCancelledRef.current = true
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       mediaRecorderRef.current.stop()
     }
@@ -103,6 +108,7 @@ export default function FeedbackWidget(): React.ReactElement | null {
   // ── Voice recording logic ──────────────────────────────────────────────────
 
   const startRecording = useCallback(async () => {
+    transcribeCancelledRef.current = false
     setVoiceError(null)
     audioChunksRef.current = []
 
@@ -150,6 +156,9 @@ export default function FeedbackWidget(): React.ReactElement | null {
       // Stop all tracks to release the microphone
       recorder.stream.getTracks().forEach((t) => t.stop())
 
+      // Modal was closed before recording finished — abort silently.
+      if (transcribeCancelledRef.current) return
+
       setIsRecording(false)
       setIsTranscribing(true)
       setVoiceError(null)
@@ -158,8 +167,13 @@ export default function FeedbackWidget(): React.ReactElement | null {
       const audioBlob = new Blob(audioChunksRef.current, { type: mimeType })
       audioChunksRef.current = []
 
+      // Derive a filename from the actual MIME type so the server extension
+      // and Content-Type are consistent (avoids a .webm filename on an ogg blob).
+      const audioExt = mimeType.startsWith('audio/ogg') ? 'ogg' : 'webm'
+      const audioFileName = `recording.${audioExt}`
+
       const formData = new FormData()
-      formData.append('audio', audioBlob, 'recording.webm')
+      formData.append('audio', audioBlob, audioFileName)
       formData.append('language', voiceLang)
 
       try {
@@ -180,19 +194,23 @@ export default function FeedbackWidget(): React.ReactElement | null {
 
         const { text } = await response.json() as { text: string }
 
-        if (text.trim()) {
+        if (!transcribeCancelledRef.current && text.trim()) {
           setDescription((prev) => {
             const trimmed = prev.trim()
             return trimmed ? `${trimmed}\n${text.trim()}` : text.trim()
           })
         }
       } catch (err) {
-        setVoiceError(
-          err instanceof Error ? err.message : 'Transcription failed. Please try again.'
-        )
+        if (!transcribeCancelledRef.current) {
+          setVoiceError(
+            err instanceof Error ? err.message : 'Transcription failed. Please try again.'
+          )
+        }
       } finally {
-        setIsTranscribing(false)
-        setRecordingSeconds(0)
+        if (!transcribeCancelledRef.current) {
+          setIsTranscribing(false)
+          setRecordingSeconds(0)
+        }
       }
     }
 
@@ -358,13 +376,13 @@ export default function FeedbackWidget(): React.ReactElement | null {
 
                   {/* Voice recording toolbar */}
                   <div className="mt-1.5 flex items-center gap-2">
-                    {/* Language toggle */}
+                    {/* Language toggle — min-h-[44px] / min-w touch targets for mobile */}
                     <div className="flex rounded-lg border border-gray-200 overflow-hidden text-xs">
                       <button
                         type="button"
                         onClick={() => setVoiceLang('en')}
                         disabled={isRecording || isTranscribing}
-                        className={`px-2.5 py-1 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                        className={`min-h-[44px] px-3 py-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                           voiceLang === 'en'
                             ? 'bg-indigo-600 text-white'
                             : 'bg-white text-gray-600 hover:bg-gray-50'
@@ -378,7 +396,7 @@ export default function FeedbackWidget(): React.ReactElement | null {
                         type="button"
                         onClick={() => setVoiceLang('bn')}
                         disabled={isRecording || isTranscribing}
-                        className={`px-2.5 py-1 transition-colors border-l border-gray-200 disabled:opacity-50 disabled:cursor-not-allowed ${
+                        className={`min-h-[44px] px-3 py-2 transition-colors border-l border-gray-200 disabled:opacity-50 disabled:cursor-not-allowed ${
                           voiceLang === 'bn'
                             ? 'bg-indigo-600 text-white'
                             : 'bg-white text-gray-600 hover:bg-gray-50'
@@ -390,13 +408,13 @@ export default function FeedbackWidget(): React.ReactElement | null {
                       </button>
                     </div>
 
-                    {/* Mic button */}
+                    {/* Mic button — min-h-[44px] touch target for mobile */}
                     <button
                       type="button"
                       onClick={handleMicClick}
                       disabled={isTranscribing}
                       aria-label={isRecording ? 'Stop recording' : 'Start voice recording'}
-                      className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed ${
+                      className={`flex items-center gap-1.5 rounded-lg px-3 min-h-[44px] text-xs font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed ${
                         isRecording
                           ? 'bg-red-600 text-white hover:bg-red-700'
                           : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -426,9 +444,9 @@ export default function FeedbackWidget(): React.ReactElement | null {
                     </button>
                   </div>
 
-                  {/* Voice error */}
+                  {/* Voice error — role=alert ensures screen readers announce it */}
                   {voiceError && (
-                    <p className="mt-1 text-xs text-red-600">{voiceError}</p>
+                    <p role="alert" className="mt-1 text-xs text-red-600">{voiceError}</p>
                   )}
                 </div>
 

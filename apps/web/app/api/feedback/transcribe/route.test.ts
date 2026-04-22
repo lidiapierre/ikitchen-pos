@@ -113,6 +113,18 @@ describe('POST /api/feedback/transcribe', () => {
     expect(json.error).toMatch(/not configured/i)
   })
 
+  it('returns 503 when NEXT_PUBLIC_SUPABASE_URL is not set', async () => {
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', '')
+
+    const { POST } = await import('./route')
+    const req = makeFormRequest(DUMMY_AUDIO, 'en', 'valid-token')
+    const res = await POST(req)
+
+    expect(res.status).toBe(503)
+    const json = await res.json() as { error: string }
+    expect(json.error).toMatch(/not configured/i)
+  })
+
   // ── Auth guards ────────────────────────────────────────────────────────────
 
   it('returns 401 when Authorization header is missing', async () => {
@@ -155,6 +167,30 @@ describe('POST /api/feedback/transcribe', () => {
     expect(res.status).toBe(400)
     const json = await res.json() as { error: string }
     expect(json.error).toMatch(/audio/i)
+  })
+
+  it('returns 400 when audio file is empty (0 bytes)', async () => {
+    const emptyBlob = new Blob([], { type: 'audio/webm' })
+
+    const { POST } = await import('./route')
+    const req = makeFormRequest(emptyBlob, 'en', 'valid-token')
+    const res = await POST(req)
+
+    expect(res.status).toBe(400)
+    const json = await res.json() as { error: string }
+    expect(json.error).toMatch(/empty/i)
+  })
+
+  it('returns 400 when audio MIME type is not audio', async () => {
+    const pdfBlob = new Blob(['%PDF-1.4'], { type: 'application/pdf' })
+
+    const { POST } = await import('./route')
+    const req = makeFormRequest(pdfBlob, 'en', 'valid-token')
+    const res = await POST(req)
+
+    expect(res.status).toBe(400)
+    const json = await res.json() as { error: string }
+    expect(json.error).toMatch(/unsupported/i)
   })
 
   it('returns 400 when language is missing', async () => {
@@ -274,6 +310,21 @@ describe('POST /api/feedback/transcribe', () => {
   it('returns 502 when Whisper responds with non-2xx status', async () => {
     mockFetch.mockResolvedValue(
       new Response(JSON.stringify({ error: { message: 'Invalid file format' } }), { status: 400 })
+    )
+
+    const { POST } = await import('./route')
+    const req = makeFormRequest(DUMMY_AUDIO, 'en', 'valid-token')
+    const res = await POST(req)
+
+    expect(res.status).toBe(502)
+    const json = await res.json() as { error: string }
+    expect(json.error).toMatch(/transcription failed/i)
+  })
+
+  it('returns 502 when Whisper responds with non-JSON body', async () => {
+    // Whisper 2xx but body is not valid JSON
+    mockFetch.mockResolvedValue(
+      new Response('not json', { status: 200, headers: { 'Content-Type': 'text/plain' } })
     )
 
     const { POST } = await import('./route')

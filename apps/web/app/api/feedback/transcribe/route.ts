@@ -9,6 +9,13 @@ const MAX_AUDIO_BYTES = 25 * 1024 * 1024
 const SUPPORTED_LANGUAGES = ['en', 'bn'] as const
 type Language = (typeof SUPPORTED_LANGUAGES)[number]
 
+/**
+ * MIME type prefixes accepted by Whisper. We fail-fast on obviously wrong types
+ * (e.g. images, PDFs) to avoid a round-trip to the OpenAI API.
+ * Whisper supports: flac, mp3, mp4, mpeg, mpga, m4a, ogg, wav, webm.
+ */
+const ALLOWED_AUDIO_MIME_PREFIXES = ['audio/', 'video/webm', 'video/mp4'] as const
+
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     // ── Guard: OPENAI_API_KEY must be present ─────────────────────────────────
@@ -57,6 +64,17 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     // Validate audio field
     if (!audioFile || !(audioFile instanceof Blob)) {
       return NextResponse.json({ error: 'audio field is required and must be a file' }, { status: 400 })
+    }
+
+    // Validate file is not empty
+    if (audioFile.size === 0) {
+      return NextResponse.json({ error: 'Audio file is empty' }, { status: 400 })
+    }
+
+    // Validate MIME type (fail-fast before calling Whisper API)
+    const audioMime = audioFile.type || ''
+    if (audioMime && !ALLOWED_AUDIO_MIME_PREFIXES.some((p) => audioMime.startsWith(p))) {
+      return NextResponse.json({ error: 'Unsupported audio format' }, { status: 400 })
     }
 
     // Validate file size
@@ -124,7 +142,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       )
     }
 
-    const whisperJson = await whisperResponse.json() as { text?: string }
+    let whisperJson: { text?: string }
+    try {
+      whisperJson = await whisperResponse.json() as { text?: string }
+    } catch (err) {
+      logger.error('feedback/transcribe', 'Whisper returned non-JSON body', { err: String(err) })
+      return NextResponse.json({ error: 'Transcription failed' }, { status: 502 })
+    }
     const text = whisperJson.text ?? ''
 
     return NextResponse.json({ text })

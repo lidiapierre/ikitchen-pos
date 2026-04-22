@@ -1,8 +1,13 @@
 'use client'
 
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useUser } from '@/lib/user-context'
+
+/** Max number of screenshots the user may attach. */
+const MAX_FILES = 5
+/** Max individual file size in bytes (5 MB). */
+const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024
 
 interface UploadedFile {
   name: string
@@ -14,10 +19,34 @@ export default function FeedbackWidget(): React.ReactElement | null {
   const [isOpen, setIsOpen] = useState(false)
   const [description, setDescription] = useState('')
   const [files, setFiles] = useState<File[]>([])
+  const [fileError, setFileError] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Clear any pending auto-close timer when the component unmounts.
+  useEffect(() => {
+    return () => {
+      if (closeTimerRef.current !== null) {
+        clearTimeout(closeTimerRef.current)
+      }
+    }
+  }, [])
+
+  const handleClose = useCallback(() => {
+    if (closeTimerRef.current !== null) {
+      clearTimeout(closeTimerRef.current)
+      closeTimerRef.current = null
+    }
+    setIsOpen(false)
+    setDescription('')
+    setFiles([])
+    setFileError(null)
+    setError(null)
+    setSubmitted(false)
+  }, [])
 
   const handleOpen = useCallback(() => {
     setIsOpen(true)
@@ -25,18 +54,26 @@ export default function FeedbackWidget(): React.ReactElement | null {
     setSubmitted(false)
   }, [])
 
-  const handleClose = useCallback(() => {
-    setIsOpen(false)
-    setDescription('')
-    setFiles([])
-    setError(null)
-    setSubmitted(false)
-  }, [])
-
   const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      setFiles(Array.from(e.target.files))
+    setFileError(null)
+    if (!e.target.files) return
+
+    const selected = Array.from(e.target.files)
+
+    if (selected.length > MAX_FILES) {
+      setFileError(`Maximum ${MAX_FILES} files allowed.`)
+      e.target.value = ''
+      return
     }
+
+    const oversized = selected.filter((f) => f.size > MAX_FILE_SIZE_BYTES)
+    if (oversized.length > 0) {
+      setFileError(`Each file must be under 5 MB (${oversized.map((f) => f.name).join(', ')} exceeded).`)
+      e.target.value = ''
+      return
+    }
+
+    setFiles(selected)
   }, [])
 
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
@@ -47,7 +84,7 @@ export default function FeedbackWidget(): React.ReactElement | null {
     setError(null)
 
     try {
-      // Upload screenshots to Supabase Storage
+      // Upload screenshots to Supabase Storage using the authenticated user's session.
       const uploadedFiles: UploadedFile[] = []
       const timestamp = Date.now()
 
@@ -68,12 +105,9 @@ export default function FeedbackWidget(): React.ReactElement | null {
         uploadedFiles.push({ name: file.name, url: urlData.publicUrl })
       }
 
-      // Get user info from session
-      const { data: { session } } = await supabase.auth.getSession()
-      const userEmail = session?.user?.email ?? 'unknown'
-      const userName = session?.user?.user_metadata?.full_name ?? session?.user?.email ?? 'unknown'
-
-      // Send to API route
+      // Send to the server-side API route.
+      // userEmail / userName are intentionally NOT sent — the server derives
+      // them from the verified JWT instead.
       const response = await fetch('/api/feedback', {
         method: 'POST',
         headers: {
@@ -84,19 +118,18 @@ export default function FeedbackWidget(): React.ReactElement | null {
           description: description.trim(),
           pageUrl: window.location.href,
           userAgent: navigator.userAgent,
-          userEmail,
-          userName,
           screenshots: uploadedFiles.map((f) => f.url),
         }),
       })
 
       if (!response.ok) {
         const body = await response.json().catch(() => ({}))
-        throw new Error(body.error ?? `Request failed with status ${response.status}`)
+        throw new Error((body as { error?: string }).error ?? `Request failed with status ${response.status}`)
       }
 
       setSubmitted(true)
-      setTimeout(() => {
+      closeTimerRef.current = setTimeout(() => {
+        closeTimerRef.current = null
         handleClose()
       }, 2000)
     } catch (err) {
@@ -106,7 +139,7 @@ export default function FeedbackWidget(): React.ReactElement | null {
     }
   }, [description, files, userId, accessToken, handleClose])
 
-  // Don't render until we know the user is authenticated
+  // Don't render until we know the user is authenticated.
   if (loading || !role) return null
 
   return (
@@ -189,7 +222,7 @@ export default function FeedbackWidget(): React.ReactElement | null {
                 {/* Screenshots */}
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">
-                    Screenshots <span className="text-gray-400">(optional)</span>
+                    Screenshots <span className="text-gray-400">(optional, max {MAX_FILES} × 5 MB)</span>
                   </label>
                   <div
                     className="flex cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed border-gray-300 px-4 py-4 text-center hover:border-indigo-400 transition-colors"
@@ -212,10 +245,13 @@ export default function FeedbackWidget(): React.ReactElement | null {
                     className="hidden"
                     onChange={handleFileChange}
                   />
+                  {fileError && (
+                    <p className="mt-1 text-xs text-red-600">{fileError}</p>
+                  )}
                   {files.length > 0 && (
                     <ul className="mt-1.5 space-y-0.5">
-                      {files.map((f) => (
-                        <li key={f.name} className="text-xs text-gray-500 truncate">{f.name}</li>
+                      {files.map((f, i) => (
+                        <li key={`${f.name}-${i}`} className="text-xs text-gray-500 truncate">{f.name}</li>
                       ))}
                     </ul>
                   )}

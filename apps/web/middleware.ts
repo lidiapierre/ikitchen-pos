@@ -61,7 +61,7 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
   if (user !== null && pathname.startsWith('/admin')) {
     // Use the user's own session client — RLS on the users table ensures
     // each authenticated user can only read their own row, so no service
-    // role key is needed and Vercel does not require SUPABASE_SERVICE_ROLE_KEY.
+    // role key is needed and Vercel does not require SUPABASE_SECRET_KEY.
     // Fetch role and super-admin flag.  The is_super_admin column was added in
     // migration 20260327110000; if it doesn't exist yet (e.g. a migration hasn't
     // been applied) we fall back to a role-only query so that regular admin

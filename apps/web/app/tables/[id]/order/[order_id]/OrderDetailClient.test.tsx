@@ -132,6 +132,26 @@ describe('OrderDetailClient', () => {
     expect(screen.getByText(/timed out/i)).toBeInTheDocument()
   })
 
+  it('does not overwrite the timeout error when fetchOrderItems rejects after the timeout', async (): Promise<void> => {
+    // Simulate a request that hangs then rejects after the safety timeout has fired.
+    let rejectFn!: (err: Error) => void
+    const { fetchOrderItems } = await import('./orderData')
+    vi.mocked(fetchOrderItems).mockReturnValue(
+      new Promise<import('./orderData').OrderItem[]>((_resolve, rej) => { rejectFn = rej }),
+    )
+
+    render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
+
+    // Fire the 10-second safety timeout
+    await act(async (): Promise<void> => { vi.advanceTimersByTime(10001) })
+    expect(screen.getByText(/timed out/i)).toBeInTheDocument()
+
+    // Late rejection — the if(timedOut) guard should swallow it
+    await act(async (): Promise<void> => { rejectFn(new Error('TCP timeout')) })
+    expect(screen.getByText(/timed out/i)).toBeInTheDocument()
+    expect(screen.queryByText(/TCP timeout/i)).not.toBeInTheDocument()
+  })
+
   it('renders all item names after loading', async (): Promise<void> => {
     render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
 

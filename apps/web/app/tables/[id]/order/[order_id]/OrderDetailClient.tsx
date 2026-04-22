@@ -342,10 +342,7 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
 
     setLoading(true)
     setFetchError(null)
-    // Safety net: if the network request hangs (e.g. spotty WiFi on a restaurant
-    // tablet), clear the loading state after 10 s so the bill and action buttons
-    // remain accessible and staff can still proceed with the transaction.
-    // Mirrors the same pattern used in loadOrderStatus().
+    // Safety net: clear loading after 10 s if the fetch hangs (mirrors loadOrderStatus()).
     let timedOut = false
     const loadingTimeout = setTimeout(() => {
       timedOut = true

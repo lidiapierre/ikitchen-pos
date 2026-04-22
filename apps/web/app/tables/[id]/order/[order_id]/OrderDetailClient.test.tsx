@@ -112,6 +112,26 @@ describe('OrderDetailClient', () => {
     expect(screen.getByText('Loading items…')).toBeInTheDocument()
   })
 
+  it('clears the loading state and shows a timeout error when fetchOrderItems never resolves', async (): Promise<void> => {
+    // Simulate a hung network request — the promise never settles.
+    const { fetchOrderItems } = await import('./orderData')
+    vi.mocked(fetchOrderItems).mockReturnValue(new Promise(() => { /* never resolves */ }))
+
+    render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
+
+    // Loading spinner visible initially
+    expect(screen.getByText('Loading items…')).toBeInTheDocument()
+
+    // Advance timers past the 10-second safety timeout
+    await act(async (): Promise<void> => {
+      vi.advanceTimersByTime(10001)
+    })
+
+    // Loading should be cleared and a timeout error message shown
+    expect(screen.queryByText('Loading items…')).not.toBeInTheDocument()
+    expect(screen.getByText(/timed out/i)).toBeInTheDocument()
+  })
+
   it('renders all item names after loading', async (): Promise<void> => {
     render(<OrderDetailClient tableId="5" orderId="order-abc-123" />)
 

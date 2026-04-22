@@ -342,14 +342,27 @@ export default function OrderDetailClient({ tableId, orderId, currencySymbol = D
 
     setLoading(true)
     setFetchError(null)
+    // Safety net: if the network request hangs (e.g. spotty WiFi on a restaurant
+    // tablet), clear the loading state after 10 s so the bill and action buttons
+    // remain accessible and staff can still proceed with the transaction.
+    // Mirrors the same pattern used in loadOrderStatus().
+    let timedOut = false
+    const loadingTimeout = setTimeout(() => {
+      timedOut = true
+      setLoading(false)
+      setFetchError('Loading items timed out — check your network connection and refresh to try again.')
+    }, 10000)
     fetchOrderItems(supabaseUrl, accessToken, orderId)
       .then((data) => {
+        if (timedOut) return
         setItems(data)
       })
       .catch((err: unknown) => {
+        if (timedOut) return
         setFetchError(err instanceof Error ? err.message : 'Failed to load order items')
       })
       .finally(() => {
+        clearTimeout(loadingTimeout)
         setLoading(false)
       })
   }

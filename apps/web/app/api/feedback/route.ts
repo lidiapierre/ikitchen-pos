@@ -1,15 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { getSupabaseAdmin } from '@/lib/supabase-admin'
+import { logger } from '@/lib/logger'
 
 /** Max screenshot URLs we accept from the client. */
-const MAX_SCREENSHOTS = 10
+const MAX_SCREENSHOTS = 5
 
-/** Expected Supabase Storage host for screenshot URL validation. */
+/** Validate that a URL is a public Supabase Storage URL on our own project. */
 function isValidScreenshotUrl(url: unknown): url is string {
   if (typeof url !== 'string') return false
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  if (!supabaseUrl) return false
   try {
     const parsed = new URL(url)
-    const storageHost = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL ?? '').hostname
+    const storageHost = new URL(supabaseUrl).hostname
     return parsed.protocol === 'https:' && parsed.hostname === storageHost
   } catch {
     return false
@@ -27,7 +30,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const webhookUrl = process.env.SLACK_FEEDBACK_WEBHOOK
 
   if (!webhookUrl) {
-    console.error('[feedback] SLACK_FEEDBACK_WEBHOOK is not set')
+    logger.error('feedback', 'SLACK_FEEDBACK_WEBHOOK is not set')
     return NextResponse.json({ error: 'Feedback service is not configured' }, { status: 503 })
   }
 
@@ -39,13 +42,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { persistSession: false } }
-  )
-
-  const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token)
+  const { data: { user }, error: authError } = await getSupabaseAdmin().auth.getUser(token)
   if (authError || !user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
@@ -102,11 +99,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     if (!slackResponse.ok) {
       const slackBody = await slackResponse.text()
-      console.error('[feedback] Slack webhook error:', slackResponse.status, slackBody)
+      logger.error('feedback', 'Slack webhook returned non-2xx', { status: slackResponse.status, body: slackBody })
       return NextResponse.json({ error: 'Failed to send to Slack' }, { status: 502 })
     }
   } catch (err) {
-    console.error('[feedback] Slack fetch threw:', err)
+    logger.error('feedback', 'Slack fetch threw', { err: String(err) })
     return NextResponse.json({ error: 'Failed to reach Slack' }, { status: 502 })
   }
 

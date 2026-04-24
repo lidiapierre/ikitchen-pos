@@ -1,10 +1,4 @@
-/**
- * API types and fetch helper for the shift close report (issue #449).
- *
- * The shift report uses an explicit ISO datetime range (from/to) rather than
- * named periods, allowing local-midnight precision (e.g. today 00:00 in the
- * user's timezone rather than UTC midnight).
- */
+/** API types and fetch helper for the shift close report (issue #449). */
 
 export interface ShiftReportData {
   /** UTC ISO datetime strings for the queried range */
@@ -41,14 +35,7 @@ interface GetShiftReportResponse {
   error?: string
 }
 
-/**
- * Fetch shift report data from the get_shift_report edge function.
- *
- * @param supabaseUrl  - The Supabase project URL.
- * @param accessToken  - The authenticated user's JWT.
- * @param from         - UTC ISO datetime string for the range start.
- * @param to           - UTC ISO datetime string for the range end.
- */
+/** Fetch shift report data from the get_shift_report edge function. */
 export async function callGetShiftReport(
   supabaseUrl: string,
   accessToken: string,

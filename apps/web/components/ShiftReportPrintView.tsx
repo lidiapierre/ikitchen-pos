@@ -1,11 +1,4 @@
-/**
- * ShiftReportPrintView — 80mm thermal print component for the shift close report.
- *
- * Rendered hidden in the DOM (print:block) like BillPrintView / SplitBillPrintView.
- * The parent wraps this in a `.print-area` container so global print CSS applies.
- *
- * Issue #449 — printable shift close report.
- */
+/** 80mm thermal print component for the shift close report (issue #449). */
 
 import type { JSX } from 'react'
 import { formatPrice, DEFAULT_CURRENCY_SYMBOL } from '@/lib/formatPrice'
@@ -24,7 +17,7 @@ export interface ShiftReportPrintViewProps {
   toLabel: string
 }
 
-/** Thin separator line used between report sections. */
+/** Separator line between sections. */
 function Dashes(): JSX.Element {
   return <p className="text-center tracking-widest">{'- '.repeat(20)}</p>
 }

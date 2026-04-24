@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import type { JSX } from 'react'
 import { Download, Printer } from 'lucide-react'
 import { useUser } from '@/lib/user-context'
+import { useActiveRestaurant } from '@/lib/useActiveRestaurant'
 import { callGetReports, callExportOrders } from './reportsApi'
 import type { ReportData, ReportPeriod, CompDetailItem, CompByItem, StaffPerformanceRow } from './reportsApi'
 import { callGetShiftReport } from './shiftReportApi'
@@ -339,6 +340,7 @@ function StaffPerformanceTable({ rows }: StaffPerformanceTableProps): JSX.Elemen
 
 export default function ReportsDashboard(): JSX.Element {
   const { accessToken: _at } = useUser(); const accessToken = _at ?? ''
+  const { restaurantName } = useActiveRestaurant()
   const [period, setPeriod] = useState<ReportPeriod>('today')
   const [customFrom, setCustomFrom] = useState('')
   const [customTo, setCustomTo] = useState('')
@@ -356,8 +358,9 @@ export default function ReportsDashboard(): JSX.Element {
   const [shiftLoading, setShiftLoading] = useState(false)
   const [shiftError, setShiftError] = useState<string | null>(null)
   const [isPrintingShift, setIsPrintingShift] = useState(false)
-  // Snapshot of labels/time captured at print time to avoid stale display values
   const shiftPrintMetaRef = useRef<{ fromLabel: string; toLabel: string; printedAt: string; printedBy: string } | null>(null)
+
+  const shiftRangeInvalid = Boolean(shiftFrom && shiftTo && new Date(shiftFrom) >= new Date(shiftTo))
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
 
@@ -473,7 +476,7 @@ export default function ReportsDashboard(): JSX.Element {
           <button
             type="button"
             onClick={() => void handlePrintShiftReport()}
-            disabled={shiftLoading || !accessToken}
+            disabled={shiftLoading || !accessToken || shiftRangeInvalid}
             className="flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-medium text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed min-h-[40px] shrink-0"
             aria-label="Print shift close report"
           >
@@ -523,6 +526,9 @@ export default function ReportsDashboard(): JSX.Element {
           </button>
         </div>
 
+        {shiftRangeInvalid && (
+          <p className="mt-3 text-sm text-amber-600">&ldquo;From&rdquo; must be before &ldquo;To&rdquo;</p>
+        )}
         {shiftError && (
           <p className="mt-3 text-sm text-red-400">{shiftError}</p>
         )}
@@ -533,7 +539,7 @@ export default function ReportsDashboard(): JSX.Element {
         {shiftData && shiftPrintMetaRef.current && (
           <ShiftReportPrintView
             data={shiftData}
-            restaurantName="Lahore by iKitchen"
+            restaurantName={restaurantName ?? ''}
             printedBy={shiftPrintMetaRef.current.printedBy}
             printedAt={shiftPrintMetaRef.current.printedAt}
             fromLabel={shiftPrintMetaRef.current.fromLabel}

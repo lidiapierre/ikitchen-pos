@@ -494,6 +494,9 @@ verify_jwt = false
 [functions.reopen_order_for_items]
 verify_jwt = false
 
+[functions.get_shift_report]
+verify_jwt = false
+
 [edge_runtime]
 enabled = true
 # Supported request policies: `oneshot`, `per_worker`.

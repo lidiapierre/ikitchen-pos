@@ -1,14 +1,17 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import type { JSX } from 'react'
-import { Building2, Download } from 'lucide-react'
+import { Download, Printer } from 'lucide-react'
 import { useUser } from '@/lib/user-context'
 import { callGetReports, callExportOrders } from './reportsApi'
 import type { ReportData, ReportPeriod, CompDetailItem, CompByItem, StaffPerformanceRow } from './reportsApi'
+import { callGetShiftReport } from './shiftReportApi'
+import type { ShiftReportData } from './shiftReportApi'
 import { formatPrice, DEFAULT_CURRENCY_SYMBOL } from '@/lib/formatPrice'
 import { PAYMENT_METHOD_LABELS } from '@/lib/paymentMethods'
 import type { PaymentMethod } from '@/lib/paymentMethods'
+import ShiftReportPrintView from '@/components/ShiftReportPrintView'
 import {
   exportRevenueByDay,
   exportTopItems,
@@ -18,6 +21,58 @@ import {
   exportAccountingCSV,
   exportDailySummary,
 } from './csvExport'
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Format a Date as a "YYYY-MM-DDTHH:mm" string in the browser's local time
+ * (the format expected by <input type="datetime-local">).
+ */
+function toDatetimeLocal(date: Date): string {
+  const pad = (n: number): string => String(n).padStart(2, '0')
+  return (
+    `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}` +
+    `T${pad(date.getHours())}:${pad(date.getMinutes())}`
+  )
+}
+
+/** Returns today at local midnight. */
+function localMidnight(): Date {
+  const d = new Date()
+  d.setHours(0, 0, 0, 0)
+  return d
+}
+
+/**
+ * Format a Date as a human-readable string for the printed report header.
+ * e.g. "24 Apr 2026, 14:30"
+ */
+function formatDateTimeLabel(date: Date): string {
+  return date.toLocaleString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  })
+}
+
+/**
+ * Decode the email claim from a JWT access token without any crypto verification.
+ * Used only for display purposes ("Printed By" line on the shift report).
+ * Returns 'Admin' as a safe fallback if decoding fails.
+ */
+function emailFromToken(token: string): string {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]!)) as Record<string, unknown>
+    return typeof payload['email'] === 'string' ? payload['email'] : 'Admin'
+  } catch {
+    return 'Admin'
+  }
+}
 
 const PERIOD_LABELS: { value: ReportPeriod; label: string }[] = [
   { value: 'today', label: 'Today' },
@@ -294,6 +349,16 @@ export default function ReportsDashboard(): JSX.Element {
   const [exportingOrders, setExportingOrders] = useState(false)
   const [exportOrdersError, setExportOrdersError] = useState<string | null>(null)
 
+  // Shift report state
+  const [shiftFrom, setShiftFrom] = useState(() => toDatetimeLocal(localMidnight()))
+  const [shiftTo, setShiftTo] = useState(() => toDatetimeLocal(new Date()))
+  const [shiftData, setShiftData] = useState<ShiftReportData | null>(null)
+  const [shiftLoading, setShiftLoading] = useState(false)
+  const [shiftError, setShiftError] = useState<string | null>(null)
+  const [isPrintingShift, setIsPrintingShift] = useState(false)
+  // Snapshot of labels/time captured at print time to avoid stale display values
+  const shiftPrintMetaRef = useRef<{ fromLabel: string; toLabel: string; printedAt: string; printedBy: string } | null>(null)
+
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
 
   const fetchReports = useCallback(async (
@@ -345,6 +410,43 @@ export default function ReportsDashboard(): JSX.Element {
     }
   }
 
+  async function handlePrintShiftReport(): Promise<void> {
+    if (!accessToken) return
+    setShiftLoading(true)
+    setShiftError(null)
+    try {
+      // Convert datetime-local values (local time strings) to UTC ISO strings
+      const fromUtc = new Date(shiftFrom).toISOString()
+      const toUtc = new Date(shiftTo).toISOString()
+
+      const result = await callGetShiftReport(supabaseUrl, accessToken, fromUtc, toUtc)
+      setShiftData(result)
+
+      // Snapshot display labels before printing
+      shiftPrintMetaRef.current = {
+        fromLabel: formatDateTimeLabel(new Date(shiftFrom)),
+        toLabel: formatDateTimeLabel(new Date(shiftTo)),
+        printedAt: formatDateTimeLabel(new Date()),
+        printedBy: emailFromToken(accessToken),
+      }
+
+      // Mark as printing — gives React a tick to flush print-area class onto the wrapper
+      setIsPrintingShift(true)
+      await new Promise<void>(resolve => setTimeout(resolve, 0))
+
+      await new Promise<void>(resolve => {
+        const timeoutId = setTimeout(resolve, 15000)
+        window.addEventListener('afterprint', () => { clearTimeout(timeoutId); resolve() }, { once: true })
+        window.print()
+      })
+    } catch (err) {
+      setShiftError(err instanceof Error ? err.message : 'Failed to generate shift report')
+    } finally {
+      setIsPrintingShift(false)
+      setShiftLoading(false)
+    }
+  }
+
   const totalRevenue = data ? formatPrice(data.summary.total_revenue_cents, DEFAULT_CURRENCY_SYMBOL) : '—'
   const avgOrder = data ? formatPrice(data.summary.avg_order_cents, DEFAULT_CURRENCY_SYMBOL) : '—'
   const totalServiceCharge = data && (data.summary.total_service_charge_cents ?? 0) > 0
@@ -356,8 +458,92 @@ export default function ReportsDashboard(): JSX.Element {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+
+      {/* ------------------------------------------------------------------ */}
+      {/* Shift Close Report                                                   */}
+      {/* ------------------------------------------------------------------ */}
+      <div className="bg-white border border-brand-grey rounded-2xl p-6">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
+          <div>
+            <h2 className="text-base font-semibold text-brand-navy">Print Shift Report</h2>
+            <p className="text-sm text-brand-navy/60 mt-0.5">
+              Generate a printable end-of-shift summary for the selected date/time range.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => void handlePrintShiftReport()}
+            disabled={shiftLoading || !accessToken}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-medium text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed min-h-[40px] shrink-0"
+            aria-label="Print shift close report"
+          >
+            {shiftLoading ? (
+              <svg className="animate-spin w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+              </svg>
+            ) : (
+              <Printer className="w-4 h-4 shrink-0" aria-hidden="true" />
+            )}
+            {shiftLoading ? 'Generating…' : 'Print Shift Report'}
+          </button>
+        </div>
+
+        {/* Date/time pickers */}
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="flex flex-col gap-1">
+            <label htmlFor="shift-from" className="text-xs text-brand-navy/60 font-medium">From</label>
+            <input
+              id="shift-from"
+              type="datetime-local"
+              value={shiftFrom}
+              onChange={e => setShiftFrom(e.target.value)}
+              className="bg-white text-gray-900 rounded-xl px-3 py-2 text-sm border border-brand-grey focus:outline-none focus:border-amber-500"
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label htmlFor="shift-to" className="text-xs text-brand-navy/60 font-medium">To</label>
+            <input
+              id="shift-to"
+              type="datetime-local"
+              value={shiftTo}
+              onChange={e => setShiftTo(e.target.value)}
+              className="bg-white text-gray-900 rounded-xl px-3 py-2 text-sm border border-brand-grey focus:outline-none focus:border-amber-500"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setShiftFrom(toDatetimeLocal(localMidnight()))
+              setShiftTo(toDatetimeLocal(new Date()))
+            }}
+            className="px-3 py-2 rounded-xl bg-white border border-brand-grey text-brand-navy/70 hover:bg-brand-offwhite text-sm font-medium transition-colors min-h-[40px]"
+          >
+            Reset to Today
+          </button>
+        </div>
+
+        {shiftError && (
+          <p className="mt-3 text-sm text-red-400">{shiftError}</p>
+        )}
+      </div>
+
+      {/* Shift report print view — only marked as print-area while actively printing */}
+      <div className={isPrintingShift ? 'print-area' : 'print:hidden'}>
+        {shiftData && shiftPrintMetaRef.current && (
+          <ShiftReportPrintView
+            data={shiftData}
+            restaurantName="Lahore by iKitchen"
+            printedBy={shiftPrintMetaRef.current.printedBy}
+            printedAt={shiftPrintMetaRef.current.printedAt}
+            fromLabel={shiftPrintMetaRef.current.fromLabel}
+            toLabel={shiftPrintMetaRef.current.toLabel}
+          />
+        )}
+      </div>
+
+      {/* ------------------------------------------------------------------ */}
+      {/* Header */}      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <h1 className="text-2xl font-bold text-brand-navy font-heading">Reports</h1>
         <div className="flex flex-wrap items-center gap-2">
           {PERIOD_LABELS.map(({ value, label }) => (
